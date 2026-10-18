@@ -444,6 +444,23 @@ const EXIT_ALREADY_RUNNING = 78;
  */
 const EXIT_OUT_OF_MEMORY = 3;
 
+/*
+ * The code a Windows process ends with when something outside ends it through
+ * TerminateProcess with -1, which is what PowerShell's Stop-Process and .NET's
+ * Process.Kill pass. Measured 2026-10-18 on the packaged sidecar: -1 whether
+ * the launcher or the JVM it starts was killed, since the launcher passes the
+ * JVM's code on. The shell plugin hands the process's own code through
+ * unchanged (ExitStatus::code), and its own kill ends with 1, so -1 cannot come
+ * from our side. A failed start does not end this way either: a JVM that
+ * cannot be created exits 1, as does a backend that refuses to start for a
+ * reason it cannot name. `taskkill /F` also leaves 1, so that kill stays
+ * indistinguishable from a failure and keeps the failure wording. HotSpot
+ * exits -1 on its own only from os::die(), after a crash whose error report
+ * failed in turn: a backend that was running, where starting it again is the
+ * right advice too.
+ */
+const EXIT_WINDOWS_TERMINATED = -1;
+
 type MessageValues = Record<string, string | number>;
 
 /**
@@ -512,6 +529,12 @@ function describeSidecarExit(code: number | null, signal: number | null): Sideca
 			return new SidecarExitError(
 				'The backend ran out of memory and stopped itself (exit 3).',
 				'app.backendExit.outOfMemory'
+			);
+		case EXIT_WINDOWS_TERMINATED:
+			return new SidecarExitError(
+				`Backend was terminated from outside (code ${code}).`,
+				'app.backendExit.terminated',
+				{ code }
 			);
 		case 130:
 		case 143:

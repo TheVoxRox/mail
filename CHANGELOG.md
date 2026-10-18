@@ -40,6 +40,33 @@ Entries before 2026-09-17 predate that split and are left as written.
   Seznam's page on mail clients with two-factor authentication. The old link
   redirected to the general mail help. Gmail and Outlook keep the warning,
   since they need an app password for IMAP regardless.
+- **Uložit logy is on the screen for a backend that never started.** The
+  error view for a sidecar that stopped before it was up was rendered without
+  its recovery row, so the button from #701 appeared on the loading screen and
+  on errors after the backend had started, but not on the one screen it was
+  made for: there the backend that writes the diagnostic dump is not running,
+  and the logs are what is left. Found over a damaged database at §6 of the
+  2026-10-13 candidate. The view now always has the row, with the dump shown
+  as unavailable, and a backend that stops after boot no longer offers a dump
+  from the process that is gone. The mocked e2e build has no shell to show
+  the button, so a component test sees it.
+- **A backend killed from outside on Windows no longer reads as one that
+  failed to start.** `Stop-Process`, and anything else that ends a process
+  through .NET's `Process.Kill`, leaves exit code -1, which showed "Službu
+  aplikace se nepodařilo spustit (kód -1)" and advised contacting support. It
+  now says the system stopped the service, as the 130 and 143 of a signal do.
+  Measured on the packaged sidecar, with the codes it must not take in: a JVM
+  that cannot be created exits 1, and so does `taskkill /F`, which therefore
+  still reads as a failure.
+
+### Repo
+
+- Vitest compiles Svelte components: a `components` project runs
+  `*.svelte.test.ts` under jsdom with Svelte's browser build, for what only
+  the native shell shows and e2e therefore cannot see. Its first test is the
+  boot error view's. The view is under the updater audit's code paths for its
+  update check, which the change leaves as it was; the audit records the drift
+  without a new verdict (#734).
 
 ## [0.1.0] - 2026-10-18
 

@@ -111,7 +111,16 @@
 
 	let diagnosticBusy = $state(false);
 	let diagnosticError = $state<string | null>(null);
-	const diagnosticDisabled = $derived(diagnosticBusy || $sessionState.status !== 'ready');
+	/*
+	 * The dump is the backend's, so it needs a session and a backend still
+	 * running. A sidecar that stopped after boot leaves the session ready, and
+	 * the error view that replaces the app would otherwise offer a dump from a
+	 * process that is gone.
+	 */
+	const diagnosticUnavailable = $derived(
+		$backendSidecarState.status === 'error' || $sessionState.status !== 'ready'
+	);
+	const diagnosticDisabled = $derived(diagnosticBusy || diagnosticUnavailable);
 
 	/*
 	 * Mirrored from document.title by the observer below, so the route keeps
@@ -412,7 +421,7 @@
 	}
 
 	async function handleDownloadDiagnosticDump() {
-		if (diagnosticBusy || $sessionState.status !== 'ready') return;
+		if (diagnosticBusy || diagnosticUnavailable) return;
 		diagnosticBusy = true;
 		diagnosticError = null;
 		try {
@@ -513,6 +522,11 @@
 				errorMessage={sidecarErrorText($backendSidecarState.error)}
 				onRetry={retryBootstrap}
 				onRestart={restartBootstrap}
+				onDownloadDiagnostic={handleDownloadDiagnosticDump}
+				{diagnosticBusy}
+				{diagnosticDisabled}
+				{diagnosticError}
+				{diagnosticUnavailable}
 			/>
 		{:else if $bootState.phase === 'ready' && $sessionState.status === 'ready' && $accountsState.status === 'ready'}
 			<AppRail />
@@ -602,7 +616,7 @@
 				{diagnosticBusy}
 				{diagnosticDisabled}
 				{diagnosticError}
-				diagnosticUnavailable={$sessionState.status !== 'ready'}
+				{diagnosticUnavailable}
 			/>
 		{:else}
 			<BootLoadingView
@@ -614,7 +628,7 @@
 				{diagnosticBusy}
 				{diagnosticDisabled}
 				{diagnosticError}
-				diagnosticUnavailable={$sessionState.status !== 'ready'}
+				{diagnosticUnavailable}
 			/>
 		{/if}
 	</div>

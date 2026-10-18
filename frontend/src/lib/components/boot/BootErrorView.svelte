@@ -8,12 +8,18 @@
 		errorMessage: string;
 		onRetry: () => void;
 		onRestart: () => void;
-		/** Second phase (boot failed after sidecar) — adds the download-diagnostic action. */
-		onDownloadDiagnostic?: () => void;
-		diagnosticBusy?: boolean;
-		diagnosticDisabled?: boolean;
-		diagnosticError?: string | null;
-		diagnosticUnavailable?: boolean;
+		/**
+		 * Required, like the rest of the dump's state, as in BootLoadingView:
+		 * while they were optional, the view for a backend that never started was
+		 * rendered without them and lost Save logs along with the dump, on the one
+		 * screen where only the logs still work. A view with no dump to give says
+		 * so through `diagnosticUnavailable`.
+		 */
+		onDownloadDiagnostic: () => void;
+		diagnosticBusy: boolean;
+		diagnosticDisabled: boolean;
+		diagnosticError: string | null;
+		diagnosticUnavailable: boolean;
 	}
 
 	let {
@@ -21,10 +27,10 @@
 		onRetry,
 		onRestart,
 		onDownloadDiagnostic,
-		diagnosticBusy = false,
-		diagnosticDisabled = false,
-		diagnosticError = null,
-		diagnosticUnavailable = false
+		diagnosticBusy,
+		diagnosticDisabled,
+		diagnosticError,
+		diagnosticUnavailable
 	}: Props = $props();
 
 	let updateCheckBusy = $state(false);
@@ -55,19 +61,15 @@
 		<h1 class="text-lg font-semibold text-destructive-foreground">{$_('app.bootFailed')}</h1>
 		<p class="mt-2 text-sm text-muted-foreground">{errorMessage}</p>
 		<Button class="mt-4" onclick={onRetry}>{$_('app.retry')}</Button>
-		{#if onDownloadDiagnostic}
-			<BootDiagnosticActions
-				{onRestart}
-				{onDownloadDiagnostic}
-				{diagnosticBusy}
-				{diagnosticDisabled}
-				{diagnosticError}
-				{diagnosticUnavailable}
-				rowClass="mt-2"
-			/>
-		{:else}
-			<Button class="mt-2" variant="outline" onclick={onRestart}>{$_('app.restartBackend')}</Button>
-		{/if}
+		<BootDiagnosticActions
+			{onRestart}
+			{onDownloadDiagnostic}
+			{diagnosticBusy}
+			{diagnosticDisabled}
+			{diagnosticError}
+			{diagnosticUnavailable}
+			rowClass="mt-2"
+		/>
 		<div class="mt-4 flex flex-col items-center gap-1 border-t border-border pt-4">
 			<!-- aria-disabled, not disabled: a disabled button drops the focus it holds, and the
 			     person who pressed it would land on the document while the check runs. -->
