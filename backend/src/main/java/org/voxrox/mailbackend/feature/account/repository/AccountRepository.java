@@ -122,6 +122,47 @@ public interface AccountRepository extends JpaRepository<AccountEntity, Long> {
             + "WHERE a.id = :id AND a.lastErrorCode IN :codes")
     void clearLastErrorIfCodeIn(@Param("id") Long id, @Param("codes") Collection<String> codes);
 
+    /*
+     * The crash guard's writes (SyncCrashGuard). Targeted UPDATEs for the same
+     * reason as the last_error slot above: they run from sync threads, beside a
+     * loaded entity that would otherwise overwrite them on its next save.
+     */
+
+    /** Accounts a previous backend process left with a sync running. */
+    @Transactional(readOnly = true)
+    List<AccountEntity> findBySyncStartedAtIsNotNull();
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE AccountEntity a SET a.syncStartedAt = :now WHERE a.id = :id")
+    void markSyncStarted(@Param("id") Long id, @Param("now") LocalDateTime now);
+
+    /**
+     * The last running sync ended inside the process, so the crash count starts
+     * over.
+     */
+    @Modifying
+    @Transactional
+    @Query("UPDATE AccountEntity a SET a.syncStartedAt = null, a.syncCrashes = 0 WHERE a.id = :id")
+    void markSyncEnded(@Param("id") Long id);
+
+    /** A previous process ended during a sync the guard does not count. */
+    @Modifying
+    @Transactional
+    @Query("UPDATE AccountEntity a SET a.syncStartedAt = null WHERE a.id = :id")
+    void clearSyncStarted(@Param("id") Long id);
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE AccountEntity a SET a.syncStartedAt = null, a.syncCrashes = :crashes, a.syncPaused = :paused "
+            + "WHERE a.id = :id")
+    void recordSyncCrash(@Param("id") Long id, @Param("crashes") int crashes, @Param("paused") boolean paused);
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE AccountEntity a SET a.syncPaused = false, a.syncCrashes = :crashes WHERE a.id = :id")
+    void resumeSync(@Param("id") Long id, @Param("crashes") int crashes);
+
     /**
      * Atomic update of the reauth flag — written from async threads (token refresh
      * failure handler), so we avoid loading the entity.

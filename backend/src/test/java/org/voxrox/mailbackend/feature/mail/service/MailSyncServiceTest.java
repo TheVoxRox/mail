@@ -100,6 +100,8 @@ class MailSyncServiceTest {
     private AccountRepository accountRepository;
     @Mock
     private FolderCountCache folderCountCache;
+    @Mock
+    private SyncCrashGuard crashGuard;
 
     private MailSyncService service;
 
@@ -112,7 +114,7 @@ class MailSyncServiceTest {
     void setUp() {
         service = new MailSyncService(imapFolderService, messageRepository, syncStateService, lockManager,
                 maintenanceService, transactionTemplate, mailProps, eventPublisher, messageDownloader, flagSyncService,
-                mailMetrics, accountRepository, folderCountCache);
+                mailMetrics, accountRepository, folderCountCache, crashGuard);
 
         account = new AccountEntity();
         account.setId(ACCOUNT_ID);
@@ -229,6 +231,48 @@ class MailSyncServiceTest {
             verify(accountRepository, never()).updateLastError(eq(ACCOUNT_ID), any(AccountLastError.class),
                     any(LocalDateTime.class));
             verify(lockManager).unlock(ACCOUNT_ID);
+        }
+
+        @Test
+        @DisplayName("A pass is bracketed for the crash guard, and the bracket closes when the pass fails")
+        void bracketsThePassForTheCrashGuard() {
+            when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
+            when(imapFolderService.getFolders(ACCOUNT_ID)).thenThrow(new IllegalStateException("IMAP down"));
+
+            service.syncAllFolders(account, SyncTrigger.SCHEDULED);
+
+            InOrder order = inOrder(crashGuard, imapFolderService);
+            order.verify(crashGuard).enter(ACCOUNT_ID);
+            order.verify(imapFolderService).getFolders(ACCOUNT_ID);
+            order.verify(crashGuard).exit(ACCOUNT_ID);
+        }
+
+        @Test
+        @DisplayName("A scheduled pass skips an account whose sync is paused after crashes")
+        void scheduledPassSkipsAPausedAccount() {
+            account.setSyncPaused(true);
+
+            service.syncAllFolders(account, SyncTrigger.SCHEDULED);
+
+            verify(lockManager, never()).tryLock(anyLong(), anyBoolean());
+            verify(imapFolderService, never()).getFolders(anyLong());
+            verify(crashGuard, never()).enter(anyLong());
+            verify(crashGuard, never()).resumeIfPaused(any());
+        }
+
+        @Test
+        @DisplayName("A manual sync resumes a paused account and runs the pass")
+        void manualSyncResumesAPausedAccount() {
+            account.setSyncPaused(true);
+            when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
+            when(imapFolderService.getFolders(ACCOUNT_ID)).thenReturn(List.of());
+
+            service.syncAllFolders(account, SyncTrigger.MANUAL);
+
+            InOrder order = inOrder(crashGuard, imapFolderService);
+            order.verify(crashGuard).resumeIfPaused(account);
+            order.verify(crashGuard).enter(ACCOUNT_ID);
+            order.verify(imapFolderService).getFolders(ACCOUNT_ID);
         }
 
         @Test
@@ -733,6 +777,33 @@ class MailSyncServiceTest {
             verify(messageDownloader, never()).downloadSequenceRange(any(), anyInt(), anyInt());
             // The server count is never even asked for — the guard fires first.
             verify(folder, never()).getMessageCount();
+        }
+
+        @Test
+        @DisplayName("Does not sync a paused account from the read path")
+        void readPathSkipsAPausedAccount() {
+            account.setSyncPaused(true);
+
+            service.syncAndBackfill(account, "INBOX", 0);
+
+            verify(lockManager, never()).tryLockFolder(anyLong(), any());
+            verify(imapFolderService, never()).executeInFolderResynced(anyLong(), any(), any(), any(), any());
+            verify(crashGuard, never()).enter(anyLong());
+        }
+
+        @Test
+        @DisplayName("The read path's cycle is bracketed for the crash guard, also when it throws")
+        void readPathCycleIsBracketedForTheCrashGuard() {
+            when(imapFolderService.executeInFolderResynced(eq(ACCOUNT_ID), eq(Lane.BACKGROUND), eq("INBOX"), any(),
+                    any())).thenThrow(new RuntimeException("folder open failed"));
+
+            service.syncAndBackfillAsync(account, "INBOX", 1);
+
+            InOrder order = inOrder(crashGuard, imapFolderService);
+            order.verify(crashGuard).enter(ACCOUNT_ID);
+            order.verify(imapFolderService).executeInFolderResynced(eq(ACCOUNT_ID), eq(Lane.BACKGROUND), eq("INBOX"),
+                    any(), any());
+            order.verify(crashGuard).exit(ACCOUNT_ID);
         }
 
         @Test

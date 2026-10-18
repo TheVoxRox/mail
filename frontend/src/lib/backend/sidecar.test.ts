@@ -566,6 +566,76 @@ describe('handleUnexpectedExit — exit code → user-readable error message', (
 	});
 });
 
+/*
+ * The backend's crash guard (SyncCrashGuard.java) counts a sync the previous
+ * process died in only when the shell says it restarted the backend after an
+ * exit nobody asked for. Quitting and reloading kill the backend too, so a
+ * variable set on every spawn would pause an account whose long first sync the
+ * user merely closed the app on.
+ */
+describe('the previous exit handed to the next backend', () => {
+	const envOf = (call: number) =>
+		(commandSidecarMock.mock.calls[call]?.[2] as { env: Record<string, string> }).env;
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it('an exit nobody asked for reaches the restarted backend, once', async () => {
+		vi.useFakeTimers();
+		const first = createCommandHandle({ pid: 1 });
+		const second = createCommandHandle({ pid: 2 });
+		const third = createCommandHandle({ pid: 3 });
+		commandSidecarMock
+			.mockReturnValueOnce(first.cmd)
+			.mockReturnValueOnce(second.cmd)
+			.mockReturnValueOnce(third.cmd);
+		const mod = await freshModule();
+		await mod.ensureBackendSidecar();
+
+		first.emitClose(3, null);
+		await vi.advanceTimersByTimeAsync(1_000);
+
+		expect(envOf(0)).not.toHaveProperty('MAIL_SIDECAR_PREVIOUS_EXIT');
+		expect(envOf(1)).toMatchObject({ MAIL_SIDECAR_PREVIOUS_EXIT: '3' });
+
+		// A restart the user asks for afterwards describes nothing new.
+		await mod.restartBackendSidecar();
+		expect(envOf(2)).not.toHaveProperty('MAIL_SIDECAR_PREVIOUS_EXIT');
+	});
+
+	it('a stop the shell asked for hands nothing over', async () => {
+		const first = createCommandHandle({ pid: 1 });
+		const second = createCommandHandle({ pid: 2 });
+		commandSidecarMock.mockReturnValueOnce(first.cmd).mockReturnValueOnce(second.cmd);
+		const mod = await freshModule();
+		await mod.ensureBackendSidecar();
+
+		await mod.stopBackendSidecar();
+		first.emitClose(1, null);
+		await mod.ensureBackendSidecar();
+
+		expect(envOf(1)).not.toHaveProperty('MAIL_SIDECAR_PREVIOUS_EXIT');
+	});
+
+	it('a Retry after the restart budget is spent still carries the last exit', async () => {
+		vi.useFakeTimers();
+		const handles = Array.from({ length: 5 }, (_, i) => createCommandHandle({ pid: i + 1 }));
+		for (const handle of handles) commandSidecarMock.mockReturnValueOnce(handle.cmd);
+		const mod = await freshModule();
+		await mod.ensureBackendSidecar();
+
+		for (let i = 0; i < 4; i++) {
+			handles[i]!.emitClose(3, null);
+			await vi.advanceTimersByTimeAsync(1_000);
+		}
+		expect(get(mod.backendSidecarState)).toMatchObject({ status: 'error' });
+
+		await mod.restartBackendSidecar();
+		expect(envOf(4)).toMatchObject({ MAIL_SIDECAR_PREVIOUS_EXIT: '3' });
+	});
+});
+
 describe('unload hook — only a leave that goes ahead stops the backend', () => {
 	afterEach(() => {
 		const global = globalThis as { __MAIL_BACKEND_SIDECAR_UNLOAD__?: () => void };

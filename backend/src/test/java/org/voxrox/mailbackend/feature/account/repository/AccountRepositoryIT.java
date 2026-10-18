@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.dao.DataAccessException;
+import org.springframework.mock.env.MockEnvironment;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -26,6 +27,7 @@ import org.voxrox.mailbackend.feature.account.AccountLastErrorCode;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.account.entity.MailProviderEntity;
 import org.voxrox.mailbackend.feature.account.entity.MailServerConfig;
+import org.voxrox.mailbackend.feature.mail.service.SyncCrashGuard;
 
 /**
  * Regression IT for server-config denormalization onto accounts.
@@ -181,5 +183,59 @@ class AccountRepositoryIT {
         assertThat(cleared.getLastError()).isNull();
         assertThat(cleared.getLastErrorCode()).isNull();
         assertThat(cleared.getLastErrorArgs()).isNull();
+    }
+
+    @Test
+    @DisplayName("The crash guard counts three restarts out of a sync on the real schema and pauses the account")
+    void crashGuardPausesAfterThreeRestartsOnTheRealSchema() {
+        /*
+         * Runs the guard against V2's columns and the repository's JPQL rather than
+         * mocks: each round is a process that starts with the shell's restart variable
+         * set, begins a sync and dies in it.
+         */
+        Long accountId = accountRepository.saveAndFlush(account("crashing@example.com")).getId();
+        for (int round = 1; round <= 3; round++) {
+            SyncCrashGuard process = restartedProcess();
+            process.afterSingletonsInstantiated();
+            process.enter(accountId);
+            em.clear();
+            assertThat(accountRepository.findById(accountId).orElseThrow().getSyncStartedAt()).isNotNull();
+        }
+
+        // The process that starts after the third crash.
+        restartedProcess().afterSingletonsInstantiated();
+        em.clear();
+
+        AccountEntity paused = accountRepository.findById(accountId).orElseThrow();
+        assertThat(paused.isSyncPaused()).isTrue();
+        assertThat(paused.getSyncCrashes()).isEqualTo(3);
+        assertThat(paused.getSyncStartedAt()).isNull();
+        assertThat(paused.getLastErrorCode()).isEqualTo(AccountLastErrorCode.MAIL_SYNC_PAUSED_AFTER_CRASHES.name());
+        assertThat(accountRepository.findBySyncStartedAtIsNotNull()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("A sync that ends inside the process clears the marker and the count")
+    void syncThatEndsClearsTheMarkerAndTheCount() {
+        Long accountId = accountRepository.saveAndFlush(account("ending@example.com")).getId();
+        accountRepository.recordSyncCrash(accountId, 2, false);
+        SyncCrashGuard guard = new SyncCrashGuard(accountRepository, new MockEnvironment());
+
+        guard.enter(accountId);
+        guard.exit(accountId);
+        em.clear();
+
+        AccountEntity ended = accountRepository.findById(accountId).orElseThrow();
+        assertThat(ended.getSyncStartedAt()).isNull();
+        assertThat(ended.getSyncCrashes()).isZero();
+        assertThat(ended.isSyncPaused()).isFalse();
+    }
+
+    /**
+     * A guard as the shell's restart after an out-of-memory exit would start it.
+     */
+    private SyncCrashGuard restartedProcess() {
+        return new SyncCrashGuard(accountRepository,
+                new MockEnvironment().withProperty("MAIL_SIDECAR_PREVIOUS_EXIT", "3"));
     }
 }

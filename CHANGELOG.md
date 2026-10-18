@@ -35,9 +35,29 @@ Entries before 2026-09-17 predate that split and are left as written.
   out a second retry on top of the first (the first version of this fix did,
   and the accelerated soak counted it as an exhausted retry).
   `release:scan-logs` counts the listing's retries with the hiccup D signals.
+- **An account whose sync keeps ending the app has its sync paused instead of
+  taking the app down on every restart.** The packaged backend exits on its
+  first out-of-memory error, the app restarts it, and the next sync met the
+  same message from the server and ended it again, together with every other
+  account. The backend now notes when an account's sync starts and ends; a
+  sync the process died in counts when the app restarted the backend after an
+  exit it did not ask for, and three in a row pause that account's sync, the
+  scheduled pass and the folder sync on opening a folder alike. The account's
+  error says so, and Synchronise resumes it, one crash short of the limit.
+  Quitting or reloading the app does not count, since the app ends the backend
+  then too. The three columns arrive through `V2__sync_crash_guard.sql`, the
+  first schema change since a build was installed outside development, so
+  existing databases keep working.
 
 ### Frontend
 
+- **A sync the backend paused while it started is announced.** The pause is
+  decided before the backend takes a request, so the failure notice the stream
+  would carry has nobody to reach; each boot, the one after an automatic
+  restart included, reads it from the account and shows the same persistent
+  toast and failing-sync indicator. The app also tells a backend it restarts
+  how the previous one ended (`MAIL_SIDECAR_PREVIOUS_EXIT`), which is what
+  the backend counts.
 - **The provider's servers no longer run into the Username label.** On the
   account form, browse mode read the line under the provider select and the
   next field's label as one: "IMAP imap.seznam.cz:993, SMTP

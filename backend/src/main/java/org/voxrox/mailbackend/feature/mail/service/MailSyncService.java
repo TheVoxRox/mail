@@ -60,13 +60,14 @@ public class MailSyncService {
     private final MailMetrics metrics;
     private final AccountRepository accountRepository;
     private final FolderCountCache folderCountCache;
+    private final SyncCrashGuard crashGuard;
 
     public MailSyncService(ImapFolderService imapFolderService, MessageRepository messageRepository,
             SyncStateService syncStateService, SyncLockManager lockManager,
             MailboxMaintenanceService maintenanceService, TransactionTemplate transactionTemplate,
             MailClientProperties mailProps, ApplicationEventPublisher eventPublisher,
             MessageDownloader messageDownloader, FlagSyncService flagSyncService, MailMetrics metrics,
-            AccountRepository accountRepository, FolderCountCache folderCountCache) {
+            AccountRepository accountRepository, FolderCountCache folderCountCache, SyncCrashGuard crashGuard) {
         this.imapFolderService = imapFolderService;
         this.messageRepository = messageRepository;
         this.syncStateService = syncStateService;
@@ -80,6 +81,7 @@ public class MailSyncService {
         this.metrics = metrics;
         this.accountRepository = accountRepository;
         this.folderCountCache = folderCountCache;
+        this.crashGuard = crashGuard;
     }
 
     private static final int LAST_ERROR_MAX_LENGTH = 950;
@@ -95,6 +97,19 @@ public class MailSyncService {
      */
     @Async("mailSyncExecutor")
     public void syncAllFolders(AccountEntity account, SyncTrigger trigger) {
+        /*
+         * A paused account (SyncCrashGuard) is skipped by everything but the user: a
+         * manual sync is the one way out of the pause, and the message the toast and
+         * Settings show says so.
+         */
+        if (account.isSyncPaused()) {
+            if (trigger != SyncTrigger.MANUAL) {
+                log.debug("{} Sync of {} is paused after repeated crashes; skipping the scheduled pass.",
+                        LogCategory.SYNC, LogMasker.maskEmail(account.getEmail()));
+                return;
+            }
+            crashGuard.resumeIfPaused(account);
+        }
         boolean reportOnFinish = trigger == SyncTrigger.MANUAL;
         if (!lockManager.tryLock(account.getId(), reportOnFinish)) {
             // Not lost when it was a manual request: the running pass absorbed the
@@ -126,6 +141,7 @@ public class MailSyncService {
         int newMessagesCount = 0;
         boolean allFoldersSynced = false;
 
+        crashGuard.enter(account.getId());
         try {
             log.info("{} Starting account sync: {}", LogCategory.SYNC, LogMasker.maskEmail(account.getEmail()));
             List<FolderResponse> folders = listFoldersRetryingClosedConnection(account);
@@ -194,6 +210,7 @@ public class MailSyncService {
                     e.getMessage(), e);
             recordAccountSyncFailure(account, e);
         } finally {
+            crashGuard.exit(account.getId());
             publishErrorStateTransition(account.getId(), errorCodeBeforePass);
             // Release first: the flag the lock carries is the authority on whether
             // anyone is waiting for this pass, and it is only readable on release.
@@ -899,6 +916,16 @@ public class MailSyncService {
 
     public void syncAndBackfill(AccountEntity account, String folderName, int page) {
         /*
+         * A paused account (SyncCrashGuard) is not synced from the read path either:
+         * opening the folder is what the restarted app does first, so this is the route
+         * by which the crash would come back before any scheduled pass.
+         */
+        if (account.isSyncPaused()) {
+            log.debug("{} Sync of {} is paused after repeated crashes; serving folder {} from the local copy.",
+                    LogCategory.SYNC, LogMasker.maskEmail(account.getEmail()), folderName);
+            return;
+        }
+        /*
          * Skip-if-running per (account, folder): every GET /emails dispatches this
          * cycle, so rapid pagination or folder switching would otherwise stack
          * identical cycles that serialize on the per-account IMAP lock and hold
@@ -908,6 +935,7 @@ public class MailSyncService {
         if (!lockManager.tryLockFolder(account.getId(), folderName)) {
             return;
         }
+        crashGuard.enter(account.getId());
         try {
             performFullSyncCycle(account, folderName);
 
@@ -915,6 +943,7 @@ public class MailSyncService {
                 backfillOlderMessages(account, folderName);
             }
         } finally {
+            crashGuard.exit(account.getId());
             lockManager.unlockFolder(account.getId(), folderName);
         }
     }
