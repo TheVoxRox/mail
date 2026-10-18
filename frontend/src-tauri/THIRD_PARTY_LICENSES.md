@@ -99,7 +99,7 @@ Counts: 295 crates total. 146 MIT OR Apache-2.0, 58 MIT, 29 Apache-2.0 OR MIT, 1
 - **serde_core** 1.0.229 — [https://github.com/serde-rs/serde](https://github.com/serde-rs/serde)
 - **serde_derive** 1.0.229 — [https://github.com/serde-rs/serde](https://github.com/serde-rs/serde)
 - **serde_derive_internals** 0.29.1 — [https://github.com/serde-rs/serde](https://github.com/serde-rs/serde)
-- **serde_json** 1.0.151 — [https://github.com/serde-rs/json](https://github.com/serde-rs/json)
+- **serde_json** 1.0.154 — [https://github.com/serde-rs/json](https://github.com/serde-rs/json)
 - **serde_repr** 0.1.20 — [https://github.com/dtolnay/serde-repr](https://github.com/dtolnay/serde-repr)
 - **serde_spanned** 1.1.1 — [https://github.com/toml-rs/toml](https://github.com/toml-rs/toml)
 - **serde_with** 3.18.0 — [https://github.com/jonasbb/serde_with/](https://github.com/jonasbb/serde_with/)
@@ -213,7 +213,7 @@ Counts: 295 crates total. 146 MIT OR Apache-2.0, 58 MIT, 29 Apache-2.0 OR MIT, 1
 - **webview2-com-macros** 0.8.1 — [https://github.com/wravery/webview2-rs](https://github.com/wravery/webview2-rs)
 - **webview2-com-sys** 0.39.1 — [https://github.com/wravery/webview2-rs](https://github.com/wravery/webview2-rs)
 - **winnow** 1.0.1 — [https://github.com/winnow-rs/winnow](https://github.com/winnow-rs/winnow)
-- **zip** 9.0.2 — [https://github.com/zip-rs/zip2](https://github.com/zip-rs/zip2)
+- **zip** 9.0.5 — [https://github.com/zip-rs/zip2](https://github.com/zip-rs/zip2)
 - **zmij** 1.0.21 — [https://github.com/dtolnay/zmij](https://github.com/dtolnay/zmij)
 
 ## Apache-2.0 OR MIT (29)
