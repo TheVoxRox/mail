@@ -81,4 +81,35 @@ final class TransientMailErrors {
         }
         return false;
     }
+
+    /**
+     * Whether {@code error} says the server closed a connection that was already
+     * open: Angus reports a Store or a Folder closed under a command
+     * ({@link StoreClosedException}, {@link FolderClosedException}), as opposed to
+     * a connection that could not be opened at all.
+     *
+     * <p>
+     * The narrower question for a retry outside the folder cycle. Connecting has a
+     * retry of its own ({@code imapRetryTemplate} in
+     * {@code ImapConnectionManager}), so a server that cannot be reached has been
+     * retried by the time the error arrives here; retrying it again only multiplies
+     * the wait and runs out a second budget on every outage. A pooled connection
+     * the server closed is what that retry cannot see, because the connection was
+     * there when it was handed out. An authentication failure anywhere in the chain
+     * wins, as in {@link #isTransient}.
+     */
+    static boolean isClosedConnection(Throwable error) {
+        List<Throwable> chain = Throwables.causalChain(error);
+        for (Throwable cur : chain) {
+            if (cur instanceof AuthenticationFailedException) {
+                return false;
+            }
+        }
+        for (Throwable cur : chain) {
+            if (cur instanceof StoreClosedException || cur instanceof FolderClosedException) {
+                return true;
+            }
+        }
+        return false;
+    }
 }
