@@ -73,6 +73,10 @@ Entries before 2026-09-17 predate that split and are left as written.
   boot error view's. The view is under the updater audit's code paths for its
   update check, which the change leaves as it was; the audit records the drift
   without a new verdict (#734).
+- The sidecar no longer serves `GET /api/v1/accounts/providers/{id}`: its only
+  client was the provider template list #735 took off the account edit page.
+  The MSW mock, the OpenAPI snapshot and the generated types drop it too, and
+  the API surface audit records the drift without a new verdict.
 
 ## [0.1.0] - 2026-10-18
 

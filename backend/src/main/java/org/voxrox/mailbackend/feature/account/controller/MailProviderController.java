@@ -4,7 +4,6 @@ import java.util.List;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 import org.slf4j.Logger;
@@ -48,12 +47,5 @@ public class MailProviderController {
         log.info("{} Auto-detection request for e-mail: {}", LogCategory.API, LogMasker.maskEmail(email));
         return providerService.findProviderByEmail(email).map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
-    }
-
-    @Operation(summary = "Provider detail", description = "Returns one specific provider template by ID, or 404 if it does not exist.")
-    @GetMapping("/{id}")
-    public ResponseEntity<MailProviderResponse> getProviderById(
-            @PathVariable @Positive(message = "{validation.positive}") Long id) {
-        return providerService.getProviderById(id).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }
 }

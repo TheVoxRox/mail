@@ -227,28 +227,8 @@ class AccountProviderServiceTest {
     }
 
     @Nested
-    @DisplayName("getProviderById / getAllProviders")
-    class GetProvider {
-
-        @Test
-        @DisplayName("getProviderById — found maps to DTO")
-        void getByIdFound() {
-            MailProviderEntity entity = provider(40L, "Custom", ",custom.cz,");
-            when(providerRepository.findById(40L)).thenReturn(Optional.of(entity));
-
-            Optional<MailProviderResponse> dto = service.getProviderById(40L);
-
-            assertThat(dto).map(MailProviderResponse::id).contains(40L);
-            assertThat(dto).map(MailProviderResponse::name).contains("Custom");
-        }
-
-        @Test
-        @DisplayName("getProviderById — missing returns Optional.empty (no exception)")
-        void getByIdMissing() {
-            when(providerRepository.findById(404L)).thenReturn(Optional.empty());
-
-            assertThat(service.getProviderById(404L)).isEmpty();
-        }
+    @DisplayName("getAllProviders")
+    class GetAllProviders {
 
         @Test
         @DisplayName("getAllProviders — every entity is mapped to a DTO; ordering matches the repository order")
