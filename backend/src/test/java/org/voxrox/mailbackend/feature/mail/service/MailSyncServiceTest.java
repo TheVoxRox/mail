@@ -129,6 +129,8 @@ class MailSyncServiceTest {
         // Folder-level skip-if-running guard defaults to "granted" so existing
         // tests exercise the cycle; the skip behavior has its own tests below.
         lenient().when(lockManager.tryLockFolder(anyLong(), any(String.class))).thenReturn(true);
+        // The crash guard lets every sync run unless a test says otherwise.
+        lenient().when(crashGuard.enter(any())).thenReturn(true);
     }
 
     /**
@@ -242,9 +244,80 @@ class MailSyncServiceTest {
             service.syncAllFolders(account, SyncTrigger.SCHEDULED);
 
             InOrder order = inOrder(crashGuard, imapFolderService);
-            order.verify(crashGuard).enter(ACCOUNT_ID);
+            order.verify(crashGuard).enter(account);
             order.verify(imapFolderService).getFolders(ACCOUNT_ID);
             order.verify(crashGuard).exit(ACCOUNT_ID);
+        }
+
+        @Test
+        @DisplayName("A crash guard that throws on entry still releases the account lock")
+        void releasesTheLockWhenTheGuardThrows() {
+            when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
+            when(crashGuard.enter(account)).thenThrow(new IllegalStateException("guard broke"));
+
+            service.syncAllFolders(account, SyncTrigger.SCHEDULED);
+
+            verify(lockManager).unlock(ACCOUNT_ID);
+            verify(imapFolderService, never()).getFolders(anyLong());
+            verify(crashGuard, never()).exit(anyLong());
+        }
+
+        @Test
+        @DisplayName("A pass the crash guard turns away releases the lock, reports, and is not paired with an exit")
+        void passTheGuardTurnsAwayReleasesTheLock() {
+            when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
+            when(lockManager.unlock(ACCOUNT_ID)).thenReturn(true);
+            when(crashGuard.enter(account)).thenReturn(false);
+
+            service.syncAllFolders(account, SyncTrigger.MANUAL);
+
+            verify(imapFolderService, never()).getFolders(anyLong());
+            verify(crashGuard, never()).exit(anyLong());
+            verify(lockManager).unlock(ACCOUNT_ID);
+            ArgumentCaptor<Object> events = ArgumentCaptor.forClass(Object.class);
+            verify(eventPublisher, org.mockito.Mockito.atLeastOnce()).publishEvent(events.capture());
+            assertThat(events.getAllValues()).anySatisfy(
+                    event -> assertThat(event).isInstanceOfSatisfying(MailSyncCycleCompletedEvent.class, completed -> {
+                        assertThat(completed.newMessagesCount()).isZero();
+                        assertThat(completed.allFoldersSynced()).isFalse();
+                    }));
+        }
+
+        @Test
+        @DisplayName("A pass that synced every folder itself starts the crash count over")
+        void passThatSyncedEveryFolderStartsTheCrashCountOver() {
+            when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
+            when(imapFolderService.getFolders(ACCOUNT_ID)).thenReturn(List.of());
+
+            service.syncAllFolders(account, SyncTrigger.SCHEDULED);
+
+            verify(crashGuard).passCompleted(account);
+        }
+
+        @Test
+        @DisplayName("A pass that skipped a folder another sync held leaves the crash count alone")
+        void passThatSkippedAFolderLeavesTheCrashCount() {
+            when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
+            when(imapFolderService.getFolders(ACCOUNT_ID))
+                    .thenReturn(List.of(new FolderResponse("INBOX", "INBOX", FolderRole.INBOX)));
+            // The read path holds INBOX, and may yet be the sync that ends the process.
+            when(lockManager.tryLockFolder(ACCOUNT_ID, "INBOX")).thenReturn(false);
+
+            service.syncAllFolders(account, SyncTrigger.SCHEDULED);
+
+            verify(crashGuard, never()).passCompleted(any());
+            verify(crashGuard).exit(ACCOUNT_ID);
+        }
+
+        @Test
+        @DisplayName("A pass that never got its folder listing leaves the crash count alone")
+        void passWithoutAListingLeavesTheCrashCount() {
+            when(lockManager.tryLock(eq(ACCOUNT_ID), anyBoolean())).thenReturn(true);
+            when(imapFolderService.getFolders(ACCOUNT_ID)).thenThrow(new IllegalStateException("IMAP down"));
+
+            service.syncAllFolders(account, SyncTrigger.SCHEDULED);
+
+            verify(crashGuard, never()).passCompleted(any());
         }
 
         @Test
@@ -256,7 +329,7 @@ class MailSyncServiceTest {
 
             verify(lockManager, never()).tryLock(anyLong(), anyBoolean());
             verify(imapFolderService, never()).getFolders(anyLong());
-            verify(crashGuard, never()).enter(anyLong());
+            verify(crashGuard, never()).enter(any());
             verify(crashGuard, never()).resumeIfPaused(any());
         }
 
@@ -271,7 +344,7 @@ class MailSyncServiceTest {
 
             InOrder order = inOrder(crashGuard, imapFolderService);
             order.verify(crashGuard).resumeIfPaused(account);
-            order.verify(crashGuard).enter(ACCOUNT_ID);
+            order.verify(crashGuard).enter(account);
             order.verify(imapFolderService).getFolders(ACCOUNT_ID);
         }
 
@@ -788,7 +861,7 @@ class MailSyncServiceTest {
 
             verify(lockManager, never()).tryLockFolder(anyLong(), any());
             verify(imapFolderService, never()).executeInFolderResynced(anyLong(), any(), any(), any(), any());
-            verify(crashGuard, never()).enter(anyLong());
+            verify(crashGuard, never()).enter(any());
         }
 
         @Test
@@ -800,10 +873,48 @@ class MailSyncServiceTest {
             service.syncAndBackfillAsync(account, "INBOX", 1);
 
             InOrder order = inOrder(crashGuard, imapFolderService);
-            order.verify(crashGuard).enter(ACCOUNT_ID);
+            order.verify(crashGuard).enter(account);
             order.verify(imapFolderService).executeInFolderResynced(eq(ACCOUNT_ID), eq(Lane.BACKGROUND), eq("INBOX"),
                     any(), any());
             order.verify(crashGuard).exit(ACCOUNT_ID);
+        }
+
+        @Test
+        @DisplayName("The read path never starts the crash count over: it syncs one folder, not the account")
+        void readPathLeavesTheCrashCount() {
+            Folder folder = mock(Folder.class);
+            stubSyncProperties();
+            stubExecuteInFolderRunCallback(folder);
+            when(messageRepository.countByAccountIdAndFolderName(ACCOUNT_ID, "INBOX")).thenReturn(300L);
+
+            service.syncAndBackfill(account, "INBOX", 0);
+
+            verify(crashGuard).enter(account);
+            verify(crashGuard).exit(ACCOUNT_ID);
+            verify(crashGuard, never()).passCompleted(any());
+        }
+
+        @Test
+        @DisplayName("A read-path sync the crash guard turns away releases the folder lock and touches no server")
+        void readPathTheGuardTurnsAwayReleasesTheFolderLock() {
+            when(crashGuard.enter(account)).thenReturn(false);
+
+            service.syncAndBackfill(account, "INBOX", 0);
+
+            verify(imapFolderService, never()).executeInFolderResynced(anyLong(), any(), any(), any(), any());
+            verify(crashGuard, never()).exit(anyLong());
+            verify(lockManager).unlockFolder(ACCOUNT_ID, "INBOX");
+        }
+
+        @Test
+        @DisplayName("A crash guard that throws on entry still releases the folder lock")
+        void readPathReleasesTheFolderLockWhenTheGuardThrows() {
+            when(crashGuard.enter(account)).thenThrow(new IllegalStateException("guard broke"));
+
+            service.syncAndBackfillAsync(account, "INBOX", 0);
+
+            verify(lockManager).unlockFolder(ACCOUNT_ID, "INBOX");
+            verify(crashGuard, never()).exit(anyLong());
         }
 
         @Test

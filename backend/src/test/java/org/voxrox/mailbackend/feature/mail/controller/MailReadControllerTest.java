@@ -32,6 +32,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -41,6 +42,8 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import org.voxrox.mailbackend.core.config.MailClientProperties;
 import org.voxrox.mailbackend.core.config.mail.SyncProperties;
 import org.voxrox.mailbackend.core.security.InternalApiKeyProvider;
+import org.voxrox.mailbackend.exception.ErrorCode;
+import org.voxrox.mailbackend.exception.MailOperationException;
 import org.voxrox.mailbackend.exception.ResourceNotFoundException;
 import org.voxrox.mailbackend.feature.mail.dto.ConversationSummaryResponse;
 import org.voxrox.mailbackend.feature.mail.dto.MailContentResponse;
@@ -243,6 +246,19 @@ class MailReadControllerTest {
                 .andExpect(jsonPath("$.content").value("<html>ok</html>"))
                 .andExpect(jsonPath("$.senderEmail").value("sender@example.com"))
                 .andExpect(jsonPath("$.remoteImagesAllowedForSender").value(false));
+    }
+
+    @Test
+    @DisplayName("GET content of a paused account -> 409 ProblemDetail saying how to resume, in the request's language")
+    void contentOfAPausedAccount() throws Exception {
+        when(mailFacade.getMessageContentOnly("abc123")).thenThrow(new MailOperationException(
+                ErrorCode.MAIL_ACCOUNT_SYNC_PAUSED, "paused", HttpStatus.CONFLICT, "error.mail.accountSyncPaused"));
+
+        mockMvc.perform(get("/api/v1/messages/abc123/content").header("Accept-Language", "en"))
+                .andExpect(status().isConflict()).andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.errorCode").value("MAIL_ACCOUNT_SYNC_PAUSED"))
+                .andExpect(jsonPath("$.detail").value(
+                        "The message text is not downloaded while sync of this account is paused. Choose Synchronise to start it again."));
     }
 
     /**

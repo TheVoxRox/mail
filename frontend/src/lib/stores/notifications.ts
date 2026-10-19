@@ -23,7 +23,13 @@ import { messagesState, reloadCurrentPage } from './messages.js';
 import { conversationsState, reloadCurrentConversationsPage } from './conversations.js';
 import { refreshFolders } from './folders.js';
 import { accountsState, refreshAccounts } from './accounts.js';
-import { failingSyncAccountIds, markSyncFailed, markSyncRecovered } from './syncHealth.js';
+import {
+	failingSyncAccountIds,
+	forgetPauseAnnouncement,
+	markSyncFailed,
+	markSyncRecovered,
+	takePauseAnnouncement
+} from './syncHealth.js';
 import { completeManualSync, releaseManualSyncsOnStreamLoss } from './manualSync.js';
 import { dismissToast, pushToast } from './toasts.js';
 
@@ -118,6 +124,9 @@ export function handleStreamNotification(event: StreamNotification): void {
  * in the sidebar; the toast only tells the user the moment it happened.
  */
 async function handleSyncStatus(event: SyncStatusNotification): Promise<void> {
+	// A transition the backend reports means the standing error moved on, so a
+	// pause that follows it is announced again (announcePausedSyncs).
+	forgetPauseAnnouncement(event.accountId);
 	// Refetch first: the toast text is the account's localized `lastError`, which
 	// the backend resolves in AccountMapper. Refetching also keeps Settings →
 	// Accounts in step, so the two surfaces describe the same failure.
@@ -173,7 +182,8 @@ const SYNC_PAUSED_CODE = 'MAIL_SYNC_PAUSED_AFTER_CRASHES';
  * (SyncCrashGuard.java), so the `sync_failed` it would send has nobody to
  * reach: the stream connects later and nothing is replayed. The pause stays
  * in the account's standing error, so a boot that finds it says so as the
- * event would have — the toast and the indicator — once until it recovers.
+ * event would have — the toast and the indicator — once per pause, also for an
+ * account the indicator already shows failing for an older reason.
  *
  * @param refetch whether the account list predates this backend. A boot after
  *   an automatic restart keeps the list it had, which was read before the
@@ -188,8 +198,11 @@ export async function announcePausedSyncs(refetch: boolean): Promise<void> {
 			: [];
 	const translate = get(_);
 	for (const account of accounts) {
-		if (account.lastErrorCode !== SYNC_PAUSED_CODE) continue;
-		if (get(failingSyncAccountIds).includes(account.id)) continue;
+		if (account.lastErrorCode !== SYNC_PAUSED_CODE) {
+			forgetPauseAnnouncement(account.id);
+			continue;
+		}
+		if (!takePauseAnnouncement(account.id)) continue;
 		markSyncFailed(account.id);
 		const message = account.lastError
 			? translate('toast.syncFailedDetail', {

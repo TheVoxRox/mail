@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -19,11 +20,17 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.MessageSource;
+import org.springframework.http.HttpStatus;
+import org.springframework.mock.env.MockEnvironment;
+import org.voxrox.mailbackend.exception.ErrorCode;
+import org.voxrox.mailbackend.exception.MailOperationException;
 import org.voxrox.mailbackend.exception.ResourceNotFoundException;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
+import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
 import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager.Lane;
@@ -65,11 +72,16 @@ class MailContentServiceTest {
     @Mock
     private MessageSource messageSource;
 
+    /** Behind a real crash guard, which reads and writes the account through it. */
+    @Mock
+    private AccountRepository accountRepository;
+
     private MailContentService service;
 
     @BeforeEach
     void setUp() {
-        service = new MailContentService(folderExecutor, messageRepository, contentPersister, messageSource);
+        service = new MailContentService(folderExecutor, messageRepository, contentPersister, messageSource,
+                new SyncCrashGuard(accountRepository, new MockEnvironment()));
     }
 
     // ---- helpers ----
@@ -112,6 +124,54 @@ class MailContentServiceTest {
                 assertThat(result).isEqualTo(CACHED_CONTENT);
                 verify(folderExecutor, never()).executeReadOnly(anyLong(), any(), anyString(), any());
                 verify(contentPersister, never()).updateLocalCache(anyLong(), anyString());
+            }
+        }
+
+        @Nested
+        @DisplayName("Crash guard — a body is downloaded as a sync of its account")
+        class CrashGuard {
+
+            @Test
+            @DisplayName("A paused account's body is not downloaded, and the error says how to resume")
+            void pausedAccountDownloadsNoBody() {
+                when(messageRepository.findById(MESSAGE_ID)).thenReturn(Optional.of(createMessageEntity(null)));
+                when(accountRepository.isSyncPaused(ACCOUNT_ID)).thenReturn(Optional.of(true));
+
+                assertThatThrownBy(() -> service.getOrFetchMessageContent(MESSAGE_ID))
+                        .isInstanceOfSatisfying(MailOperationException.class, e -> {
+                            assertThat(e.getCode()).isEqualTo(ErrorCode.MAIL_ACCOUNT_SYNC_PAUSED);
+                            assertThat(e.getStatus()).isEqualTo(HttpStatus.CONFLICT);
+                            assertThat(e.getMessageKey()).isEqualTo("error.mail.accountSyncPaused");
+                        });
+                verify(folderExecutor, never()).executeReadOnly(anyLong(), any(), anyString(), any());
+                verify(accountRepository, never()).markSyncStarted(anyLong(), any());
+            }
+
+            @Test
+            @DisplayName("A paused account still shows a body it already has")
+            void pausedAccountServesItsCachedBody() {
+                when(messageRepository.findById(MESSAGE_ID))
+                        .thenReturn(Optional.of(createMessageEntity(CACHED_CONTENT)));
+
+                assertThat(service.getOrFetchMessageContent(MESSAGE_ID)).isEqualTo(CACHED_CONTENT);
+                verify(accountRepository, never()).isSyncPaused(anyLong());
+            }
+
+            @Test
+            @DisplayName("The download is marked as a running sync and unmarked after it, also when it fails")
+            void downloadIsBracketedForTheCrashGuard() {
+                when(messageRepository.findById(MESSAGE_ID)).thenReturn(Optional.of(createMessageEntity(null)));
+                when(folderExecutor.executeReadOnly(eq(ACCOUNT_ID), eq(Lane.INTERACTIVE), eq(FOLDER_NAME), any()))
+                        .thenThrow(new MailOperationException(ErrorCode.MAIL_CONNECTION_ERROR, "IMAP down"));
+
+                assertThatThrownBy(() -> service.getOrFetchMessageContent(MESSAGE_ID))
+                        .isInstanceOf(MailOperationException.class);
+
+                InOrder order = inOrder(accountRepository, folderExecutor);
+                order.verify(accountRepository).markSyncStarted(eq(ACCOUNT_ID), any());
+                order.verify(folderExecutor).executeReadOnly(eq(ACCOUNT_ID), eq(Lane.INTERACTIVE), eq(FOLDER_NAME),
+                        any());
+                order.verify(accountRepository).clearSyncStarted(ACCOUNT_ID);
             }
         }
 

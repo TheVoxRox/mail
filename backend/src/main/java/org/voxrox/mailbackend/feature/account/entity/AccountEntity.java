@@ -91,15 +91,17 @@ public class AccountEntity {
     /*
      * The crash guard's three columns (V1__init.sql). Written only through
      * the @Modifying queries in AccountRepository, from SyncCrashGuard; see that
-     * class for what each one means.
+     * class for what each one means. Read-only here, so that is enforced: a save of
+     * an entity loaded before one of those writes would otherwise put the value it
+     * loaded back, and an insert leaves them to the column defaults.
      */
-    @Column(name = "sync_started_at")
+    @Column(name = "sync_started_at", insertable = false, updatable = false)
     private @Nullable LocalDateTime syncStartedAt;
 
-    @Column(name = "sync_crashes", nullable = false)
+    @Column(name = "sync_crashes", nullable = false, insertable = false, updatable = false)
     private int syncCrashes = 0;
 
-    @Column(name = "sync_paused", nullable = false)
+    @Column(name = "sync_paused", nullable = false, insertable = false, updatable = false)
     private boolean syncPaused = false;
 
     @OneToOne(mappedBy = "account", cascade = CascadeType.ALL, fetch = FetchType.LAZY)

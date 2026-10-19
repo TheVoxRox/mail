@@ -634,6 +634,42 @@ describe('the previous exit handed to the next backend', () => {
 		await mod.restartBackendSidecar();
 		expect(envOf(4)).toMatchObject({ MAIL_SIDECAR_PREVIOUS_EXIT: '3' });
 	});
+
+	it('an error event hands nothing over: the kill it makes is the shell’s own', async () => {
+		vi.useFakeTimers();
+		const first = createCommandHandle({ pid: 1 });
+		const second = createCommandHandle({ pid: 2 });
+		commandSidecarMock.mockReturnValueOnce(first.cmd).mockReturnValueOnce(second.cmd);
+		const mod = await freshModule();
+		await mod.ensureBackendSidecar();
+
+		first.emitError('broken pipe');
+		await vi.advanceTimersByTimeAsync(1_000);
+		first.emitClose(1, null);
+
+		expect(first.child.kill).toHaveBeenCalledOnce();
+		expect(envOf(1)).not.toHaveProperty('MAIL_SIDECAR_PREVIOUS_EXIT');
+	});
+
+	it('a start the backend refused passes on the exit it was handed, for the Retry after it', async () => {
+		vi.useFakeTimers();
+		const handles = Array.from({ length: 3 }, (_, i) => createCommandHandle({ pid: i + 1 }));
+		for (const handle of handles) commandSidecarMock.mockReturnValueOnce(handle.cmd);
+		const mod = await freshModule();
+		await mod.ensureBackendSidecar();
+
+		handles[0]!.emitClose(3, null);
+		await vi.advanceTimersByTimeAsync(1_000);
+		expect(envOf(1)).toMatchObject({ MAIL_SIDECAR_PREVIOUS_EXIT: '3' });
+
+		// Refused before its crash guard ran (schema mismatch), so it counted nothing.
+		handles[1]!.emitClose(70, null);
+		await Promise.resolve();
+		expect(get(mod.backendSidecarState)).toMatchObject({ status: 'error' });
+
+		await mod.restartBackendSidecar();
+		expect(envOf(2)).toMatchObject({ MAIL_SIDECAR_PREVIOUS_EXIT: '3' });
+	});
 });
 
 describe('unload hook — only a leave that goes ahead stops the backend', () => {
