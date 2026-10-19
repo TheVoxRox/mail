@@ -19,6 +19,15 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Repo
+
+- The independent pass over B1-23's fix re-verified the IMAP/SMTP audit
+  against the tenth cut's v0.1.0 tag (1.76) and confirmed both halves of #750
+  by removing each and watching its tests fail. In the running app none of 40
+  Restarts of the boot views handed the killed backend's exit over, against 10
+  of 10 on the shell before the fix, so the tag stands; the B1 verdict is PASS
+  with B1-21 and B1-24 accepted (#752).
+
 ## [0.1.0] - 2026-10-19
 
 ### Backend
