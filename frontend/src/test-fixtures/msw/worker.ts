@@ -2,6 +2,7 @@ import { browser } from '$app/env';
 import { setupWorker } from 'msw/browser';
 import { sessionState } from '#lib/stores/session.js';
 import {
+	failNextHistoryForgetOnce,
 	failNextVCardExportOnce,
 	handlers,
 	setConnectionTestAuthFailure,
@@ -153,7 +154,8 @@ export async function installE2EBypass(): Promise<void> {
 		setFolderAuthFailure,
 		setConnectionTestAuthFailure,
 		setVCardExportDelayMs,
-		failNextVCardExport: failNextVCardExportOnce
+		failNextVCardExport: failNextVCardExportOnce,
+		failNextHistoryForget: failNextHistoryForgetOnce
 	};
 }
 

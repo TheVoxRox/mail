@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import { autocompleteContacts } from '#lib/api/contacts.js';
+	import { autocompleteContacts, forgetHistorySuggestion } from '#lib/api/contacts.js';
 	import { chipVariants } from '#lib/components/ui/chip/index.js';
 	import { focusRing, focusRingInset } from '#lib/components/ui/focus-ring/index.js';
 	import { menuContentVariants, menuItemVariants } from '#lib/components/ui/menu/index.js';
 	import { clientConfig } from '#lib/stores/clientConfig.js';
+	import { announcePolite, pushToast } from '#lib/stores/toasts.js';
 	import { cn } from '#lib/utils.js';
 	import { _ } from '#lib/i18n/index.js';
 	import {
@@ -42,6 +43,22 @@
 	let inputValue = $state('');
 	let suggestions = $state<ContactAutocompleteResponse[]>([]);
 	let activeSuggestion = $state(0);
+	/*
+	 * Part of every option id, bumped when a forgotten suggestion leaves the list.
+	 * The highlight then stays on the same position, so without a new id the
+	 * active descendant would keep its value and the screen reader would not
+	 * read the suggestion that took the forgotten one's place.
+	 */
+	let suggestionGeneration = $state(0);
+	/*
+	 * Whether the user has moved through the open list with an arrow key. Delete
+	 * forgets a suggestion only then: the list opens with its first row
+	 * highlighted, and the key must not remove a suggestion the user has not
+	 * heard.
+	 */
+	let navigatedSuggestions = false;
+	/** The suggestion being forgotten, so a second press does not send it twice. */
+	let forgettingId: number | null = null;
 	let inputElement = $state<HTMLInputElement | null>(null);
 	let lastEmittedValue = '';
 	let autocompleteRun = 0;
@@ -90,8 +107,13 @@
 		}
 		emitTokens(next);
 		inputValue = '';
-		suggestions = [];
+		showSuggestions([]);
+	}
+
+	function showSuggestions(next: ContactAutocompleteResponse[]): void {
+		suggestions = next;
 		activeSuggestion = 0;
+		navigatedSuggestions = false;
 	}
 
 	function removeAddress(index: number): void {
@@ -116,7 +138,7 @@
 		const run = (autocompleteRun += 1);
 		const normalized = query.trim();
 		if (!accountId || normalized.length < 2) {
-			suggestions = [];
+			showSuggestions([]);
 			return;
 		}
 		try {
@@ -127,11 +149,57 @@
 			const results = await autocompleteContacts(accountId, normalized, limit);
 			if (run !== autocompleteRun) return;
 			const existing = tokens.map((address) => address.toLowerCase());
-			suggestions = results.filter((item) => !existing.includes(item.email.toLowerCase()));
-			activeSuggestion = 0;
+			showSuggestions(results.filter((item) => !existing.includes(item.email.toLowerCase())));
 		} catch {
-			if (run === autocompleteRun) suggestions = [];
+			if (run === autocompleteRun) showSuggestions([]);
 		}
+	}
+
+	/*
+	 * Forgets a history suggestion on the server, then takes it out of the open
+	 * list with the highlight left on the same position, which is the next
+	 * suggestion. The address comes back with the next message exchanged with it.
+	 */
+	async function forgetSuggestion(suggestion: ContactAutocompleteResponse): Promise<void> {
+		if (suggestion.historyId == null || suggestion.historyId === forgettingId) return;
+		forgettingId = suggestion.historyId;
+		// A lookup still in flight was answered before the forget and would put the
+		// suggestion back.
+		autocompleteRun += 1;
+		try {
+			await forgetHistorySuggestion(suggestion.historyId);
+		} catch {
+			pushToast($_('compose.suggestionForgetFailed', { values: { address: suggestion.email } }), {
+				tone: 'error'
+			});
+			return;
+		} finally {
+			forgettingId = null;
+		}
+		const index = suggestions.findIndex((item) => item.email === suggestion.email);
+		if (index >= 0) {
+			suggestions = suggestions.filter((_, itemIndex) => itemIndex !== index);
+			if (index < activeSuggestion) activeSuggestion -= 1;
+			activeSuggestion = Math.min(activeSuggestion, Math.max(suggestions.length - 1, 0));
+			suggestionGeneration += 1;
+		}
+		announcePolite($_('compose.suggestionForgotten', { values: { address: suggestion.email } }));
+	}
+
+	/*
+	 * Delete on the highlighted suggestion forgets it, as in Outlook's address
+	 * list. Only where the key does nothing in the field anyway (caret at the end,
+	 * nothing selected, no modifier), so it never takes deleting a character
+	 * away; and never on auto-repeat, which in Outlook empties the whole list
+	 * while the key is held. Changing when it applies means changing its row in
+	 * routes/settings/shortcuts/+page.svelte — it is a hand-maintained mirror.
+	 */
+	function isForgetGesture(event: KeyboardEvent): boolean {
+		if (event.key !== 'Delete' || event.repeat) return false;
+		if (event.ctrlKey || event.altKey || event.shiftKey || event.metaKey) return false;
+		if (!navigatedSuggestions || !suggestions[activeSuggestion] || !inputElement) return false;
+		const end = inputElement.value.length;
+		return inputElement.selectionStart === end && inputElement.selectionEnd === end;
 	}
 
 	function handleInput(): void {
@@ -150,11 +218,25 @@
 		if (event.key === 'ArrowDown' && suggestions.length > 0) {
 			event.preventDefault();
 			activeSuggestion = Math.min(activeSuggestion + 1, suggestions.length - 1);
+			navigatedSuggestions = true;
 			return;
 		}
 		if (event.key === 'ArrowUp' && suggestions.length > 0) {
 			event.preventDefault();
 			activeSuggestion = Math.max(activeSuggestion - 1, 0);
+			navigatedSuggestions = true;
+			return;
+		}
+		if (isForgetGesture(event)) {
+			event.preventDefault();
+			const suggestion = suggestions[activeSuggestion];
+			if (suggestion.source === 'HISTORY') {
+				void forgetSuggestion(suggestion);
+			} else {
+				// Said rather than ignored: a key that does nothing is silence, and
+				// silence does not tell the user where the address can be removed.
+				announcePolite($_('compose.suggestionIsContact'));
+			}
 			return;
 		}
 		if (event.key === 'Escape' && suggestions.length > 0) {
@@ -162,7 +244,7 @@
 			// Closing the suggestion popup must not bubble to the compose-level
 			// Escape shortcut, which would open the discard dialog on top of it.
 			event.stopPropagation();
-			suggestions = [];
+			showSuggestions([]);
 			return;
 		}
 		if (event.key === 'Enter' && suggestions[activeSuggestion]) {
@@ -217,7 +299,7 @@
 				aria-autocomplete="list"
 				aria-controls={suggestions.length > 0 ? `${id}-suggestions` : undefined}
 				aria-activedescendant={suggestions.length > 0
-					? `${id}-suggestion-${activeSuggestion}`
+					? `${id}-suggestion-${suggestionGeneration}-${activeSuggestion}`
 					: undefined}
 				aria-keyshortcuts={shortcut}
 				class={cn(
@@ -245,7 +327,7 @@
 					{#each suggestions as suggestion, index (suggestion.email)}
 						<button
 							type="button"
-							id={`${id}-suggestion-${index}`}
+							id={`${id}-suggestion-${suggestionGeneration}-${index}`}
 							role="option"
 							tabindex="-1"
 							aria-selected={index === activeSuggestion}
@@ -267,11 +349,33 @@
 									distinguishing this row from an address book entry would be
 									visual only.
 								-->
-								<!-- `bg-background`, not `bg-muted`: the highlighted row is muted. -->
-								<span
-									class="shrink-0 rounded-sm bg-background px-1.5 py-0.5 text-xs text-muted-foreground"
-								>
-									{$_('compose.suggestionFromHistory')}
+								<span class="flex shrink-0 items-center gap-1">
+									<!-- `bg-background`, not `bg-muted`: the highlighted row is muted. -->
+									<span
+										class="rounded-sm bg-background px-1.5 py-0.5 text-xs text-muted-foreground"
+									>
+										{$_('compose.suggestionFromHistory')}
+									</span>
+									<!--
+										The mouse's way to forget the suggestion, as Outlook's list has one.
+										Hidden from the accessibility tree and not focusable: a control
+										inside an option is not one a listbox can reach, and the keyboard
+										way is Delete on the highlighted row. stopPropagation keeps the
+										click from picking the suggestion it removes. 24 px for the
+										target size, with a negative margin so the row stays as tall as a
+										contact's.
+									-->
+									<span
+										aria-hidden="true"
+										title={$_('compose.forgetSuggestion')}
+										class="-my-0.5 inline-flex size-6 cursor-pointer items-center justify-center rounded-sm text-muted-foreground hover:bg-background hover:text-foreground"
+										onclick={(event) => {
+											event.stopPropagation();
+											void forgetSuggestion(suggestion);
+										}}
+									>
+										x
+									</span>
 								</span>
 							{/if}
 						</button>

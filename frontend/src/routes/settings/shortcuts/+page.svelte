@@ -21,7 +21,8 @@
 	/*
 	 * Scope/action rows are a hand-maintained mirror of the real handlers —
 	 * keep in sync with lib/shortcuts/globalShortcuts.ts,
-	 * lib/components/compose/controller.ts and
+	 * lib/components/compose/controller.ts,
+	 * lib/components/compose/AddressTokenField.svelte and
 	 * lib/components/grid/rowNavigation.ts (each carries a reminder). Labels
 	 * of the global shortcuts come from lib/shortcuts/shortcutLabels.ts.
 	 */
@@ -133,6 +134,11 @@
 					shortcut: 'Ctrl+Shift+B',
 					actionKey: 'settings.shortcuts.actions.focusBcc',
 					scopeKey: 'settings.shortcuts.scopes.compose'
+				},
+				{
+					shortcut: 'Delete',
+					actionKey: 'settings.shortcuts.actions.forgetSuggestion',
+					scopeKey: 'settings.shortcuts.scopes.addressSuggestions'
 				}
 			]
 		},

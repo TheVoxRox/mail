@@ -37,7 +37,7 @@ export interface E2EFixtureState {
 	 * contacts and drops any address a contact already carries — the same
 	 * server-side dedup the real endpoint performs.
 	 */
-	correspondentsByAccount: Record<number, { email: string; name: string | null }[]>;
+	correspondentsByAccount: Record<number, { id: number; email: string; name: string | null }[]>;
 	draftsByAccount: Record<number, MailSummaryResponse[]>;
 	attachments: Record<string, Blob>;
 	/** sendId of the most recent async send, so the SSE bridge can echo its outcome. */
@@ -471,9 +471,12 @@ function createInitialState(): E2EFixtureState {
 		// all, so it is the row that proves history reaches the typeahead.
 		correspondentsByAccount: {
 			1: [
-				{ email: 'jan.dvorak@example.com', name: 'Jan Dvorak' },
-				{ email: 'jana@example.com', name: 'Jana Novak' },
-				{ email: 'no-reply@example.com', name: null }
+				{ id: 1, email: 'jan.dvorak@example.com', name: 'Jan Dvorak' },
+				{ id: 2, email: 'jana@example.com', name: 'Jana Novak' },
+				{ id: 3, email: 'no-reply@example.com', name: null },
+				// A second history-only row matching "jan", so forgetting the first
+				// one leaves a suggestion for the highlight to move to.
+				{ id: 4, email: 'jan.kral@example.com', name: 'Jan Kral' }
 			],
 			2: []
 		},

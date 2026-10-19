@@ -36,6 +36,7 @@ import org.voxrox.mailbackend.feature.contact.dto.ContactResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactUpdateRequest;
 import org.voxrox.mailbackend.feature.contact.service.ContactBulkService;
 import org.voxrox.mailbackend.feature.contact.service.ContactService;
+import org.voxrox.mailbackend.feature.contact.service.CorrespondentService;
 import org.voxrox.mailbackend.util.LogCategory;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -59,13 +60,16 @@ public class ContactController {
     private static final Logger log = LoggerFactory.getLogger(ContactController.class);
     private final ContactService contactService;
     private final ContactBulkService contactBulkService;
+    private final CorrespondentService correspondentService;
     private final MailClientProperties mailProps;
     private final ClientConfigProperties clientConfigProps;
 
     public ContactController(ContactService contactService, ContactBulkService contactBulkService,
-            MailClientProperties mailProps, ClientConfigProperties clientConfigProps) {
+            CorrespondentService correspondentService, MailClientProperties mailProps,
+            ClientConfigProperties clientConfigProps) {
         this.contactService = contactService;
         this.contactBulkService = contactBulkService;
+        this.correspondentService = correspondentService;
         this.mailProps = mailProps;
         this.clientConfigProps = clientConfigProps;
     }
@@ -125,6 +129,15 @@ public class ContactController {
         int finalLimit = Math
                 .min(Objects.requireNonNullElse(limit, clientConfigProps.contactAutocompleteDefaultLimit()), maxLimit);
         return contactService.autocomplete(accountId, q, finalLimit);
+    }
+
+    @Operation(summary = "Forget a history suggestion", description = "Removes one harvested address (a `source: HISTORY` row of `/autocomplete`, named by its `historyId`) "
+            + "from the compose-window typeahead of the account it was harvested for. The address book is untouched. "
+            + "The address comes back with the next message exchanged with it. Idempotent: an id that names no row is a 204 as well.")
+    @DeleteMapping("/autocomplete/history/{historyId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void forgetHistorySuggestion(@PathVariable @Positive(message = "{validation.positive}") Long historyId) {
+        correspondentService.forget(historyId);
     }
 
     private void ensureContactQueryWithinLimit(String query) {

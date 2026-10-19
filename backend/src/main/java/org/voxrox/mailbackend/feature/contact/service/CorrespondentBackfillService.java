@@ -57,7 +57,9 @@ import org.voxrox.mailbackend.util.LogMasker;
  * sighting for every message and double every counter. The guard is therefore
  * the cache being empty for that account: populated means either a previous run
  * finished or the sync has been harvesting inline, and in both cases there is
- * nothing to do.
+ * nothing to do. The one other way to an empty cache is the user forgetting its
+ * last address, after which the next start harvests the account again; why that
+ * is accepted is on {@link CorrespondentService#forget}.
  *
  * <p>
  * The cost of that choice is that a run interrupted half way leaves a partial

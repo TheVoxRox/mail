@@ -281,4 +281,51 @@ class CorrespondentRepositoryIT {
             assertThat(searchEmails("foreign", 10)).isEmpty();
         }
     }
+
+    @Nested
+    @DisplayName("deleteOne")
+    class DeleteOne {
+
+        @Test
+        @DisplayName("forgets the named row only, not the same address on another account or a neighbour")
+        void removesOnlyThatRow() {
+            received(account, "jana@example.com", "Jana", RECENT);
+            received(account, "jan@example.com", "Jan", RECENT);
+            received(otherAccount, "jana@example.com", "Jana", RECENT);
+            Long forgotten = reload(account, "jana@example.com").getId();
+
+            assertThat(correspondentRepository.deleteOne(forgotten)).isEqualTo(1);
+
+            em.clear();
+            assertThat(correspondentRepository.findByAccountIdAndEmail(account.getId(), "jana@example.com")).isEmpty();
+            assertThat(correspondentRepository.findByAccountIdAndEmail(account.getId(), "jan@example.com")).isPresent();
+            assertThat(correspondentRepository.findByAccountIdAndEmail(otherAccount.getId(), "jana@example.com"))
+                    .isPresent();
+        }
+
+        @Test
+        @DisplayName("a row that is already gone reports 0 rather than failing")
+        void goneRowIsNoError() {
+            received(account, "jana@example.com", "Jana", RECENT);
+            Long forgotten = reload(account, "jana@example.com").getId();
+            correspondentRepository.deleteOne(forgotten);
+
+            assertThat(correspondentRepository.deleteOne(forgotten)).isZero();
+        }
+
+        @Test
+        @DisplayName("the next sighting of a forgotten address harvests it again, as a new row")
+        void nextSightingBringsItBack() {
+            received(account, "jana@example.com", "Jana", OLD);
+            received(account, "jana@example.com", "Jana", OLD);
+            correspondentRepository.deleteOne(reload(account, "jana@example.com").getId());
+
+            received(account, "jana@example.com", "Jana", RECENT);
+
+            CorrespondentEntity back = reload(account, "jana@example.com");
+            // Counted from scratch: forgetting dropped the two earlier sightings.
+            assertThat(back.getReceivedCount()).isEqualTo(1);
+            assertThat(back.getLastSeenAt()).isEqualTo(RECENT);
+        }
+    }
 }

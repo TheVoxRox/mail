@@ -19,6 +19,7 @@ import org.voxrox.mailbackend.feature.contact.entity.CorrespondentEntity;
 import org.voxrox.mailbackend.feature.contact.repository.CorrespondentRepository;
 import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
+import org.voxrox.mailbackend.util.AuditLog;
 import org.voxrox.mailbackend.util.HeaderAddresses;
 
 /**
@@ -166,6 +167,35 @@ public class CorrespondentService {
         }
         String escaped = escapeLikeWildcards(normalized);
         return correspondentRepository.search(accountId, escaped + "%", "%" + escaped + "%", ROBOT_LOCAL_PARTS, limit);
+    }
+
+    /**
+     * Forgets one harvested address, so the typeahead stops suggesting it.
+     *
+     * <p>
+     * The user's way out of a suggestion they do not want: deleting the mail cannot
+     * do it, because a message row also leaves the database when it is moved to a
+     * folder the sync does not mirror or falls out of the local window, and neither
+     * of those says anything about the person. Outlook semantics: the address comes
+     * back with the next message exchanged with it, since the harvest records that
+     * sighting like any other.
+     *
+     * <p>
+     * One way it comes back early, accepted: forgetting the account's last
+     * harvested address leaves its cache empty, and the startup backfill, which
+     * runs for an account with an empty cache, harvests the stored mail again, this
+     * address included. It takes forgetting every correspondent of the account, and
+     * the alternative was a table of forgotten addresses for the backfill to skip.
+     *
+     * <p>
+     * Idempotent: an id that names no row is no error, because the row it named is
+     * gone either way.
+     */
+    @Transactional
+    public void forget(Long historyId) {
+        int removed = correspondentRepository.deleteOne(historyId);
+        AuditLog.success("correspondent_forget", ContactService.AUDIT_ACTOR,
+                "history_id=" + historyId + " removed=" + removed);
     }
 
     /**

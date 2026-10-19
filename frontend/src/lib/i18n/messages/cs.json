@@ -288,7 +288,11 @@
 		"removeAddress": "Odebrat {address}",
 		"invalidAddress": "Adresa {address} není platná. Zadejte ji ve tvaru jmeno@domena.cz.",
 		"suggestionsLabel": "Návrhy adres",
-		"suggestionFromHistory": "není v kontaktech"
+		"suggestionFromHistory": "není v kontaktech",
+		"forgetSuggestion": "Odebrat z návrhů",
+		"suggestionForgotten": "Odebráno z návrhů: {address}",
+		"suggestionForgetFailed": "Návrh {address} se nepodařilo odebrat.",
+		"suggestionIsContact": "Tento návrh je z Kontaktů, odebrat ho jde tam."
 	},
 	"accounts": {
 		"listPageTitle": "Pošta – Nastavení – Účty",
@@ -714,6 +718,7 @@
 				"discardDraft": "Zahodit rozepsanou zprávu",
 				"focusCc": "Přejít na pole Kopie",
 				"focusBcc": "Přejít na pole Skrytá kopie",
+				"forgetSuggestion": "Odebrat vybraný návrh adresy, který není v kontaktech",
 				"newContact": "Nový kontakt",
 				"palette": "Otevřít paletu příkazů",
 				"runCommand": "Spustit vybraný příkaz",
@@ -730,6 +735,7 @@
 				"mailOrSettings": "Funguje kdekoli, i v textových polích, když je aktivní Pošta nebo Nastavení.",
 				"contacts": "Funguje kdekoli, i v textových polích, když jsou aktivní Kontakty.",
 				"compose": "Funguje při psaní nové zprávy.",
+				"addressSuggestions": "Funguje v návrzích adres při psaní, když jste se v nich pohnuli šipkou a kurzor je na konci pole. Adresa se vrátí s další zprávou od toho člověka nebo pro něj.",
 				"openMessage": "Funguje v otevřené zprávě.",
 				"printTarget": "Vytiskne otevřenou zprávu, je-li v ní fokus, jinak vybrané zprávy. Funguje i v textových polích.",
 				"palette": "Funguje při otevřené paletě příkazů."

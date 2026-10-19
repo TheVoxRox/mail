@@ -97,6 +97,15 @@ export function autocompleteContacts(
 	return api.get(`/contacts/autocomplete`, { params });
 }
 
+/**
+ * Forgets one history suggestion (`source: HISTORY`), so the typeahead stops
+ * offering it until the next message exchanged with that address. The address
+ * book is untouched. A row that is already gone is no error.
+ */
+export function forgetHistorySuggestion(historyId: number): Promise<void> {
+	return api.delete<void>(`/contacts/autocomplete/history/${historyId}`);
+}
+
 export async function createContact(body: ContactCreateRequest): Promise<ContactResponse> {
 	return normalizeContact(await api.post<WireContactResponse>(`/contacts`, body));
 }

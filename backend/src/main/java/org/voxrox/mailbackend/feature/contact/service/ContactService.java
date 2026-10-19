@@ -258,7 +258,8 @@ public class ContactService {
             if (!offered.add(c.getEmail())) {
                 continue;
             }
-            ContactAutocompleteResponse resp = ContactAutocompleteResponse.ofHistory(c.getEmail(), c.getDisplayName());
+            ContactAutocompleteResponse resp = ContactAutocompleteResponse.ofHistory(c.getId(), c.getEmail(),
+                    c.getDisplayName());
             rows.add(new AutocompleteRow(rankOfHistory(c, qLower), HISTORY_SECOND, rows.size(), resp));
         }
         return rows;

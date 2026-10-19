@@ -153,6 +153,7 @@ function validateAccountPayload(
 
 let vCardExportDelayMs = 0;
 let failNextVCardExport = false;
+let failNextHistoryForget = false;
 let readinessDelayMs = 0;
 let flagResponsesHeld = false;
 const heldFlagResponses: (() => void)[] = [];
@@ -170,6 +171,10 @@ export function setVCardExportDelayMs(delayMs: number): void {
 
 export function failNextVCardExportOnce(): void {
 	failNextVCardExport = true;
+}
+
+export function failNextHistoryForgetOnce(): void {
+	failNextHistoryForget = true;
 }
 
 export function setReadinessDelayMs(delayMs: number): void {
@@ -711,6 +716,7 @@ function contactRoutes(
 			.map((correspondent) => ({
 				contactId: null,
 				emailId: null,
+				historyId: correspondent.id,
 				email: correspondent.email,
 				label: null,
 				primary: null,
@@ -719,6 +725,21 @@ function contactRoutes(
 				source: 'HISTORY' as const
 			}));
 		return HttpResponse.json([...contactRows, ...historyRows].slice(0, limit));
+	}
+
+	if (segments[0] === 'autocomplete' && segments[1] === 'history' && method === 'DELETE') {
+		if (failNextHistoryForget) {
+			failNextHistoryForget = false;
+			return problem(500, 'Interní chyba serveru.', 'INTERNAL_ERROR');
+		}
+		// Idempotent like the real endpoint: an id that names no row is a 204 too.
+		const historyId = Number(segments[2]);
+		for (const [accountId, rows] of Object.entries(fixtureState.correspondentsByAccount)) {
+			fixtureState.correspondentsByAccount[Number(accountId)] = rows.filter(
+				(row) => row.id !== historyId
+			);
+		}
+		return new HttpResponse(null, { status: 204 });
 	}
 
 	const contactId = Number(segments[0]);

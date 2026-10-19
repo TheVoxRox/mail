@@ -122,4 +122,13 @@ public interface CorrespondentRepository extends JpaRepository<CorrespondentEnti
     @Modifying
     @Query("DELETE FROM CorrespondentEntity c WHERE c.account.id = :accountId")
     int deleteAllForAccount(@Param("accountId") Long accountId);
+
+    /**
+     * Drops one harvested address, which is how the user forgets a suggestion. A
+     * bulk DELETE for the same reason as {@link #deleteAllForAccount}, and because
+     * it reports a row that is already gone as 0 instead of failing.
+     */
+    @Modifying
+    @Query("DELETE FROM CorrespondentEntity c WHERE c.id = :id")
+    int deleteOne(@Param("id") Long id);
 }

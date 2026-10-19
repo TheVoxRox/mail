@@ -288,7 +288,11 @@
 		"removeAddress": "Remove {address}",
 		"invalidAddress": "The address {address} is not valid. Enter it in the form name@example.com.",
 		"suggestionsLabel": "Address suggestions",
-		"suggestionFromHistory": "not in contacts"
+		"suggestionFromHistory": "not in contacts",
+		"forgetSuggestion": "Remove from suggestions",
+		"suggestionForgotten": "Removed from suggestions: {address}",
+		"suggestionForgetFailed": "Could not remove {address} from suggestions.",
+		"suggestionIsContact": "This suggestion comes from Contacts; remove it there."
 	},
 	"accounts": {
 		"listPageTitle": "Mail – Settings – Accounts",
@@ -714,6 +718,7 @@
 				"discardDraft": "Discard the draft message",
 				"focusCc": "Move to the Cc field",
 				"focusBcc": "Move to the Bcc field",
+				"forgetSuggestion": "Remove the highlighted address suggestion that is not in contacts",
 				"newContact": "New contact",
 				"palette": "Open command palette",
 				"runCommand": "Run the selected command",
@@ -730,6 +735,7 @@
 				"mailOrSettings": "Works anywhere, including text fields, while Mail or Settings is active.",
 				"contacts": "Works anywhere, including text fields, while Contacts is active.",
 				"compose": "Works while composing a new message.",
+				"addressSuggestions": "Works in the address suggestions while composing, once you have moved through them with an arrow key and the caret is at the end of the field. The address comes back with the next message from or to that person.",
 				"openMessage": "Works while a message is open.",
 				"printTarget": "Prints the open message when focus is in it, otherwise the selected messages. Works in text fields too.",
 				"palette": "Works while the command palette is open."
