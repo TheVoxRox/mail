@@ -108,6 +108,16 @@ Entries before 2026-09-17 predate that split and are left as written.
   layout. They now use the foreground colour in both places, which also gives
   them the higher contrast; the text typed into the fields was already in that
   colour, and the labels stay set apart by weight and their fixed column.
+- **"Přeskočit na hlavní obsah" works the second time it is used.** The first
+  use leaves `#main-content` in the address, so the link then points at the
+  page already open, and the guard that keeps such a link from navigating
+  (#721) cancelled it: Enter left focus on the link. A link with a fragment is
+  SvelteKit's in-page navigation, which moves focus to its target, so the guard
+  leaves it alone; and it compares the open page without the fragment, so Enter
+  on the folder already open keeps focus in the pane after the skip link too.
+  Both cases are in
+  [current-page-link.functional.e2e.ts](frontend/src/routes/current-page-link.functional.e2e.ts),
+  seen to fail on the old guard.
 
 ### Repo
 

@@ -18,7 +18,15 @@
  * component that handles its own link (the subject links in the mail grids)
  * runs on the anchor, before this, and is left alone; so is everything
  * SvelteKit would not handle either — another window, a download, a modified
- * click, a different URL or the same page with another hash.
+ * click or a different URL.
+ *
+ * A link with a fragment is left alone too, the one already in the URL
+ * included: SvelteKit takes it as a hash navigation on the page, which scrolls
+ * to the target and focuses it, and never as the `refreshAll` navigation this
+ * guards against. Cancelling it broke the skip link the second time it was
+ * used, once its `#main-content` was in the URL. That hash is also why the
+ * current URL is compared without its own: after the skip link, Enter on the
+ * folder already open would otherwise navigate to the same page without it.
  */
 export function installCurrentPageLinkGuard(target: HTMLElement = document.body): () => void {
 	const guard = (event: MouseEvent) => {
@@ -28,7 +36,8 @@ export function installCurrentPageLinkGuard(target: HTMLElement = document.body)
 		if (!(anchor instanceof HTMLAnchorElement)) return;
 		if (anchor.hasAttribute('download')) return;
 		if (anchor.target && anchor.target !== '_self') return;
-		if (anchor.href !== window.location.href) return;
+		if (anchor.href.includes('#')) return;
+		if (anchor.href !== window.location.href.split('#')[0]) return;
 		event.preventDefault();
 	};
 	target.addEventListener('click', guard);

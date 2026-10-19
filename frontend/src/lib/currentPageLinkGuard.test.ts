@@ -52,6 +52,23 @@ describe('installCurrentPageLinkGuard', () => {
 		expect(click(link('/mail/7/INBOX#top')).defaultPrevented).toBe(false);
 	});
 
+	it('leaves a link with a fragment to the router, the one already in the URL included', () => {
+		// The skip link, used once: its hash is now in the URL, and the second use
+		// must still reach SvelteKit, which scrolls to the target and focuses it.
+		window.history.replaceState(null, '', '/mail/7/INBOX#main-content');
+		removers.push(installCurrentPageLinkGuard());
+
+		expect(click(link('#main-content')).defaultPrevented).toBe(false);
+		expect(click(link('/mail/7/INBOX#main-content')).defaultPrevented).toBe(false);
+	});
+
+	it('still cancels a link to the page already open once a fragment is in the URL', () => {
+		window.history.replaceState(null, '', '/mail/7/INBOX#main-content');
+		removers.push(installCurrentPageLinkGuard());
+
+		expect(click(link('/mail/7/INBOX')).defaultPrevented).toBe(true);
+	});
+
 	it('leaves alone what the router would not handle either', () => {
 		removers.push(installCurrentPageLinkGuard());
 
