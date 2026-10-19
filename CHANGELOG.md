@@ -131,6 +131,11 @@ Entries before 2026-09-17 predate that split and are left as written.
   client was the provider template list #735 took off the account edit page.
   The MSW mock, the OpenAPI snapshot and the generated types drop it too, and
   the API surface audit records the drift without a new verdict (#736).
+- ESLint finds the Svelte config next to its own file rather than in the
+  working directory, which from the repo root held none, so `.svelte` files
+  were linted without the project's runes option; a config that fails to load
+  now fails the run. `regen:sbom` no longer stops on a `node_modules/$app` an
+  interrupted run set aside once `svelte-kit sync` has written a new one (#743).
 
 ## [0.1.0] - 2026-10-18
 
