@@ -191,16 +191,5 @@
         "note": "auth-finished.html and auth-failed.html, the pages the system browser shows after a sign-in, change for WCAG 2.2 only: the English half of each is marked lang=\"en\" (3.1.2), the reason line on the failure page is #4b5563 instead of #6b7280 on #f3f4f6 (4.39:1 to 1.4.3's 4.5:1), and its Czech text uses the en dash. Markup and CSS only: the inline script that writes ?reason= with textContent, the redirect targets and the public-endpoint list are unchanged. Verdict unchanged."
       }
     ]
-  },
-  "docs/IMAP_SMTP_AUDIT.md": {
-    "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "1b8699a45512b5698db83755aef88df17d9db22f"
-    },
-    "acknowledgements": [
-      {
-        "date": "2026-10-19",
-        "note": "Recorded in the audit itself as v1.73 (#745), B1-22's fix, which waits for its independent pass; the anchor stays at dec376c. Under Code paths three files change. SyncCrashGuard: exit clears only the marker (clearSyncStarted), and the crash count starts over only through passCompleted; an account with a crash on record takes a single turn in enter, which turns its sync away while another such account holds it; whileFetching marks a body download as a sync of its account without the turn; isPaused reads the pause from the database; every write and the startup reconcile catch any runtime exception; resumeIfPaused also clears MAIL_SYNC_PAUSED_AFTER_CRASHES from last_error. MailSyncService: enter sits inside the try in syncAllFolders and syncAndBackfill, exit runs only after an enter that let the sync run, a turned-away pass releases the lock and reports as a skipped one, and passCompleted runs after a folder loop that synced every role folder itself. MailContentService: an uncached body of a paused account is refused with MAIL_ACCOUNT_SYNC_PAUSED (409) before any IMAP command, and the fetch runs inside whileFetching with the same executor action. No bound, connect, TLS, parse or persist path moves."
-      }
-    ]
   }
 }
