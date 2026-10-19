@@ -19,27 +19,6 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
-### Frontend
-
-- **Restarting from the start screen no longer counts as a crash.** The
-  Restart offered while the app takes long to start, and on its error screen,
-  ends the running backend first, and the next backend was usually told that
-  the previous one had crashed. Three such Restarts while an account was
-  syncing paused that account's sync, as if a message in it kept ending the
-  backend. A start the backend refused because it could not open its data
-  directory, or because another instance was running, was also reported to
-  the next start as a crash, while the exit before it was dropped (#750).
-
-### Repo
-
-- The independent pass over B1-22's fix re-verified the IMAP/SMTP audit
-  against the v0.1.0 tag (1.74) and confirmed every part of #745 by removing it
-  and watching its test fail. It found B1-23 (Low, open): the Restart of the
-  boot views hands the killed backend's exit over as a crash, so three
-  Restarts during an account's sync pause it, which by the criterion settled
-  for the pass blocks v0.1.0; and B1-24 (Low, accepted). The candidate sheet
-  records that this voids the 2026-10-19 tag (#749).
-
 ## [0.1.0] - 2026-10-19
 
 ### Backend
@@ -935,6 +914,15 @@ Entries before 2026-09-17 predate that split and are left as written.
   comes back with the next message exchanged with it. Listed under Nastavení →
   Klávesové zkratky.
 
+- **Restarting from the start screen no longer counts as a crash.** The
+  Restart offered while the app takes long to start, and on its error screen,
+  ends the running backend first, and the next backend was usually told that
+  the previous one had crashed. Three such Restarts while an account was
+  syncing paused that account's sync, as if a message in it kept ending the
+  backend. A start the backend refused because it could not open its data
+  directory, or because another instance was running, was also reported to
+  the next start as a crash, while the exit before it was dropped (#750).
+
 ### Tauri / Release
 
 - **The machine half of the checklist is recorded for candidate `a2caa27`, in the appendix rather than in the body — the first sheet written under the rule from [#461](https://github.com/TheVoxRox/mail/pull/461).** §0 green (`0.1.0` on all five files, no bump needed). §1: `mvn clean verify` BUILD SUCCESS in 4:24, sidecar packaged, launcher `.cfg` carrying the production `google.client-id`, and the packaged launcher newer than the jar it wraps. §2: the whole frontend chain green — functional 277 passed, a11y 65 passed, port 4173 verified free first so Playwright could not recycle a stale preview against an old build. This closes the last finding of the documentation review: the previous sheet was pinned to `9c51d9d`, and production Java plus the bundled `NOTICE.txt` had both changed after it, so its evidence had stopped describing the tree. **Worth writing down, because it cost three wrong readings before the numbers were right:** the per-class `.txt` files under `target/*-reports/` are not a source for "Failures: 0, Errors: 0, Skipped: 0" — they omit nested classes and summed to 44 against Maven's 86 for failsafe. `failsafe-summary.xml` (`completed`, `errors`, `failures`, `skipped`, `flakes`) and the `<testsuite>` attributes of the surefire XMLs are. And grepping those XMLs for `<failure` matches `<failures>` and `<failureMessage>` in the summary file, which briefly invented two failures in a build that had none. **`BUILD SUCCESS` alone does not cover the item** — a skipped test does not fail a build, so `Skipped: 0` has to be read somewhere, and now the sheet says where.
@@ -1601,6 +1589,16 @@ Entries before 2026-09-17 predate that split and are left as written.
   for the e2e test of that path (#747).
 
 - **The ninth cut of `v0.1.0` takes its tag on the 2026-10-19 candidate sheet, which replaces the 2026-10-18 one (#748).** That sheet's tag was never moved: fixes kept merging, #733 to #747, and it listed them as waiting for the next cut. §0 to §2 are taken again on `main` at `5f20f57`, `## Unreleased` is folded into `[0.1.0]` under the subsection each bullet came from, now dated 2026-10-19, and the provisional known issues lose the missing **Uložit logy** (#734) and say that a sync the backend keeps dying in now pauses (#740, #745). `regen:licenses:all` found nothing to change. The independent pass over the B1-22 fix runs alongside the cut, before the manual sections start.
+
+- The independent pass over B1-22's fix re-verified the IMAP/SMTP audit
+  against the v0.1.0 tag (1.74) and confirmed every part of #745 by removing it
+  and watching its test fail. It found B1-23 (Low, open): the Restart of the
+  boot views hands the killed backend's exit over as a crash, so three
+  Restarts during an account's sync pause it, which by the criterion settled
+  for the pass blocks v0.1.0; and B1-24 (Low, accepted). The candidate sheet
+  records that this voids the 2026-10-19 tag (#749).
+
+- **The tenth cut of `v0.1.0` takes its tag on a new 2026-10-19 candidate sheet, which replaces the one B1-23 voided (#751).** The independent pass over the B1-22 fix found B1-23 after the ninth cut was tagged (#749), and #750 fixed it. §0 to §2 are taken again on `main` at `3ae75bd`, where only `frontend/src` differs from the ninth cut's object ids, and `## Unreleased` is folded into `[0.1.0]` under the subsection each bullet came from; the provisional known issues do not change. `regen:licenses:all` found nothing to change. The independent pass over the B1-23 fix runs alongside the cut, before the manual sections start.
 
 ### Known issues
 
