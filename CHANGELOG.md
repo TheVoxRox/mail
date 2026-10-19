@@ -19,6 +19,15 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Repo
+
+- The independent pass over B1-22's fix re-verified the IMAP/SMTP audit
+  against the v0.1.0 tag (1.74) and confirmed every part of #745 by removing it
+  and watching its test fail. It found B1-23 (Low, open): the Restart of the
+  boot views hands the killed backend's exit over as a crash, so three
+  Restarts during an account's sync pause it, which by the criterion settled
+  for the pass blocks v0.1.0; and B1-24 (Low, accepted) (#749).
+
 ## [0.1.0] - 2026-10-19
 
 ### Backend
