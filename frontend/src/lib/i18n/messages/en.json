@@ -350,6 +350,8 @@
 			"customServerHint": "Enter the host and ports for both your incoming (IMAP) and outgoing (SMTP) servers. You'll find these in your e-mail provider's documentation.",
 			"imapHeading": "IMAP (incoming)",
 			"smtpHeading": "SMTP (outgoing)",
+			"imapHostPlaceholder": "imap.example.com",
+			"smtpHostPlaceholder": "smtp.example.com",
 			"host": "Host",
 			"port": "Port",
 			"useSsl": "SSL/TLS encryption",
@@ -385,6 +387,7 @@
 		"wizard": {
 			"emailHeading": "Let's start with your e-mail",
 			"emailFormLabel": "Provider detection by e-mail",
+			"emailPlaceholder": "name@example.com",
 			"continue": "Continue",
 			"detecting": "Looking up provider…",
 			"manualSetup": "Set up manually",

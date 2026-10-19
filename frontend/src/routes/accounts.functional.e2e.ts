@@ -53,6 +53,7 @@ test.describe('Accounts', () => {
 		await page.getByRole('button', { name: 'Přidat první účet' }).click();
 		await page.waitForURL('**/settings/accounts/new');
 		await expect(page.locator('#wizard-email')).toBeFocused();
+		await expect(page.locator('#wizard-email')).toHaveAttribute('placeholder', 'jmeno@domena.cz');
 	});
 
 	test('Gmail e-mail otevře OAuth panel s Google CTA bez IMAP formuláře', async ({ page }) => {
@@ -240,6 +241,8 @@ test.describe('Accounts', () => {
 		await expect(page.getByRole('radio', { name: 'Vlastní nastavení' })).toBeChecked();
 		// Domain label "firma" → "Firma" (works for custom servers too, no provider needed).
 		await expect(page.locator('#acc-accountName')).toHaveValue('Firma');
+		await expect(page.locator('#acc-imap-host')).toHaveAttribute('placeholder', 'imap.domena.cz');
+		await expect(page.locator('#acc-smtp-host')).toHaveAttribute('placeholder', 'smtp.domena.cz');
 
 		await page.locator('#acc-imap-host').fill('imap.firma.cz');
 		await page.locator('#acc-smtp-host').fill('smtp.firma.cz');

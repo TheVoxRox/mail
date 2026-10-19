@@ -140,6 +140,16 @@ Entries before 2026-09-17 predate that split and are left as written.
   Both cases are in
   [current-page-link.functional.e2e.ts](frontend/src/routes/current-page-link.functional.e2e.ts),
   seen to fail on the old guard.
+- **The sample addresses in the account and contact forms are Czech in the
+  Czech interface.** The e-mail field of the new-account wizard showed the
+  English "name@example.com" and the server hosts of the custom setup
+  "imap.example.com" and "smtp.example.com", all three written into the
+  components rather than the message bundles; the contact form's e-mail field
+  had "email@example.cz". Neither e-mail placeholder matched the field's own
+  error, which already gives the form as "jmeno@domena.cz". The placeholders
+  now come from the bundles and follow that form in Czech ("imap.domena.cz"
+  for the hosts); the other placeholders and hints already came from the
+  bundles in Czech.
 
 ### Repo
 

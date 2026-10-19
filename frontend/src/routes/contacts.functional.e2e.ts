@@ -162,7 +162,7 @@ test.describe('Contacts', () => {
 
 		await page.getByPlaceholder('Jméno').fill('Marie');
 		await page.getByPlaceholder('Příjmení').fill('Dvorak');
-		await page.getByPlaceholder('email@example.cz').fill('marie@example.com');
+		await page.getByPlaceholder('jmeno@domena.cz').fill('marie@example.com');
 		await page.getByPlaceholder('Poznámka').fill('E2E fixture');
 		await page.getByRole('button', { name: 'Uložit' }).click();
 
@@ -423,7 +423,7 @@ test.describe('Contacts', () => {
 
 		await page.getByPlaceholder('Jméno').fill('Bulk');
 		await page.getByPlaceholder('Příjmení').fill('Delete');
-		await page.getByPlaceholder('email@example.cz').fill('bulk.delete@example.com');
+		await page.getByPlaceholder('jmeno@domena.cz').fill('bulk.delete@example.com');
 		await page.getByRole('button', { name: 'Uložit' }).click();
 		await expect(page.getByText('Bulk Delete')).toBeVisible();
 

@@ -291,7 +291,7 @@
 							type="email"
 							bind:value={email}
 							bind:ref={emailInputEl}
-							placeholder="name@example.com"
+							placeholder={$_('accounts.wizard.emailPlaceholder')}
 							required
 							autocomplete="email"
 							{...control}
