@@ -64,6 +64,14 @@ Entries before 2026-09-17 predate that split and are left as written.
   Synchronise also clears the pause notice as it resumes the account, and a
   database write the guard cannot make no longer leaves an account's sync
   stuck until the app restarts.
+- **A harvested address can be forgotten.** A new endpoint,
+  `DELETE /api/v1/contacts/autocomplete/history/{historyId}`, removes one
+  address the typeahead offers from history, named by the `historyId` that
+  history rows of `/autocomplete` now carry; the address book is untouched,
+  and the next message exchanged with the address harvests it again. Forgetting an
+  account's last harvested address leaves its cache empty, and the startup
+  backfill then harvests the stored mail again, this address included:
+  accepted, since it takes forgetting every correspondent of the account.
 
 ### Frontend
 
@@ -150,6 +158,20 @@ Entries before 2026-09-17 predate that split and are left as written.
   now come from the bundles and follow that form in Czech ("imap.domena.cz"
   for the hosts); the other placeholders and hints already came from the
   bundles in Czech.
+- **A suggestion from history can be removed from the address typeahead.**
+  Deleting someone's mail never took them out of it: the suggestions marked
+  "není v kontaktech" are counted as mail syncs, and a message also leaves the
+  local database when it moves to a folder the app does not sync or falls out
+  of the local window, so its removal says nothing about the person. As in
+  Outlook's address list, Delete on the highlighted suggestion forgets it, and
+  so does the x at the end of its row. The key acts only once the list has
+  been moved through with an arrow key, since it opens with its first row
+  highlighted, and only with the caret at the end of the field, where Delete
+  deletes nothing; held down, it removes one suggestion, not the list. The
+  removal is announced and the highlight moves to the next suggestion; on a
+  suggestion from Contacts the key says that it is removed there. The address
+  comes back with the next message exchanged with it. Listed under Nastavení →
+  Klávesové zkratky.
 
 ### Repo
 

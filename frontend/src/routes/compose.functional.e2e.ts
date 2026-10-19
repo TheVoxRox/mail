@@ -1,9 +1,25 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { expectNoFindings, openApp, setPrefs, wcagScan } from './e2e-helpers';
 
 test.beforeEach(async ({ page }) => {
 	await setPrefs(page, { locale: 'cs', readingPane: 'right' });
 });
+
+/**
+ * Moves the highlight with the arrow keys onto the suggestion that matches.
+ * Moving is part of the gesture under test: Delete forgets a suggestion only
+ * once the user has moved through the list, so a test cannot stay on the row
+ * the list opens with.
+ */
+async function highlightSuggestion(page: Page, field: Locator, name: RegExp): Promise<void> {
+	const options = page.getByRole('listbox', { name: 'Návrhy adres' }).getByRole('option');
+	const index = (await options.allTextContents()).findIndex((text) => name.test(text));
+	expect(index, `no suggestion matches ${name}`).toBeGreaterThanOrEqual(0);
+	await field.press('ArrowDown');
+	if (index === 0) await field.press('ArrowUp');
+	for (let step = 1; step < index; step += 1) await field.press('ArrowDown');
+	await expect(options.nth(index)).toHaveAttribute('aria-selected', 'true');
+}
 
 test.describe('Compose', () => {
 	test('sidebar používá tlačítko Nová zpráva a Ctrl+N otevře compose', async ({ page }) => {
@@ -280,6 +296,135 @@ test.describe('Compose', () => {
 
 		await historyOption.click();
 		await expect(page.getByText('jan.dvorak@example.com')).toBeVisible();
+	});
+
+	test('Delete po pohybu šipkou zapomene návrh z historie a zvýraznění přejde na další', async ({
+		page
+	}) => {
+		await openApp(page, '/compose');
+
+		const to = page.locator('#compose-to');
+		await to.fill('jan');
+		const suggestions = page.getByRole('listbox', { name: 'Návrhy adres' });
+		const dvorak = suggestions.getByRole('option', { name: /jan\.dvorak@example\.com/ });
+		await expect(dvorak).toBeVisible();
+
+		await highlightSuggestion(page, to, /jan\.dvorak@example\.com/);
+		const before = await to.getAttribute('aria-activedescendant');
+		await to.press('Delete');
+
+		await expect(page.locator('#live-region')).toContainText(
+			'Odebráno z návrhů: jan.dvorak@example.com'
+		);
+		await expect(dvorak).toHaveCount(0);
+		// Zvýraznění zůstane na stejném místě, tedy na návrhu, který nastoupil za
+		// zapomenutý. Id aktivní položky se přitom změní: se stejným id by
+		// odečítač nový návrh nepřečetl.
+		await expect(to).not.toHaveAttribute('aria-activedescendant', before ?? '');
+		const activeId = await to.getAttribute('aria-activedescendant');
+		await expect(page.locator(`#${activeId}`)).toHaveAccessibleName(/jan\.kral@example\.com/);
+		// Klávesa nic nesmazala z pole ani nevložila adresu.
+		await expect(to).toHaveValue('jan');
+		await expect(to).toBeFocused();
+
+		// Server ho zapomněl: nový dotaz nabídne jen druhý návrh.
+		await to.fill('jan.');
+		await expect(suggestions.getByRole('option', { name: /jan\.kral@example\.com/ })).toBeVisible();
+		await expect(dvorak).toHaveCount(0);
+	});
+
+	test('Delete bez pohybu šipkou ani s kurzorem uvnitř textu návrh nezapomene', async ({
+		page
+	}) => {
+		await openApp(page, '/compose');
+
+		const to = page.locator('#compose-to');
+		await to.fill('jan.d');
+		const suggestions = page.getByRole('listbox', { name: 'Návrhy adres' });
+		const dvorak = suggestions.getByRole('option', { name: /jan\.dvorak@example\.com/ });
+		await expect(dvorak).toHaveAttribute('aria-selected', 'true');
+
+		// Seznam se otevřel se zvýrazněným prvním návrhem, ale uživatel se v něm
+		// nepohnul: klávesa nesmí odebrat návrh, který neslyšel.
+		await to.press('Delete');
+		await expect(dvorak).toBeVisible();
+		await expect(to).toHaveValue('jan.d');
+
+		// Po pohybu šipkou, ale s kurzorem uvnitř textu, maže Delete znak jako vždy.
+		await to.press('ArrowDown');
+		await to.press('Home');
+		await to.press('Delete');
+		await expect(to).toHaveValue('an.d');
+
+		await expect(page.locator('#live-region')).not.toContainText('Odebráno z návrhů');
+		await to.fill('jan.d');
+		await expect(dvorak).toBeVisible();
+	});
+
+	test('Delete na návrhu z Kontaktů nic neodebere a řekne, kde se odebírá', async ({ page }) => {
+		await openApp(page, '/compose');
+
+		const to = page.locator('#compose-to');
+		await to.fill('jana');
+		const jana = page
+			.getByRole('listbox', { name: 'Návrhy adres' })
+			.getByRole('option', { name: /jana@example\.com/ });
+		await expect(jana).toBeVisible();
+
+		await highlightSuggestion(page, to, /jana@example\.com/);
+		await to.press('Delete');
+
+		await expect(page.locator('#live-region')).toContainText(
+			'Tento návrh je z Kontaktů, odebrat ho jde tam.'
+		);
+		await expect(jana).toBeVisible();
+		await expect(to).toHaveValue('jana');
+	});
+
+	test('křížek u návrhu z historie ho zapomene myší a adresu nevloží', async ({ page }) => {
+		await openApp(page, '/compose');
+
+		const to = page.locator('#compose-to');
+		await to.fill('jan');
+		const kral = page
+			.getByRole('listbox', { name: 'Návrhy adres' })
+			.getByRole('option', { name: /jan\.kral@example\.com/ });
+		await expect(kral).toBeVisible();
+
+		await kral.locator('[title="Odebrat z návrhů"]').click();
+
+		await expect(page.locator('#live-region')).toContainText(
+			'Odebráno z návrhů: jan.kral@example.com'
+		);
+		await expect(kral).toHaveCount(0);
+		// Klik na křížek nesmí zároveň vybrat návrh, který odebírá.
+		await expect(page.getByRole('button', { name: 'Odebrat jan.kral@example.com' })).toHaveCount(0);
+		await expect(to).toHaveValue('jan');
+		await expect(to).toBeFocused();
+	});
+
+	test('když se zapomenutí nepovede, návrh zůstane a chyba se ohlásí', async ({ page }) => {
+		await openApp(page, '/compose');
+		await page.waitForFunction(
+			() => typeof window.__MAIL_MSW__?.failNextHistoryForget === 'function'
+		);
+		await page.evaluate(() => window.__MAIL_MSW__?.failNextHistoryForget());
+
+		const to = page.locator('#compose-to');
+		await to.fill('jan');
+		const dvorak = page
+			.getByRole('listbox', { name: 'Návrhy adres' })
+			.getByRole('option', { name: /jan\.dvorak@example\.com/ });
+		await expect(dvorak).toBeVisible();
+
+		await highlightSuggestion(page, to, /jan\.dvorak@example\.com/);
+		await to.press('Delete');
+
+		await expect(page.getByRole('alert')).toContainText(
+			'Návrh jan.dvorak@example.com se nepodařilo odebrat.'
+		);
+		await expect(dvorak).toBeVisible();
+		await expect(page.locator('#live-region')).not.toContainText('Odebráno z návrhů');
 	});
 
 	test('Escape v poli adresátů zavře jen našeptávač, další Escape teprve zahazuje', async ({

@@ -68,6 +68,8 @@ declare global {
 			setConnectionTestAuthFailure: (enabled: boolean) => void;
 			setVCardExportDelayMs: (delayMs: number) => void;
 			failNextVCardExport: () => void;
+			/** The next forgotten history suggestion answers 500, once. */
+			failNextHistoryForget: () => void;
 		};
 		__MAIL_CAPTURED_ERROR_REPORTS__?: Array<{
 			url: string;

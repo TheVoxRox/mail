@@ -475,6 +475,11 @@
             "format" : "int64",
             "type" : [ "integer", "null" ]
           },
+          "historyId" : {
+            "description" : "Identifier of the harvested address, for DELETE /contacts/autocomplete/history/{historyId}. Null on a CONTACT row.",
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
           "label" : {
             "description" : "Address label (WORK/HOME/OTHER). Null on a HISTORY row and on a contact address with no label.",
             "enum" : [ "WORK", "HOME", "OTHER", "WORK", "HOME", "OTHER" ],
@@ -2968,6 +2973,52 @@
           }
         },
         "summary" : "Compose-window autocomplete",
+        "tags" : [ "Contacts" ]
+      }
+    },
+    "/api/v1/contacts/autocomplete/history/{historyId}" : {
+      "delete" : {
+        "description" : "Removes one harvested address (a `source: HISTORY` row of `/autocomplete`, named by its `historyId`) from the compose-window typeahead of the account it was harvested for. The address book is untouched. The address comes back with the next message exchanged with it. Idempotent: an id that names no row is a 204 as well.",
+        "operationId" : "forgetHistorySuggestion",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "historyId",
+          "required" : true,
+          "schema" : {
+            "exclusiveMinimum" : 0,
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Missing or invalid X-API-KEY."
+          },
+          "500" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Internal server error."
+          },
+          "503" : {
+            "description" : "Service Unavailable"
+          }
+        },
+        "summary" : "Forget a history suggestion",
         "tags" : [ "Contacts" ]
       }
     },

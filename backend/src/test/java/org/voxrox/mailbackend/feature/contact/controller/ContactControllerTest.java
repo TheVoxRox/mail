@@ -60,6 +60,7 @@ import org.voxrox.mailbackend.feature.contact.dto.ContactResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactUpdateRequest;
 import org.voxrox.mailbackend.feature.contact.service.ContactBulkService;
 import org.voxrox.mailbackend.feature.contact.service.ContactService;
+import org.voxrox.mailbackend.feature.contact.service.CorrespondentService;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -80,6 +81,8 @@ class ContactControllerTest {
     private ContactService contactService;
     @MockitoBean
     private ContactBulkService contactBulkService;
+    @MockitoBean
+    private CorrespondentService correspondentService;
     @MockitoBean
     private MailClientProperties mailProps;
     @MockitoBean
@@ -569,22 +572,24 @@ class ContactControllerTest {
                 .andExpect(jsonPath("$[0].email").value("alice@x.cz")).andExpect(jsonPath("$[0].label").value("WORK"))
                 .andExpect(jsonPath("$[0].primary").value(true)).andExpect(jsonPath("$[0].name").value("Alice"))
                 .andExpect(jsonPath("$[0].surname").value("Liddell")).andExpect(jsonPath("$[1].primary").value(false))
-                .andExpect(jsonPath("$[0].source").value("CONTACT"));
+                .andExpect(jsonPath("$[0].source").value("CONTACT"))
+                .andExpect(jsonPath("$[0].historyId").doesNotExist());
     }
 
     @Test
     @DisplayName("GET /autocomplete -> a history row serializes with source=HISTORY and null contact fields")
     void autocompleteHistoryRowShape() throws Exception {
         when(contactService.autocomplete(eq(ACCOUNT_ID), eq("jan"), eq(10)))
-                .thenReturn(List.of(ContactAutocompleteResponse.ofHistory("jan.dvorak@example.com", "Jan Dvorak")));
+                .thenReturn(List.of(ContactAutocompleteResponse.ofHistory(7L, "jan.dvorak@example.com", "Jan Dvorak")));
 
         // The client marks these rows as "not in contacts", and it decides from
         // `source` alone — so the field reaching the wire is the contract, not an
-        // implementation detail of the service.
+        // implementation detail of the service. historyId is what the client
+        // forgets the suggestion by.
         mockMvc.perform(
                 get("/api/v1/contacts/autocomplete").param("accountId", ACCOUNT_ID.toString()).param("q", "jan"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].source").value("HISTORY"))
+                .andExpect(jsonPath("$[0].source").value("HISTORY")).andExpect(jsonPath("$[0].historyId").value(7))
                 .andExpect(jsonPath("$[0].email").value("jan.dvorak@example.com"))
                 .andExpect(jsonPath("$[0].name").value("Jan Dvorak"))
                 .andExpect(jsonPath("$[0].contactId").doesNotExist()).andExpect(jsonPath("$[0].emailId").doesNotExist())
@@ -657,6 +662,24 @@ class ContactControllerTest {
     void autocompleteInvalidAccount() throws Exception {
         mockMvc.perform(get("/api/v1/contacts/autocomplete").param("accountId", "0").param("q", "ali"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("DELETE /autocomplete/history/{historyId} -> 204, the service forgets that row")
+    void forgetHistorySuggestion() throws Exception {
+        mockMvc.perform(delete("/api/v1/contacts/autocomplete/history/{historyId}", 7L))
+                .andExpect(status().isNoContent());
+
+        verify(correspondentService).forget(7L);
+    }
+
+    @Test
+    @DisplayName("DELETE /autocomplete/history/0 -> 400 (@Positive), nothing forgotten")
+    void forgetHistorySuggestionInvalidId() throws Exception {
+        mockMvc.perform(delete("/api/v1/contacts/autocomplete/history/{historyId}", 0L))
+                .andExpect(status().isBadRequest());
+
+        verify(correspondentService, never()).forget(any());
     }
 
     @Test

@@ -12,7 +12,11 @@ IMAP/SMTP servery a poskytuje API pro uživatelské rozhraní.
   (vlákno drží zprávy pohromadě i napříč složkami; Odeslané, Koš, Spam a
   Rozepsané zůstávají stranou a seskupují se samy pro sebe).
 - Vytváření nové zprávy, odpovědi, přeposlání a ukládání konceptů; adresy
-  našeptává adresář i historie vaší korespondence.
+  našeptává adresář i historie vaší korespondence. Návrh z historie, který
+  nechcete (u takového návrhu stojí „není v kontaktech"), odeberete křížkem na
+  jeho řádku, nebo klávesou Delete: šipkou na něj přejděte a s kurzorem na
+  konci pole stiskněte Delete. Adresa se vrátí s další zprávou od toho
+  člověka nebo pro něj.
 - Psaní v Markdownu: napíšete-li `**tučně**`, `# nadpis` nebo `- odrážku`,
   příjemce dostane zprávu i naformátovanou. Editor zůstává obyčejné textové
   pole a odchozí zpráva vždy nese i přesně to, co jste napsali — kdo Markdown

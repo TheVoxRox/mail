@@ -1675,7 +1675,7 @@ test.describe('Přístupnost', () => {
 		const activeId = await toInput.getAttribute('aria-activedescendant');
 		expect(activeId).toBeTruthy();
 		if (!activeId) throw new Error('AddressTokenField nepředal aria-activedescendant.');
-		expect(activeId).toMatch(/^compose-to-suggestion-\d+$/);
+		expect(activeId).toMatch(/^compose-to-suggestion-\d+-\d+$/);
 
 		const activeOption = page.locator(`#${activeId}`);
 		await expect(activeOption).toHaveAttribute('role', 'option');

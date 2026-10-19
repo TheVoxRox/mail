@@ -422,6 +422,11 @@ export interface ContactAutocompleteResponse {
 	/** Null on a HISTORY row — nothing in the address book backs it. */
 	contactId: number | null;
 	emailId: number | null;
+	/**
+	 * The harvested row a HISTORY suggestion is forgotten by. Null on a CONTACT
+	 * row, which goes away only by editing the address book.
+	 */
+	historyId: number | null;
 	email: string;
 	label: EmailLabel | null;
 	primary: boolean | null;

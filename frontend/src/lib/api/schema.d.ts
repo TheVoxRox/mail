@@ -352,6 +352,26 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
+	'/api/v1/contacts/autocomplete/history/{historyId}': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		post?: never;
+		/**
+		 * Forget a history suggestion
+		 * @description Removes one harvested address (a `source: HISTORY` row of `/autocomplete`, named by its `historyId`) from the compose-window typeahead of the account it was harvested for. The address book is untouched. The address comes back with the next message exchanged with it. Idempotent: an id that names no row is a 204 as well.
+		 */
+		delete: operations['forgetHistorySuggestion'];
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 	'/api/v1/contacts/bulk': {
 		parameters: {
 			query?: never;
@@ -1073,6 +1093,11 @@ export interface components {
 			 * @description Identifier of the stored address. Null on a HISTORY row.
 			 */
 			emailId?: number | null;
+			/**
+			 * Format: int64
+			 * @description Identifier of the harvested address, for DELETE /contacts/autocomplete/history/{historyId}. Null on a CONTACT row.
+			 */
+			historyId?: number | null;
 			/**
 			 * @description Address label (WORK/HOME/OTHER). Null on a HISTORY row and on a contact address with no label.
 			 * @example HOME
@@ -2741,6 +2766,51 @@ export interface operations {
 				content: {
 					'*/*': components['schemas']['ContactAutocompleteResponse'][];
 				};
+			};
+			/** @description Missing or invalid X-API-KEY. */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Internal server error. */
+			500: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ProblemDetail'];
+				};
+			};
+			/** @description Service Unavailable */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	forgetHistorySuggestion: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				historyId: number;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description No Content */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
 			};
 			/** @description Missing or invalid X-API-KEY. */
 			401: {
