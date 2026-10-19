@@ -57,6 +57,8 @@
 	 * heard.
 	 */
 	let navigatedSuggestions = false;
+	/** The suggestion being forgotten, so a second press does not send it twice. */
+	let forgettingId: number | null = null;
 	let inputElement = $state<HTMLInputElement | null>(null);
 	let lastEmittedValue = '';
 	let autocompleteRun = 0;
@@ -159,7 +161,8 @@
 	 * suggestion. The address comes back with the next message exchanged with it.
 	 */
 	async function forgetSuggestion(suggestion: ContactAutocompleteResponse): Promise<void> {
-		if (suggestion.historyId == null) return;
+		if (suggestion.historyId == null || suggestion.historyId === forgettingId) return;
+		forgettingId = suggestion.historyId;
 		// A lookup still in flight was answered before the forget and would put the
 		// suggestion back.
 		autocompleteRun += 1;
@@ -170,6 +173,8 @@
 				tone: 'error'
 			});
 			return;
+		} finally {
+			forgettingId = null;
 		}
 		const index = suggestions.findIndex((item) => item.email === suggestion.email);
 		if (index >= 0) {
@@ -356,12 +361,14 @@
 										Hidden from the accessibility tree and not focusable: a control
 										inside an option is not one a listbox can reach, and the keyboard
 										way is Delete on the highlighted row. stopPropagation keeps the
-										click from picking the suggestion it removes.
+										click from picking the suggestion it removes. 24 px for the
+										target size, with a negative margin so the row stays as tall as a
+										contact's.
 									-->
 									<span
 										aria-hidden="true"
 										title={$_('compose.forgetSuggestion')}
-										class="inline-flex size-6 cursor-pointer items-center justify-center rounded-sm text-muted-foreground hover:bg-background hover:text-foreground"
+										class="-my-0.5 inline-flex size-6 cursor-pointer items-center justify-center rounded-sm text-muted-foreground hover:bg-background hover:text-foreground"
 										onclick={(event) => {
 											event.stopPropagation();
 											void forgetSuggestion(suggestion);
