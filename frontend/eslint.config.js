@@ -7,7 +7,21 @@ import globals from 'globals';
 import ts from 'typescript-eslint';
 import { loadConfig } from '@sveltejs/load-config';
 
-const svelteConfig = (await loadConfig('./', { traverse: false }))?.config;
+/*
+ * The Svelte config lives in vite.config.ts since SvelteKit 3. Looked up next to
+ * this file rather than in the working directory, which is the repo root when
+ * ESLint runs from there (an editor, a path given from the root) and then held
+ * no config, so .svelte files were linted without the project's runes option.
+ * A config that does not load fails the run instead of linting without it.
+ */
+const loadedSvelteConfig = await loadConfig(import.meta.dirname, { traverse: false });
+if (!loadedSvelteConfig || !('config' in loadedSvelteConfig)) {
+	throw new Error(
+		`eslint.config.js: no Svelte config loaded from ${import.meta.dirname}` +
+			(loadedSvelteConfig ? `: ${String(loadedSvelteConfig.error)}` : '')
+	);
+}
+const svelteConfig = loadedSvelteConfig.config;
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 

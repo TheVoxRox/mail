@@ -14,7 +14,7 @@
  */
 
 import { execSync } from 'node:child_process';
-import { existsSync, renameSync } from 'node:fs';
+import { existsSync, renameSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -36,11 +36,16 @@ const outFile = path.join(frontendDir, 'bom.json');
  * npm skips dot-named directories under node_modules, so the folder is set
  * aside under such a name for the run and put back afterwards, also when the
  * run fails. A folder still set aside by a run that was killed is put back
- * first.
+ * first, unless `svelte-kit sync` has written the folder again since: the copy
+ * set aside is then the older of the two and goes, since setting the new one
+ * aside onto it fails (EPERM on Windows, ENOTEMPTY elsewhere).
  */
 const sveltekitDir = path.join(frontendDir, 'node_modules', '$app');
 const asideDir = path.join(frontendDir, 'node_modules', '.sveltekit-app-sbom-aside');
-if (!existsSync(sveltekitDir) && existsSync(asideDir)) renameSync(asideDir, sveltekitDir);
+if (existsSync(asideDir)) {
+	if (existsSync(sveltekitDir)) rmSync(asideDir, { recursive: true, force: true });
+	else renameSync(asideDir, sveltekitDir);
+}
 const setAside = existsSync(sveltekitDir);
 
 const NPM_CYCLONEDX_VERSION = '4.0.0';
