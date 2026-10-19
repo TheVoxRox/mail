@@ -43,7 +43,7 @@
 	<ServerEndpointFields
 		idPrefix="acc-imap"
 		heading={$_('accounts.form.imapHeading')}
-		placeholder="imap.example.com"
+		placeholder={$_('accounts.form.imapHostPlaceholder')}
 		bind:host={imapHost}
 		bind:port={imapPort}
 		bind:useSsl={imapUseSsl}
@@ -56,7 +56,7 @@
 	<ServerEndpointFields
 		idPrefix="acc-smtp"
 		heading={$_('accounts.form.smtpHeading')}
-		placeholder="smtp.example.com"
+		placeholder={$_('accounts.form.smtpHostPlaceholder')}
 		bind:host={smtpHost}
 		bind:port={smtpPort}
 		bind:useSsl={smtpUseSsl}
