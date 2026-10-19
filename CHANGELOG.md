@@ -19,188 +19,7 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
-### Backend
-
-- **A short network drop no longer leaves an account showing a connection
-  error for five minutes.** A sync pass starts by listing the account's
-  folders, and that listing had no retry: when the server had closed the
-  pooled connection since the previous pass, the pass failed and the account
-  kept its connection error (`MAIL_SYNC_CONNECTION_FAILED`) until the next
-  one. Met on seznam.cz at
-  §8.1 of the 2026-10-13 candidate, where Gmail, which met the same drop inside
-  a folder, retried and carried on. The listing now reconnects and retries,
-  under the same bound as a folder cycle, when the server closed the
-  connection under it; a server that cannot be reached is left to the connect
-  retry, as before, so an outage still fails the pass once rather than running
-  out a second retry on top of the first (the first version of this fix did,
-  and the accelerated soak counted it as an exhausted retry).
-  `release:scan-logs` counts the listing's retries with the hiccup D signals.
-- **An account whose sync keeps ending the app has its sync paused instead of
-  taking the app down on every restart.** The packaged backend exits on its
-  first out-of-memory error, the app restarts it, and the next sync met the
-  same message from the server and ended it again, together with every other
-  account. The backend now notes when an account's sync starts and ends; a
-  sync the process died in counts when the app restarted the backend after an
-  exit it did not ask for, and three in a row pause that account's sync, the
-  scheduled pass and the folder sync on opening a folder alike. The account's
-  error says so, and Synchronise resumes it, one crash short of the limit.
-  Quitting or reloading the app does not count, since the app ends the backend
-  then too. The three columns are in `V1__init.sql`, which stays the only
-  migration until the first public release, so a database created by an
-  earlier build, the candidates' installations included, has to be removed
-  before this one starts.
-
-- **The sync pause comes for a message in any folder, and pauses only the
-  account it belongs to.** The pause above never came when the message that
-  ends the backend sat in a folder other than the one the app opens after a
-  restart: syncing that folder started the crash count over each time. Only a
-  sync of all of an account's folders starts it over now. Every account
-  syncing at a crash was counted too, so an account whose long first sync ran
-  beside the culprit was paused with it; an account with a crash on record now
-  syncs alone among those that have one, so the next crash names one account.
-  A paused account no longer downloads the text of a message it has not
-  stored, because a restarted app opens the message it showed again: the
-  reading pane says the sync is paused and that Synchronise resumes it.
-  Synchronise also clears the pause notice as it resumes the account, and a
-  database write the guard cannot make no longer leaves an account's sync
-  stuck until the app restarts.
-- **A harvested address can be forgotten.** A new endpoint,
-  `DELETE /api/v1/contacts/autocomplete/history/{historyId}`, removes one
-  address the typeahead offers from history, named by the `historyId` that
-  history rows of `/autocomplete` now carry; the address book is untouched,
-  and the next message exchanged with the address harvests it again. Forgetting an
-  account's last harvested address leaves its cache empty, and the startup
-  backfill then harvests the stored mail again, this address included:
-  accepted, since it takes forgetting every correspondent of the account.
-
-### Frontend
-
-- **A sync the backend paused while it started is announced.** The pause is
-  decided before the backend takes a request, so the failure notice the stream
-  would carry has nobody to reach; each boot, the one after an automatic
-  restart included, reads it from the account and shows the same persistent
-  toast and failing-sync indicator. The app also tells a backend it restarts
-  how the previous one ended (`MAIL_SIDECAR_PREVIOUS_EXIT`), which is what
-  the backend counts.
-- **The app no longer counts its own restarts of the backend as crashes.**
-  When the shell lost track of the backend and ended it itself, the next
-  backend was told of an exit nobody asked for and counted it against every
-  account syncing then. A Retry after a start the backend refused also carries
-  the crash before it again, which the refused start used to drop. And a sync
-  pause is announced for an account the indicator already showed failing for
-  an older reason, which used to hide it.
-- **The provider's servers no longer run into the Username label.** On the
-  account form, browse mode read the line under the provider select and the
-  next field's label as one: "IMAP imap.seznam.cz:993, SMTP
-  smtp.seznam.cz:465 Uživatelské jméno". Chromium drops the divs around the
-  servers line, so nothing separated it from the `<label>` that follows. The
-  line now describes the provider select and is hidden where it stands, the
-  way a field hint is, so it is heard with the select, including when tabbing
-  through the form, where it used to be silent. Covered in
-  [a11y.e2e.ts](frontend/src/routes/a11y.e2e.ts); both assertions seen to
-  fail on the old markup.
-- **The Seznam account form no longer says the account password will not
-  work.** It told every Seznam user "Pro Seznam.cz potřebujete heslo
-  aplikace, ne hlavní heslo k účtu", but Seznam asks for an app password only
-  once two-factor authentication is on; without it the account password signs
-  in, as Seznam's own help says. The note now says
-  that, in a neutral box rather than a warning, and its guide link points at
-  Seznam's page on mail clients with two-factor authentication. The old link
-  redirected to the general mail help. Gmail and Outlook keep the warning,
-  since they need an app password for IMAP regardless.
-- **Uložit logy is on the screen for a backend that never started.** The
-  error view for a sidecar that stopped before it was up was rendered without
-  its recovery row, so the button from #701 appeared on the loading screen and
-  on errors after the backend had started, but not on the one screen it was
-  made for: there the backend that writes the diagnostic dump is not running,
-  and the logs are what is left. Found over a damaged database at §6 of the
-  2026-10-13 candidate. The view now always has the row, with the dump shown
-  as unavailable, and a backend that stops after boot no longer offers a dump
-  from the process that is gone. The mocked e2e build has no shell to show
-  the button, so a component test sees it.
-- **A backend killed from outside on Windows no longer reads as one that
-  failed to start.** `Stop-Process`, and anything else that ends a process
-  through .NET's `Process.Kill`, leaves exit code -1, which showed "Službu
-  aplikace se nepodařilo spustit (kód -1)" and advised contacting support. It
-  now says the system stopped the service, as the 130 and 143 of a signal do.
-  Measured on the packaged sidecar, with the codes it must not take in: a JVM
-  that cannot be created exits 1, and so does `taskkill /F`, which therefore
-  still reads as a failure.
-- **Editing an account no longer ends in a "Šablona poskytovatele" list.**
-  Below the form, after Uložit změny, a screen reader met a definition list of
-  two items: the provider's name, which the Poskytovatel field above already
-  says, and the mail domains the provider template covers, which nothing on
-  the page acts on. It had been there since the first import with no recorded
-  purpose and is gone, along with the request that fetched the template for it.
-- **The compose field labels have the same tone as the message header's.**
-  "Od:", "Komu:", "Kopie:", "Skrytá kopie:" and "Předmět:" were muted while
-  writing and dark in the open message, for the same words in the same column
-  layout. They now use the foreground colour in both places, which also gives
-  them the higher contrast; the text typed into the fields was already in that
-  colour, and the labels stay set apart by weight and their fixed column.
-- **"Přeskočit na hlavní obsah" works the second time it is used.** The first
-  use leaves `#main-content` in the address, so the link then points at the
-  page already open, and the guard that keeps such a link from navigating
-  (#721) cancelled it: Enter left focus on the link. A link with a fragment is
-  SvelteKit's in-page navigation, which moves focus to its target, so the guard
-  leaves it alone; and it compares the open page without the fragment, so Enter
-  on the folder already open keeps focus in the pane after the skip link too.
-  Both cases are in
-  [current-page-link.functional.e2e.ts](frontend/src/routes/current-page-link.functional.e2e.ts),
-  seen to fail on the old guard.
-- **The sample addresses in the account and contact forms are Czech in the
-  Czech interface.** The e-mail field of the new-account wizard showed the
-  English "name@example.com" and the server hosts of the custom setup
-  "imap.example.com" and "smtp.example.com", all three written into the
-  components rather than the message bundles; the contact form's e-mail field
-  had "email@example.cz". Neither e-mail placeholder matched the field's own
-  error, which already gives the form as "jmeno@domena.cz". The placeholders
-  now come from the bundles and follow that form in Czech ("imap.domena.cz"
-  for the hosts); the other placeholders and hints already came from the
-  bundles in Czech.
-- **A suggestion from history can be removed from the address typeahead.**
-  Deleting someone's mail never took them out of it: the suggestions marked
-  "není v kontaktech" are counted as mail syncs, and a message also leaves the
-  local database when it moves to a folder the app does not sync or falls out
-  of the local window, so its removal says nothing about the person. As in
-  Outlook's address list, Delete on the highlighted suggestion forgets it, and
-  so does the x at the end of its row. The key acts only once the list has
-  been moved through with an arrow key, since it opens with its first row
-  highlighted, and only with the caret at the end of the field, where Delete
-  deletes nothing; held down, it removes one suggestion, not the list. The
-  removal is announced and the highlight moves to the next suggestion; on a
-  suggestion from Contacts the key says that it is removed there. The address
-  comes back with the next message exchanged with it. Listed under Nastavení →
-  Klávesové zkratky.
-
-### Repo
-
-- Vitest compiles Svelte components: a `components` project runs
-  `*.svelte.test.ts` under jsdom with Svelte's browser build, for what only
-  the native shell shows and e2e therefore cannot see. Its first test is the
-  boot error view's. The view is under the updater audit's code paths for its
-  update check, which the change leaves as it was; the audit records the drift
-  without a new verdict (#734).
-- The sidecar no longer serves `GET /api/v1/accounts/providers/{id}`: its only
-  client was the provider template list #735 took off the account edit page.
-  The MSW mock, the OpenAPI snapshot and the generated types drop it too, and
-  the API surface audit records the drift without a new verdict (#736).
-- ESLint finds the Svelte config next to its own file rather than in the
-  working directory, which from the repo root held none, so `.svelte` files
-  were linted without the project's runes option; a config that fails to load
-  now fails the run. `regen:sbom` no longer stops on a `node_modules/$app` an
-  interrupted run set aside once `svelte-kit sync` has written a new one (#743).
-- The IMAP/SMTP audit is re-verified against `dec376c` (1.72), clearing the
-  eight acknowledgements the ledger had reached its cap with. The pass holds
-  the drafts and listing changes, with one test added for an unpinned guard,
-  and records the crash guard's defects as B1-22 (Medium, open), which the
-  threat model and the verdict index now show (#744).
-- The API surface audit records the endpoint that forgets a history
-  suggestion, and the `historyId` the autocomplete rows gained, without a new
-  verdict; the MSW mock serves both, with a hook that fails the next forget
-  for the e2e test of that path (#747).
-
-## [0.1.0] - 2026-10-18
+## [0.1.0] - 2026-10-19
 
 ### Backend
 
@@ -503,6 +322,60 @@ Entries before 2026-09-17 predate that split and are left as written.
 - **The diagnostics ZIP now carries the app's logs, so a bug report comes with what it takes to find the bug (#700).** **Stáhnout diagnostiku** saved the app's state only (counts, sync states, versions) and no log, while the log is where an error says what failed and why. The ZIP now holds `mail.log`, `audit.log` and `mail-frontend.log`, older files included, up to 24 MB of text, as they are on disk: what the user's own log holds may go to the developers the user sends it to. Only what no log may hold is taken out on the way, an address a server wrote into an error unmasked, a token, the API key. It also holds every thread of the app, which shows where a hang is stuck, each account's last error as its code and cause, the database schema version, the frontend's version, the size of the database and the free disk space, and a `manifest.json` saying what went in and what was left out; a ZIP made while the database does not answer still carries the logs and the threads. Folders are named by their own names in the rest of the ZIP too, instead of `folder-<n>` since #578, so a log line and a folder's sync state read together. `PRIVACY.md` says what the ZIP holds.
 
 - **The HTML part of a sent message keeps code spans that follow an unclosed run of backticks (#722).** commonmark 0.30.0 lost them (commonmark-java #459), so where the plain part showed `` `a` `` the HTML part showed the backticks; 0.30.1 fixes it, and `MarkdownBodyRendererTest` now holds upstream's case, which fails on 0.30.0. The release's other change, a faster `MarkdownRenderer`, is in a class the app does not use.
+
+- **A short network drop no longer leaves an account showing a connection
+  error for five minutes.** A sync pass starts by listing the account's
+  folders, and that listing had no retry: when the server had closed the
+  pooled connection since the previous pass, the pass failed and the account
+  kept its connection error (`MAIL_SYNC_CONNECTION_FAILED`) until the next
+  one. Met on seznam.cz at
+  §8.1 of the 2026-10-13 candidate, where Gmail, which met the same drop inside
+  a folder, retried and carried on. The listing now reconnects and retries,
+  under the same bound as a folder cycle, when the server closed the
+  connection under it; a server that cannot be reached is left to the connect
+  retry, as before, so an outage still fails the pass once rather than running
+  out a second retry on top of the first (the first version of this fix did,
+  and the accelerated soak counted it as an exhausted retry).
+  `release:scan-logs` counts the listing's retries with the hiccup D signals.
+
+- **An account whose sync keeps ending the app has its sync paused instead of
+  taking the app down on every restart.** The packaged backend exits on its
+  first out-of-memory error, the app restarts it, and the next sync met the
+  same message from the server and ended it again, together with every other
+  account. The backend now notes when an account's sync starts and ends; a
+  sync the process died in counts when the app restarted the backend after an
+  exit it did not ask for, and three in a row pause that account's sync, the
+  scheduled pass and the folder sync on opening a folder alike. The account's
+  error says so, and Synchronise resumes it, one crash short of the limit.
+  Quitting or reloading the app does not count, since the app ends the backend
+  then too. The three columns are in `V1__init.sql`, which stays the only
+  migration until the first public release, so a database created by an
+  earlier build, the candidates' installations included, has to be removed
+  before this one starts.
+
+- **The sync pause comes for a message in any folder, and pauses only the
+  account it belongs to.** The pause above never came when the message that
+  ends the backend sat in a folder other than the one the app opens after a
+  restart: syncing that folder started the crash count over each time. Only a
+  sync of all of an account's folders starts it over now. Every account
+  syncing at a crash was counted too, so an account whose long first sync ran
+  beside the culprit was paused with it; an account with a crash on record now
+  syncs alone among those that have one, so the next crash names one account.
+  A paused account no longer downloads the text of a message it has not
+  stored, because a restarted app opens the message it showed again: the
+  reading pane says the sync is paused and that Synchronise resumes it.
+  Synchronise also clears the pause notice as it resumes the account, and a
+  database write the guard cannot make no longer leaves an account's sync
+  stuck until the app restarts.
+
+- **A harvested address can be forgotten.** A new endpoint,
+  `DELETE /api/v1/contacts/autocomplete/history/{historyId}`, removes one
+  address the typeahead offers from history, named by the `historyId` that
+  history rows of `/autocomplete` now carry; the address book is untouched,
+  and the next message exchanged with the address harvests it again. Forgetting an
+  account's last harvested address leaves its cache empty, and the startup
+  backfill then harvests the stored mail again, this address included:
+  accepted, since it takes forgetting every correspondent of the account.
 
 ### Backend — threading / conversations (Phase 1, backend-only)
 
@@ -932,6 +805,114 @@ Entries before 2026-09-17 predate that split and are left as written.
 - **The app starts on a Windows profile whose name has diacritics (#718).** On such a profile the JVM writes a line of its own to standard output in the system code page — the AOT cache warning, which carries the install path — and the shell plugin, decoding strictly as UTF-8, reported it as an error instead of a line. The supervisor took that for a crash and started another backend without stopping the first, three times a minute: a closed-beta tester's logs hold up to sixteen backends on one database and an app that never got past its error screen. Output is now decoded leniently, and an error from the plugin stops the process it came from before a restart replaces it.
 
 - **The frontend runs on SvelteKit 3 and adapter-static 4 (#721), brought forward into the v0.1.0 re-cut rather than after it.** What a screen reader user meets stays as it was, and that took one deliberate change: SvelteKit 3 turns a click on a link to the page already open into a navigation, so Enter on the folder or contacts view already open in the pane would have moved focus from the pane to the page heading and fetched the contacts list again. Such a link does nothing, as before (`currentPageLinkGuard.ts`). The five navigations that place focus themselves now pass `reset: false`, which also keeps the window's scroll; the window does not scroll in this layout. SvelteKit's hourly check for a new deployment is off, since the installer and the updater are what replace the app. The `cookie` override under SvelteKit goes, as SvelteKit 3 takes `cookie` 2, and `runed`, which still declares SvelteKit 2 as an optional peer without using it in the parts the app reaches, is told to accept 3.
+
+- **A sync the backend paused while it started is announced.** The pause is
+  decided before the backend takes a request, so the failure notice the stream
+  would carry has nobody to reach; each boot, the one after an automatic
+  restart included, reads it from the account and shows the same persistent
+  toast and failing-sync indicator. The app also tells a backend it restarts
+  how the previous one ended (`MAIL_SIDECAR_PREVIOUS_EXIT`), which is what
+  the backend counts.
+
+- **The app no longer counts its own restarts of the backend as crashes.**
+  When the shell lost track of the backend and ended it itself, the next
+  backend was told of an exit nobody asked for and counted it against every
+  account syncing then. A Retry after a start the backend refused also carries
+  the crash before it again, which the refused start used to drop. And a sync
+  pause is announced for an account the indicator already showed failing for
+  an older reason, which used to hide it.
+
+- **The provider's servers no longer run into the Username label.** On the
+  account form, browse mode read the line under the provider select and the
+  next field's label as one: "IMAP imap.seznam.cz:993, SMTP
+  smtp.seznam.cz:465 Uživatelské jméno". Chromium drops the divs around the
+  servers line, so nothing separated it from the `<label>` that follows. The
+  line now describes the provider select and is hidden where it stands, the
+  way a field hint is, so it is heard with the select, including when tabbing
+  through the form, where it used to be silent. Covered in
+  [a11y.e2e.ts](frontend/src/routes/a11y.e2e.ts); both assertions seen to
+  fail on the old markup.
+
+- **The Seznam account form no longer says the account password will not
+  work.** It told every Seznam user "Pro Seznam.cz potřebujete heslo
+  aplikace, ne hlavní heslo k účtu", but Seznam asks for an app password only
+  once two-factor authentication is on; without it the account password signs
+  in, as Seznam's own help says. The note now says
+  that, in a neutral box rather than a warning, and its guide link points at
+  Seznam's page on mail clients with two-factor authentication. The old link
+  redirected to the general mail help. Gmail and Outlook keep the warning,
+  since they need an app password for IMAP regardless.
+
+- **Uložit logy is on the screen for a backend that never started.** The
+  error view for a sidecar that stopped before it was up was rendered without
+  its recovery row, so the button from #701 appeared on the loading screen and
+  on errors after the backend had started, but not on the one screen it was
+  made for: there the backend that writes the diagnostic dump is not running,
+  and the logs are what is left. Found over a damaged database at §6 of the
+  2026-10-13 candidate. The view now always has the row, with the dump shown
+  as unavailable, and a backend that stops after boot no longer offers a dump
+  from the process that is gone. The mocked e2e build has no shell to show
+  the button, so a component test sees it.
+
+- **A backend killed from outside on Windows no longer reads as one that
+  failed to start.** `Stop-Process`, and anything else that ends a process
+  through .NET's `Process.Kill`, leaves exit code -1, which showed "Službu
+  aplikace se nepodařilo spustit (kód -1)" and advised contacting support. It
+  now says the system stopped the service, as the 130 and 143 of a signal do.
+  Measured on the packaged sidecar, with the codes it must not take in: a JVM
+  that cannot be created exits 1, and so does `taskkill /F`, which therefore
+  still reads as a failure.
+
+- **Editing an account no longer ends in a "Šablona poskytovatele" list.**
+  Below the form, after Uložit změny, a screen reader met a definition list of
+  two items: the provider's name, which the Poskytovatel field above already
+  says, and the mail domains the provider template covers, which nothing on
+  the page acts on. It had been there since the first import with no recorded
+  purpose and is gone, along with the request that fetched the template for it.
+
+- **The compose field labels have the same tone as the message header's.**
+  "Od:", "Komu:", "Kopie:", "Skrytá kopie:" and "Předmět:" were muted while
+  writing and dark in the open message, for the same words in the same column
+  layout. They now use the foreground colour in both places, which also gives
+  them the higher contrast; the text typed into the fields was already in that
+  colour, and the labels stay set apart by weight and their fixed column.
+
+- **"Přeskočit na hlavní obsah" works the second time it is used.** The first
+  use leaves `#main-content` in the address, so the link then points at the
+  page already open, and the guard that keeps such a link from navigating
+  (#721) cancelled it: Enter left focus on the link. A link with a fragment is
+  SvelteKit's in-page navigation, which moves focus to its target, so the guard
+  leaves it alone; and it compares the open page without the fragment, so Enter
+  on the folder already open keeps focus in the pane after the skip link too.
+  Both cases are in
+  [current-page-link.functional.e2e.ts](frontend/src/routes/current-page-link.functional.e2e.ts),
+  seen to fail on the old guard.
+
+- **The sample addresses in the account and contact forms are Czech in the
+  Czech interface.** The e-mail field of the new-account wizard showed the
+  English "name@example.com" and the server hosts of the custom setup
+  "imap.example.com" and "smtp.example.com", all three written into the
+  components rather than the message bundles; the contact form's e-mail field
+  had "email@example.cz". Neither e-mail placeholder matched the field's own
+  error, which already gives the form as "jmeno@domena.cz". The placeholders
+  now come from the bundles and follow that form in Czech ("imap.domena.cz"
+  for the hosts); the other placeholders and hints already came from the
+  bundles in Czech.
+
+- **A suggestion from history can be removed from the address typeahead.**
+  Deleting someone's mail never took them out of it: the suggestions marked
+  "není v kontaktech" are counted as mail syncs, and a message also leaves the
+  local database when it moves to a folder the app does not sync or falls out
+  of the local window, so its removal says nothing about the person. As in
+  Outlook's address list, Delete on the highlighted suggestion forgets it, and
+  so does the x at the end of its row. The key acts only once the list has
+  been moved through with an arrow key, since it opens with its first row
+  highlighted, and only with the caret at the end of the field, where Delete
+  deletes nothing; held down, it removes one suggestion, not the list. The
+  removal is announced and the highlight moves to the next suggestion; on a
+  suggestion from Contacts the key says that it is removed there. The address
+  comes back with the next message exchanged with it. Listed under Nastavení →
+  Klávesové zkratky.
 
 ### Tauri / Release
 
@@ -1569,16 +1550,45 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 - **The tag `v0.1.0` is cut a ninth time, on the 2026-10-18 candidate sheet, so the release carries the blocker fix and everything else merged since `8728d51` (#732).** The build of `8728d51` never started on a Windows profile whose name has diacritics, which #718 and #719 fix. The manual sections §3 to §8.1 taken on that build go with it and are taken again on the new one. `regen:licenses:all` ran first and moved into `NOTICE.txt` the versions that #721, #722, #729 and #730 carry. `## Unreleased` is folded into `[0.1.0]` in merge order, now dated 2026-10-18, and the known issues are provisional again until §9 of the new sheet.
 
+- Vitest compiles Svelte components: a `components` project runs
+  `*.svelte.test.ts` under jsdom with Svelte's browser build, for what only
+  the native shell shows and e2e therefore cannot see. Its first test is the
+  boot error view's. The view is under the updater audit's code paths for its
+  update check, which the change leaves as it was; the audit records the drift
+  without a new verdict (#734).
+
+- The sidecar no longer serves `GET /api/v1/accounts/providers/{id}`: its only
+  client was the provider template list #735 took off the account edit page.
+  The MSW mock, the OpenAPI snapshot and the generated types drop it too, and
+  the API surface audit records the drift without a new verdict (#736).
+
+- ESLint finds the Svelte config next to its own file rather than in the
+  working directory, which from the repo root held none, so `.svelte` files
+  were linted without the project's runes option; a config that fails to load
+  now fails the run. `regen:sbom` no longer stops on a `node_modules/$app` an
+  interrupted run set aside once `svelte-kit sync` has written a new one (#743).
+
+- The IMAP/SMTP audit is re-verified against `dec376c` (1.72), clearing the
+  eight acknowledgements the ledger had reached its cap with. The pass holds
+  the drafts and listing changes, with one test added for an unpinned guard,
+  and records the crash guard's defects as B1-22 (Medium, open), which the
+  threat model and the verdict index now show (#744).
+
+- The API surface audit records the endpoint that forgets a history
+  suggestion, and the `historyId` the autocomplete rows gained, without a new
+  verdict; the MSW mock serves both, with a hook that fails the next forget
+  for the e2e test of that path (#747).
+
+- **The ninth cut of `v0.1.0` takes its tag on the 2026-10-19 candidate sheet, which replaces the 2026-10-18 one (#748).** That sheet's tag was never moved: fixes kept merging, #733 to #747, and it listed them as waiting for the next cut. §0 to §2 are taken again on `main` at `5f20f57`, `## Unreleased` is folded into `[0.1.0]` under the subsection each bullet came from, now dated 2026-10-19, and the provisional known issues lose the missing **Uložit logy** (#734) and say that a sync the backend keeps dying in now pauses (#740, #745). `regen:licenses:all` found nothing to change. The independent pass over the B1-22 fix runs alongside the cut, before the manual sections start.
+
 ### Known issues
 
-Provisional at the moment of the cut, per [RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) step 2 item 4: §9 of the 2026-10-18 candidate sheet does not exist until the manual smoke has run on the build made from the tag. Reconciled against §9 before publishing, which is a condition in step 6.
+Provisional at the moment of the cut, per [RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) step 2 item 4: §9 of the 2026-10-19 candidate sheet does not exist until the manual smoke has run on the build made from the tag. Reconciled against §9 before publishing, which is a condition in step 6.
 
 - **A transient IMAP hiccup, `failed to create new store connection`, appears in the log a couple of times a day.** It is wrapped in a bounded retry with backoff and recovers on the next attempt; the release checklist carries a passive log-watch for it in §8.2 rather than a fix, because no escalation past the retry budget has been observed.
 - **Google sign-in works only for accounts on the test list.** The OAuth consent screen stays in `Testing` for this release — a deliberate exception for a closed beta, recorded in `todo.md`. Publishing to a general audience needs Google verification of the restricted scope (CASA), which is not part of v0.1.0.
 
-- **A mail server that answers with very large or deeply nested responses can run the mail service out of memory, and it restarts.** The limits on what one connection keeps are estimates rather than bounds, and three connections of one account at their limits come to about the service's heap. Accepted for this release, with no data leaving the device; an account-wide bound and a guard against a sync that keeps crashing on the same account are planned after it (IMAP/SMTP audit B1-14 and B1-21).
-
-- **When the mail service does not start at all, the error screen does not offer Uložit logy.** The button is on the start screen and on the error after the service has started, but not on the one shown when the service stops before it is up, as with a damaged database, which is the case it was added for (#701). The logs are still in `%LOCALAPPDATA%\VoxRox\Mail\logs` and can be sent from there. Found in the release candidate's manual check on 2026-10-13 and left for after this release, which `todo.md` tracks.
+- **A mail server that answers with very large or deeply nested responses can run the mail service out of memory, and it restarts.** The limits on what one connection keeps are estimates rather than bounds, and three connections of one account at their limits come to about the service's heap. Accepted for this release, with no data leaving the device. Three such restarts in a row pause that account's sync, and Synchronise resumes it (#740, #745); an account-wide bound is planned after this release (IMAP/SMTP audit B1-14 and B1-21).
 
 ### Manual steps
 
