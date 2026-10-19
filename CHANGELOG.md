@@ -195,6 +195,10 @@ Entries before 2026-09-17 predate that split and are left as written.
   the drafts and listing changes, with one test added for an unpinned guard,
   and records the crash guard's defects as B1-22 (Medium, open), which the
   threat model and the verdict index now show (#744).
+- The API surface audit records the endpoint that forgets a history
+  suggestion, and the `historyId` the autocomplete rows gained, without a new
+  verdict; the MSW mock serves both, with a hook that fails the next forget
+  for the e2e test of that path (#747).
 
 ## [0.1.0] - 2026-10-18
 
