@@ -45,9 +45,10 @@ Entries before 2026-09-17 predate that split and are left as written.
   scheduled pass and the folder sync on opening a folder alike. The account's
   error says so, and Synchronise resumes it, one crash short of the limit.
   Quitting or reloading the app does not count, since the app ends the backend
-  then too. The three columns arrive through `V2__sync_crash_guard.sql`, the
-  first schema change since a build was installed outside development, so
-  existing databases keep working.
+  then too. The three columns are in `V1__init.sql`, which stays the only
+  migration until the first public release, so a database created by an
+  earlier build, the candidates' installations included, has to be removed
+  before this one starts.
 
 ### Frontend
 
