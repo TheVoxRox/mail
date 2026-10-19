@@ -50,6 +50,21 @@ Entries before 2026-09-17 predate that split and are left as written.
   earlier build, the candidates' installations included, has to be removed
   before this one starts.
 
+- **The sync pause comes for a message in any folder, and pauses only the
+  account it belongs to.** The pause above never came when the message that
+  ends the backend sat in a folder other than the one the app opens after a
+  restart: syncing that folder started the crash count over each time. Only a
+  sync of all of an account's folders starts it over now. Every account
+  syncing at a crash was counted too, so an account whose long first sync ran
+  beside the culprit was paused with it; an account with a crash on record now
+  syncs alone among those that have one, so the next crash names one account.
+  A paused account no longer downloads the text of a message it has not
+  stored, because a restarted app opens the message it showed again: the
+  reading pane says the sync is paused and that Synchronise resumes it.
+  Synchronise also clears the pause notice as it resumes the account, and a
+  database write the guard cannot make no longer leaves an account's sync
+  stuck until the app restarts.
+
 ### Frontend
 
 - **A sync the backend paused while it started is announced.** The pause is
@@ -59,6 +74,13 @@ Entries before 2026-09-17 predate that split and are left as written.
   toast and failing-sync indicator. The app also tells a backend it restarts
   how the previous one ended (`MAIL_SIDECAR_PREVIOUS_EXIT`), which is what
   the backend counts.
+- **The app no longer counts its own restarts of the backend as crashes.**
+  When the shell lost track of the backend and ended it itself, the next
+  backend was told of an exit nobody asked for and counted it against every
+  account syncing then. A Retry after a start the backend refused also carries
+  the crash before it again, which the refused start used to drop. And a sync
+  pause is announced for an account the indicator already showed failing for
+  an older reason, which used to hide it.
 - **The provider's servers no longer run into the Username label.** On the
   account form, browse mode read the line under the provider select and the
   next field's label as one: "IMAP imap.seznam.cz:993, SMTP

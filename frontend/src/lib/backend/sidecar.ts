@@ -95,7 +95,9 @@ interface BackendSidecarRuntime {
 	 * the next spawn hands it to the backend as `MAIL_SIDECAR_PREVIOUS_EXIT`. The
 	 * backend's crash guard (SyncCrashGuard.java) counts a sync the previous
 	 * process died in only when this is set: the shell kills the backend on every
-	 * quit and reload too, and those must not read as crashes.
+	 * quit and reload too, and those must not read as crashes. Neither must the
+	 * kill an `error` event makes, which is the shell's own; and a start the
+	 * backend refused ran no sync, so what it was handed goes on to the next one.
 	 */
 	previousExit: string | null;
 }
@@ -311,6 +313,7 @@ async function spawnBackendSidecar(): Promise<void> {
 		}
 	});
 	// Handed over once: it describes the predecessor of the process spawned now.
+	const handedExit = runtime.previousExit;
 	runtime.previousExit = null;
 	command.stdout.on('data', (line) => console.info(`[mail] ${line}`));
 	command.stderr.on('data', (line) => {
@@ -326,7 +329,8 @@ async function spawnBackendSidecar(): Promise<void> {
 		void handleUnexpectedExit(
 			generation,
 			describeSidecarExit(payload.code, payload.signal),
-			String(payload.code ?? payload.signal ?? 'unknown')
+			String(payload.code ?? payload.signal ?? 'unknown'),
+			handedExit
 		);
 	});
 	/*
@@ -350,7 +354,9 @@ async function spawnBackendSidecar(): Promise<void> {
 				'app.backendExit.spawnFailed',
 				{ detail: message }
 			),
-			'shell-error'
+			// The process ends by the kill above, which the shell asked for.
+			null,
+			handedExit
 		);
 	});
 
@@ -370,7 +376,18 @@ async function spawnBackendSidecar(): Promise<void> {
 	backendSidecarState.set({ status: 'running', pid: runtime.child.pid });
 }
 
-async function handleUnexpectedExit(generation: number, error: Error, exit: string): Promise<void> {
+/**
+ * @param exit how the process ended, for the next backend's crash guard, or
+ *   `null` for an end the shell made itself
+ * @param handedExit what the process was handed at its spawn, which a start
+ *   the backend refused passes on unread
+ */
+async function handleUnexpectedExit(
+	generation: number,
+	error: Error,
+	exit: string | null,
+	handedExit: string | null
+): Promise<void> {
 	if (generation !== runtime.generation) {
 		// Stale event from a previous process generation — the child it belongs
 		// to was already replaced, so there is nothing to clean up or restart.
@@ -384,14 +401,20 @@ async function handleUnexpectedExit(generation: number, error: Error, exit: stri
 		return;
 	}
 
-	// Kept for whichever spawn comes next: the automatic restart below, or a
-	// Retry from the boot error view once the restart budget is spent.
-	runtime.previousExit = exit;
-
 	// By name, not `instanceof`, for the reason isSidecarExitError carries: a
 	// class identity does not survive HMR or vi.resetModules(), and getting this
 	// wrong spends the restart budget on an exit no restart can fix.
-	if (isSidecarExitError(error) && error.permanent) {
+	const refusedStart = isSidecarExitError(error) && error.permanent;
+
+	// Kept for whichever spawn comes next: the automatic restart below, or a
+	// Retry from the boot error view once the restart budget is spent. A start
+	// the backend refused (the permanent codes, 65 and 70, both decided in
+	// DatabaseConfig.java before its crash guard runs) ran no sync and counted
+	// nothing, so its predecessor's exit is what the next backend still has to
+	// hear about.
+	runtime.previousExit = refusedStart ? handedExit : exit;
+
+	if (refusedStart) {
 		backendSidecarState.set({ status: 'error', error });
 		return;
 	}

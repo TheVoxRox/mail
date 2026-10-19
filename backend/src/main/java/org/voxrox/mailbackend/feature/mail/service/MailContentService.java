@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.voxrox.mailbackend.exception.ErrorCode;
 import org.voxrox.mailbackend.exception.MailOperationException;
@@ -27,13 +28,15 @@ public class MailContentService {
     private final MessageRepository messageRepository;
     private final MessageContentPersister contentPersister;
     private final MessageSource messageSource;
+    private final SyncCrashGuard crashGuard;
 
     public MailContentService(ImapFolderExecutor folderExecutor, MessageRepository messageRepository,
-            MessageContentPersister contentPersister, MessageSource messageSource) {
+            MessageContentPersister contentPersister, MessageSource messageSource, SyncCrashGuard crashGuard) {
         this.folderExecutor = folderExecutor;
         this.messageRepository = messageRepository;
         this.contentPersister = contentPersister;
         this.messageSource = messageSource;
+        this.crashGuard = crashGuard;
     }
 
     /**
@@ -93,6 +96,19 @@ public class MailContentService {
             return content;
         }
 
+        Long accountId = messageEntity.getAccount().getId();
+        /*
+         * A paused account (SyncCrashGuard) downloads no body. The restarted app opens
+         * the message it showed again, so a body that ends the process would come back
+         * the same way a sync does; the user resumes the account with a manual sync,
+         * which the message names.
+         */
+        if (crashGuard.isPaused(accountId)) {
+            throw new MailOperationException(ErrorCode.MAIL_ACCOUNT_SYNC_PAUSED,
+                    "Body not downloaded: the account's sync is paused after repeated crashes.", HttpStatus.CONFLICT,
+                    "error.mail.accountSyncPaused");
+        }
+
         log.info("{} Body missing. Fetching from IMAP server (uid={}, folder={})", LogCategory.SYNC,
                 messageEntity.getUid(), messageEntity.getFolderName());
 
@@ -101,10 +117,11 @@ public class MailContentService {
         /*
          * The network operation runs outside the main transaction. MessagingException
          * is translated by ImapFolderExecutor; IOException is wrapped here because
-         * ImapFolderAction does not declare it.
+         * ImapFolderAction does not declare it. The crash guard counts a process that
+         * ends in it as one that ended during the account's sync.
          */
-        FetchedBody fetched = folderExecutor.executeReadOnly(messageEntity.getAccount().getId(), Lane.INTERACTIVE,
-                messageEntity.getFolderName(), (folder, uidFolder) -> {
+        FetchedBody fetched = crashGuard.whileFetching(accountId, () -> folderExecutor.executeReadOnly(accountId,
+                Lane.INTERACTIVE, messageEntity.getFolderName(), (folder, uidFolder) -> {
                     Message message = uidFolder.getMessageByUID(messageEntity.getUid());
                     if (message == null) {
                         return null; // signal to outer code: the message is no longer on the server
@@ -136,7 +153,7 @@ public class MailContentService {
                         throw new MailOperationException(ErrorCode.MAIL_CONNECTION_ERROR,
                                 "Error while extracting message text", e);
                     }
-                });
+                }));
 
         if (fetched == null) {
             log.warn("{} Message uid={} no longer exists on the server.", LogCategory.SYNC, messageEntity.getUid());

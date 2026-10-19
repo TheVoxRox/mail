@@ -28,6 +28,28 @@ export function markSyncRecovered(accountId: number): void {
 	failingSyncAccountIds.update((ids) => ids.filter((id) => id !== accountId));
 }
 
+/*
+ * Sync pauses (SyncCrashGuard.java) this page has announced. A pause is found
+ * by a boot rather than reported by an event, so without a record every boot
+ * would announce it again. It is kept apart from the failing set because an
+ * account already failing for another reason must still hear that its sync is
+ * now paused: the failing set alone would hide the pause behind the older
+ * failure.
+ */
+const announcedPauses = new Set<number>();
+
+/** Whether the account's pause is still to be announced, and marks it announced. */
+export function takePauseAnnouncement(accountId: number): boolean {
+	if (announcedPauses.has(accountId)) return false;
+	announcedPauses.add(accountId);
+	return true;
+}
+
+/** The account's standing error moved on, so a later pause is news again. */
+export function forgetPauseAnnouncement(accountId: number): void {
+	announcedPauses.delete(accountId);
+}
+
 /**
  * Test seam — the stream is the only writer in the app itself.
  *
@@ -35,6 +57,7 @@ export function markSyncRecovered(accountId: number): void {
  */
 export function resetSyncHealth(): void {
 	failingSyncAccountIds.set([]);
+	announcedPauses.clear();
 }
 
 export interface FailingAccount {

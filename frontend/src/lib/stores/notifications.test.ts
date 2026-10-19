@@ -297,6 +297,38 @@ describe('sync status notifications', () => {
 			expect(get(toasts)).toHaveLength(0);
 			expect(get(failingSyncAccounts)).toHaveLength(0);
 		});
+
+		it('is announced for an account the indicator already shows failing for an older reason', async () => {
+			// A connection failure before the crash loop lit the indicator; the pause
+			// that followed is a different thing to know, and how to get out of it.
+			handleStreamNotification(statusEvent('sync_failed'));
+			await vi.waitFor(() => expect(get(toasts)).toHaveLength(1));
+			accountsState.set({ status: 'ready', accounts: [paused] });
+
+			await announcePausedSyncs(false);
+
+			expect(get(toasts)).toHaveLength(2);
+			expect(get(toasts).at(-1)?.message).toContain(pausedDetail);
+			expect(get(failingSyncAccounts).map((a) => a.id)).toEqual([4]);
+		});
+
+		it('is announced again when the account pauses again after a boot found it running', async () => {
+			accountsState.set({ status: 'ready', accounts: [paused] });
+			await announcePausedSyncs(false);
+
+			// Resumed by a manual sync; the next boot finds no pause.
+			accountsState.set({
+				status: 'ready',
+				accounts: [{ ...account, lastError: null, lastErrorCode: null }]
+			});
+			await announcePausedSyncs(false);
+
+			// The message is still there, and three more restarts pause it again.
+			accountsState.set({ status: 'ready', accounts: [paused] });
+			await announcePausedSyncs(false);
+
+			expect(get(toasts).filter((toast) => toast.message.includes(pausedDetail))).toHaveLength(2);
+		});
 	});
 
 	it('does not stack indicators when the same account is reported twice', async () => {

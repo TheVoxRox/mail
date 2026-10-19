@@ -197,7 +197,17 @@ class AccountRepositoryIT {
         for (int round = 1; round <= 3; round++) {
             SyncCrashGuard process = restartedProcess();
             process.afterSingletonsInstantiated();
-            process.enter(accountId);
+            em.clear();
+            /*
+             * The restarted app opens a folder first, and that folder's sync ends inside
+             * the process: the message that ends it is in another folder, which only the
+             * scheduled pass reaches. A sync that ended used to start the count over here.
+             */
+            AccountEntity openingAFolder = accountRepository.findById(accountId).orElseThrow();
+            assertThat(process.enter(openingAFolder)).isTrue();
+            process.exit(accountId);
+            em.clear();
+            assertThat(process.enter(accountRepository.findById(accountId).orElseThrow())).isTrue();
             em.clear();
             assertThat(accountRepository.findById(accountId).orElseThrow().getSyncStartedAt()).isNotNull();
         }
@@ -215,20 +225,56 @@ class AccountRepositoryIT {
     }
 
     @Test
-    @DisplayName("A sync that ends inside the process clears the marker and the count")
-    void syncThatEndsClearsTheMarkerAndTheCount() {
+    @DisplayName("A sync that ends clears the marker, and only a whole pass clears the count")
+    void syncThatEndsClearsTheMarkerAndAWholePassTheCount() {
         Long accountId = accountRepository.saveAndFlush(account("ending@example.com")).getId();
         accountRepository.recordSyncCrash(accountId, 2, false);
+        em.clear();
         SyncCrashGuard guard = new SyncCrashGuard(accountRepository, new MockEnvironment());
+        AccountEntity loaded = accountRepository.findById(accountId).orElseThrow();
 
-        guard.enter(accountId);
+        assertThat(guard.enter(loaded)).isTrue();
         guard.exit(accountId);
         em.clear();
 
         AccountEntity ended = accountRepository.findById(accountId).orElseThrow();
         assertThat(ended.getSyncStartedAt()).isNull();
-        assertThat(ended.getSyncCrashes()).isZero();
-        assertThat(ended.isSyncPaused()).isFalse();
+        assertThat(ended.getSyncCrashes()).isEqualTo(2);
+
+        guard.passCompleted(ended);
+        em.clear();
+
+        AccountEntity passed = accountRepository.findById(accountId).orElseThrow();
+        assertThat(passed.getSyncCrashes()).isZero();
+        assertThat(passed.isSyncPaused()).isFalse();
+    }
+
+    @Test
+    @DisplayName("Saving an account loaded before the crash guard wrote does not put the old values back")
+    void savingAStaleAccountKeepsTheGuardColumns() {
+        /*
+         * The columns are mapped read-only: a full-row UPDATE from an entity loaded
+         * before the guard's write would otherwise rewrite the marker, the count and
+         * the pause with what that entity held.
+         */
+        Long accountId = accountRepository.saveAndFlush(account("stale@example.com")).getId();
+        em.clear();
+        AccountEntity stale = accountRepository.findById(accountId).orElseThrow();
+        em.detach(stale);
+
+        accountRepository.markSyncStarted(accountId, java.time.LocalDateTime.of(2026, 10, 19, 9, 0));
+        accountRepository.recordSyncCrash(accountId, 3, true);
+        accountRepository.markSyncStarted(accountId, java.time.LocalDateTime.of(2026, 10, 19, 9, 5));
+        stale.setDisplayName("Renamed");
+        accountRepository.saveAndFlush(stale);
+        em.clear();
+
+        AccountEntity saved = accountRepository.findById(accountId).orElseThrow();
+        assertThat(saved.getDisplayName()).isEqualTo("Renamed");
+        assertThat(saved.getSyncStartedAt()).isEqualTo(java.time.LocalDateTime.of(2026, 10, 19, 9, 5));
+        assertThat(saved.getSyncCrashes()).isEqualTo(3);
+        assertThat(saved.isSyncPaused()).isTrue();
+        assertThat(accountRepository.isSyncPaused(accountId)).contains(true);
     }
 
     /**

@@ -123,14 +123,18 @@ public interface AccountRepository extends JpaRepository<AccountEntity, Long> {
     void clearLastErrorIfCodeIn(@Param("id") Long id, @Param("codes") Collection<String> codes);
 
     /*
-     * The crash guard's writes (SyncCrashGuard). Targeted UPDATEs for the same
-     * reason as the last_error slot above: they run from sync threads, beside a
-     * loaded entity that would otherwise overwrite them on its next save.
+     * The crash guard's writes (SyncCrashGuard), and the only ones its columns
+     * take: AccountEntity maps them read-only, so a save of a loaded entity cannot
+     * write a stale marker or count back over these.
      */
 
     /** Accounts a previous backend process left with a sync running. */
     @Transactional(readOnly = true)
     List<AccountEntity> findBySyncStartedAtIsNotNull();
+
+    @Transactional(readOnly = true)
+    @Query("SELECT a.syncPaused FROM AccountEntity a WHERE a.id = :id")
+    Optional<Boolean> isSyncPaused(@Param("id") Long id);
 
     @Modifying
     @Transactional
@@ -138,19 +142,19 @@ public interface AccountRepository extends JpaRepository<AccountEntity, Long> {
     void markSyncStarted(@Param("id") Long id, @Param("now") LocalDateTime now);
 
     /**
-     * The last running sync ended inside the process, so the crash count starts
-     * over.
+     * No sync of the account is running any more: the last one in this process
+     * ended, or the previous process ended during one the guard does not count.
      */
-    @Modifying
-    @Transactional
-    @Query("UPDATE AccountEntity a SET a.syncStartedAt = null, a.syncCrashes = 0 WHERE a.id = :id")
-    void markSyncEnded(@Param("id") Long id);
-
-    /** A previous process ended during a sync the guard does not count. */
     @Modifying
     @Transactional
     @Query("UPDATE AccountEntity a SET a.syncStartedAt = null WHERE a.id = :id")
     void clearSyncStarted(@Param("id") Long id);
+
+    /** A whole pass over the account's folders ended inside the process. */
+    @Modifying
+    @Transactional
+    @Query("UPDATE AccountEntity a SET a.syncCrashes = 0 WHERE a.id = :id")
+    void clearSyncCrashes(@Param("id") Long id);
 
     @Modifying
     @Transactional

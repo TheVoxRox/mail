@@ -46,7 +46,8 @@
       "frontend/src-tauri/src/redact.rs": "22f0fb867ceb8e70135c79bee6f492c3c28acf7b",
       "frontend/src-tauri/src/logs.rs": "0da494433ac1a8f2cb4fc52517d84edba3740ba7",
       "frontend/src/lib/api/clientBootDiagnostics.ts": "5e76b3e95a63b5f9ff5c9f5b38ff6cad7ae4b7d6",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/account/controller": "d6f66df6b1e89193b66619a929c10a85fa085dc3"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/account/controller": "d6f66df6b1e89193b66619a929c10a85fa085dc3",
+      "backend/src/main/java/org/voxrox/mailbackend/exception": "e13396c604befde4b7bee1f906100ef2cd03b92d"
     },
     "acknowledgements": [
       {
@@ -64,6 +65,10 @@
       {
         "date": "2026-10-18",
         "note": "Under Code paths only MailProviderController moves: GET /api/v1/accounts/providers/{id} is removed with its @Positive path variable, and the import that served it. Its only client was the provider template list on the account edit page, removed in #735. The controller keeps its class-level @Validated and the constrained email parameter of /resolve, so §2's twelve @Validated controllers out of 18, each one declaring constrained parameters, still hold; the controller count does not change, and no claim in the audit names the endpoint. Authorization is path-independent (§1), so a path that goes away changes no posture. The OpenAPI snapshot, outside Code paths, drops the operation, which makes its return fail OpenApiSnapshotTest. Verdict unchanged."
+      },
+      {
+        "date": "2026-10-19",
+        "note": "Under Code paths only ErrorCode moves (#745): it gains MAIL_ACCOUNT_SYNC_PAUSED, which MailContentService throws as a MailOperationException with 409 and the message key error.mail.accountSyncPaused, through the existing AppException mapping of GlobalExceptionHandler (ProblemDetail with the status, errorCode and the localized detail; MailReadControllerTest pins the response). No controller, filter, DTO, endpoint or dump entry changes, and the detail carries no server data. Verdict unchanged."
       }
     ]
   },
@@ -124,7 +129,7 @@
   },
   "docs/CONTENT_RENDERING_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailContentService.java": "b356d6be05d7986431d3e78c198862baad50edae",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailContentService.java": "5a026cf65d84e4fbe0defbc561e06c66b5139aba",
       "frontend/src/lib/mail/mailFrame.ts": "02867dae73807fdafe343cd56cc950914b188ae3",
       "frontend/src/lib/components/message-detail": "c7a07ce058b691049a59c93c579846307caa2df7"
     },
@@ -152,6 +157,10 @@
       {
         "date": "2026-10-17",
         "note": "The SvelteKit 3 migration (#721). mailFrame.ts and the files under message-detail move only in import specifiers: $lib/... became #lib/... (package.json imports, the same files) and $app/environment became $app/env (the same module, renamed). After normalising those two renames the removed and added lines are identical. The frame's CSP and its two pinned hashes, the sandbox, the forwarder script, the link and height relays and the remote-image gate are byte-identical. Verdict unchanged."
+      },
+      {
+        "date": "2026-10-19",
+        "note": "Under Code paths only MailContentService moves (#745, IMAP/SMTP audit 1.73, B1-22): before the IMAP fetch of a body that is not cached it asks SyncCrashGuard whether the account's sync is paused and refuses with MAIL_ACCOUNT_SYNC_PAUSED (409, error.mail.accountSyncPaused) if it is, and it runs the fetch inside crashGuard.whileFetching. The fetch action is byte-identical — getMessageByUID, extractBody and the oversize flag, escapePlainText for text/plain, referencedCids and collectInlineImages, HtmlSanitizer.sanitize — so every sanitization and rendering claim holds; a cached or oversize body is answered before the new check, as before. Verdict unchanged."
       }
     ]
   },
@@ -174,6 +183,17 @@
       {
         "date": "2026-10-10",
         "note": "auth-finished.html and auth-failed.html, the pages the system browser shows after a sign-in, change for WCAG 2.2 only: the English half of each is marked lang=\"en\" (3.1.2), the reason line on the failure page is #4b5563 instead of #6b7280 on #f3f4f6 (4.39:1 to 1.4.3's 4.5:1), and its Czech text uses the en dash. Markup and CSS only: the inline script that writes ?reason= with textContent, the redirect targets and the public-endpoint list are unchanged. Verdict unchanged."
+      }
+    ]
+  },
+  "docs/IMAP_SMTP_AUDIT.md": {
+    "reviewedTrees": {
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "1b8699a45512b5698db83755aef88df17d9db22f"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-10-19",
+        "note": "Recorded in the audit itself as v1.73 (#745), B1-22's fix, which waits for its independent pass; the anchor stays at dec376c. Under Code paths three files change. SyncCrashGuard: exit clears only the marker (clearSyncStarted), and the crash count starts over only through passCompleted; an account with a crash on record takes a single turn in enter, which turns its sync away while another such account holds it; whileFetching marks a body download as a sync of its account without the turn; isPaused reads the pause from the database; every write and the startup reconcile catch any runtime exception; resumeIfPaused also clears MAIL_SYNC_PAUSED_AFTER_CRASHES from last_error. MailSyncService: enter sits inside the try in syncAllFolders and syncAndBackfill, exit runs only after an enter that let the sync run, a turned-away pass releases the lock and reports as a skipped one, and passCompleted runs after a folder loop that synced every role folder itself. MailContentService: an uncached body of a paused account is refused with MAIL_ACCOUNT_SYNC_PAUSED (409) before any IMAP command, and the fetch runs inside whileFetching with the same executor action. No bound, connect, TLS, parse or persist path moves."
       }
     ]
   }

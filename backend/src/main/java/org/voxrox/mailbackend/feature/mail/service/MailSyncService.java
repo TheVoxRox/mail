@@ -141,8 +141,18 @@ public class MailSyncService {
         int newMessagesCount = 0;
         boolean allFoldersSynced = false;
 
-        crashGuard.enter(account.getId());
+        boolean guarded = false;
         try {
+            /*
+             * Inside the try, so the account lock taken above is released on every way out;
+             * exit() pairs only with a sync the guard let run.
+             */
+            guarded = crashGuard.enter(account);
+            if (!guarded) {
+                log.info("{} Sync of {} waits for a later pass: it has a crash on record, and another account with one "
+                        + "is syncing.", LogCategory.SYNC, LogMasker.maskEmail(account.getEmail()));
+                return;
+            }
             log.info("{} Starting account sync: {}", LogCategory.SYNC, LogMasker.maskEmail(account.getEmail()));
             List<FolderResponse> folders = listFoldersRetryingClosedConnection(account);
             if (folders == null) {
@@ -162,6 +172,8 @@ public class MailSyncService {
                     .flatMap(role -> folders.stream().filter(f -> f.role() == role).limit(1)).toList();
 
             boolean allSucceeded = true;
+            // Whether the pass synced every folder itself, for the crash guard.
+            boolean everyFolderSynced = true;
             for (FolderResponse f : toSync) {
                 /*
                  * Folder-level skip-if-running: a user-triggered cycle (GET /emails →
@@ -173,6 +185,7 @@ public class MailSyncService {
                  */
                 if (!lockManager.tryLockFolder(account.getId(), f.folderRef())) {
                     allSucceeded = false;
+                    everyFolderSynced = false;
                     continue;
                 }
                 try {
@@ -192,6 +205,9 @@ public class MailSyncService {
                 }
             }
             allFoldersSynced = allSucceeded;
+            if (everyFolderSynced) {
+                crashGuard.passCompleted(account);
+            }
 
             /*
              * Clear last_error only after a fully clean pass over all role-matched folders.
@@ -210,7 +226,9 @@ public class MailSyncService {
                     e.getMessage(), e);
             recordAccountSyncFailure(account, e);
         } finally {
-            crashGuard.exit(account.getId());
+            if (guarded) {
+                crashGuard.exit(account.getId());
+            }
             publishErrorStateTransition(account.getId(), errorCodeBeforePass);
             // Release first: the flag the lock carries is the authority on whether
             // anyone is waiting for this pass, and it is only readable on release.
@@ -935,15 +953,25 @@ public class MailSyncService {
         if (!lockManager.tryLockFolder(account.getId(), folderName)) {
             return;
         }
-        crashGuard.enter(account.getId());
+        boolean guarded = false;
         try {
+            guarded = crashGuard.enter(account);
+            if (!guarded) {
+                log.debug(
+                        "{} Sync of {} waits: it has a crash on record, and another account with one is syncing; "
+                                + "serving folder {} from the local copy.",
+                        LogCategory.SYNC, LogMasker.maskEmail(account.getEmail()), folderName);
+                return;
+            }
             performFullSyncCycle(account, folderName);
 
             if (page == 0) {
                 backfillOlderMessages(account, folderName);
             }
         } finally {
-            crashGuard.exit(account.getId());
+            if (guarded) {
+                crashGuard.exit(account.getId());
+            }
             lockManager.unlockFolder(account.getId(), folderName);
         }
     }
