@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { openApp } from './e2e-helpers';
+import { openApp, waitForFocus } from './e2e-helpers';
 
 /*
  * A link to the page already open does nothing (lib/currentPageLinkGuard.ts).
@@ -40,6 +40,44 @@ async function expectEnterKeepsFocus(page: Page, link: Locator): Promise<void> {
 test.describe('Odkaz na otevřenou stránku', () => {
 	test('Enter na otevřené složce nechá fokus v podokně', async ({ page }) => {
 		await openApp(page, '/mail/1/INBOX');
+		const inbox = page
+			.getByRole('region', { name: 'Podokno pošty' })
+			.getByRole('link', { name: /^Doručené/ });
+
+		await expectEnterKeepsFocus(page, inbox);
+	});
+
+	/*
+	 * The boot view has a `main#main-content` of its own, which the ready shell
+	 * replaces, so these wait for the landing on the folder's heading first:
+	 * a press before it reaches the boot view's and loses its focus with it.
+	 */
+	async function openFolderSettled(page: Page): Promise<void> {
+		await openApp(page, '/mail/1/INBOX');
+		await waitForFocus(page.locator('main#main-content h1'));
+	}
+
+	test('Odkaz na přeskočení k obsahu funguje i podruhé', async ({ page }) => {
+		await openFolderSettled(page);
+		const skipLink = page.locator('a[href="#main-content"]');
+		const main = page.locator('main#main-content');
+
+		await skipLink.press('Enter');
+		await waitForFocus(main);
+		expect(page.url()).toMatch(/#main-content$/);
+
+		// Its hash is in the URL now, so the link points at the page already open.
+		await skipLink.press('Enter');
+		await settle(page);
+		await waitForFocus(main);
+	});
+
+	test('Enter na otevřené složce nechá fokus v podokně i po odkazu na přeskočení', async ({
+		page
+	}) => {
+		await openFolderSettled(page);
+		await page.locator('a[href="#main-content"]').press('Enter');
+		await waitForFocus(page.locator('main#main-content'));
 		const inbox = page
 			.getByRole('region', { name: 'Podokno pošty' })
 			.getByRole('link', { name: /^Doručené/ });
