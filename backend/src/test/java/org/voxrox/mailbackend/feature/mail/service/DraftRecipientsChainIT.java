@@ -367,6 +367,25 @@ class DraftRecipientsChainIT {
     }
 
     /**
+     * Found by the pass over 1.68 (1.72), which found the guard below unpinned: an
+     * earlier revision the chain names goes through the same check as the one the
+     * client names, so a row of it that no longer lives in this account's Drafts,
+     * one the user moved out, is never expunged. The chain is this client's own
+     * record, but the row it resolves to is the folder's as the last sync saw it.
+     */
+    @Test
+    @DisplayName("A save keeps an earlier revision of its draft that no longer lives in Drafts")
+    void aSaveKeepsAnEarlierRevisionOutsideDrafts() {
+        DraftPersistenceService.DraftIdentity stored = save(null, true);
+        giveRow(stored, 41, "INBOX");
+        DraftPersistenceService.DraftIdentity rejected = save(stored.stableId(), false);
+
+        save(rejected.stableId(), true);
+
+        verify(imapActionService, never()).hardDelete(account.getId(), "INBOX", 41L);
+    }
+
+    /**
      * Found by the pass over 1.42 (B1-5, reopened at 1.43). The entry is kept when
      * the save is accepted, and only a failed APPEND set it aside, so a save whose
      * task stopped before its APPEND left its entry current, and each further save
@@ -553,9 +572,13 @@ class DraftRecipientsChainIT {
     }
 
     private void giveRow(DraftPersistenceService.DraftIdentity revision, long uid) {
+        giveRow(revision, uid, "Drafts");
+    }
+
+    private void giveRow(DraftPersistenceService.DraftIdentity revision, long uid, String folder) {
         MessageEntity row = new MessageEntity();
         row.setAccount(account);
-        row.setFolderName("Drafts");
+        row.setFolderName(folder);
         row.setUid(uid);
         row.setMessageId(revision.messageId());
         row.setStableId(revision.stableId());

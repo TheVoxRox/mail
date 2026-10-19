@@ -136,6 +136,11 @@ Entries before 2026-09-17 predate that split and are left as written.
   were linted without the project's runes option; a config that fails to load
   now fails the run. `regen:sbom` no longer stops on a `node_modules/$app` an
   interrupted run set aside once `svelte-kit sync` has written a new one (#743).
+- The IMAP/SMTP audit is re-verified against `dec376c` (1.72), clearing the
+  eight acknowledgements the ledger had reached its cap with. The pass holds
+  the drafts and listing changes, with one test added for an unpinned guard,
+  and records the crash guard's defects as B1-22 (Medium, open), which the
+  threat model and the verdict index now show (#744).
 
 ## [0.1.0] - 2026-10-18
 
