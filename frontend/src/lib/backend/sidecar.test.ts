@@ -670,6 +670,75 @@ describe('the previous exit handed to the next backend', () => {
 		await mod.restartBackendSidecar();
 		expect(envOf(2)).toMatchObject({ MAIL_SIDECAR_PREVIOUS_EXIT: '3' });
 	});
+
+	// 74 and 78 are restarted automatically, unlike 65 and 70, but are decided
+	// before the crash guard runs all the same (B1-23).
+	it.each([74, 78])(
+		'a start refused with %i passes on the exit it was handed, not its own',
+		async (code) => {
+			vi.useFakeTimers();
+			const handles = Array.from({ length: 3 }, (_, i) => createCommandHandle({ pid: i + 1 }));
+			for (const handle of handles) commandSidecarMock.mockReturnValueOnce(handle.cmd);
+			const mod = await freshModule();
+			await mod.ensureBackendSidecar();
+
+			handles[0]!.emitClose(3, null);
+			await vi.advanceTimersByTimeAsync(1_000);
+			handles[1]!.emitClose(code, null);
+			await vi.advanceTimersByTimeAsync(1_000);
+
+			expect(envOf(2)).toMatchObject({ MAIL_SIDECAR_PREVIOUS_EXIT: '3' });
+		}
+	);
+
+	it('a start refused with 74 after a Restart hands nothing over', async () => {
+		vi.useFakeTimers();
+		const handles = Array.from({ length: 3 }, (_, i) => createCommandHandle({ pid: i + 1 }));
+		for (const handle of handles) commandSidecarMock.mockReturnValueOnce(handle.cmd);
+		const mod = await freshModule();
+		await mod.ensureBackendSidecar();
+
+		await mod.restartBackendSidecar();
+		handles[1]!.emitClose(74, null);
+		await vi.advanceTimersByTimeAsync(1_000);
+
+		expect(envOf(2)).not.toHaveProperty('MAIL_SIDECAR_PREVIOUS_EXIT');
+	});
+
+	/*
+	 * The kill a Restart makes returns once the process has exited, so its
+	 * `close` arrives while the next spawn is still clearing the handshake files.
+	 * B1-23: taken there for an exit nobody asked for, it reached the next
+	 * backend as a crash, and three Restarts during a sync paused the account.
+	 */
+	it('the kill a Restart makes is not handed over when its close arrives during the next spawn', async () => {
+		const first = createCommandHandle({ pid: 1 });
+		const second = createCommandHandle({ pid: 2 });
+		commandSidecarMock.mockReturnValueOnce(first.cmd).mockReturnValueOnce(second.cmd);
+		const mod = await freshModule();
+		await mod.ensureBackendSidecar();
+
+		let releaseCleanup!: () => void;
+		const cleanup = new Promise<boolean>((resolve) => {
+			releaseCleanup = () => resolve(false);
+		});
+		existsMock.mockClear().mockReturnValue(cleanup);
+
+		const restart = mod.restartBackendSidecar();
+		await vi.waitFor(() => expect(existsMock).toHaveBeenCalled());
+		first.emitClose(1, null);
+		releaseCleanup();
+		await restart;
+
+		expect(envOf(1)).not.toHaveProperty('MAIL_SIDECAR_PREVIOUS_EXIT');
+		expect(invokeMock).toHaveBeenCalledWith('log_sidecar_exit', {
+			code: 1,
+			signal: null,
+			requested: true
+		});
+		expect(commandSidecarMock).toHaveBeenCalledTimes(2);
+		expect(get(mod.backendSidecarState)).toEqual({ status: 'running', pid: 2 });
+	});
 });
 
 describe('unload hook — only a leave that goes ahead stops the backend', () => {

@@ -256,6 +256,20 @@ function registerSidecarShutdownHook(): void {
 }
 
 async function spawnBackendSidecar(): Promise<void> {
+	/*
+	 * Captured by the close/error handlers below, and taken before the first
+	 * await. After restartBackendSidecar() kills the old child, the OLD child's
+	 * `close` can arrive at any point of this spawn. Once the new child runs,
+	 * without the generation check it would null out the NEW `runtime.child` and
+	 * spawn a second backend (exit 78 "already running" plus an
+	 * orphaned-but-working process). Before the spawn, while the handshake files
+	 * are still being cleared and with `stopRequested` already lifted, it would be
+	 * taken for an exit nobody asked for and handed to the new backend as a crash
+	 * (B1-23): the kill returns once the process has exited, so that is where the
+	 * `close` of a Restart's kill lands. Nothing may await between
+	 * `ensureBackendSidecar` lifting `stopRequested` and this line.
+	 */
+	const generation = ++runtime.generation;
 	backendSidecarState.set({ status: 'starting' });
 
 	/*
@@ -272,14 +286,6 @@ async function spawnBackendSidecar(): Promise<void> {
 	 */
 	await clearStaleHandshakeFiles(dataDir);
 
-	/*
-	 * Captured by the close/error handlers below. After restartBackendSidecar()
-	 * kills the old child and spawns a new one, the OLD child's `close` event
-	 * can arrive late — without the generation check it would null out the NEW
-	 * `runtime.child` and spawn a second backend (exit 78 "already running"
-	 * plus an orphaned-but-working process).
-	 */
-	const generation = ++runtime.generation;
 	/*
 	 * Set when the `error` handler below has already taken this process's end,
 	 * so the `close` its kill produces is logged but not handled a second time.
@@ -329,8 +335,9 @@ async function spawnBackendSidecar(): Promise<void> {
 		void handleUnexpectedExit(
 			generation,
 			describeSidecarExit(payload.code, payload.signal),
-			String(payload.code ?? payload.signal ?? 'unknown'),
-			handedExit
+			// A start the backend refused ran no sync and counted nothing, so what
+			// it was handed is what the next backend still has to hear about.
+			refusedStart(payload.code) ? handedExit : String(payload.code ?? payload.signal ?? 'unknown')
 		);
 	});
 	/*
@@ -355,8 +362,7 @@ async function spawnBackendSidecar(): Promise<void> {
 				{ detail: message }
 			),
 			// The process ends by the kill above, which the shell asked for.
-			null,
-			handedExit
+			null
 		);
 	});
 
@@ -377,16 +383,14 @@ async function spawnBackendSidecar(): Promise<void> {
 }
 
 /**
- * @param exit how the process ended, for the next backend's crash guard, or
+ * @param exit what the next backend's crash guard is to be handed: how the
+ *   process ended, what it was handed itself when it refused to start, or
  *   `null` for an end the shell made itself
- * @param handedExit what the process was handed at its spawn, which a start
- *   the backend refused passes on unread
  */
 async function handleUnexpectedExit(
 	generation: number,
 	error: Error,
-	exit: string | null,
-	handedExit: string | null
+	exit: string | null
 ): Promise<void> {
 	if (generation !== runtime.generation) {
 		// Stale event from a previous process generation — the child it belongs
@@ -401,20 +405,14 @@ async function handleUnexpectedExit(
 		return;
 	}
 
+	// Kept for whichever spawn comes next: the automatic restart below, or a
+	// Retry from the boot error view once the restart budget is spent.
+	runtime.previousExit = exit;
+
 	// By name, not `instanceof`, for the reason isSidecarExitError carries: a
 	// class identity does not survive HMR or vi.resetModules(), and getting this
 	// wrong spends the restart budget on an exit no restart can fix.
-	const refusedStart = isSidecarExitError(error) && error.permanent;
-
-	// Kept for whichever spawn comes next: the automatic restart below, or a
-	// Retry from the boot error view once the restart budget is spent. A start
-	// the backend refused (the permanent codes, 65 and 70, both decided in
-	// DatabaseConfig.java before its crash guard runs) ran no sync and counted
-	// nothing, so its predecessor's exit is what the next backend still has to
-	// hear about.
-	runtime.previousExit = refusedStart ? handedExit : exit;
-
-	if (refusedStart) {
+	if (isSidecarExitError(error) && error.permanent) {
 		backendSidecarState.set({ status: 'error', error });
 		return;
 	}
@@ -476,6 +474,24 @@ const EXIT_DATABASE_DAMAGED = 65;
 const EXIT_SCHEMA_MISMATCH = 70;
 const EXIT_STORAGE_UNAVAILABLE = 74;
 const EXIT_ALREADY_RUNNING = 78;
+
+/*
+ * All four end a start before the backend's crash guard (SyncCrashGuard.java)
+ * runs: 78 in MailBackendApplication.main, before Spring starts, and 65, 70 and
+ * 74 in the migration strategy of DatabaseConfig.java, before any bean that
+ * syncs exists. Whether a restart is worth trying is another question, which
+ * `permanent` answers (B1-23).
+ */
+const REFUSED_START_EXITS: ReadonlySet<number> = new Set([
+	EXIT_DATABASE_DAMAGED,
+	EXIT_SCHEMA_MISMATCH,
+	EXIT_STORAGE_UNAVAILABLE,
+	EXIT_ALREADY_RUNNING
+]);
+
+function refusedStart(code: number | null): boolean {
+	return code !== null && REFUSED_START_EXITS.has(code);
+}
 
 /*
  * Not a sysexits.h code and not one the backend chooses: HotSpot exits 3 from

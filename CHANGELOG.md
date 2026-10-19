@@ -19,6 +19,17 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Frontend
+
+- **Restarting from the start screen no longer counts as a crash.** The
+  Restart offered while the app takes long to start, and on its error screen,
+  ends the running backend first, and the next backend was usually told that
+  the previous one had crashed. Three such Restarts while an account was
+  syncing paused that account's sync, as if a message in it kept ending the
+  backend. A start the backend refused because it could not open its data
+  directory, or because another instance was running, was also reported to
+  the next start as a crash, while the exit before it was dropped (#750).
+
 ### Repo
 
 - The independent pass over B1-22's fix re-verified the IMAP/SMTP audit
