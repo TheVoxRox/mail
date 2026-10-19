@@ -155,49 +155,6 @@
       }
     ]
   },
-  "docs/IMAP_SMTP_AUDIT.md": {
-    "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "0e3e055682ed05b1251cf7c1e39f3a44a9f1e4e7",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "9529c23f5e6525d047964bbe6f7342c525ddbdca",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/entity/MessageEntity.java": "f3f30cd4be6904739e50a7c4a58212c6d9679cf1",
-      "backend/src/main/resources/application.properties": "e32931284645050519fd545b10ab30f24bf048c9",
-      "frontend/src/lib/contacts/senderContact.ts": "d753e2410fef2ed47808882b3ae066ac9414efd8"
-    },
-    "acknowledgements": [
-      {
-        "date": "2026-10-08",
-        "note": "The residual of 1.40 in section 4e (a second copy of the draft after a rejected save), fixed and recorded in the audit itself as v1.68; functional, so no claim of a finding moves and the anchor stays at 6ff9ded. Two paths move. DraftRecipientsRepository gains findEarlierRevisions, a read: the stableIds of the account's entries in the chain of a given stableId written before it by saved_seq, empty when that stableId has no entry. Under feature/mail/service only DraftPersistenceService changes: saveDraftAsync resolves, before the APPEND as before, the named revision's row and the rows of the chain's earlier revisions (replacedRevisions, earlierRevisionRows), each through isReplaceableDraft, and after a stored APPEND hard-deletes each and its row; deleteSupersededDraft does the same for the draft a send supersedes and also sets aside each deleted revision's entry, as it does the named one's. No entry is deleted or written by the new code, so 1.58's claim that entries go only by the two bounds holds; DraftPersistenceServiceTest still pins that the save and the send touch the repository only to read, besides the send's set-aside. The guard, the APPEND, markStored and the recipient check are unchanged."
-      },
-      {
-        "date": "2026-10-11",
-        "note": "Schema housekeeping, no claim of a finding moves and the anchor stays at 6ff9ded. One path moves: MessageEntity gains bodyText, mapped to the new messages.body_text column, and setContent now sets it to BodyText.of(content) (jsoup text() of the cached HTML, null exactly when content is). message_search and its triggers read body_text instead of content, so the index holds the visible text of a body rather than its markup; nothing else reads the column. MessageContentPersister is still the only production caller of setContent, and nothing writes body_text on its own, so B1-1's claim that content stays NULL for an oversized body, and the index with it never sees a placeholder, holds for body_text too. For the informational note on thread renumbering in section 5: the managed entities it loads now carry body_text as well, which is no longer than content (text() only drops markup and decodes entities) and null for a message nobody has opened, so the note's worst case stays an opened long thread and the body text each loaded entity holds at most doubles; the note's 'not measured' stands. V1__init.sql also moves the long text columns of messages to the end of the row, which no audited path depends on."
-      },
-      {
-        "date": "2026-10-11",
-        "note": "Under this audit's paths only application.properties changes: two keys, mail.client.db.checkpoint-initial-delay=PT1M and mail.client.db.checkpoint-interval=PT5M, schedule a WAL checkpoint pass (PRAGMA wal_checkpoint(PASSIVE)) in DatabaseMaintenanceService, which is in core/maintenance, outside this audit's paths. No mail.client.imap.*, mail.client.sync.* or SMTP key moves, so no bound a finding rests on changes. PASSIVE waits on no reader or writer, so the sync's write transactions are neither blocked nor failed by it."
-      },
-      {
-        "date": "2026-10-11",
-        "note": "Under this audit's paths only application.properties changes: mail.crypto.pbkdf2-iterations=600000 is removed, because the count is now a constant in CryptoService (CRYPTO_STORAGE_AUDIT.md v1.2), and the comment above the crypto keys names it among the format constants. No mail.client.imap.*, mail.client.sync.* or SMTP key moves, so no bound a finding rests on changes. Verdict unchanged."
-      },
-      {
-        "date": "2026-10-17",
-        "note": "The SvelteKit 3 migration (#721). Under this audit's paths only frontend/src/lib/contacts/senderContact.ts moves, and only in import specifiers: $lib/... became #lib/... (package.json imports, the same files). After normalising the rename the removed and added lines are identical, so B1-11's reading of the address from the last <...> of the label is unchanged. Verdict unchanged."
-      },
-      {
-        "date": "2026-10-18",
-        "note": "Recorded in the audit itself as v1.69 (#738); functional, so no claim of a finding moves and the anchor stays at 6ff9ded. Under Code paths only MailSyncService changes: syncAllFolders lists the account's folders through the new listFoldersRetryingTransient, which retries ImapFolderService.getFolders when TransientMailErrors.isTransient holds, up to mail.client.retry.max-attempts, calling invalidateConnection and sleepBeforeRetry between attempts exactly as runFolderCycle does; a failure that is not transient propagates to the pass's catch as before, and an exhausted retry is recorded once through recordAccountSyncFailure, which the pass's catch now also uses (same AuditLog record, same last_error). The connect path, the retry template, the TLS settings, every bound and the lane locks are untouched, and the retry runs before any folder cycle, holding no lane lock, so removeConnection takes the lanes in turn as it does from runFolderCycle. §1's description of the second retry layer is extended to name it. Verdict PASS."
-      },
-      {
-        "date": "2026-10-18",
-        "note": "Recorded in the audit itself as v1.70 (#739); functional, so no claim of a finding moves and the anchor stays at 6ff9ded. Under Code paths two files change. TransientMailErrors gains isClosedConnection: true when the bounded causal chain holds a StoreClosedException or FolderClosedException and no AuthenticationFailedException; isTransient is unchanged and still decides the folder cycle's retry. MailSyncService renames 1.69's listing helper to listFoldersRetryingClosedConnection and has it retry only when isClosedConnection holds, so a failed connect (ConnectException, a read timeout, a reset, already retried by imapRetryTemplate inside ImapConnectionManager) propagates to the pass's catch as it did before 1.69. Fewer attempts on the same bound; the connect path, the TLS settings, the lane locks and every bound are untouched. Verdict PASS."
-      },
-      {
-        "date": "2026-10-18",
-        "note": "Recorded in the audit itself as v1.71 (#740); a mitigation, so no claim of a finding moves and the anchor stays at 6ff9ded. Under Code paths two files change. The new SyncCrashGuard writes accounts.sync_started_at, sync_crashes and sync_paused (V2__sync_crash_guard.sql, outside Code paths) through targeted AccountRepository UPDATEs: enter/exit bracket each sync of an account, with an in-process count so overlapping syncs share one marker; afterSingletonsInstantiated, before the scheduler and the web server run, counts each marker still set as a crash only when MAIL_SIDECAR_PREVIOUS_EXIT is present, and at three pauses the account and writes MAIL_SYNC_PAUSED_AFTER_CRASHES. MailSyncService brackets syncAllFolders and syncAndBackfill with it, skips a paused account in both except for a MANUAL pass, which resumes it one crash short of the limit. Nothing on the IMAP path moves: no bound, connection, lock, retry or parse changes, and every write failure of the guard is logged and ignored. Verdict PASS."
-      }
-    ]
-  },
   "docs/OAUTH_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java": "69fc4c0197c480dc39ba3c38dece6874faec8d17",
