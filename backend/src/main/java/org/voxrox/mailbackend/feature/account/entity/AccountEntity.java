@@ -89,9 +89,9 @@ public class AccountEntity {
     private @Nullable String lastErrorArgs;
 
     /*
-     * The crash guard's three columns (V2__sync_crash_guard.sql). Written only
-     * through the @Modifying queries in AccountRepository, from SyncCrashGuard; see
-     * that class for what each one means.
+     * The crash guard's three columns (V1__init.sql). Written only through
+     * the @Modifying queries in AccountRepository, from SyncCrashGuard; see that
+     * class for what each one means.
      */
     @Column(name = "sync_started_at")
     private @Nullable LocalDateTime syncStartedAt;

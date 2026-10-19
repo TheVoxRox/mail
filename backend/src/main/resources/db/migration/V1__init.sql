@@ -93,6 +93,17 @@ CREATE TABLE mail_providers (
 -- inserts it from the compose toolbar). NOT NULL DEFAULT 1 = historical
 -- always-on behaviour for accounts created before the toggle existed.
 --
+-- sync_started_at / sync_crashes / sync_paused: the crash guard of the
+-- account's sync (SyncCrashGuard in feature/mail/service), written only
+-- through targeted UPDATEs in AccountRepository. sync_started_at is set while
+-- a sync of the account runs and cleared when the last one ends; still set at
+-- startup, it means the previous backend process ended in the middle of it.
+-- sync_crashes counts the processes in a row that ended that way, but only
+-- when the shell restarted the backend after an exit it did not ask for, and
+-- goes back to 0 whenever a sync ends inside the process. sync_paused is set
+-- once sync_crashes reaches the limit: the scheduled pass and the read path's
+-- folder sync skip the account, and a manual sync clears it.
+--
 -- email is COLLATE NOCASE: Jan.Novak@seznam.cz and jan.novak@seznam.cz are the
 -- same mailbox, so every comparison on the column — the unique index below,
 -- and through it AccountRepository's findByEmail / existsByEmail — ignores
@@ -124,6 +135,9 @@ CREATE TABLE accounts (
     last_error_args       TEXT,
     signature             TEXT,
     signature_auto_insert BOOLEAN       NOT NULL DEFAULT 1,
+    sync_started_at       DATETIME,
+    sync_crashes          INTEGER       NOT NULL DEFAULT 0,
+    sync_paused           BOOLEAN       NOT NULL DEFAULT 0,
     FOREIGN KEY (provider_id) REFERENCES mail_providers(id) ON DELETE SET NULL
 );
 

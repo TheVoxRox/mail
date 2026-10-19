@@ -189,9 +189,9 @@ class AccountRepositoryIT {
     @DisplayName("The crash guard counts three restarts out of a sync on the real schema and pauses the account")
     void crashGuardPausesAfterThreeRestartsOnTheRealSchema() {
         /*
-         * Runs the guard against V2's columns and the repository's JPQL rather than
-         * mocks: each round is a process that starts with the shell's restart variable
-         * set, begins a sync and dies in it.
+         * Runs the guard against the schema's columns and the repository's JPQL rather
+         * than mocks: each round is a process that starts with the shell's restart
+         * variable set, begins a sync and dies in it.
          */
         Long accountId = accountRepository.saveAndFlush(account("crashing@example.com")).getId();
         for (int round = 1; round <= 3; round++) {
