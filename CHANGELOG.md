@@ -48,6 +48,16 @@ Entries before 2026-09-17 predate that split and are left as written.
   cache on every installation while the packaging check, which runs before
   NSIS, still passed. Packaging now rounds the image's file times before
   training, and that check fails on a time the installer would change (#756).
+- An update no longer leaves the previous version's backend behind in the
+  installation folder. The installer wrote the new files over the old ones in
+  place, and the backend jar carries its version in its name, so each update
+  would have kept the previous one (about 69 MB) in `app\`, where the
+  uninstaller, which knows only the files of its own version, would have left
+  it too. The installer now empties `app\` and `runtime\` of an existing
+  installation before it copies. It also ends the backend before it installs
+  or uninstalls: its check for a running app ended only the app's window
+  process, and the backend takes up to ten seconds more to shut down while it
+  still holds those files open (#762).
 
 ### Repo
 
