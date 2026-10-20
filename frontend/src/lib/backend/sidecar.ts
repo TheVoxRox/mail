@@ -188,7 +188,10 @@ export async function ensureBackendSidecar(): Promise<void> {
 
 export async function restartBackendSidecar(): Promise<void> {
 	runtime.restartTimestamps = [];
-	await stopBackendSidecar();
+	// Not stopBackendSidecar: a spawn under way is joined, not waited for and
+	// killed. The backend it starts is as fresh as the one a Restart wants, and
+	// it already carries the exit it was handed.
+	await stopChild();
 	await ensureBackendSidecar();
 }
 
@@ -196,12 +199,30 @@ export async function restartBackendSidecar(): Promise<void> {
  * Kills the sidecar and marks the stop as intentional, so `handleUnexpectedExit`
  * reports `stopped` instead of restarting it.
  *
+ * A spawn under way has no child to kill yet, and the backend it starts would
+ * run on with nobody to stop it, so this waits for that spawn and kills what it
+ * started; it returns once nothing is left running. The update path depends on
+ * that: the installer it runs next has to overwrite `runtime/` and `app/`,
+ * which a live backend holds open. Unless something wanted a backend again in
+ * the meantime: `ensureBackendSidecar` lifts the stop, and then the backend
+ * stays.
+ *
  * Exported for the update path, which has to free the install directory before
  * the installer runs (see installPromptedUpdate in lib/updates.ts). Everywhere
- * else it is reached through `restartBackendSidecar` or the unload hook
- * (`registerSidecarShutdownHook`).
+ * else it is reached through the unload hook (`registerSidecarShutdownHook`).
  */
 export async function stopBackendSidecar(): Promise<void> {
+	await stopChild();
+	const spawning = runtime.startPromise;
+	if (!spawning) return;
+	// Its failure is the caller of ensureBackendSidecar's to handle; a spawn
+	// that failed has left nothing running.
+	await spawning.catch(() => {});
+	if (runtime.stopRequested) await stopChild();
+}
+
+/** Kills the child there is, if any, and marks the stop as intentional. */
+async function stopChild(): Promise<void> {
 	runtime.stopRequested = true;
 	const runningChild = runtime.child;
 	runtime.child = null;
@@ -439,6 +460,10 @@ async function handleUnexpectedExit(
 	runtime.restartTimestamps.push(now);
 	backendSidecarState.set({ status: 'restarting', attempt: runtime.restartTimestamps.length });
 	await delayWithAbort(RESTART_DELAY_MS);
+	// A stop during the delay found nothing to kill and nothing spawning, so
+	// this is the only place it can still be heeded. The ensure below lifts it,
+	// as a Restart's ensure has already done if one came in the meantime.
+	if (runtime.stopRequested) return;
 
 	try {
 		await ensureBackendSidecar();
