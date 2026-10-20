@@ -90,6 +90,68 @@ describe('release:status as a process', () => {
 		);
 		expect(result.stdout).toContain('Your working tree says version 0.2.0; main says 0.1.0');
 		expect(result.stdout).toContain('origin is not a GitHub remote');
+		expect(result.stdout).toContain(
+			'backend/RELEASE_CHECKLIST.md on main has no "| section | rests on |" table, so no section can carry.'
+		);
+	});
+
+	it('carries a section whose inputs did not move since the last sheet that ticked it', () => {
+		const checklist = (date, ticked) =>
+			[
+				'# Release checklist',
+				'',
+				'## Appendix',
+				'',
+				'| section | rests on |',
+				'| ------- | -------- |',
+				'| §3a | `frontend/src-tauri/windows`, `frontend/src-tauri/tauri.conf.json#bundle` |',
+				'| §4 | `docs/OAUTH_AUDIT.md` |',
+				'| §5 | `frontend/src/lib/mail` |',
+				'',
+				`### Candidate ${date}`,
+				'',
+				'| path | object id |',
+				'| ---- | --------- |',
+				...['backend/src', 'frontend/src', 'frontend/src-tauri'].map(
+					(row) => `| \`${row}\` | \`${repo.git(['rev-parse', `HEAD:${row}`]).slice(0, 12)}\` |`
+				),
+				'',
+				...['§0', '§1', '§2'].map((id) => `- [x] **${id} Machine** — ok.`),
+				...['§3a', '§4', '§5'].map((id) => `- [${ticked ? 'x' : ' '}] **${id} Manual** — by hand.`),
+				'- [ ] **§9** — decision.',
+				''
+			].join('\n');
+		const tauri = (version) =>
+			JSON.stringify({ productName: 'VoxRox Mail', version, bundle: { targets: 'nsis' } });
+
+		repo.write(CONFIG, tauri('0.1.0'));
+		repo.write('frontend/src-tauri/windows/installer.nsi', '; installer\n');
+		repo.write('frontend/src/lib/mail/list.ts', 'export const list = 1;\n');
+		repo.write('backend/src/auth/Login.java', 'class Login {}\n');
+		repo.write('docs/OAUTH_AUDIT.md', '| **Code paths** | `backend/src/auth` |\n');
+		repo.commit('code');
+		repo.write(CHECKLIST, checklist('2026-09-11', true));
+		repo.commit('the first sheet, every section ticked');
+		const ticked = repo.git(['rev-parse', 'HEAD']).slice(0, 7);
+		// The next cut: a version bump and a change to the mail list, nothing else.
+		repo.write(CONFIG, tauri('0.2.0'));
+		repo.write('frontend/src/lib/mail/list.ts', 'export const list = 2;\n');
+		repo.commit('the next cut');
+		repo.write(CHECKLIST, checklist('2026-09-12', false));
+		repo.commit('the second sheet, replacing the first');
+		repo.git(['push', '--quiet', '--no-verify', 'origin', 'main']);
+
+		const result = repo.run('release-status.mjs');
+		const against = `the 2026-09-11 sheet as of ${ticked}`;
+
+		expect(result.status).toBe(0);
+		expect(result.stdout).toContain('Manual sections, against the last sheet that ticked each');
+		expect(result.stdout).toContain(`§3a Manual: carry from ${against}`);
+		expect(result.stdout).toContain(`§4 Manual: carry from ${against}`);
+		expect(result.stdout).toContain(
+			`§5 Manual: re-take: frontend/src/lib/mail. Against ${against}`
+		);
+		expect(result.stdout).toContain('§9: re-take, as on every candidate');
 	});
 
 	it('resolves an annotated tag on origin to its commit and compares the sheet against both', () => {

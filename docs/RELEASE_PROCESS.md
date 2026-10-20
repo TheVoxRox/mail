@@ -38,30 +38,39 @@ model holds literally.
 the newest candidate sheet in the checklist on `main`, the tag on origin, CI for
 `main` and for the tagged commit, the signed build, the draft's assets and the
 ref and commit its installer was built from, and prints the next step of this
-document with the commands for it. It changes nothing — no fetch, no tag, no workflow run — so it is safe to run
+document with the commands for it. For each manual section still open on the
+sheet it also names the last sheet in the checklist's history that ticked it,
+and whether the section can carry from it ("What a release runs"). It changes nothing — no fetch, no tag, no workflow run — so it is safe to run
 at any point, and it answers "where was I" from the sources themselves rather
 than from a list someone kept by hand.
 
 ## What a release runs
 
-From `0.2.0` every change ships twice — as a beta, then as its promotion to
-stable — and a promotion that re-ran the whole checklist would repeat half a
-day of manual testing on code the beta audience has already been using. So a
-release takes one of two shapes:
+A candidate does not re-run the whole checklist. Half a day of it is manual,
+and repeating that on code nobody changed is what made the ten cuts of `v0.1.0`
+slow: each re-took §3 to §8.1 by hand, mostly the same items. So what runs is
+split in two:
 
-- **A beta, and the first ship** (`v0.1.0`, the recorded exception to
-  beta-first): every section of RELEASE_CHECKLIST, §0 to §9.
-- **A promotion to stable** — `vX.Y.Z` shipping the code of a
-  `vX.Y.Z-beta.N` whose beta cycle ended with no open blocker. The manual
-  sections — §3 beyond what Release Candidate Smoke covers, §4–§7 and §8.1 —
-  **carry from the beta's sheet**, citing it, because they would re-test the
-  same code. What runs again is what a new build and the stable channel can
-  break: §0–§2 (the version change moves the object ids), the signed build and
-  Release Candidate Smoke, the update smoke vN-1 → vN in §3a from the previous
-  stable, §8a, §8b, §9, and Release Channel Check after publishing.
+- **On every candidate:** what a new build and a new version can break —
+  §0–§2 (anything merged, and the version change, move the object ids), the
+  signed build and Release Candidate Smoke, §8a, §8b, §9, and Release Channel
+  Check after publishing. The update smoke vN-1 → vN in §3a runs on every
+  release from the previous stable, because every release is a new pair of
+  versions; RELEASE_CHECKLIST §3a states the first-ship exception.
+- **The manual sections** — §3 beyond what Release Candidate Smoke covers,
+  §3a's other items, §4–§7 and §8.1 — **carry from the last sheet that ticked
+  them when nothing they rest on moved**, and are re-taken where it did. The
+  rule, and the table of the paths each section rests on, are in the
+  RELEASE_CHECKLIST appendix ("A manual section carries when what it rests on
+  has not moved"). `npm run release:status` reports for each open section
+  "carry from" the sheet, or "re-take:" with the inputs that moved.
 
-The promotion shape applies only when the code did not change, and that is
-checked, not judged. Before tagging, compare the beta tag with the candidate:
+That holds for a re-cut, a beta and the first ship alike. A **promotion to
+stable** — `vX.Y.Z` shipping the code of a `vX.Y.Z-beta.N` whose beta cycle
+ended with no open blocker — is the case where nothing but the version moved:
+no input names a file `npm run bump:version` writes whole, so every manual
+section carries from the beta's sheet, citing it. Confirm the shape before
+tagging by comparing the beta tag with the candidate:
 
 ```bash
 git diff --name-only vX.Y.Z-beta.N main
@@ -69,8 +78,9 @@ git diff --name-only vX.Y.Z-beta.N main
 
 It may list only the files `npm run bump:version` changes, `CHANGELOG.md`, and
 Markdown documentation. Anything else — a fix merged during the beta, a
-dependency bump — means the stable build is not the build the beta tested, and
-the release runs every section.
+dependency bump — means the stable build is not the build the beta tested: the
+release is then an ordinary candidate, and the sections what changed can reach
+are re-taken.
 
 ## 1. Version
 
@@ -197,7 +207,9 @@ stretch of the release by wall clock.
   lists what. A red run stops the release here: nothing manual is worth doing
   on an installer that fails it.
 - RELEASE_CHECKLIST §3–§7 on the installed candidate for what the smoke does
-  not cover, then §8.1 in the same sitting.
+  not cover, then §8.1 in the same sitting — the sections, and within them the
+  items, that `npm run release:status` reports as re-take. The others carry
+  from the sheet it names, and their lines say so ("What a release runs").
 - §8a and §9 afterwards. §8.2 is no longer an overnight gate; RELEASE_CHECKLIST
   §8.2 records what replaces it.
 - §9 is where the blockers, the known issues and the signature are recorded.
@@ -276,10 +288,11 @@ two differ.
 Publish only when all of these hold. Each is a fact you can check, not a
 judgement call:
 
-- [ ] Checklist §3–§7 and §8.1 filled **for this candidate**, with §9 carrying
-      no open blocker. §8.2 is not a gate: RELEASE_CHECKLIST §8.2 records what
-      replaces it, and until that automation exists §9 records the absence of
-      the overnight run as an accepted risk.
+- [ ] Checklist §3–§7 and §8.1 ticked **on this candidate's sheet** — taken on
+      it, or carried with the earlier sheet named ("What a release runs") —
+      with §9 carrying no open blocker. §8.2 is not a gate: RELEASE_CHECKLIST
+      §8.2 records what replaces it, and until that automation exists §9
+      records the absence of the overnight run as an accepted risk.
 - [ ] `### Known issues` in the changelog section, and the same list in the
       release body, match checklist §9 as signed. Only the changelog cut is
       written before §9 exists (step 2, item 4); the release body is written

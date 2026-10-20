@@ -28,6 +28,53 @@ export const shortSha = (sha) => (sha ? sha.slice(0, 7) : 'unknown');
 const label = (section) => (section.title ? `${section.id} ${section.title}` : section.id);
 
 /**
+ * Every dated candidate sheet in a checklist, in document order. A sheet runs
+ * from its heading to the next heading of level one to three.
+ *
+ * A table row that is not a readable object id row is returned in
+ * `unparsedRows` rather than skipped: a skipped `backend/src` row would take
+ * that path out of the comparison, and the rest could then read as a match.
+ */
+export function parseSheets(markdown) {
+	const lines = markdown.split(/\r?\n/);
+	const sheets = [];
+	lines.forEach((line, start) => {
+		const heading = SHEET_HEADING.exec(line);
+		if (!heading) return;
+		const body = lines.slice(start + 1);
+		const end = body.findIndex((next) => /^#{1,3} /.test(next));
+		const sheetLines = end === -1 ? body : body.slice(0, end);
+
+		const objectIds = [];
+		const unparsedRows = [];
+		const sections = [];
+		sheetLines.forEach((sheetLine, index) => {
+			if (sheetLine.startsWith('|')) {
+				// A separator, and the header row right above one, are not data.
+				if (TABLE_SEPARATOR.test(sheetLine) || TABLE_SEPARATOR.test(sheetLines[index + 1] ?? '')) {
+					return;
+				}
+				const row = OBJECT_ROW.exec(sheetLine);
+				if (row) objectIds.push({ path: row[1], id: row[2].toLowerCase() });
+				else unparsedRows.push(sheetLine.trim());
+				return;
+			}
+			const box = SECTION_BOX.exec(sheetLine);
+			if (box) sections.push({ id: box[2], title: box[3]?.trim() ?? '', done: box[1] !== ' ' });
+		});
+		// SHEET_HEADING anchors on '### Candidate ', so the marker is exactly 4 chars.
+		sheets.push({
+			date: heading[1],
+			heading: line.slice(4).trim(),
+			objectIds,
+			unparsedRows,
+			sections
+		});
+	});
+	return sheets;
+}
+
+/**
  * Returns the newest dated candidate sheet, or null when the checklist holds
  * none. Newest by the date in the heading rather than by position. Two sheets
  * of the same day cannot be told apart by date, so a tie goes to the first in
@@ -38,51 +85,19 @@ const label = (section) => (section.title ? `${section.id} ${section.title}` : s
  * that won first. Saying *how many* sheets tied left the reader to go and work
  * out which one was read; the appendix distinguishes them in the heading ("…,
  * second cut"), so quoting it answers the question the count only raises.
- *
- * A table row that is not a readable object id row is returned in
- * `unparsedRows` rather than skipped: a skipped `backend/src` row would take
- * that path out of the comparison, and the rest could then read as a match.
  */
 export function parseCandidateSheet(markdown) {
-	const lines = markdown.split(/\r?\n/);
-	let start = -1;
-	let date = null;
+	let newest = null;
 	let headings = [];
-	lines.forEach((line, index) => {
-		const heading = SHEET_HEADING.exec(line);
-		if (!heading) return;
-		// SHEET_HEADING anchors on '### Candidate ', so the marker is exactly 4 chars.
-		const title = line.slice(4).trim();
-		if (date === null || heading[1] > date) {
-			date = heading[1];
-			start = index;
-			headings = [title];
-		} else if (heading[1] === date) {
-			headings.push(title);
+	for (const sheet of parseSheets(markdown)) {
+		if (newest === null || sheet.date > newest.date) {
+			newest = sheet;
+			headings = [sheet.heading];
+		} else if (sheet.date === newest.date) {
+			headings.push(sheet.heading);
 		}
-	});
-	if (start === -1) return null;
-
-	const body = lines.slice(start + 1);
-	const end = body.findIndex((line) => /^#{1,3} /.test(line));
-	const sheetLines = end === -1 ? body : body.slice(0, end);
-
-	const objectIds = [];
-	const unparsedRows = [];
-	const sections = [];
-	sheetLines.forEach((line, index) => {
-		if (line.startsWith('|')) {
-			// A separator, and the header row right above one, are not data.
-			if (TABLE_SEPARATOR.test(line) || TABLE_SEPARATOR.test(sheetLines[index + 1] ?? '')) return;
-			const row = OBJECT_ROW.exec(line);
-			if (row) objectIds.push({ path: row[1], id: row[2].toLowerCase() });
-			else unparsedRows.push(line.trim());
-			return;
-		}
-		const box = SECTION_BOX.exec(line);
-		if (box) sections.push({ id: box[2], title: box[3]?.trim() ?? '', done: box[1] !== ' ' });
-	});
-	return { date, sameDate: headings.length, headings, objectIds, unparsedRows, sections };
+	}
+	return newest && { ...newest, sameDate: headings.length, headings };
 }
 
 /**
@@ -101,6 +116,241 @@ export function compareObjectIds(sheetIds, actual) {
 			actual: actual.get(path)?.slice(0, id.length) ?? null
 		}));
 	return { state: differing.length === 0 ? 'match' : 'differs', differing };
+}
+
+/*
+ * Carrying a manual section. RELEASE_CHECKLIST's appendix holds the rule and a
+ * table of what each section rests on; a section carries from the last sheet
+ * that ticked it when none of those inputs moved since. Moved is decided by
+ * object id, as check:audits decides drift: the earlier side is read under that
+ * sheet's own object id rows (`<tree id>:<path>`), so it needs neither the
+ * commit the sheet was taken on nor a tag that a re-cut has since moved, and a
+ * squash merge does not disturb it.
+ */
+
+/** The header row of the table of what each manual section rests on. */
+const INPUTS_HEADER = /^\|\s*section\s*\|\s*rests on\s*\|\s*$/i;
+const INPUTS_ROW = /^\|\s*(§\d+[a-z]?)\s*\|(.*)\|\s*$/;
+/** An audit document, which stands for that audit's `Code paths`. */
+const AUDIT_DOC = /(?:^|\/)[A-Z0-9_]+_AUDIT\.md$/;
+
+/** The open sections of a sheet that are taken by hand on the installed candidate. */
+export const openManualSections = (sheet) =>
+	sheet.sections.filter((section) => !section.done && !MACHINE_SECTIONS.includes(section.id));
+
+/**
+ * The `| section | rests on |` table: section id -> the backticked tokens of
+ * its row. Null when the checklist has no such table. A row that names a
+ * section but no token is returned in `unparsedRows`, so a section does not
+ * lose its inputs to a typo without anyone hearing of it.
+ */
+export function parseSectionInputs(markdown) {
+	const lines = markdown.split(/\r?\n/);
+	const start = lines.findIndex((line) => INPUTS_HEADER.test(line));
+	if (start === -1) return null;
+	const inputs = new Map();
+	const unparsedRows = [];
+	for (const line of lines.slice(start + 1)) {
+		if (!line.startsWith('|')) break;
+		if (TABLE_SEPARATOR.test(line)) continue;
+		const row = INPUTS_ROW.exec(line);
+		const tokens = row ? [...row[2].matchAll(/`([^`]+)`/g)].map((match) => match[1]) : [];
+		// A section named twice keeps both rows' inputs; the later row must not drop the earlier's.
+		if (tokens.length > 0) inputs.set(row[1], [...(inputs.get(row[1]) ?? []), ...tokens]);
+		else unparsedRows.push(line.trim());
+	}
+	return { inputs, unparsedRows };
+}
+
+/** The `Code paths` row of an audit document, the same row check:audits reads; null without one. */
+export function parseCodePaths(markdown) {
+	const row = /^\|\s*\*\*Code paths\*\*\s*\|([^|]*)\|/m.exec(markdown ?? '');
+	return row ? [...row[1].matchAll(/`([^`]+)`/g)].map((match) => match[1]) : null;
+}
+
+/** One input: a path, or with `#a.b` the value under that key of a JSON file. */
+function readInput(token) {
+	const hash = token.indexOf('#');
+	return hash === -1
+		? { label: token, path: token, key: null, problem: null }
+		: {
+				label: token,
+				path: token.slice(0, hash),
+				key: token.slice(hash + 1).split('.'),
+				problem: null
+			};
+}
+
+/**
+ * The inputs a row's tokens name, an audit replaced by its `Code paths`.
+ * `codePathsOf(auditPath)` returns them as main has them, or null.
+ */
+export function expandInputs(tokens, codePathsOf) {
+	return tokens.flatMap((token) => {
+		if (!AUDIT_DOC.test(token)) return [readInput(token)];
+		const paths = codePathsOf(token);
+		if (paths?.length) return paths.map(readInput);
+		return [{ ...readInput(token), problem: `${token}, which has no \`Code paths\` row on main` }];
+	});
+}
+
+/**
+ * Drops an input another input of the same section already covers: a path
+ * under a directory it names, a key of a file it names whole, or a repeat.
+ * Without this, an audit's `Code paths` under a directory the row also names
+ * would report the same move twice, in a line read aloud.
+ */
+function withoutCovered(inputs) {
+	return inputs.filter(
+		(input, index) =>
+			!inputs.some((other, otherIndex) => {
+				if (other.key || other.problem || otherIndex === index) return false;
+				if (input.path.startsWith(`${other.path}/`)) return true;
+				return input.path === other.path && (input.key !== null || otherIndex < index);
+			})
+	);
+}
+
+/**
+ * The revspec that reaches `path` from a sheet's object id rows: the row's id
+ * itself, or `<id>:<rest>` under the deepest row that contains the path. Null
+ * when no row does, because then the sheet says nothing about the path.
+ */
+export function objectSpecUnder(objectIds, path) {
+	const row = objectIds
+		.filter((candidate) => path === candidate.path || path.startsWith(`${candidate.path}/`))
+		.sort((a, b) => b.path.length - a.path.length)[0];
+	if (!row) return null;
+	return path === row.path ? row.id : `${row.id}:${path.slice(row.path.length + 1)}`;
+}
+
+/**
+ * For each wanted section, the newest sheet other than `current` that ticked
+ * it, with the commit whose checklist held that tick. `versions` yields
+ * `{ commit, markdown }` newest first — the checklist at each commit that
+ * changed it, since a sheet a re-cut replaced survives only in history — and
+ * is not read past the point where every section is found.
+ *
+ * The current sheet is told apart by its heading AND its object ids: two cuts
+ * of one day share the heading, and an earlier version of the current sheet is
+ * not an earlier sheet, whatever it ticked before a tick was taken back.
+ */
+export function lastTicks(versions, current, wanted) {
+	const found = new Map();
+	if (wanted.length === 0) return found;
+	const ids = (sheet) => sheet.objectIds.map((row) => `${row.path} ${row.id}`).join('\n');
+	const isCurrent = (sheet) => sheet.heading === current.heading && ids(sheet) === ids(current);
+	for (const { commit, markdown } of versions) {
+		if (markdown !== null && markdown !== undefined) {
+			const sheets = parseSheets(markdown)
+				.filter((sheet) => !isCurrent(sheet))
+				.sort((a, b) => b.date.localeCompare(a.date));
+			for (const id of wanted) {
+				if (found.has(id)) continue;
+				const sheet = sheets.find((candidate) =>
+					candidate.sections.some((section) => section.id === id && section.done)
+				);
+				if (sheet) found.set(id, { ...sheet, commit });
+			}
+		}
+		if (wanted.every((id) => found.has(id))) break;
+	}
+	return found;
+}
+
+/**
+ * What has to be compared for each open manual section: its inputs, each with
+ * the revspec reaching it under the ticking sheet's rows (`before`) and under
+ * the current sheet's (`now`). `inputs` is null for a section the table does
+ * not name, which is taken on every candidate.
+ */
+export function planCarry({ sheet, inputs, ticks, codePathsOf }) {
+	return openManualSections(sheet).map((section) => {
+		const tick = ticks.get(section.id) ?? null;
+		const tokens = inputs.get(section.id) ?? null;
+		if (tokens === null || tick === null) return { section, tick, inputs: tokens && [] };
+		return {
+			section,
+			tick,
+			inputs: withoutCovered(expandInputs(tokens, codePathsOf)).map((input) => ({
+				...input,
+				before: input.problem ? null : objectSpecUnder(tick.objectIds, input.path),
+				now: input.problem ? null : objectSpecUnder(sheet.objectIds, input.path)
+			}))
+		};
+	});
+}
+
+/** The revspecs a plan compares: object ids for paths, contents for JSON keys. */
+export function carrySpecs(plan) {
+	const objects = [];
+	const blobs = [];
+	for (const { tick, inputs } of plan) {
+		if (!tick || !inputs) continue;
+		for (const input of inputs) {
+			const specs = [input.before, input.now].filter(Boolean);
+			(input.key ? blobs : objects).push(...specs);
+		}
+	}
+	return { objects, blobs };
+}
+
+/** The JSON text under `key` in a JSON file; undefined when the file, its JSON or the key is not there. */
+function valueAt(text, key) {
+	if (text === null || text === undefined) return undefined;
+	try {
+		const value = key.reduce(
+			(node, part) =>
+				node !== null && typeof node === 'object' && Object.hasOwn(node, part)
+					? node[part]
+					: undefined,
+			JSON.parse(text)
+		);
+		return value === undefined ? undefined : JSON.stringify(value);
+	} catch {
+		return undefined;
+	}
+}
+
+/** Why an input reads as moved, or null when it did not move. Anything that cannot be compared moved. */
+function inputMoved(input, objects, blobs) {
+	if (input.problem) return input.problem;
+	if (input.now === null) return `${input.label}, which no object id row of this sheet covers`;
+	if (input.before === null) return `${input.label}, which no object id row of that sheet covers`;
+	if (input.key) {
+		const now = valueAt(blobs.get(input.now), input.key);
+		if (now === undefined) return `${input.label}, which this candidate does not have`;
+		return now === valueAt(blobs.get(input.before), input.key) ? null : input.label;
+	}
+	const now = objects.get(input.now)?.oid;
+	if (!now) return `${input.label}, which this candidate does not have`;
+	return now === objects.get(input.before)?.oid ? null : input.label;
+}
+
+/**
+ * Carry or re-take for each section of a plan, given what git answered for
+ * `carrySpecs(plan)`. A section carries only when every input compared equal;
+ * one the table does not name (`always`), or that no earlier sheet ticked, is
+ * re-taken.
+ */
+export function judgeCarry(plan, objects, blobs) {
+	return plan.map(({ section, tick, inputs }) => {
+		if (inputs === null) return { section, tick, carry: false, always: true, moved: [] };
+		if (tick === null) return { section, tick, carry: false, always: false, moved: [] };
+		const moved = inputs.map((input) => inputMoved(input, objects, blobs)).filter(Boolean);
+		return { section, tick, carry: moved.length === 0, always: false, moved };
+	});
+}
+
+/** One line of the report, in words, since it is read with a screen reader. */
+export function describeCarry({ section, tick, carry, always, moved }) {
+	const name = label(section);
+	if (always) return `${name}: re-take, as on every candidate`;
+	if (!tick) return `${name}: re-take, no earlier sheet ticked it`;
+	const from = `the ${tick.date} sheet as of ${shortSha(tick.commit)}`;
+	return carry
+		? `${name}: carry from ${from}`
+		: `${name}: re-take: ${moved.join('; ')}. Against ${from}`;
 }
 
 /** Origin's `owner/repo` for a GitHub remote URL, https or ssh; null for any other host. */
@@ -568,6 +818,13 @@ export function decideNextStep(facts) {
 	const open = sheet.sections.filter((section) => !section.done);
 	if (open.length > 0) {
 		if (open.length > 1) notes.push(`Open after it: ${open.slice(1).map(label).join(', ')}.`);
+		const carried = (facts.carry ?? []).filter((verdict) => verdict.carry);
+		if (carried.length > 0) {
+			notes.push(
+				`${carried.map((verdict) => verdict.section.id).join(', ')} can carry: tick each with the ` +
+					'sheet it carries from named on the line. Manual sections above says what moved for the rest.'
+			);
+		}
 		return step(
 			`The draft carries the signed build of ${tag}, and ${tag} matches the ${sheet.date} sheet. ` +
 				`Next on the sheet: ${label(open[0])}.`

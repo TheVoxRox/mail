@@ -32,6 +32,12 @@ Entries before 2026-09-17 predate that split and are left as written.
   it; §9 has no open blocker and the maintainer approved it. Two new
   findings stay open past 0.1.0: the AOT cache does not map on an installed
   build, and Esc does not reliably close a message with a screen reader (#753).
+- A re-cut or the next release re-takes by hand only the manual sections whose
+  inputs moved. The RELEASE_CHECKLIST appendix lists the paths each of §3 to §8
+  rests on, and a section carries from the last sheet that ticked it when none
+  of them moved, compared by object id under both sheets' own rows;
+  `npm run release:status` reads the checklist's history for that sheet and
+  reports "carry from" it or "re-take:" with the inputs that moved.
 
 ## [0.1.0] - 2026-10-19
 

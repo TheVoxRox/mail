@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGateRepo } from '../test-support/gate-repo.mjs';
-import { resolveObjects } from './git-objects.mjs';
+import { readBlobs, resolveObjects } from './git-objects.mjs';
 
 /*
  * resolveObjects moved here from check-audit-freshness.mjs so release-status
@@ -59,5 +59,48 @@ describe('resolveObjects', () => {
 		expect([...resolveObjects(repo.root, [head, head]).keys()]).toEqual([head]);
 		// A cwd that does not exist would make any spawn throw, so this proves none happened.
 		expect(resolveObjects(`${repo.root}-does-not-exist`, [])).toEqual(new Map());
+	});
+});
+
+describe('readBlobs', () => {
+	let repo;
+
+	beforeEach(() => {
+		repo = createGateRepo();
+	});
+
+	afterEach(() => {
+		repo.cleanup();
+	});
+
+	it('cuts each answer by bytes, so a multi-byte character does not shift the next one', () => {
+		// "§" and "—" are two and three bytes; a size applied to the decoded
+		// string would end the first answer inside the second.
+		repo.write('backend/RELEASE_CHECKLIST.md', '- [x] **§3a** — carried\n');
+		repo.write('docs/plain.md', 'plain\n');
+		repo.commit();
+		const head = repo.git(['rev-parse', 'HEAD']);
+		const checklist = `${head}:backend/RELEASE_CHECKLIST.md`;
+		const plain = `${head}:docs/plain.md`;
+
+		const contents = readBlobs(repo.root, [checklist, plain]);
+
+		expect(contents.get(checklist)).toBe('- [x] **§3a** — carried\n');
+		expect(contents.get(plain)).toBe('plain\n');
+	});
+
+	it('answers a missing object and a tree with null, keeping the rest in position', () => {
+		repo.write('backend/src/App.java', 'class App {}\n');
+		repo.commit();
+		const head = repo.git(['rev-parse', 'HEAD']);
+		const gone = `${head}:docs/gone.md`;
+		const tree = `${head}:backend/src`;
+		const blob = `${head}:backend/src/App.java`;
+
+		const contents = readBlobs(repo.root, [gone, tree, blob]);
+
+		expect(contents.get(gone)).toBeNull();
+		expect(contents.get(tree)).toBeNull();
+		expect(contents.get(blob)).toBe('class App {}\n');
 	});
 });

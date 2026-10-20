@@ -27,7 +27,7 @@ the appendix. A tick with no candidate attached cannot be read by the next
 release, so the body no longer holds one. The dated `Notes:` blocks stay: they
 carry their own date and read as history, which is what they are.
 
-**Not every release runs every section.** A promotion of a finished beta to stable carries the manual sections from the beta's sheet when the code did not change; [RELEASE_PROCESS.md](../docs/RELEASE_PROCESS.md) "What a release runs" says which sections, and how to check that the shape applies.
+**Not every candidate re-takes every section.** A section taken by hand carries from the last sheet that ticked it when nothing it rests on has moved since, and only what moved is re-taken; the appendix holds the rule and what each section rests on. [RELEASE_PROCESS.md](../docs/RELEASE_PROCESS.md) "What a release runs" says what runs on every candidate regardless, and why a promotion of a finished beta to stable carries every manual section.
 
 ## 0. Version
 
@@ -295,7 +295,8 @@ argument: one line per section with the result and where the evidence is (a
 run URL, a report, a log), plus the findings. Why a section was re-taken, and
 anything else that explains a tick, belongs in the commit that records it. A
 sheet that a re-cut replaces is deleted rather than kept below the new one; the
-git history holds it, and a finding it still carried moves to the new sheet.
+git history holds it, a finding it still carried moves to the new sheet, and a
+section the new sheet carries from it names it on the line.
 
 **The candidate is the tag, not a commit on `main`.** A tick recorded against a
 branch commit goes stale as soon as anything merges; a tag cannot move, so
@@ -305,6 +306,69 @@ tagged, so keep that window to minutes. The object id table is what lets
 `npm run release:status` (from `frontend/`) tell whether the sheet still
 describes `main` and the tag; it reads the newest sheet, its object id rows and
 its `- [x] **§N**` lines, so keep those three shapes.
+
+**A manual section carries when what it rests on has not moved.** A re-cut,
+and the next release, re-take by hand only what changed. Each section from §3
+to §8 carries from the last sheet that ticked it when none of its inputs in the
+table below moved between that sheet's object ids and this sheet's, which are
+the tag's. Its line then says it was carried from the `YYYY-MM-DD` sheet and why
+the carry holds, as §3a on the 2026-10-19 sheet does. When an input moved, the
+section is re-taken: the items the moved paths can reach are taken on this
+candidate, and the line says what it carried for the rest. Carrying a section
+whose inputs moved is the maintainer's decision, written on the line as one.
+What never carries: §0 to §2, the signed build and Release Candidate Smoke,
+which run on every candidate; §9, the decision on this candidate; and the
+update smoke vN-1 → vN in §3a, since every release is a new pair of versions.
+An input outside the repository is not in the table and is the line's to state:
+§4 carries only while the OAuth clients and the Azure registration are the ones
+the earlier sheet signed in with. Until 2026-10-20 a re-cut discarded §3 to
+§8.1 whole, and v0.1.0 went through ten cuts that way, each re-taking the same
+items by hand.
+
+How the table is read, by `npm run release:status` and by hand:
+
+- An input is compared by object id, as `check:audits` compares an audit with
+  its `Code paths`. The earlier side is read under that sheet's own object id
+  rows (`<tree id>:<path>`), which needs neither the commit it was taken on nor
+  a tag a re-cut has moved since. So an input has to lie under one of the rows;
+  one that does not cannot be compared, and its section is re-taken.
+- A path ending in `#key` compares only that key of a JSON file, dot-separated.
+  That names `tauri.conf.json` and the lockfile without the version
+  `npm run bump:version` writes: no input names a file the bump writes whole, so
+  a version bump alone moves nothing. The promotion in RELEASE_PROCESS "What a
+  release runs" is the case where nothing else moved either.
+- An audit document stands for its `Code paths` as `main` has them, so a path
+  that joins the audit joins the section.
+- A test that sits beside the code under a frontend path moves that path as
+  code does. A carry over a change that touched only tests is the maintainer's
+  decision like any other.
+
+`release:status` walks the checklist's history on `main` for the last sheet
+that ticked each open section and reports "carry from" it, or "re-take:" with
+the inputs that moved. It reads this table by its header and the backticked
+tokens of each row, so keep both shapes. A section the table does not name is
+taken on every candidate.
+
+| section | rests on                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| §3      | `frontend/src-tauri/windows`, `frontend/src-tauri/tauri.conf.json#bundle`, `frontend/package-lock.json#packages.node_modules/@tauri-apps/cli`, `frontend/src-tauri/src/lib.rs`, `frontend/src-tauri/src/main.rs`, `frontend/src-tauri/src/webview_defaults.rs`, `backend/scripts/package-sidecar-windows.ps1`, `backend/scripts/generate-aot-cache-windows.ps1`, `frontend/src/lib/bootstrap.ts`, `frontend/src/lib/backend`, `frontend/src/lib/components/boot`                                                                                                                                                                                                                                                                       |
+| §3a     | `frontend/src-tauri/windows`, `frontend/src-tauri/tauri.conf.json#bundle`, `frontend/package-lock.json#packages.node_modules/@tauri-apps/cli`, `frontend/src-tauri/src/update_preference.rs`, `frontend/src/lib/stores/updateStartupCheck.ts`, `frontend/src/lib/components/settings/AboutSettings.svelte`                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| §4      | `docs/OAUTH_AUDIT.md`, `backend/src/main/resources/application.properties`, `backend/src/main/java/org/voxrox/mailbackend/feature/account`, `frontend/src/lib/accounts`, `frontend/src/lib/components/AccountForm.svelte`, `frontend/src/lib/components/account-form`, `frontend/src/routes/settings/accounts`                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| §5      | `docs/IMAP_SMTP_AUDIT.md`, `docs/CONTENT_RENDERING_AUDIT.md`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail`, `backend/src/main/java/org/voxrox/mailbackend/feature/contact`, `frontend/src/routes`, `frontend/src/lib/components`, `frontend/src/lib/mail`, `frontend/src/lib/compose`, `frontend/src/lib/contacts`, `frontend/src/lib/stores`, `frontend/src/lib/shortcuts`, `frontend/src/lib/commands`, `frontend/src/lib/i18n`, `frontend/src/lib/updates.ts`, `frontend/src/lib/tray.ts`, `frontend/src-tauri/src/tray.rs`, `frontend/package-lock.json#packages.node_modules/svelte`, `frontend/package-lock.json#packages.node_modules/@sveltejs/kit`, `frontend/package-lock.json#packages.node_modules/bits-ui` |
+| §6      | `frontend/src/lib/backend`, `frontend/src/lib/bootstrap.ts`, `frontend/src/lib/components/boot`, `frontend/src-tauri/src/lib.rs`, `backend/scripts/package-sidecar-windows.ps1`, `backend/src/main/java/org/voxrox/mailbackend/core/lifecycle`, `backend/src/main/java/org/voxrox/mailbackend/core/config/DatabaseConfig.java`, `backend/src/main/java/org/voxrox/mailbackend/core/backup`                                                                                                                                                                                                                                                                                                                                             |
+| §7      | `backend/src/main/java/org/voxrox/mailbackend/core/diagnostic`, `backend/src/main/java/org/voxrox/mailbackend/util/LogMasker.java`, `backend/src/main/resources/logback-spring.xml`, `frontend/src-tauri/src/logs.rs`, `frontend/src-tauri/src/redact.rs`, `frontend/src/lib/logs.ts`, `frontend/src/lib/components/boot`, `frontend/src/lib/components/settings/AboutSettings.svelte`                                                                                                                                                                                                                                                                                                                                                 |
+| §8      | `docs/IMAP_SMTP_AUDIT.md`, `docs/OAUTH_AUDIT.md`, `backend/src/main/java/org/voxrox/mailbackend/core/maintenance`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+
+Each row is what the section's by-hand items can see break. §3 is the
+installer, the shell's start and the sidecar it packages, since Release
+Candidate Smoke covers the rest of a first start on every build; §3a is the
+installer's pages and the update-check answer it leaves behind; §4 is the OAuth
+audit's scope with the registrations of `application.properties`, and the
+account form; §5 is the mail backend and the whole UI with the three packages a
+screen reader pass rests on; §6 and §7 are the sidecar's supervision, its
+recovery and its logs; §8 is the sync and the token refresh under load, and the
+`reclaim` pass. A directory moves with anything added under it, so a new file
+inside one needs no row of its own.
 
 Shape:
 
