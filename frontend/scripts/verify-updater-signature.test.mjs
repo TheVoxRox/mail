@@ -30,8 +30,8 @@ const REAL_SIGNATURE =
 
 /** The pubkey this repository actually ships, used as "some other key". */
 const REPO_PUBKEY =
-	'dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDYzMzRBRThDOUQ4NDk1RkUKUldUK2xZU2RqSzQwWTFDNkl3NXNNMCtLQ1JzenkzakUwS1VFYU5vWU15cWU5QzE4bVJ6TzRkQzkK';
-const REPO_KEY_ID = '6334AE8C9D8495FE';
+	'dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEFBMjM4QzRDQzU5Qjk5MDYKUldRR21adkZUSXdqcW05VDYvbzBtQWRpMXphSUFKbllobFM4QkV6RmdoWlRJdnZ2UFprNzFuLzgK';
+const REPO_KEY_ID = 'AA238C4CC59B9906';
 
 const scriptPath = path.resolve(
 	path.dirname(fileURLToPath(import.meta.url)),

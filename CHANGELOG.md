@@ -38,6 +38,12 @@ Entries before 2026-09-17 predate that split and are left as written.
   of them moved, compared by object id under both sheets' own rows;
   `npm run release:status` reads the checklist's history for that sheet and
   reports "carry from" it or "re-take:" with the inputs that moved (#754).
+- The base `tauri.conf.json` pins the updater key releases sign with,
+  `AA238C4CC59B9906`, instead of `6334AE8C9D8495FE`, a key no release ever
+  used. Release builds take the pubkey from `TAURI_UPDATER_PUBKEY` and were
+  never affected, but checking a published installer against the repository's
+  own config reported a key mismatch on a sound release; the new key verifies
+  v0.1.0's installer against its `latest.json` (#755).
 
 ## [0.1.0] - 2026-10-19
 
