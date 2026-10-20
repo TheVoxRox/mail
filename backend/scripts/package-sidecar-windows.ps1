@@ -365,6 +365,23 @@ if (-not (Test-Path $imageDir)) {
 $aotCacheOption = '-XX:AOTCache=$APPDIR\mail.aot'
 
 if ($EnableAotCache) {
+    Invoke-Step "Rounding image file times down to what the installer keeps" {
+        # The JVM refuses a cache when the jar's modification time, in whole
+        # seconds, differs from what training saw ("timestamp has changed"),
+        # and NSIS keeps a file's time only to the 2 seconds of a DOS timestamp,
+        # rounding down: 18:36:01.4 installs as 18:36:00. A jar written on an
+        # odd second therefore lost its cache on every installation, 0.1.0's
+        # included, while the check after publishing passed, because it runs
+        # before NSIS. Rounding before training makes the installed time exact.
+        # Every file, not only the jar, so that nothing the JVM checks depends
+        # on the second it was built in.
+        $twoSeconds = 2 * [TimeSpan]::TicksPerSecond
+        foreach ($file in Get-ChildItem -LiteralPath $imageDir -Recurse -File) {
+            $utc = $file.LastWriteTimeUtc
+            $file.LastWriteTimeUtc = $utc.AddTicks(-($utc.Ticks % $twoSeconds))
+        }
+    }
+
     Invoke-Step "Generating AOT class cache (JEP 483)" {
         $cachePath = Join-Path $imageDir "app\mail.aot"
         # Trained through the image's launcher: the cache then matches the
@@ -497,6 +514,15 @@ if ($EnableAotCache) {
         $cfgPath = Join-Path $sidecarDir "app\$sidecarName.cfg"
         if (@(Get-Content -LiteralPath $cfgPath) -notcontains "java-options=$aotCacheOption") {
             throw "Launcher $cfgPath does not carry java-options=$aotCacheOption."
+        }
+        # The start below happens before NSIS, so it cannot see the installer
+        # changing a time; this can. A time off the 2-second grid would map
+        # here and be refused once installed (see the rounding step).
+        foreach ($checked in @("app\$($jar.Name)", "runtime\lib\modules")) {
+            $time = (Get-Item -LiteralPath (Join-Path $sidecarDir $checked)).LastWriteTimeUtc
+            if ($time.Ticks % (2 * [TimeSpan]::TicksPerSecond) -ne 0) {
+                throw "$checked in $sidecarDir is dated $($time.ToString('o')), which the installer rounds down to 2 seconds; the JVM would refuse the AOT cache once installed."
+            }
         }
 
         $checkDataDir = Join-Path $outputRootPath "aot-check-data"

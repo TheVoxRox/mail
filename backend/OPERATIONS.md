@@ -311,6 +311,20 @@ mismatch, warns and starts without the cache. Training with the system `java`
 therefore yields a cache the app image refuses — which is what every release
 build did until 2026-10-17 ("`runtime\lib\modules` ... size has changed").
 
+The jar's modification time is part of that comparison, in whole seconds, and
+**the NSIS installer keeps file times only to 2 seconds**, rounding down
+(`18:36:01.4` installs as `18:36:00`). A jar written on an odd second therefore
+mapped in the packaging check, which runs before NSIS, and was refused on every
+installation ("`mail-backend-0.1.0.jar`, timestamp has changed"), 0.1.0
+included. Packaging now rounds every file time in the image down to 2 seconds
+before training, and the packaging check fails on a jar or `lib\modules` off
+that grid. Only an installation shows the whole chain, so
+`installed-app-smoke.mjs` also fails on an `aot` warning in
+`mail-frontend.log`. A local build may not reproduce the problem: where
+`project.build.outputTimestamp` resolves to 1980-02-01 (it does with Maven
+3.10.0), the jar carries that date, which is on the grid, while the 0.1.0
+release build's jar carried the time it was built.
+
 Manually, against a `mvn package` jar and the system JDK (what
 `measure-cold-start-windows.ps1` does for itself; such a cache does not fit the
 app image):

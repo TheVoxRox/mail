@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	DUMP_ENTRIES,
 	INSTALL_ENTRIES,
+	aotCacheProblems,
 	formatReport,
 	missingEntries,
 	samePath,
@@ -90,6 +91,43 @@ describe('sessionProblems', () => {
 			'apiKey is missing'
 		]);
 		expect(sessionProblems(null)).toHaveLength(2);
+	});
+});
+
+describe('aotCacheProblems', () => {
+	// What 0.1.0's sidecar wrote on every installed start, as the Tauri log
+	// records it; only the user directory is renamed.
+	const sidecar = '[2026-10-20][07:46:38][voxrox_mail_lib::logs][WARN] Sidecar stderr: ';
+	const refused = [
+		`${sidecar}[0.057s][warning][aot] This file is not the one used while building the AOT cache: 'C:\\Users\\a\\AppData\\Local\\Programs\\VoxRox\\Mail\\app\\mail-backend-0.1.0.jar', timestamp has changed`,
+		`${sidecar}[0.057s][error  ][aot] shared class paths mismatch (hint: enable -Xlog:class+path=info to diagnose the failure)`,
+		`${sidecar}[0.057s][error  ][aot] An error has occurred while processing the AOT cache. Run with -Xlog:aot for details.`,
+		`${sidecar}[0.065s][error  ][aot] Unable to map shared spaces`
+	];
+	const started = [
+		'[2026-10-20][07:46:37][voxrox_mail_lib][INFO] Mail Tauri application started',
+		'[2026-10-20][07:46:37][voxrox_mail_lib][INFO] Data root: C:\\Users\\a\\AppData\\Local\\VoxRox\\Mail'
+	];
+
+	it('returns every line of a refused cache and nothing around them', () => {
+		expect(aotCacheProblems([...started, ...refused, ''].join('\r\n'))).toEqual(refused);
+	});
+
+	it('finds nothing in the log of a start on the cache', () => {
+		expect(aotCacheProblems(started.join('\n'))).toEqual([]);
+	});
+
+	it('reads the tag set, not the message', () => {
+		expect(
+			aotCacheProblems(
+				[
+					`${sidecar}[0.1s][warning][cds,heap] Unable to map the archived heap`,
+					`${sidecar}[0.1s][warning][gc] the AOT cache is not involved here`,
+					`${sidecar}[0.1s][warning][aotx] not a tag the JVM writes`,
+					`${sidecar}[0.1s][info   ][aot] Using AOT-linked classes`
+				].join('\n')
+			)
+		).toEqual([`${sidecar}[0.1s][warning][cds,heap] Unable to map the archived heap`]);
 	});
 });
 

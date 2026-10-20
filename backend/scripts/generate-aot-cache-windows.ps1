@@ -19,7 +19,10 @@
     A cache is usable only by the runtime it was trained on. The JVM checks the
     runtime image's lib\modules and the application jar against what it saw
     while training, and refuses the cache on a mismatch -- with a warning, not
-    an error, so the process starts and runs without it. Two modes follow:
+    an error, so the process starts and runs without it. The jar's
+    modification time counts, in whole seconds; package-sidecar-windows.ps1
+    rounds the image's times to the installer's 2 seconds before calling this,
+    and says why. Two modes follow:
 
       -LauncherPath  trains through a jpackage app image's own launcher, so the
                      cache matches the jlinked runtime, the jar and the JVM
