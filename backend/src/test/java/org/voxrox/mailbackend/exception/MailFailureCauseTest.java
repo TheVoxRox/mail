@@ -65,6 +65,22 @@ class MailFailureCauseTest {
     }
 
     @Test
+    @DisplayName("Exchange Online's SMTP AUTH switched off is told apart from a rejected sign-in")
+    void smtpAuthDisabledIsNotARejectedSignIn() {
+        assertThat(MailFailureCause.classify(new AuthenticationFailedException(
+                "535 5.7.139 Authentication unsuccessful, SmtpClientAuthentication is disabled for the Tenant. "
+                        + "Visit https://aka.ms/smtp_auth_disabled for more information.")))
+                .isEqualTo(MailFailureCause.SMTP_AUTH_DISABLED);
+        assertThat(MailFailureCause.classify(new MessagingException("send failed", new AuthenticationFailedException(
+                "535 5.7.139 Authentication unsuccessful, SmtpClientAuthentication is disabled for the Mailbox."))))
+                .isEqualTo(MailFailureCause.SMTP_AUTH_DISABLED);
+        // The same status code for wrong credentials stays a rejected sign-in.
+        assertThat(MailFailureCause.classify(new AuthenticationFailedException(
+                "535 5.7.139 Authentication unsuccessful, the user credentials were incorrect.")))
+                .isEqualTo(MailFailureCause.AUTHENTICATION);
+    }
+
+    @Test
     @DisplayName("A send the server refused tells rejected recipients from any other refusal")
     void sendFailuresAreSplit() throws Exception {
         SendFailedException badRecipient = new SendFailedException("550 no such user", null, new InternetAddress[0],

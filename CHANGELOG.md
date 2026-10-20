@@ -19,7 +19,30 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Backend
+
+- A Microsoft work or school account, or a Google Workspace one, can be added.
+  The sign-in looked up the account's servers by the address's domain, and the
+  catalog lists only the consumer domains (`outlook.com`, `hotmail.com`,
+  `live.com`, `msn.com`, `gmail.com`, `googlemail.com`), so an address at an
+  organization's own domain was refused after Microsoft or Google had already
+  accepted the sign-in. The servers now come from the provider the sign-in went
+  through, which also gives a Microsoft account named by a Gmail address the
+  Microsoft servers instead of Gmail's (#763).
+- A send that Exchange Online refuses because the organization has SMTP AUTH
+  turned off now says so, instead of "the server rejected the sign-in", which
+  pointed at signing in again where only the organization's administrator can
+  help. A refused IMAP sign-in mentions the administrator too: Exchange answers
+  a mailbox with IMAP turned off the same way as a rejected token (#763).
+
 ### Frontend
+
+- The account wizard offers **Přihlásit přes Microsoft** and **Přihlásit přes
+  Google** under "Pracovní nebo školní účet?" for an address whose domain it
+  does not know, next to the server settings. A work account's sign-in used to
+  be reachable only by switching the form to provider selection and picking
+  Microsoft from the list. The sign-in step now also says that the
+  organization's administrator may have to approve the app first (#763).
 
 - A backend that crashes is restarted again after a **Restartovat službu**
   that landed while a start was under way: pressed twice in a row, or in the
@@ -41,6 +64,10 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Tauri / Release
 
+- The shell's TLS stack no longer trusts the distrusted emSign intermediates:
+  `rustls-webpki` 0.103.16 and `webpki-roots` / `webpki-root-certs` 1.0.10
+  (RUSTSEC-2026-0381, -0382, -0383, published 2026-10-19 and 2026-10-20). Only
+  the lockfile moves (#763).
 - The installed backend starts on the AOT class cache that release builds
   carry since #719, which 0.1.0 shipped and never used. The NSIS installer keeps
   a file's time only to 2 seconds, rounding down, and the JVM refuses a cache

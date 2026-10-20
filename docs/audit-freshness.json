@@ -47,7 +47,7 @@
       "frontend/src-tauri/src/logs.rs": "0da494433ac1a8f2cb4fc52517d84edba3740ba7",
       "frontend/src/lib/api/clientBootDiagnostics.ts": "5e76b3e95a63b5f9ff5c9f5b38ff6cad7ae4b7d6",
       "backend/src/main/java/org/voxrox/mailbackend/feature/account/controller": "d6f66df6b1e89193b66619a929c10a85fa085dc3",
-      "backend/src/main/java/org/voxrox/mailbackend/exception": "e13396c604befde4b7bee1f906100ef2cd03b92d",
+      "backend/src/main/java/org/voxrox/mailbackend/exception": "ca41911d2f4b626bf55045d8a9a6e7cb2468df80",
       "backend/src/main/java/org/voxrox/mailbackend/feature/contact/controller": "93f7bef6566200224d13677b84e383911f4b44a2",
       "backend/src/main/java/org/voxrox/mailbackend/feature/contact/dto": "e6d0fef2d532703dec028de80ff1a44fc07db9a9"
     },
@@ -75,6 +75,10 @@
       {
         "date": "2026-10-19",
         "note": "ContactController gains DELETE /api/v1/contacts/autocomplete/history/{historyId}, which forgets one harvested address (CorrespondentService.forget, a single bulk DELETE by id) and answers 204, also for an id that names no row. Its path variable is @Positive on the already @Validated controller, so section 2's twelve of 18 still hold; 0 is a 400 through the existing handler (ContactControllerTest). Like the other bare-id endpoints it takes no accountId and checks no account ownership, which section 1 records as the posture: authorization is path-independent behind the key, and every account belongs to the same OS user. ContactAutocompleteResponse gains historyId, the correspondent row id, on HISTORY rows only; it names a row of the user's own cache and carries no server data. The controller count does not change, and only GET /autocomplete still takes an accountId. The OpenAPI snapshot, outside Code paths, gains the operation and the field. Verdict unchanged."
+      },
+      {
+        "date": "2026-10-20",
+        "note": "Under Code paths only the exception package moves. MailFailureCause gains SMTP_AUTH_DISABLED, picked ahead of AUTHENTICATION when a message in the cause chain contains Exchange Online's 'SmtpClientAuthentication is disabled'; it renders error.mail.cause.smtpAuthDisabled, a fixed sentence in both bundles, so the server's reply still reaches only the log and section 3's claim holds. Section 3's list of causes names eleven and the code now has twelve; the next re-verification adds it. ProviderNotFoundException.byDomain becomes byOAuth2Registration, whose message argument is the registration id the sign-in went through (google or microsoft), the app's own value. Verdict unchanged."
       }
     ]
   },
@@ -179,7 +183,7 @@
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java": "69fc4c0197c480dc39ba3c38dece6874faec8d17",
       "backend/src/main/java/org/voxrox/mailbackend/feature/auth": "4c2a4d33b484b310cd2d8600a85cf35b0eb15c69",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/account/service/ExternalProviderLoginService.java": "95fc7e1068ba6a65fd3be33a1be6998bf1d6bd1b",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/account/service/ExternalProviderLoginService.java": "e1376242113357e89c46a48b72681f55eef9266c",
       "backend/src/main/resources/static": "1166bfbda92e49253a54485f349cbb7911c6dac7"
     },
     "acknowledgements": [
@@ -194,6 +198,10 @@
       {
         "date": "2026-10-10",
         "note": "auth-finished.html and auth-failed.html, the pages the system browser shows after a sign-in, change for WCAG 2.2 only: the English half of each is marked lang=\"en\" (3.1.2), the reason line on the failure page is #4b5563 instead of #6b7280 on #f3f4f6 (4.39:1 to 1.4.3's 4.5:1), and its Czech text uses the en dash. Markup and CSS only: the inline script that writes ?reason= with textContent, the redirect targets and the public-endpoint list are unchanged. Verdict unchanged."
+      },
+      {
+        "date": "2026-10-20",
+        "note": "ExternalProviderLoginService takes the provider template from the OAuth registration the sign-in went through (AccountProviderService.resolveOAuthProvider, a lookup by mail_providers.oauth2_registration_id) instead of from the domain of the address the provider returned, so a Microsoft 365 or Google Workspace account at an organization's own domain gets an account instead of ProviderNotFoundException. The template only fills a new row's server settings: the lookup order of findOrCreateExternalAccount, the refusal of an address another identity owns, the credential write, the after-commit invalidation and the reauth clear are unchanged, and a missing template still throws before any write. What a sign-in can reach narrows rather than widens: an address at another provider's domain no longer gives a new row that provider's servers, so a token is only ever presented to the servers of the provider that issued it. Under feature/auth nothing changes. Verdict unchanged."
       }
     ]
   }

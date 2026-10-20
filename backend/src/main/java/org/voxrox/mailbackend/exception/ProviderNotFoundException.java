@@ -13,8 +13,8 @@ public final class ProviderNotFoundException extends AppException {
                 "error.provider.notFoundById", providerId);
     }
 
-    public static ProviderNotFoundException byDomain(String domain) {
-        return new ProviderNotFoundException("Provider for domain '" + domain + "' was not found.",
-                "error.provider.notFoundByDomain", domain);
+    public static ProviderNotFoundException byOAuth2Registration(String registrationId) {
+        return new ProviderNotFoundException("Provider for OAuth2 registration '" + registrationId + "' was not found.",
+                "error.provider.notFoundByOAuth2Registration", registrationId);
     }
 }

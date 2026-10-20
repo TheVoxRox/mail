@@ -91,8 +91,13 @@ U providerů bez OAuth může aplikace vyžadovat aplikační heslo. To je samos
 heslo vygenerované v nastavení poskytovatele e-mailu. Nepoužívejte hlavní heslo
 k účtu, pokud poskytovatel doporučuje aplikační hesla.
 
-Přihlášení přes OAuth je podporované pro Google (Gmail) a Microsoft
-(Outlook/Hotmail/Live). iCloud OAuth zatím podporovaný není — u iCloudu
+Přihlášení přes OAuth je podporované pro Google (Gmail i Google Workspace)
+a Microsoft (Outlook/Hotmail/Live i pracovní a školní účty Microsoft 365).
+Když průvodce doménu adresy nezná, nabídne vedle ručního nastavení serverů
+i přihlášení přes Microsoft a Google. U pracovního nebo školního účtu může
+být potřeba, aby aplikaci nejdřív schválil správce organizace; správce také
+může mít pro schránku vypnutý přístup přes IMAP nebo odesílání přes SMTP.
+iCloud OAuth zatím podporovaný není — u iCloudu
 použijte aplikační heslo.
 
 ## Aktualizace

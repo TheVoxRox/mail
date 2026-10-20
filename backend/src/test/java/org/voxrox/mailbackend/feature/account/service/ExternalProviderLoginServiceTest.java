@@ -21,6 +21,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.voxrox.mailbackend.exception.AccountAlreadyExistsException;
+import org.voxrox.mailbackend.exception.ProviderNotFoundException;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.account.entity.MailProviderEntity;
 import org.voxrox.mailbackend.feature.account.entity.MailServerConfig;
@@ -190,7 +191,7 @@ class ExternalProviderLoginServiceTest {
         @DisplayName("New account: copies server config from the template, otherwise NOT NULL constraint fails")
         void shouldCreateNewAccountWithCopiedServerConfig() {
             MailProviderEntity provider = createProvider();
-            when(providerService.resolveProvider(EMAIL, null)).thenReturn(provider);
+            when(providerService.resolveOAuthProvider(GoogleTokenService.PROVIDER_NAME)).thenReturn(provider);
             when(accountRepository.findByOauth2ProviderAndExternalId(GoogleTokenService.PROVIDER_NAME, "ext-1"))
                     .thenReturn(Optional.empty());
             when(accountRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
@@ -218,15 +219,16 @@ class ExternalProviderLoginServiceTest {
         }
 
         @Test
-        @DisplayName("New account without a template provider == null -> IllegalStateException (invariant violation)")
-        void shouldThrowWhenProviderNullAndAccountMissing() {
-            when(providerService.resolveProvider(EMAIL, null)).thenReturn(null);
-            when(accountRepository.findByOauth2ProviderAndExternalId(GoogleTokenService.PROVIDER_NAME, "ext-1"))
-                    .thenReturn(Optional.empty());
-            when(accountRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
+        @DisplayName("No template for the registration -> ProviderNotFoundException, nothing written")
+        void shouldRefuseWhenTheRegistrationHasNoTemplate() {
+            when(providerService.resolveOAuthProvider(GoogleTokenService.PROVIDER_NAME))
+                    .thenThrow(ProviderNotFoundException.byOAuth2Registration(GoogleTokenService.PROVIDER_NAME));
 
             assertThatThrownBy(() -> service.processExternalProviderLogin(GoogleTokenService.PROVIDER_NAME, EMAIL,
-                    "Test", "ext-1", "tok")).isInstanceOf(IllegalStateException.class);
+                    "Test", "ext-1", "tok")).isInstanceOf(ProviderNotFoundException.class);
+
+            verify(accountRepository, never()).save(any());
+            verifyNoInteractions(credentialService);
         }
 
         @Test
@@ -235,7 +237,7 @@ class ExternalProviderLoginServiceTest {
             existing.setExternalId("ext-1");
             MailProviderEntity provider = createProvider();
 
-            when(providerService.resolveProvider(EMAIL, null)).thenReturn(provider);
+            when(providerService.resolveOAuthProvider(GoogleTokenService.PROVIDER_NAME)).thenReturn(provider);
             when(accountRepository.findByOauth2ProviderAndExternalId(GoogleTokenService.PROVIDER_NAME, "ext-1"))
                     .thenReturn(Optional.of(existing));
 
@@ -250,7 +252,7 @@ class ExternalProviderLoginServiceTest {
             AccountEntity existing = createAccountEntity();
             MailProviderEntity provider = createProvider();
 
-            when(providerService.resolveProvider(EMAIL, null)).thenReturn(provider);
+            when(providerService.resolveOAuthProvider(GoogleTokenService.PROVIDER_NAME)).thenReturn(provider);
             when(accountRepository.findByOauth2ProviderAndExternalId(GoogleTokenService.PROVIDER_NAME, "ext-new"))
                     .thenReturn(Optional.empty());
             when(accountRepository.findByEmail(EMAIL)).thenReturn(Optional.of(existing));
@@ -274,7 +276,7 @@ class ExternalProviderLoginServiceTest {
             AccountEntity existing = createAccountEntity();
             existing.setOauth2Provider("microsoft");
             existing.setExternalId("ms-oid");
-            when(providerService.resolveProvider(EMAIL, null)).thenReturn(createProvider());
+            when(providerService.resolveOAuthProvider(GoogleTokenService.PROVIDER_NAME)).thenReturn(createProvider());
             when(accountRepository.findByOauth2ProviderAndExternalId(GoogleTokenService.PROVIDER_NAME, "ext-new"))
                     .thenReturn(Optional.empty());
             when(accountRepository.findByEmail(EMAIL)).thenReturn(Optional.of(existing));
@@ -298,7 +300,7 @@ class ExternalProviderLoginServiceTest {
             AccountEntity existing = createAccountEntity();
             existing.setOauth2Provider(GoogleTokenService.PROVIDER_NAME);
             existing.setExternalId("ext-old");
-            when(providerService.resolveProvider(EMAIL, null)).thenReturn(createProvider());
+            when(providerService.resolveOAuthProvider(GoogleTokenService.PROVIDER_NAME)).thenReturn(createProvider());
             when(accountRepository.findByOauth2ProviderAndExternalId(GoogleTokenService.PROVIDER_NAME, "ext-new"))
                     .thenReturn(Optional.empty());
             when(accountRepository.findByEmail(EMAIL)).thenReturn(Optional.of(existing));
@@ -321,7 +323,7 @@ class ExternalProviderLoginServiceTest {
             existing.setDisplayName(DISPLAY_NAME);
             MailProviderEntity provider = createProvider();
 
-            when(providerService.resolveProvider(EMAIL, null)).thenReturn(provider);
+            when(providerService.resolveOAuthProvider(GoogleTokenService.PROVIDER_NAME)).thenReturn(provider);
             when(accountRepository.findByOauth2ProviderAndExternalId(GoogleTokenService.PROVIDER_NAME, "ext-1"))
                     .thenReturn(Optional.of(existing));
 
@@ -341,7 +343,7 @@ class ExternalProviderLoginServiceTest {
             existing.setDisplayName(DISPLAY_NAME);
             MailProviderEntity provider = createProvider();
 
-            when(providerService.resolveProvider(EMAIL, null)).thenReturn(provider);
+            when(providerService.resolveOAuthProvider(GoogleTokenService.PROVIDER_NAME)).thenReturn(provider);
             when(accountRepository.findByOauth2ProviderAndExternalId(GoogleTokenService.PROVIDER_NAME, "ext-1"))
                     .thenReturn(Optional.of(existing));
 
@@ -358,7 +360,7 @@ class ExternalProviderLoginServiceTest {
             existing.setDisplayName("Old Name");
             MailProviderEntity provider = createProvider();
 
-            when(providerService.resolveProvider(EMAIL, null)).thenReturn(provider);
+            when(providerService.resolveOAuthProvider(GoogleTokenService.PROVIDER_NAME)).thenReturn(provider);
             when(accountRepository.findByOauth2ProviderAndExternalId(GoogleTokenService.PROVIDER_NAME, "ext-1"))
                     .thenReturn(Optional.of(existing));
 

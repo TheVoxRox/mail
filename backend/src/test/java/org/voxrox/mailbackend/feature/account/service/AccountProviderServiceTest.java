@@ -2,6 +2,8 @@ package org.voxrox.mailbackend.feature.account.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -18,7 +20,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.voxrox.mailbackend.exception.ProviderNotFoundException;
-import org.voxrox.mailbackend.exception.ValidationException;
 import org.voxrox.mailbackend.feature.account.dto.MailProviderResponse;
 import org.voxrox.mailbackend.feature.account.entity.MailProviderEntity;
 import org.voxrox.mailbackend.feature.account.entity.MailServerConfig;
@@ -59,91 +60,55 @@ class AccountProviderServiceTest {
     }
 
     @Nested
-    @DisplayName("resolveProvider")
-    class ResolveProvider {
+    @DisplayName("resolveOAuthProvider")
+    class ResolveOAuthProvider {
 
         @Test
-        @DisplayName("Explicit provider ID — returns the entity without any domain lookup")
-        void explicitIdFound() {
-            MailProviderEntity p = provider(10L, "Gmail", ",gmail.com,");
-            when(providerRepository.findById(10L)).thenReturn(Optional.of(p));
+        @DisplayName("Found by the registration id — the e-mail domain plays no part")
+        void foundByRegistrationId() {
+            MailProviderEntity p = provider(30L, "Microsoft", ",outlook.com,");
+            p.setSupportsOauth2(true);
+            p.setOauth2RegistrationId("microsoft");
+            when(providerRepository.findByOauth2RegistrationId("microsoft")).thenReturn(Optional.of(p));
 
-            MailProviderEntity result = service.resolveProvider("anything@nowhere", 10L);
-
-            assertThat(result).isSameAs(p);
-            verify(providerRepository).findById(10L);
-            // No domain-based lookup should kick in when an explicit ID is given —
-            // findByDomainKey must never be reached.
-            verify(providerRepository, org.mockito.Mockito.never())
-                    .findByDomainKey(org.mockito.ArgumentMatchers.anyString());
+            assertThat(service.resolveOAuthProvider("microsoft")).isSameAs(p);
+            verify(providerRepository, never()).findByDomainKey(anyString());
         }
 
         @Test
-        @DisplayName("Explicit provider ID not found — ProviderNotFoundException.byId with PROVIDER_NOT_FOUND error code")
-        void explicitIdMissing() {
-            when(providerRepository.findById(99L)).thenReturn(Optional.empty());
+        @DisplayName("No template for the registration — ProviderNotFoundException naming it")
+        void missingRegistration() {
+            when(providerRepository.findByOauth2RegistrationId("unknown")).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> service.resolveProvider(null, 99L)).isInstanceOf(ProviderNotFoundException.class)
-                    .hasMessageContaining("99");
+            assertThatThrownBy(() -> service.resolveOAuthProvider("unknown"))
+                    .isInstanceOf(ProviderNotFoundException.class).hasMessageContaining("unknown");
         }
+    }
+
+    @Nested
+    @DisplayName("findProviderByEmail — domain key")
+    class DomainKey {
 
         @Test
-        @DisplayName("Null explicit ID + matching domain — lookup uses comma-anchored key and returns the first hit")
-        void domainAutoDetectFound() {
-            MailProviderEntity p = provider(20L, "Seznam", ",seznam.cz,email.cz,");
-            when(providerRepository.findByDomainKey(",seznam.cz,")).thenReturn(List.of(p));
-
-            MailProviderEntity result = service.resolveProvider("user@seznam.cz", null);
-
-            assertThat(result).isSameAs(p);
-        }
-
-        @Test
-        @DisplayName("Null explicit ID + uppercase / padded e-mail — domain is normalised to lower-case before lookup")
-        void domainAutoDetectNormalisesDomain() {
+        @DisplayName("Uppercase e-mail — domain is normalised to lower-case before lookup")
+        void domainIsNormalised() {
             MailProviderEntity p = provider(20L, "Seznam", ",seznam.cz,");
             ArgumentCaptor<String> keyCaptor = ArgumentCaptor.forClass(String.class);
             when(providerRepository.findByDomainKey(keyCaptor.capture())).thenReturn(List.of(p));
 
-            service.resolveProvider("USER@Seznam.CZ", null);
+            assertThat(service.findProviderByEmail("USER@Seznam.CZ")).isPresent();
 
             assertThat(keyCaptor.getValue()).isEqualTo(",seznam.cz,");
         }
 
         @Test
-        @DisplayName("Null explicit ID + unknown domain — ProviderNotFoundException.byDomain")
-        void domainAutoDetectMissing() {
-            when(providerRepository.findByDomainKey(",unknown.tld,")).thenReturn(List.of());
-
-            assertThatThrownBy(() -> service.resolveProvider("user@unknown.tld", null))
-                    .isInstanceOf(ProviderNotFoundException.class).hasMessageContaining("unknown.tld");
-        }
-
-        @Test
-        @DisplayName("Null explicit ID + null e-mail — ValidationException (domain cannot be extracted)")
-        void nullEmailRaisesValidation() {
-            assertThatThrownBy(() -> service.resolveProvider(null, null)).isInstanceOf(ValidationException.class);
-
-            verifyNoInteractions(providerRepository);
-        }
-
-        @Test
-        @DisplayName("Null explicit ID + e-mail without '@' — ValidationException (domain cannot be extracted)")
-        void emailWithoutAtRaisesValidation() {
-            assertThatThrownBy(() -> service.resolveProvider("not-an-email", null))
-                    .isInstanceOf(ValidationException.class);
-
-            verifyNoInteractions(providerRepository);
-        }
-
-        @Test
-        @DisplayName("Domains column with multiple entries — only the active domain is wrapped in commas, the rest are ignored")
-        void multiDomainLookupUsesOnlyTheActiveDomain() {
+        @DisplayName("Domains column with multiple entries — only the address's own domain is wrapped in commas")
+        void multiDomainLookupUsesOnlyTheAddressDomain() {
             MailProviderEntity p = provider(20L, "Seznam", ",seznam.cz,email.cz,post.cz,");
             ArgumentCaptor<String> keyCaptor = ArgumentCaptor.forClass(String.class);
             when(providerRepository.findByDomainKey(keyCaptor.capture())).thenReturn(List.of(p));
 
-            service.resolveProvider("user@email.cz", null);
+            assertThat(service.findProviderByEmail("user@email.cz")).isPresent();
 
             assertThat(keyCaptor.getValue()).isEqualTo(",email.cz,");
         }

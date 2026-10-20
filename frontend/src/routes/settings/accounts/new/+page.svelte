@@ -32,6 +32,14 @@
 	import type { AccountCreateRequest, AccountResponse, AccountUpdateRequest } from '#lib/types.js';
 
 	const customPreset = KNOWN_PRESETS.find((p) => p.key === 'custom')!;
+	/**
+	 * Offered for an address whose domain no template lists: a work or school
+	 * account at Microsoft 365 or Google Workspace signs in under the
+	 * organization's own domain. Microsoft first, the case this was added for.
+	 */
+	const organizationPresets = (['outlook', 'gmail'] as const).map((key) =>
+		KNOWN_PRESETS.find((p) => p.key === key)!
+	);
 
 	type FormServerMode = 'provider' | 'custom';
 	type Step =
@@ -327,6 +335,9 @@
 			<p class="mb-3 text-xs text-muted-foreground">
 				{$_(`accounts.wizard.${step.preset.key}.description`)}
 			</p>
+			<p class="mb-3 text-xs text-muted-foreground">
+				{$_(`accounts.wizard.${step.preset.key}.organizationHint`)}
+			</p>
 			<Button
 				variant="outline"
 				size="sm"
@@ -385,6 +396,36 @@
 					{$_('accounts.wizard.backToEmail')}
 				</Button>
 			</div>
+
+			{#if step.preset.backendName == null && isValidEmailAddress(step.email)}
+				{@const orgEmail = step.email}
+				<Surface
+					variant="subtle"
+					padding="sm"
+					class="mb-4 space-y-2"
+					role="group"
+					aria-labelledby="wizard-organization-heading"
+				>
+					<h3 id="wizard-organization-heading" class="text-sm font-semibold">
+						{$_('accounts.wizard.organization.heading')}
+					</h3>
+					<p class="text-xs text-muted-foreground">
+						{$_('accounts.wizard.organization.description')}
+					</p>
+					<div class="flex flex-wrap gap-2">
+						{#each organizationPresets as orgPreset (orgPreset.key)}
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								onclick={() => handleUseOAuth(orgPreset, orgEmail)}
+							>
+								{$_(`accounts.wizard.${orgPreset.key}.loginButton`)}
+							</Button>
+						{/each}
+					</div>
+				</Surface>
+			{/if}
 
 			<AccountForm
 				mode="create"
