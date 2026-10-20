@@ -29,6 +29,15 @@ Entries before 2026-09-17 predate that split and are left as written.
   crash left the app with no backend, and the account's sync pause never heard
   of it. The two gaps the B1-23 pass named in the tests of the same code are
   closed with it (#758).
+- Installing an update stops the backend even when it had just crashed. The
+  app stops the backend before the installer runs, but in the second before
+  the automatic restart, or while that restart was starting the backend, the
+  stop found nothing to end, and the backend the restart then brought up ran
+  on against the installer, which has to overwrite the files it holds open.
+  The stop now waits for a start under way and ends what it started, and a
+  restart the stop came before no longer happens; a **Restartovat službu** in
+  either moment still gets its backend. An update runs the code of the
+  installed version, so this protects updates from 0.1.1 on (#760).
 
 ### Tauri / Release
 

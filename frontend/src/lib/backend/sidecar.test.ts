@@ -840,6 +840,112 @@ describe('the previous exit handed to the next backend', () => {
 	});
 });
 
+/*
+ * A stop no Restart follows, as on the update path before the installer runs:
+ * whatever it leaves alive holds `runtime/` and `app/` open against the
+ * installer. It used to find no child while a spawn was under way, and no
+ * spawn during the automatic restart's delay, and return with the backend
+ * those started next still to come.
+ */
+describe('stopBackendSidecar — a stop no Restart follows leaves nothing running', () => {
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	function holdCleanup(): () => void {
+		let release!: () => void;
+		const cleanup = new Promise<boolean>((resolve) => {
+			release = () => resolve(false);
+		});
+		existsMock.mockClear().mockReturnValue(cleanup);
+		return release;
+	}
+
+	it('waits for a spawn under way and kills the backend it starts before returning', async () => {
+		const handle = createCommandHandle({ pid: 1 });
+		commandSidecarMock.mockReturnValueOnce(handle.cmd);
+		const mod = await freshModule();
+		const order: string[] = [];
+		handle.child.kill.mockImplementation(async () => {
+			order.push('kill');
+		});
+
+		const releaseCleanup = holdCleanup();
+		const start = mod.ensureBackendSidecar();
+		await vi.waitFor(() => expect(existsMock).toHaveBeenCalled());
+		const stop = mod.stopBackendSidecar().then(() => order.push('stop returned'));
+		releaseCleanup();
+		await Promise.all([start, stop]);
+
+		expect(order).toEqual(['kill', 'stop returned']);
+		expect(get(mod.backendSidecarState)).toEqual({ status: 'stopped' });
+	});
+
+	it('kills the backend of the automatic restart’s spawn, and nothing restarts it', async () => {
+		vi.useFakeTimers();
+		const handles = Array.from({ length: 3 }, (_, i) => createCommandHandle({ pid: i + 1 }));
+		for (const handle of handles) commandSidecarMock.mockReturnValueOnce(handle.cmd);
+		const mod = await freshModule();
+		await mod.ensureBackendSidecar();
+
+		const releaseCleanup = holdCleanup();
+		handles[0]!.emitClose(3, null);
+		await vi.advanceTimersByTimeAsync(1_000);
+		expect(get(mod.backendSidecarState)).toEqual({ status: 'starting' });
+
+		const stop = mod.stopBackendSidecar();
+		releaseCleanup();
+		await stop;
+		expect(handles[1]!.child.kill).toHaveBeenCalledOnce();
+
+		handles[1]!.emitClose(1, null);
+		await vi.advanceTimersByTimeAsync(1_000);
+
+		expect(commandSidecarMock).toHaveBeenCalledTimes(2);
+		expect(invokeMock).toHaveBeenCalledWith('log_sidecar_exit', {
+			code: 1,
+			signal: null,
+			requested: true
+		});
+		expect(get(mod.backendSidecarState)).toEqual({ status: 'stopped' });
+	});
+
+	it('a stop during the automatic restart’s delay spawns nothing after it', async () => {
+		vi.useFakeTimers();
+		const handles = Array.from({ length: 2 }, (_, i) => createCommandHandle({ pid: i + 1 }));
+		for (const handle of handles) commandSidecarMock.mockReturnValueOnce(handle.cmd);
+		const mod = await freshModule();
+		await mod.ensureBackendSidecar();
+
+		handles[0]!.emitClose(3, null);
+		await vi.advanceTimersByTimeAsync(500);
+		expect(get(mod.backendSidecarState)).toEqual({ status: 'restarting', attempt: 1 });
+
+		await mod.stopBackendSidecar();
+		await vi.advanceTimersByTimeAsync(1_000);
+
+		expect(commandSidecarMock).toHaveBeenCalledTimes(1);
+		expect(get(mod.backendSidecarState)).toEqual({ status: 'stopped' });
+	});
+
+	it('a Restart during the automatic restart’s delay still gets its backend', async () => {
+		vi.useFakeTimers();
+		const handles = Array.from({ length: 2 }, (_, i) => createCommandHandle({ pid: i + 1 }));
+		for (const handle of handles) commandSidecarMock.mockReturnValueOnce(handle.cmd);
+		const mod = await freshModule();
+		await mod.ensureBackendSidecar();
+
+		handles[0]!.emitClose(3, null);
+		await vi.advanceTimersByTimeAsync(500);
+		await mod.restartBackendSidecar();
+		await vi.advanceTimersByTimeAsync(1_000);
+
+		expect(commandSidecarMock).toHaveBeenCalledTimes(2);
+		expect(handles[1]!.child.kill).not.toHaveBeenCalled();
+		expect(get(mod.backendSidecarState)).toEqual({ status: 'running', pid: 2 });
+	});
+});
+
 describe('unload hook — only a leave that goes ahead stops the backend', () => {
 	afterEach(() => {
 		const global = globalThis as { __MAIL_BACKEND_SIDECAR_UNLOAD__?: () => void };
