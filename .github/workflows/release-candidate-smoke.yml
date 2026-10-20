@@ -28,6 +28,14 @@ run-name: Release Candidate Smoke ${{ inputs.tag || github.event.workflow_run.he
 # for the version on that branch, so a change to it is proven on a runner
 # before it merges. With no such release there is nothing to install, and the
 # pull request run says so and stops.
+#
+# A second job, on its own runner, updates to the candidate from the latest
+# published stable release: installed-app-update-smoke.mjs installs that
+# release, starts it and runs the candidate's installer over it the way the
+# updater does. Stable rather than beta because that is the line every
+# installation defaults to. Before the next release is tagged, the latest
+# release is the candidate's own version, and the job is a reinstall over a
+# running installation: still the overwrite it is for, without the migration.
 
 on:
   workflow_run:
@@ -43,12 +51,16 @@ on:
     paths:
       - .github/workflows/release-candidate-smoke.yml
       - frontend/scripts/installed-app-smoke.mjs
-      # Everything the smoke imports, so a change to a shared lib is proven
-      # on a runner too. Keep in step with the imports at the top of the script.
+      - frontend/scripts/installed-app-update-smoke.mjs
+      # Everything the two smokes import, so a change to a shared lib is proven
+      # on a runner too. Keep in step with the imports at the top of both
+      # scripts and of lib/installed-app.mjs.
+      - frontend/scripts/lib/installed-app.mjs
       - frontend/scripts/lib/installed-app-smoke.mjs
       - frontend/scripts/lib/data-dirs.mjs
       - frontend/scripts/lib/process-tree.mjs
       - frontend/scripts/lib/run.mjs
+      - frontend/scripts/lib/semver.mjs
       - frontend/scripts/lib/zip-entry.mjs
 
 permissions:
@@ -62,24 +74,24 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  smoke:
-    name: Install and smoke the candidate
-    runs-on: windows-latest
-    timeout-minutes: 30
+  resolve:
+    name: Resolve the candidate and the release before it
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
     # A failed or cancelled signed build attached nothing worth installing.
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
 
     env:
       GH_TOKEN: ${{ github.token }}
 
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      skip: ${{ steps.tag.outputs.skip }}
+      previous: ${{ steps.previous.outputs.previous }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-
-      - name: Setup Node
-        uses: actions/setup-node@v7
-        with:
-          node-version: 26
 
       - name: Resolve release tag
         id: tag
@@ -114,11 +126,50 @@ jobs:
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           Write-Host "Smoking the installer attached to $tag"
 
-      - name: Download and verify the installer
+      - name: Resolve the release to update from
+        id: previous
         if: steps.tag.outputs.skip != 'true'
         shell: pwsh
         env:
-          TAG: ${{ steps.tag.outputs.tag }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          # The latest published stable release: what the `releases/latest`
+          # redirect of the stable channel serves, so what an installation on
+          # the default channel updates from.
+          $previous = gh api "repos/$env:GITHUB_REPOSITORY/releases/latest" --jq .tag_name
+          if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($previous)) {
+            if ($env:EVENT_NAME -eq "pull_request") {
+              Write-Host "::notice::No stable release is published, so there is nothing to update from on this pull request."
+              exit 0
+            }
+            throw "No stable release is published, so there is nothing to update from."
+          }
+          "previous=$($previous.Trim())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "Updating to the candidate from $($previous.Trim())"
+
+  smoke:
+    name: Install and smoke the candidate
+    needs: resolve
+    if: needs.resolve.outputs.skip != 'true'
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 26
+
+      - name: Download and verify the installer
+        shell: pwsh
+        env:
+          TAG: ${{ needs.resolve.outputs.tag }}
         run: |
           New-Item -ItemType Directory -Force -Path candidate | Out-Null
           gh release download $env:TAG --repo $env:GITHUB_REPOSITORY --pattern "*-setup.exe" --pattern "*-setup.exe.sha256" --dir candidate
@@ -143,17 +194,81 @@ jobs:
           "INSTALLER=$($installer.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Install and smoke
-        if: steps.tag.outputs.skip != 'true'
         working-directory: frontend
         shell: pwsh
         run: node scripts/installed-app-smoke.mjs "--installer=$env:INSTALLER"
 
       - name: Upload smoke report and application logs
-        if: always() && steps.tag.outputs.skip != 'true'
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: release-candidate-smoke-${{ github.run_number }}
           path: |
             frontend/target/installed-app-smoke-*.json
             frontend/target/installed-app-smoke-*-logs/**
+          if-no-files-found: warn
+
+  update:
+    name: Update to the candidate from the latest release
+    needs: resolve
+    if: needs.resolve.outputs.skip != 'true' && needs.resolve.outputs.previous != ''
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 26
+
+      - name: Download and verify both installers
+        shell: pwsh
+        env:
+          TAG: ${{ needs.resolve.outputs.tag }}
+          PREVIOUS: ${{ needs.resolve.outputs.previous }}
+        run: |
+          # The same two checks as the smoke job, on each installer: the digest
+          # next to it, and provenance from the signed workflow at its own tag.
+          foreach ($release in @(
+              @{ Tag = $env:PREVIOUS; Dir = 'previous'; Variable = 'PREVIOUS_INSTALLER' },
+              @{ Tag = $env:TAG; Dir = 'candidate'; Variable = 'INSTALLER' })) {
+            New-Item -ItemType Directory -Force -Path $release.Dir | Out-Null
+            gh release download $release.Tag --repo $env:GITHUB_REPOSITORY --pattern "*-setup.exe" --pattern "*-setup.exe.sha256" --dir $release.Dir
+            if ($LASTEXITCODE -ne 0) { throw "Downloading the installer from $($release.Tag) failed." }
+
+            $installers = @(Get-ChildItem -Path $release.Dir -Filter "*-setup.exe")
+            if ($installers.Count -ne 1) { throw "Expected one installer on $($release.Tag), found $($installers.Count)." }
+            $installer = $installers[0]
+
+            $expected = ((Get-Content -Raw "$($installer.FullName).sha256").Trim() -split '\s+')[0].ToLower()
+            $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $installer.FullName).Hash.ToLower()
+            if ($expected -ne $actual) {
+              throw "SHA-256 of $($installer.Name) is $actual; the attached .sha256 says $expected."
+            }
+
+            gh attestation verify $installer.FullName --repo $env:GITHUB_REPOSITORY --signer-workflow "$env:GITHUB_REPOSITORY/.github/workflows/windows-signed-release.yml" --source-ref "refs/tags/$($release.Tag)"
+            if ($LASTEXITCODE -ne 0) { throw "Build provenance of $($installer.Name) does not verify for refs/tags/$($release.Tag)." }
+
+            "$($release.Variable)=$($installer.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          }
+
+      - name: Update and smoke
+        working-directory: frontend
+        shell: pwsh
+        run: node scripts/installed-app-update-smoke.mjs "--previous=$env:PREVIOUS_INSTALLER" "--installer=$env:INSTALLER"
+
+      - name: Upload update report and application logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-candidate-update-smoke-${{ github.run_number }}
+          path: |
+            frontend/target/installed-app-update-smoke-*.json
+            frontend/target/installed-app-update-smoke-*-logs/**
           if-no-files-found: warn

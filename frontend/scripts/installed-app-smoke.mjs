@@ -1,11 +1,24 @@
-import { execFileSync, spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import { cpSync, existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { cpSync, existsSync, readdirSync, readFileSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
-import http from 'node:http';
 import path from 'node:path';
 import process from 'node:process';
 import { resolveMailDataDir } from './lib/data-dirs.mjs';
+import {
+	createChecks,
+	psQuote,
+	pwsh,
+	registeredInstallDir,
+	request,
+	runToExit,
+	sha256,
+	sidecarProcesses,
+	sidecarsGone,
+	startApp as startInstalledApp,
+	stopApp as stopInstalledApp,
+	uninstall,
+	until
+} from './lib/installed-app.mjs';
 import {
 	DUMP_ENTRIES,
 	EXPECTED_INSTALL_SUBPATH,
@@ -17,8 +30,7 @@ import {
 	sessionProblems,
 	strayDataDirs
 } from './lib/installed-app-smoke.mjs';
-import { terminateProcessTree, waitForExit } from './lib/process-tree.mjs';
-import { wait } from './lib/run.mjs';
+import { waitForExit } from './lib/process-tree.mjs';
 import { readZipEntryJson } from './lib/zip-entry.mjs';
 
 /*
@@ -46,8 +58,8 @@ import { readZipEntryJson } from './lib/zip-entry.mjs';
  *   finding on the candidate sheet cannot reproduce here.
  * - That the install needs no elevation. Hosted runners run as an
  *   administrator, so the absence of a UAC prompt is not observable.
- * - Account flows, mail against a real provider, the downgrade block (a first
- *   ship has no older installer) and the update from vN-1.
+ * - Account flows and mail against a real provider. The update from vN-1 and
+ *   the downgrade block are installed-app-update-smoke.mjs's.
  *
  * The output uses words rather than symbols, because it is read with a screen
  * reader.
@@ -102,148 +114,9 @@ if (!existsSync(installer)) {
 /** Thrown after a check whose failure leaves nothing meaningful to check next. */
 class Stop extends Error {}
 
-const checks = [];
-
-function record(name, ok, detail = '') {
-	checks.push({ name, ok, detail });
-	console.log(`${ok ? 'Passed' : 'FAILED'}: ${name}${detail ? ` -- ${detail}` : ''}`);
-	return ok;
-}
-
-const psQuote = (value) => `'${String(value).replaceAll("'", "''")}'`;
-
-function pwsh(script) {
-	return execFileSync('pwsh', ['-NoProfile', '-NonInteractive', '-Command', script], {
-		encoding: 'utf8',
-		windowsHide: true
-	}).trim();
-}
-
-/**
- * Runs a program to completion. `verbatim` hands the command line over
- * unquoted, which the NSIS uninstaller needs: `_?=<dir>` must be the last
- * argument and must not be quoted, even when the directory has a space in it.
- */
-function runToExit(file, argv, verbatim = false) {
-	return new Promise((resolve, reject) => {
-		const child = spawn(file, argv, {
-			stdio: 'ignore',
-			windowsHide: true,
-			windowsVerbatimArguments: verbatim
-		});
-		child.once('error', reject);
-		child.once('exit', (code) => resolve(code));
-	});
-}
-
-function request(url, apiKey, requestTimeoutMs = 5_000) {
-	return new Promise((resolve, reject) => {
-		const req = http.get(
-			url,
-			{ headers: { 'X-API-KEY': apiKey }, timeout: requestTimeoutMs },
-			(response) => {
-				const chunks = [];
-				response.on('data', (chunk) => chunks.push(chunk));
-				response.on('end', () =>
-					resolve({ status: response.statusCode ?? 0, body: Buffer.concat(chunks) })
-				);
-			}
-		);
-		req.on('timeout', () =>
-			req.destroy(new Error(`GET ${url} timed out after ${requestTimeoutMs} ms`))
-		);
-		req.on('error', reject);
-	});
-}
-
-/**
- * Polls `probe` until it answers `{ done: true, value }`. `{ reason }` means
- * not yet; `{ abort }` means never, for instance because the process under test
- * has exited. A throwing probe counts as not yet, since a half-written file or a
- * refused connection is what "not yet" looks like from outside.
- */
-async function until(what, limitMs, probe) {
-	const deadline = Date.now() + limitMs;
-	let last = 'no attempt completed';
-	while (Date.now() < deadline) {
-		let answer;
-		try {
-			answer = await probe();
-		} catch (error) {
-			answer = { reason: error.message };
-		}
-		if (answer.abort) throw new Error(`${what}: ${answer.abort}`);
-		if (answer.done) return answer.value;
-		last = answer.reason;
-		await wait(500);
-	}
-	throw new Error(`timed out after ${limitMs} ms waiting for ${what}: ${last}`);
-}
-
-const sha256 = (file) => createHash('sha256').update(readFileSync(file)).digest('hex');
-
-/** PIDs of sidecar launchers running out of the installation directory. */
-function sidecarProcesses(installDir) {
-	const out = pwsh(
-		`@(Get-CimInstance Win32_Process -Filter "Name='voxrox-mail-backend.exe'" | ` +
-			`Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith(${psQuote(installDir)}, ` +
-			`[System.StringComparison]::OrdinalIgnoreCase) } | ForEach-Object { $_.ProcessId }) -join ','`
-	);
-	return out ? out.split(',').map(Number) : [];
-}
-
-async function startApp(installDir) {
-	const startedAt = Date.now();
-	const child = spawn(path.join(installDir, 'voxrox-mail.exe'), [], {
-		cwd: installDir,
-		stdio: 'ignore',
-		windowsHide: false
-	});
-	child.once('error', () => {});
-	const exited = () =>
-		child.exitCode !== null
-			? { abort: `voxrox-mail.exe exited with code ${child.exitCode}` }
-			: null;
-	const sessionPath = path.join(dataDir, 'session.json');
-	const readyPath = path.join(dataDir, '.ready');
-
-	try {
-		const session = await until('session.json and .ready from this start', timeoutMs, () => {
-			if (exited()) return exited();
-			if (!existsSync(sessionPath) || !existsSync(readyPath)) return { reason: 'not written yet' };
-			const fresh = (file) => statSync(file).mtimeMs >= startedAt - 500;
-			if (!fresh(sessionPath) || !fresh(readyPath))
-				return { reason: 'left over from an earlier start' };
-			return { done: true, value: JSON.parse(readFileSync(sessionPath, 'utf8')) };
-		});
-		await until('readiness', timeoutMs, async () => {
-			if (exited()) return exited();
-			const response = await request(
-				`${session.baseUrl}/v1/system/readiness`,
-				session.apiKey,
-				3_000
-			);
-			if (response.status !== 200) return { reason: `HTTP ${response.status}` };
-			const readiness = JSON.parse(response.body.toString('utf8'));
-			return readiness.ready === true
-				? { done: true, value: readiness }
-				: { reason: `ready is ${JSON.stringify(readiness.ready)}` };
-		});
-		return { child, session, readyMs: Date.now() - startedAt };
-	} catch (error) {
-		await terminateProcessTree(child).catch(() => null);
-		throw error;
-	}
-}
-
-async function stopApp(running, installDir) {
-	await terminateProcessTree(running.child).catch(() => null);
-	await waitForExit(running.child).catch(() => null);
-	await until('the sidecar to exit after the app was stopped', orphanTimeoutMs, () => {
-		const left = sidecarProcesses(installDir);
-		return left.length === 0 ? { done: true } : { reason: `PIDs ${left.join(', ')}` };
-	}).catch(() => null);
-}
+const { checks, record } = createChecks();
+const startApp = (dir) => startInstalledApp(dir, { dataDir, timeoutMs });
+const stopApp = (app, dir) => stopInstalledApp(app, dir, { orphanTimeoutMs });
 
 await mkdir(targetDir, { recursive: true });
 console.log(`Installing ${installer}`);
@@ -260,11 +133,7 @@ try {
 		throw new Stop();
 	}
 
-	const registered = pwsh(
-		"$entry = Get-ChildItem 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall' | " +
-			"Get-ItemProperty | Where-Object DisplayName -eq 'VoxRox Mail' | Select-Object -First 1; " +
-			'if ($entry) { $entry.InstallLocation }'
-	).replace(/^"|"$/g, '');
+	const registered = registeredInstallDir();
 	record(
 		`the installation is registered per user at %LOCALAPPDATA%\\${EXPECTED_INSTALL_SUBPATH}`,
 		samePath(registered, expectedInstallDir),
@@ -373,7 +242,9 @@ try {
 		const dump = await until('the webview to report boot phase ready', timeoutMs, async () => {
 			if (running.child.exitCode !== null)
 				return { abort: `voxrox-mail.exe exited with code ${running.child.exitCode}` };
-			const response = await request(`${baseUrl}/internal/diagnostic-dump`, apiKey, 10_000);
+			const response = await request(`${baseUrl}/internal/diagnostic-dump`, apiKey, {
+				timeoutMs: 10_000
+			});
 			if (response.status !== 200) return { reason: `HTTP ${response.status}` };
 			const boot = readZipEntryJson(response.body, 'client-boot.json');
 			if (boot?.phase !== 'ready') {
@@ -408,10 +279,7 @@ try {
 	await waitForExit(running.child).catch(() => null);
 	running = null;
 	const killedAt = Date.now();
-	const orphans = await until('the sidecar to follow voxrox-mail.exe', orphanTimeoutMs, () => {
-		const left = sidecarProcesses(installDir);
-		return left.length === 0 ? { done: true, value: [] } : { reason: `PIDs ${left.join(', ')}` };
-	}).catch(() => sidecarProcesses(installDir));
+	const orphans = await sidecarsGone(installDir, orphanTimeoutMs);
 	record(
 		'killing voxrox-mail.exe alone takes the sidecar with it',
 		before.length > 0 && orphans.length === 0,
@@ -477,9 +345,8 @@ try {
 		cpSync(path.join(dataDir, 'logs'), logsCopyDir, { recursive: true });
 	}
 
-	const uninstaller = path.join(installDir, 'uninstall.exe');
-	if (existsSync(uninstaller)) {
-		const uninstallCode = await runToExit(uninstaller, [`/S _?=${installDir}`], true);
+	const uninstallCode = await uninstall(installDir);
+	if (uninstallCode !== null) {
 		record(
 			'the uninstaller exits 0 in silent mode',
 			uninstallCode === 0,
