@@ -10,6 +10,7 @@ import {
 	DUMP_ENTRIES,
 	EXPECTED_INSTALL_SUBPATH,
 	INSTALL_ENTRIES,
+	aotCacheProblems,
 	formatReport,
 	missingEntries,
 	samePath,
@@ -441,6 +442,19 @@ try {
 	);
 	await stopApp(running, installDir);
 	running = null;
+
+	// Read after both starts, whose lines the log holds one after the other.
+	// Only an installation can show this: the packaging step that checks the
+	// cache maps runs before NSIS, which rounds file times down to 2 seconds.
+	const frontendLog = path.join(dataDir, 'logs', 'mail-frontend.log');
+	const aotProblems = existsSync(frontendLog)
+		? aotCacheProblems(readFileSync(frontendLog, 'utf8'))
+		: null;
+	record(
+		'the sidecar starts on its AOT cache, with no aot warning in the Tauri log',
+		aotProblems?.length === 0,
+		aotProblems === null ? `${frontendLog} does not exist` : aotProblems.join('; ')
+	);
 
 	// §3a Reinstalling the same version
 	const reinstallCode = await runToExit(installer, ['/S']);

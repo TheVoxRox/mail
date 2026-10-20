@@ -66,6 +66,22 @@ export function sessionProblems(session) {
 	return problems;
 }
 
+/**
+ * Lines of the Tauri log in which the sidecar's JVM refused its AOT cache or
+ * failed to map it. The JVM warns and starts without the cache, so nothing
+ * else notices: every check still passes and only the cold start is slower.
+ * 0.1.0 shipped like that. The sidecar's stderr reaches mail-frontend.log line
+ * by line, in the `[uptime][level][tags]` decoration the launcher's .cfg asks
+ * for. The JVM tags these lines `aot`; `cds` is matched as well, being the tag
+ * the same checks logged under before JDK 25.
+ */
+export function aotCacheProblems(log) {
+	return log
+		.split(/\r?\n/)
+		.filter((line) => /\[(?:warning|error) *\]\[(?:[^\]]*,)?(?:aot|cds)[,\]]/.test(line))
+		.map((line) => line.trim());
+}
+
 /** Two Windows paths name the same directory: quotes, trailing separators and case aside. */
 export function samePath(a, b) {
 	const normalize = (value) =>

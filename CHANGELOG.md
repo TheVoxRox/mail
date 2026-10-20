@@ -19,6 +19,16 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Tauri / Release
+
+- The installed backend starts on the AOT class cache that release builds
+  carry since #719, which 0.1.0 shipped and never used. The NSIS installer keeps
+  a file's time only to 2 seconds, rounding down, and the JVM refuses a cache
+  once the jar's time has moved, so a jar written on an odd second lost its
+  cache on every installation while the packaging check, which runs before
+  NSIS, still passed. Packaging now rounds the image's file times before
+  training, and that check fails on a time the installer would change (#756).
+
 ### Repo
 
 - The independent pass over B1-23's fix re-verified the IMAP/SMTP audit
@@ -44,6 +54,10 @@ Entries before 2026-09-17 predate that split and are left as written.
   never affected, but checking a published installer against the repository's
   own config reported a key mismatch on a sound release; the new key verifies
   v0.1.0's installer against its `latest.json` (#755).
+- Release Candidate Smoke fails when the installed sidecar starts without its
+  AOT cache, read from the JVM's `aot` warnings in `mail-frontend.log`. Only an
+  installation shows that chain end to end, and the JVM only warns, so no other
+  check noticed 0.1.0's cache going unused (#756).
 
 ## [0.1.0] - 2026-10-19
 
