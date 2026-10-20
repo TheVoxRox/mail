@@ -37,7 +37,7 @@ Entries before 2026-09-17 predate that split and are left as written.
   rests on, and a section carries from the last sheet that ticked it when none
   of them moved, compared by object id under both sheets' own rows;
   `npm run release:status` reads the checklist's history for that sheet and
-  reports "carry from" it or "re-take:" with the inputs that moved.
+  reports "carry from" it or "re-take:" with the inputs that moved (#754).
 
 ## [0.1.0] - 2026-10-19
 
