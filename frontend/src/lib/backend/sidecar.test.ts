@@ -651,25 +651,31 @@ describe('the previous exit handed to the next backend', () => {
 		expect(envOf(1)).not.toHaveProperty('MAIL_SIDECAR_PREVIOUS_EXIT');
 	});
 
-	it('a start the backend refused passes on the exit it was handed, for the Retry after it', async () => {
-		vi.useFakeTimers();
-		const handles = Array.from({ length: 3 }, (_, i) => createCommandHandle({ pid: i + 1 }));
-		for (const handle of handles) commandSidecarMock.mockReturnValueOnce(handle.cmd);
-		const mod = await freshModule();
-		await mod.ensureBackendSidecar();
+	// 65 and 70 are the two a restart cannot fix, so only a Retry reaches the
+	// next backend after them.
+	it.each([65, 70])(
+		'a start refused with %i passes on the exit it was handed, for the Retry after it',
+		async (code) => {
+			vi.useFakeTimers();
+			const handles = Array.from({ length: 3 }, (_, i) => createCommandHandle({ pid: i + 1 }));
+			for (const handle of handles) commandSidecarMock.mockReturnValueOnce(handle.cmd);
+			const mod = await freshModule();
+			await mod.ensureBackendSidecar();
 
-		handles[0]!.emitClose(3, null);
-		await vi.advanceTimersByTimeAsync(1_000);
-		expect(envOf(1)).toMatchObject({ MAIL_SIDECAR_PREVIOUS_EXIT: '3' });
+			handles[0]!.emitClose(3, null);
+			await vi.advanceTimersByTimeAsync(1_000);
+			expect(envOf(1)).toMatchObject({ MAIL_SIDECAR_PREVIOUS_EXIT: '3' });
 
-		// Refused before its crash guard ran (schema mismatch), so it counted nothing.
-		handles[1]!.emitClose(70, null);
-		await Promise.resolve();
-		expect(get(mod.backendSidecarState)).toMatchObject({ status: 'error' });
+			// Refused before its crash guard ran (a damaged database, a schema
+			// mismatch), so it counted nothing.
+			handles[1]!.emitClose(code, null);
+			await Promise.resolve();
+			expect(get(mod.backendSidecarState)).toMatchObject({ status: 'error' });
 
-		await mod.restartBackendSidecar();
-		expect(envOf(2)).toMatchObject({ MAIL_SIDECAR_PREVIOUS_EXIT: '3' });
-	});
+			await mod.restartBackendSidecar();
+			expect(envOf(2)).toMatchObject({ MAIL_SIDECAR_PREVIOUS_EXIT: '3' });
+		}
+	);
 
 	// 74 and 78 are restarted automatically, unlike 65 and 70, but are decided
 	// before the crash guard runs all the same (B1-23).
@@ -707,14 +713,62 @@ describe('the previous exit handed to the next backend', () => {
 
 	/*
 	 * The kill a Restart makes returns once the process has exited, so its
-	 * `close` arrives while the next spawn is still clearing the handshake files.
+	 * `close` arrives while the next spawn is still on its way to spawning.
 	 * B1-23: taken there for an exit nobody asked for, it reached the next
 	 * backend as a crash, and three Restarts during a sync paused the account.
+	 * Held at each of the spawn's awaits in turn, the first one included: the
+	 * generation has to move before it, not only before the handshake cleanup.
 	 */
-	it('the kill a Restart makes is not handed over when its close arrives during the next spawn', async () => {
-		const first = createCommandHandle({ pid: 1 });
-		const second = createCommandHandle({ pid: 2 });
-		commandSidecarMock.mockReturnValueOnce(first.cmd).mockReturnValueOnce(second.cmd);
+	it.each(['resolving the data directory', 'clearing the handshake files'] as const)(
+		'the kill a Restart makes is not handed over when its close arrives while the next spawn is %s',
+		async (step) => {
+			const first = createCommandHandle({ pid: 1 });
+			const second = createCommandHandle({ pid: 2 });
+			commandSidecarMock.mockReturnValueOnce(first.cmd).mockReturnValueOnce(second.cmd);
+			const mod = await freshModule();
+			await mod.ensureBackendSidecar();
+
+			let release!: () => void;
+			const held = step === 'resolving the data directory' ? mailDataDirMock : existsMock;
+			if (held === mailDataDirMock) {
+				const dataDir = new Promise<string>((resolve) => {
+					release = () => resolve('/data');
+				});
+				mailDataDirMock.mockClear().mockReturnValueOnce(dataDir);
+			} else {
+				const cleanup = new Promise<boolean>((resolve) => {
+					release = () => resolve(false);
+				});
+				existsMock.mockClear().mockReturnValue(cleanup);
+			}
+
+			const restart = mod.restartBackendSidecar();
+			await vi.waitFor(() => expect(held).toHaveBeenCalled());
+			first.emitClose(1, null);
+			release();
+			await restart;
+
+			expect(envOf(1)).not.toHaveProperty('MAIL_SIDECAR_PREVIOUS_EXIT');
+			expect(invokeMock).toHaveBeenCalledWith('log_sidecar_exit', {
+				code: 1,
+				signal: null,
+				requested: true
+			});
+			expect(commandSidecarMock).toHaveBeenCalledTimes(2);
+			expect(get(mod.backendSidecarState)).toEqual({ status: 'running', pid: 2 });
+		}
+	);
+
+	/*
+	 * A Restart pressed while the automatic restart is still spawning finds no
+	 * child to kill, so its stop only sets `stopRequested`, and its ensure joins
+	 * the spawn under way. Left set, the flag had the backend that spawn starts
+	 * read as stopped on its next exit: not restarted, and the exit not handed on.
+	 */
+	it('a Restart during the automatic restart’s spawn leaves the backend it starts supervised', async () => {
+		vi.useFakeTimers();
+		const handles = Array.from({ length: 3 }, (_, i) => createCommandHandle({ pid: i + 1 }));
+		for (const handle of handles) commandSidecarMock.mockReturnValueOnce(handle.cmd);
 		const mod = await freshModule();
 		await mod.ensureBackendSidecar();
 
@@ -724,20 +778,65 @@ describe('the previous exit handed to the next backend', () => {
 		});
 		existsMock.mockClear().mockReturnValue(cleanup);
 
+		handles[0]!.emitClose(3, null);
+		await vi.advanceTimersByTimeAsync(1_000);
+		expect(existsMock).toHaveBeenCalled();
+		expect(get(mod.backendSidecarState)).toEqual({ status: 'starting' });
+
 		const restart = mod.restartBackendSidecar();
-		await vi.waitFor(() => expect(existsMock).toHaveBeenCalled());
-		first.emitClose(1, null);
 		releaseCleanup();
 		await restart;
+		expect(get(mod.backendSidecarState)).toEqual({ status: 'running', pid: 2 });
+		// The spawn the Restart joined still carries the crash before it.
+		expect(envOf(1)).toMatchObject({ MAIL_SIDECAR_PREVIOUS_EXIT: '3' });
 
-		expect(envOf(1)).not.toHaveProperty('MAIL_SIDECAR_PREVIOUS_EXIT');
+		handles[1]!.emitClose(1, null);
+		await vi.advanceTimersByTimeAsync(1_000);
+
 		expect(invokeMock).toHaveBeenCalledWith('log_sidecar_exit', {
 			code: 1,
 			signal: null,
-			requested: true
+			requested: false
 		});
-		expect(commandSidecarMock).toHaveBeenCalledTimes(2);
+		expect(commandSidecarMock).toHaveBeenCalledTimes(3);
+		expect(envOf(2)).toMatchObject({ MAIL_SIDECAR_PREVIOUS_EXIT: '1' });
+		expect(get(mod.backendSidecarState)).toEqual({ status: 'running', pid: 3 });
+	});
+
+	// The same window by a second Restart pressed before the first one's spawn
+	// is through: bootstrap({ force: true }) does not wait for the attempt it
+	// replaces.
+	it('a second Restart during the first one’s spawn leaves the backend it starts supervised', async () => {
+		vi.useFakeTimers();
+		const handles = Array.from({ length: 3 }, (_, i) => createCommandHandle({ pid: i + 1 }));
+		for (const handle of handles) commandSidecarMock.mockReturnValueOnce(handle.cmd);
+		const mod = await freshModule();
+		await mod.ensureBackendSidecar();
+
+		let releaseCleanup!: () => void;
+		const cleanup = new Promise<boolean>((resolve) => {
+			releaseCleanup = () => resolve(false);
+		});
+		existsMock.mockClear().mockReturnValue(cleanup);
+
+		const firstRestart = mod.restartBackendSidecar();
+		await vi.waitFor(() => expect(existsMock).toHaveBeenCalled());
+		const secondRestart = mod.restartBackendSidecar();
+		releaseCleanup();
+		await Promise.all([firstRestart, secondRestart]);
 		expect(get(mod.backendSidecarState)).toEqual({ status: 'running', pid: 2 });
+
+		handles[1]!.emitClose(1, null);
+		await vi.advanceTimersByTimeAsync(1_000);
+
+		expect(invokeMock).toHaveBeenCalledWith('log_sidecar_exit', {
+			code: 1,
+			signal: null,
+			requested: false
+		});
+		expect(commandSidecarMock).toHaveBeenCalledTimes(3);
+		expect(envOf(2)).toMatchObject({ MAIL_SIDECAR_PREVIOUS_EXIT: '1' });
+		expect(get(mod.backendSidecarState)).toEqual({ status: 'running', pid: 3 });
 	});
 });
 
