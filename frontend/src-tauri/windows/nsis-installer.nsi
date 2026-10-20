@@ -77,12 +77,35 @@ ${StrLoc}
 ; PRODUCTNAME: renaming the publisher must not orphan the answer.
 !define UPDATECHECKKEY "Software\VoxRox\Mail"
 !define UPDATECHECKVALUE "UpdateStartupCheck"
+; The sidecar launcher, as the `binaries` loop below installs it from
+; `externalBin` in tauri.conf.json (scripts/nsis-installer-template.test.mjs
+; holds the two together). The launcher and the JVM process under it both run
+; from this image, which is what RELEASE_CHECKLIST §6 counts as two processes.
+!define SIDECARBINARYNAME "voxrox-mail-backend"
 
 Var PassiveMode
 Var UpdateMode
 Var NoShortcutMode
 Var WixMode
 Var OldMainBinaryName
+Var ShellCheckPassiveMode
+
+; CheckIfAppIsRunning on the shell finds only processes running voxrox-mail.exe.
+; The sidecar outlives a shell killed under it: its parent-death watchdog
+; (ParentProcessWatchdog.java) shuts Spring down gracefully, for up to ten
+; seconds, and holds app\ and runtime\ open meanwhile, while the installer
+; would already be writing them and the uninstaller deleting them. So the
+; same check runs on the sidecar's image, without a question of its own:
+; whoever got this far has agreed to the shell being closed, or no shell was
+; running and the sidecar is an orphan. Passive mode is what skips the
+; question inside the stock macro, so it is set for this one call. The macro
+; aborts the install when it cannot end the processes.
+!macro CheckIfSidecarIsRunning
+  StrCpy $ShellCheckPassiveMode $PassiveMode
+  StrCpy $PassiveMode 1
+  !insertmacro CheckIfAppIsRunning "$INSTDIR\${SIDECARBINARYNAME}.exe" "${PRODUCTNAME}"
+  StrCpy $PassiveMode $ShellCheckPassiveMode
+!macroend
 
 Name "${PRODUCTNAME}"
 BrandingText "${COPYRIGHT}"
@@ -734,6 +757,20 @@ Section Install
   !endif
 
   !insertmacro CheckIfAppIsRunning "$INSTDIR\${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
+  !insertmacro CheckIfSidecarIsRunning
+
+  ; An update writes over the installed version in place, so a file that
+  ; version had and this one does not would stay. The backend jar carries its
+  ; version in its name, so each update would leave the previous jar in app\,
+  ; and the uninstaller, which deletes only the files of the version it came
+  ; with, would leave it as well. app\ and runtime\ hold nothing but the
+  ; sidecar's image, so they are emptied before this version's go in; only
+  ; where the sidecar launcher marks an installation of ours, never in a
+  ; directory that merely has folders of those names.
+  ${If} ${FileExists} "$INSTDIR\${SIDECARBINARYNAME}.exe"
+    RMDir /r "$INSTDIR\app"
+    RMDir /r "$INSTDIR\runtime"
+  ${EndIf}
 
   File "${MAINBINARYSRCPATH}"
 
@@ -874,6 +911,7 @@ Section Uninstall
   !endif
 
   !insertmacro CheckIfAppIsRunning "$INSTDIR\${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
+  !insertmacro CheckIfSidecarIsRunning
 
   Delete "$INSTDIR\${MAINBINARYNAME}.exe"
 
