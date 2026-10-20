@@ -27,6 +27,11 @@ Entries before 2026-09-17 predate that split and are left as written.
   Restarts of the boot views handed the killed backend's exit over, against 10
   of 10 on the shell before the fix, so the tag stands; the B1 verdict is PASS
   with B1-21 and B1-24 accepted (#752).
+- The 2026-10-19 candidate has §3 to §8 recorded on its signed build, taking by
+  hand only what changed since the 2026-10-13 sheet and carrying the rest from
+  it; §9 has no open blocker and waits for the maintainer's approval. Two new
+  findings stay open past 0.1.0: the AOT cache does not map on an installed
+  build, and Esc does not reliably close a message with a screen reader (#753).
 
 ## [0.1.0] - 2026-10-19
 
@@ -1611,7 +1616,7 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Known issues
 
-Provisional at the moment of the cut, per [RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) step 2 item 4: §9 of the 2026-10-19 candidate sheet does not exist until the manual smoke has run on the build made from the tag. Reconciled against §9 before publishing, which is a condition in step 6.
+Reconciled with §9 of the 2026-10-19 candidate sheet, per [RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) step 6.
 
 - **A transient IMAP hiccup, `failed to create new store connection`, appears in the log a couple of times a day.** It is wrapped in a bounded retry with backoff and recovers on the next attempt; the release checklist carries a passive log-watch for it in §8.2 rather than a fix, because no escalation past the retry budget has been observed.
 - **Google sign-in works only for accounts on the test list.** The OAuth consent screen stays in `Testing` for this release — a deliberate exception for a closed beta, recorded in `todo.md`. Publishing to a general audience needs Google verification of the restricted scope (CASA), which is not part of v0.1.0.
