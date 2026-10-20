@@ -47,3 +47,47 @@ export function resolveObjects(repoRoot, revspecs) {
 	});
 	return resolved;
 }
+
+/**
+ * Reads the content of every blob revspec in ONE git process, returning
+ * `revspec -> text` and `null` for anything git cannot resolve or that is not
+ * a blob. The batch form of `git show <rev>:<path>`, for release-status, which
+ * reads the checklist as it stood at each commit that changed it.
+ *
+ * `git cat-file --batch` answers each input line with `<oid> <type> <size>`,
+ * then exactly `size` bytes and a newline, or with one `<input> missing` line.
+ * The content is cut by BYTE count, so the output is kept as a Buffer until
+ * each piece is cut out: a size read against a decoded string would land
+ * inside the next answer on the first multi-byte character.
+ */
+export function readBlobs(repoRoot, revspecs) {
+	const unique = [...new Set(revspecs)];
+	const contents = new Map();
+	if (unique.length === 0) return contents;
+
+	const stdout = execFileSync('git', ['cat-file', '--batch'], {
+		cwd: repoRoot,
+		input: `${unique.join('\n')}\n`,
+		maxBuffer: 256 * 1024 * 1024,
+		stdio: ['pipe', 'pipe', 'ignore']
+	});
+
+	let offset = 0;
+	for (const revspec of unique) {
+		const end = stdout.indexOf(0x0a, offset);
+		const header = stdout.toString('utf8', offset, end === -1 ? stdout.length : end);
+		offset = end === -1 ? stdout.length : end + 1;
+		const match = OBJECT_LINE.exec(header);
+		if (!match) {
+			contents.set(revspec, null);
+			continue;
+		}
+		const size = Number(match[3]);
+		contents.set(
+			revspec,
+			match[2] === 'blob' ? stdout.toString('utf8', offset, offset + size) : null
+		);
+		offset += size + 1;
+	}
+	return contents;
+}

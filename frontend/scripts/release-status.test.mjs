@@ -1,20 +1,31 @@
 import { describe, expect, it } from 'vitest';
 import {
+	carrySpecs,
 	checkManifest,
 	compareObjectIds,
 	compareReleaseNotes,
 	decideNextStep,
+	describeCarry,
+	expandInputs,
 	findMissingAssets,
+	judgeCarry,
+	lastTicks,
+	objectSpecUnder,
+	openManualSections,
 	parseCandidateSheet,
+	parseCodePaths,
 	parseGitHubSlug,
 	parseLsRemote,
+	parseSectionInputs,
 	parseSha256File,
+	parseSheets,
 	pickCiResult,
 	pickInstaller,
 	pickProvenance,
 	pickScan,
 	pickSignedRun,
 	pickSmokeRun,
+	planCarry,
 	readGhAnswer,
 	readProvenance
 } from './lib/release-status.mjs';
@@ -224,6 +235,318 @@ describe('compareObjectIds', () => {
 	it('does not call a commit outside the clone, or a sheet without ids, a match', () => {
 		expect(compareObjectIds(sheetIds, null).state).toBe('unknown');
 		expect(compareObjectIds([], new Map()).state).toBe('unknown');
+	});
+});
+
+describe('parseSheets', () => {
+	it('returns every dated sheet in document order, each with its own ids and ticks', () => {
+		const sheets = parseSheets(CHECKLIST);
+
+		expect(sheets.map((sheet) => sheet.heading)).toEqual([
+			'Candidate 2026-09-10 — `a2caa27`',
+			'Candidate 2026-09-11 — see the object ids below'
+		]);
+		expect(sheets[0].objectIds).toEqual([]);
+		expect(sheets[0].sections.map((section) => section.id)).toEqual(['§0', '§3']);
+		expect(sheets[1].objectIds).toHaveLength(2);
+	});
+});
+
+describe('the section inputs table', () => {
+	const WITH_INPUTS = [
+		'# Release checklist',
+		'',
+		'| section | rests on |',
+		'| ------- | -------- |',
+		'| §3a | `frontend/src-tauri/windows`, `frontend/src-tauri/tauri.conf.json#bundle` |',
+		'| §4 | `docs/OAUTH_AUDIT.md` |',
+		'| §5 | to be decided |',
+		'',
+		...NEWER_SHEET
+	].join('\n');
+
+	it('reads each row’s backticked tokens, and stops where the table ends', () => {
+		const table = parseSectionInputs(WITH_INPUTS);
+
+		expect([...table.inputs]).toEqual([
+			['§3a', ['frontend/src-tauri/windows', 'frontend/src-tauri/tauri.conf.json#bundle']],
+			['§4', ['docs/OAUTH_AUDIT.md']]
+		]);
+		// The sheet's object id table further down is not an inputs row.
+		expect(table.unparsedRows).toEqual(['| §5 | to be decided |']);
+	});
+
+	it('returns null for a checklist without the table, rather than a table with no rows', () => {
+		expect(parseSectionInputs(CHECKLIST)).toBeNull();
+	});
+
+	it('reads an audit’s Code paths row, and nothing from a document without one', () => {
+		const audit =
+			'| **Audited commit** | `0d84ec6` |\n| **Code paths**     | `backend/src/auth`, `x.java` |\n';
+
+		expect(parseCodePaths(audit)).toEqual(['backend/src/auth', 'x.java']);
+		expect(parseCodePaths('# Not an audit\n')).toBeNull();
+		expect(parseCodePaths(null)).toBeNull();
+	});
+
+	it('replaces an audit with its Code paths, splits a JSON key, and names an audit it cannot read', () => {
+		const codePathsOf = (auditPath) =>
+			auditPath === 'docs/OAUTH_AUDIT.md' ? ['backend/src/auth'] : null;
+
+		expect(
+			expandInputs(
+				[
+					'docs/OAUTH_AUDIT.md',
+					'frontend/package-lock.json#packages.node_modules/svelte',
+					'docs/GONE_AUDIT.md'
+				],
+				codePathsOf
+			)
+		).toEqual([
+			{ label: 'backend/src/auth', path: 'backend/src/auth', key: null, problem: null },
+			{
+				label: 'frontend/package-lock.json#packages.node_modules/svelte',
+				path: 'frontend/package-lock.json',
+				key: ['packages', 'node_modules/svelte'],
+				problem: null
+			},
+			{
+				label: 'docs/GONE_AUDIT.md',
+				path: 'docs/GONE_AUDIT.md',
+				key: null,
+				problem: 'docs/GONE_AUDIT.md, which has no `Code paths` row on main'
+			}
+		]);
+	});
+});
+
+describe('objectSpecUnder', () => {
+	const rows = [
+		{ path: 'frontend/src', id: 'aaaaaaaaaaaa' },
+		{ path: 'frontend/src-tauri', id: 'bbbbbbbbbbbb' },
+		{ path: 'frontend/src-tauri/windows', id: 'cccccccccccc' }
+	];
+
+	it('reaches a path under the deepest row that holds it', () => {
+		expect(objectSpecUnder(rows, 'frontend/src-tauri/tauri.conf.json')).toBe(
+			'bbbbbbbbbbbb:tauri.conf.json'
+		);
+		expect(objectSpecUnder(rows, 'frontend/src-tauri/windows/installer.nsi')).toBe(
+			'cccccccccccc:installer.nsi'
+		);
+		expect(objectSpecUnder(rows, 'frontend/src-tauri')).toBe('bbbbbbbbbbbb');
+	});
+
+	it('does not read frontend/src-tauri as a path under frontend/src', () => {
+		expect(objectSpecUnder(rows.slice(0, 1), 'frontend/src-tauri/windows')).toBeNull();
+		expect(objectSpecUnder(rows, 'frontend/src/lib')).toBe('aaaaaaaaaaaa:lib');
+	});
+
+	it('returns null for a path no row holds', () => {
+		expect(objectSpecUnder(rows, 'frontend/scripts/release-status.mjs')).toBeNull();
+	});
+});
+
+describe('lastTicks', () => {
+	function sheetText(title, srcId, ticked) {
+		return [
+			`### Candidate ${title}`,
+			'',
+			'| path | object id |',
+			'| ---- | --------- |',
+			`| \`backend/src\` | \`${srcId}\` |`,
+			'',
+			...['§3a', '§4', '§5'].map((id) => `- [${ticked.includes(id) ? 'x' : ' '}] **${id} T** — r.`),
+			''
+		].join('\n');
+	}
+	const current = parseCandidateSheet(sheetText('2026-10-19 — tenth cut', 'cccccccccccc', []));
+
+	it('takes each section from the newest version that ticked it, and never from this sheet', () => {
+		const versions = [
+			// This sheet before a tick was taken back: not an earlier sheet.
+			{ commit: 'v1', markdown: sheetText('2026-10-19 — tenth cut', 'cccccccccccc', ['§3a']) },
+			// The same heading on a cut a re-cut voided: an earlier sheet.
+			{ commit: 'v2', markdown: sheetText('2026-10-19 — tenth cut', 'bbbbbbbbbbbb', ['§4']) },
+			{ commit: 'v3', markdown: sheetText('2026-10-13', 'aaaaaaaaaaaa', ['§3a', '§4']) }
+		];
+
+		const found = lastTicks(versions, current, ['§3a', '§4', '§5']);
+
+		expect(found.get('§3a')).toMatchObject({ date: '2026-10-13', commit: 'v3' });
+		expect(found.get('§4')).toMatchObject({
+			commit: 'v2',
+			objectIds: [{ path: 'backend/src', id: 'bbbbbbbbbbbb' }]
+		});
+		expect(found.has('§5')).toBe(false);
+	});
+
+	it('reads no further back than the last tick it needs', () => {
+		let read = 0;
+		function* versions() {
+			for (const commit of ['v1', 'v2', 'v3']) {
+				read += 1;
+				yield { commit, markdown: sheetText('2026-10-13', 'aaaaaaaaaaaa', ['§3a']) };
+			}
+		}
+
+		lastTicks(versions(), current, ['§3a']);
+
+		expect(read).toBe(1);
+	});
+});
+
+describe('carrying a manual section', () => {
+	const NOW_TAURI = '111111111111';
+	const NOW_SRC = '222222222222';
+	const THEN_TAURI = '333333333333';
+	const THEN_SRC = '444444444444';
+	const section = (id, title, done = false) => ({ id, title, done });
+	const current = {
+		date: '2026-10-19',
+		heading: 'Candidate 2026-10-19',
+		objectIds: [
+			{ path: 'frontend/src-tauri', id: NOW_TAURI },
+			{ path: 'backend/src', id: NOW_SRC }
+		],
+		unparsedRows: [],
+		sections: [
+			section('§0', 'Version', true),
+			section('§1', 'Backend build', true),
+			section('§2', 'Frontend automation', true),
+			section('§3a', 'Installer behaviour'),
+			section('§4', 'Account flows'),
+			section('§9', '')
+		]
+	};
+	const earlier = {
+		date: '2026-10-13',
+		heading: 'Candidate 2026-10-13',
+		objectIds: [
+			{ path: 'frontend/src-tauri', id: THEN_TAURI },
+			{ path: 'backend/src', id: THEN_SRC }
+		],
+		commit: OTHER
+	};
+	const inputs = new Map([
+		['§3a', ['frontend/src-tauri/windows', 'frontend/src-tauri/tauri.conf.json#bundle']],
+		['§4', ['docs/OAUTH_AUDIT.md']]
+	]);
+	// The audit names a file under a directory it also names; the report says it once.
+	const codePathsOf = () => ['backend/src/auth', 'backend/src/auth/Login.java'];
+	const config = (version, bundle) => JSON.stringify({ version, bundle });
+
+	function judge({
+		ticks = new Map([
+			['§3a', earlier],
+			['§4', earlier]
+		]),
+		rows = inputs,
+		objects = {},
+		blobs = {}
+	} = {}) {
+		const plan = planCarry({ sheet: current, inputs: rows, ticks, codePathsOf });
+		const oid = (fill) => ({ oid: fill.repeat(40), type: 'tree' });
+		const resolved = new Map([
+			[`${THEN_TAURI}:windows`, oid('a')],
+			[`${NOW_TAURI}:windows`, oid('a')],
+			[`${THEN_SRC}:auth`, oid('b')],
+			[`${NOW_SRC}:auth`, oid('b')],
+			...Object.entries(objects)
+		]);
+		const contents = new Map([
+			[`${THEN_TAURI}:tauri.conf.json`, config('0.1.0', { targets: 'nsis' })],
+			[`${NOW_TAURI}:tauri.conf.json`, config('0.2.0', { targets: 'nsis' })],
+			...Object.entries(blobs)
+		]);
+		return { plan, lines: judgeCarry(plan, resolved, contents).map(describeCarry) };
+	}
+
+	it('lists the open sections taken by hand, not §0–§2', () => {
+		expect(openManualSections(current).map((open) => open.id)).toEqual(['§3a', '§4', '§9']);
+	});
+
+	it('asks git for each input under both sheets’ rows, a JSON key by content', () => {
+		const { plan } = judge();
+
+		expect(carrySpecs(plan)).toEqual({
+			objects: [
+				`${THEN_TAURI}:windows`,
+				`${NOW_TAURI}:windows`,
+				`${THEN_SRC}:auth`,
+				`${NOW_SRC}:auth`
+			],
+			blobs: [`${THEN_TAURI}:tauri.conf.json`, `${NOW_TAURI}:tauri.conf.json`]
+		});
+	});
+
+	it('carries what did not move, a version bump included, and re-takes what is never carried', () => {
+		expect(judge().lines).toEqual([
+			'§3a Installer behaviour: carry from the 2026-10-13 sheet as of a2caa27',
+			'§4 Account flows: carry from the 2026-10-13 sheet as of a2caa27',
+			'§9: re-take, as on every candidate'
+		]);
+	});
+
+	it('names each input that moved, a JSON key by its key', () => {
+		const { lines } = judge({
+			objects: { [`${NOW_SRC}:auth`]: { oid: 'c'.repeat(40), type: 'tree' } },
+			blobs: { [`${NOW_TAURI}:tauri.conf.json`]: config('0.1.0', { targets: 'msi' }) }
+		});
+
+		expect(lines[0]).toBe(
+			'§3a Installer behaviour: re-take: frontend/src-tauri/tauri.conf.json#bundle. ' +
+				'Against the 2026-10-13 sheet as of a2caa27'
+		);
+		expect(lines[1]).toBe(
+			'§4 Account flows: re-take: backend/src/auth. Against the 2026-10-13 sheet as of a2caa27'
+		);
+	});
+
+	it('re-takes what cannot be compared rather than carrying it', () => {
+		const { lines } = judge({
+			rows: new Map([
+				[
+					'§3a',
+					['frontend/scripts/release-status.mjs', 'frontend/src-tauri/tauri.conf.json#bundle']
+				],
+				['§4', ['backend/src/auth']]
+			]),
+			objects: { [`${NOW_SRC}:auth`]: null },
+			blobs: { [`${NOW_TAURI}:tauri.conf.json`]: '{ "version": "0.2.0" }' }
+		});
+
+		expect(lines[0]).toBe(
+			'§3a Installer behaviour: re-take: frontend/scripts/release-status.mjs, which no object id ' +
+				'row of this sheet covers; frontend/src-tauri/tauri.conf.json#bundle, which this candidate ' +
+				'does not have. Against the 2026-10-13 sheet as of a2caa27'
+		);
+		expect(lines[1]).toContain('backend/src/auth, which this candidate does not have');
+	});
+
+	it('re-takes an input the earlier sheet’s rows do not reach, and a section nothing ticked', () => {
+		const { lines } = judge({
+			ticks: new Map([['§3a', { ...earlier, objectIds: [{ path: 'backend/src', id: THEN_SRC }] }]])
+		});
+
+		expect(lines[0]).toContain(
+			'frontend/src-tauri/windows, which no object id row of that sheet covers'
+		);
+		expect(lines[1]).toBe('§4 Account flows: re-take, no earlier sheet ticked it');
+	});
+
+	it('names the sections that can carry in the next step', () => {
+		const decision = decideNextStep(
+			facts({
+				carry: [
+					{ section: { id: '§3', title: 'Fresh install' }, carry: false },
+					{ section: { id: '§3a', title: 'Installer behaviour' }, carry: true }
+				]
+			})
+		);
+
+		expect(decision.summary).toContain('Next on the sheet: §3 Fresh install.');
+		expect(decision.notes.join(' ')).toContain('§3a can carry');
 	});
 });
 

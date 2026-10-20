@@ -3,19 +3,27 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
-import { resolveObjects } from './lib/git-objects.mjs';
+import { readBlobs, resolveObjects } from './lib/git-objects.mjs';
 import {
 	SIGNED_WORKFLOW,
 	SMOKE_WORKFLOW,
+	carrySpecs,
 	checkManifest,
 	compareObjectIds,
 	compareReleaseNotes,
 	decideNextStep,
+	describeCarry,
 	findMissingAssets,
+	judgeCarry,
+	lastTicks,
+	openManualSections,
 	parseCandidateSheet,
+	parseCodePaths,
 	parseGitHubSlug,
 	parseLsRemote,
+	parseSectionInputs,
 	parseSha256File,
+	planCarry,
 	pickCiResult,
 	pickInstaller,
 	pickProvenance,
@@ -135,6 +143,55 @@ const sheetVsMain = compareObjectIds(sheetIds, mainIds);
 const sheetVsTag = tagCommit ? compareObjectIds(sheetIds, tagIds) : null;
 const tagOnMain =
 	tagIds && mainIds ? run('git', ['merge-base', '--is-ancestor', tagCommit, mainCommit]).ok : null;
+
+/*
+ * Which open manual section can carry (RELEASE_CHECKLIST appendix): the last
+ * sheet in the checklist's history on main that ticked it, and whether what
+ * the section rests on moved between that sheet's object ids and this one's.
+ * This sheet's ids are the candidate's — the steps below hold the tag to them.
+ * The history is read a few versions at a time and only as far back as the
+ * oldest tick it needs, which is usually the version just before this sheet.
+ */
+const HISTORY_CHUNK = 16;
+
+function* checklistHistory() {
+	const log = run('git', ['log', '--first-parent', '--format=%H', mainCommit, '--', CHECKLIST]);
+	const commits = log.ok ? log.stdout.split('\n').filter(Boolean) : [];
+	for (let start = 0; start < commits.length; start += HISTORY_CHUNK) {
+		const chunk = commits.slice(start, start + HISTORY_CHUNK);
+		const versions = readBlobs(
+			repoRoot,
+			chunk.map((commit) => `${commit}:${CHECKLIST}`)
+		);
+		for (const commit of chunk) {
+			yield { commit, markdown: versions.get(`${commit}:${CHECKLIST}`) };
+		}
+	}
+}
+
+// A sheet whose ids cannot all be read stops at that in decideNextStep; it carries nothing either.
+const sheetComparable = sheet !== null && sheetIds.length > 0 && sheet.unparsedRows.length === 0;
+const sectionInputs = sheetComparable ? parseSectionInputs(checklistAtMain) : null;
+let carry = null;
+if (sectionInputs && openManualSections(sheet).length > 0) {
+	const ticks = lastTicks(
+		checklistHistory(),
+		sheet,
+		openManualSections(sheet).map((section) => section.id)
+	);
+	const plan = planCarry({
+		sheet,
+		inputs: sectionInputs.inputs,
+		ticks,
+		codePathsOf: (auditPath) => parseCodePaths(atMain(auditPath))
+	});
+	const specs = carrySpecs(plan);
+	carry = judgeCarry(
+		plan,
+		resolveObjects(repoRoot, specs.objects),
+		readBlobs(repoRoot, specs.blobs)
+	);
+}
 
 const localNotes = [];
 const lf = (text) => text.replace(/\r\n/g, '\n');
@@ -279,6 +336,7 @@ const decision = decideNextStep({
 	tagOnMain,
 	localNotes,
 	unreadable,
+	carry,
 	mainCi,
 	tagCi,
 	signedRun,
@@ -328,6 +386,21 @@ if (mainLocal) {
 				out.push(
 					`  Object ids against ${tag} ${shortSha(tagCommit)}: ${describeComparison(sheetVsTag)}`
 				);
+			}
+		}
+		if (sheetComparable && openManualSections(sheet).length > 0) {
+			out.push('', 'Manual sections, against the last sheet that ticked each');
+			if (!sectionInputs) {
+				out.push(
+					`  ${CHECKLIST} on main has no "| section | rests on |" table, so no section can carry.`
+				);
+			} else {
+				if (sectionInputs.unparsedRows.length > 0) {
+					out.push(
+						`  Rows of the inputs table that cannot be read: ${sectionInputs.unparsedRows.join(' ')}`
+					);
+				}
+				for (const verdict of carry ?? []) out.push(`  ${describeCarry(verdict)}`);
 			}
 		}
 	} else {
