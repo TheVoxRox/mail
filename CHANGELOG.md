@@ -29,7 +29,7 @@ Entries before 2026-09-17 predate that split and are left as written.
   with B1-21 and B1-24 accepted (#752).
 - The 2026-10-19 candidate has §3 to §8 recorded on its signed build, taking by
   hand only what changed since the 2026-10-13 sheet and carrying the rest from
-  it; §9 has no open blocker and waits for the maintainer's approval. Two new
+  it; §9 has no open blocker and the maintainer approved it. Two new
   findings stay open past 0.1.0: the AOT cache does not map on an installed
   build, and Esc does not reliably close a message with a screen reader (#753).
 
