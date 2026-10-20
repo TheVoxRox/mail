@@ -213,8 +213,11 @@ test.describe('Accounts', () => {
 		);
 		await providerSelect.selectOption({ label: 'Microsoft' });
 
-		// Instead of forcing a password, a Microsoft sign-in is offered.
-		const oauthCta = page.getByRole('button', { name: 'Přihlásit přes Microsoft' });
+		// Instead of forcing a password, a Microsoft sign-in is offered. Asked of the
+		// form: the work-account offer above it has a button of the same name.
+		const oauthCta = page
+			.getByRole('form')
+			.getByRole('button', { name: 'Přihlásit přes Microsoft' });
 		await expect(oauthCta).toBeVisible();
 		await oauthCta.click();
 
@@ -225,6 +228,44 @@ test.describe('Accounts', () => {
 		await expect(page.getByRole('button', { name: 'Přihlásit přes Microsoft' })).toBeVisible();
 		await expect(page.locator('#acc-imap-host')).toHaveCount(0);
 		await expect(page.locator('#acc-password')).toHaveCount(0);
+	});
+
+	/*
+	 * A Microsoft 365 or Google Workspace account signs in under its
+	 * organization's own domain, which no template lists. The way to it used to
+	 * be switching the form to provider selection and picking Microsoft from the
+	 * list; the wizard now offers it next to the server settings.
+	 */
+	test('neznámá doména nabídne přihlášení pracovního nebo školního účtu', async ({ page }) => {
+		await openApp(page, '/settings/accounts/new');
+
+		await page.locator('#wizard-email').fill('jan@firma.cz');
+		await page.getByRole('button', { name: 'Pokračovat' }).click();
+		await expect(page.getByRole('radio', { name: 'Vlastní nastavení' })).toBeChecked();
+
+		const offer = page.getByRole('group', { name: 'Pracovní nebo školní účet?' });
+		await expect(offer.getByRole('button')).toHaveText([
+			'Přihlásit přes Microsoft',
+			'Přihlásit přes Google'
+		]);
+		await offer.getByRole('button', { name: 'Přihlásit přes Microsoft' }).click();
+
+		await expect(
+			page.getByRole('heading', { name: 'Přihlášení k účtu jan@firma.cz' })
+		).toBeVisible();
+		await expect(page.getByText('schválil správce vaší organizace')).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Přihlásit přes Microsoft' })).toBeVisible();
+		await expect(page.locator('#acc-password')).toHaveCount(0);
+	});
+
+	test('známá doména nabídku pracovního účtu neukáže', async ({ page }) => {
+		await openApp(page, '/settings/accounts/new');
+
+		await page.locator('#wizard-email').fill('user@seznam.cz');
+		await page.getByRole('button', { name: 'Pokračovat' }).click();
+
+		await expect(page.getByRole('heading', { name: 'Detekováno: Seznam.cz' })).toBeVisible();
+		await expect(page.getByRole('group', { name: 'Pracovní nebo školní účet?' })).toHaveCount(0);
 	});
 
 	test('založení účtu s vlastním IMAP/SMTP pošle imap+smtp blok bez providerId', async ({

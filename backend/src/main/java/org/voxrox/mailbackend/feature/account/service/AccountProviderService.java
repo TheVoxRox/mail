@@ -1,6 +1,5 @@
 package org.voxrox.mailbackend.feature.account.service;
 
-import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -27,28 +26,19 @@ public class AccountProviderService {
     }
 
     /**
-     * Resolves a provider either by explicit ID or by auto-detecting it from the
-     * e-mail domain. Domain match uses comma-anchored LIKE: the stored
-     * {@code domains} column is a comma-separated list and we wrap the lookup
-     * domain in commas to avoid substring false positives (e.g. {@code seznam.cz}
-     * matching {@code post.seznam.cz}).
-     * <p>
-     * <b>Use:</b> OAuth callback (Google login) — {@code explicitProviderId} may be
-     * null here and domain auto-detection is the expected behavior.
-     * <p>
-     * For CRUD input use {@link #loadProviderById(Long)} — it deliberately has no
-     * domain fallback, because a custom flow (provider_id == null) is valid and
-     * must not fall through to auto-detection.
+     * The template an OAuth sign-in creates its account from, found by the
+     * registration the sign-in went through rather than by the address it returned.
+     * A Microsoft 365 work or school account, or a Google Workspace one, signs in
+     * under the organization's own domain, which no template lists — the domain
+     * lookup this replaced refused every such sign-in. The registration already
+     * says whose servers hold the mailbox, which is also right for an identity
+     * whose sign-in name is another provider's address (a Microsoft account named
+     * by a Gmail address).
      */
     @Transactional(readOnly = true)
-    public @Nullable MailProviderEntity resolveProvider(String email, @Nullable Long explicitProviderId) {
-        if (explicitProviderId != null) {
-            return providerRepository.findById(explicitProviderId)
-                    .orElseThrow(() -> ProviderNotFoundException.byId(explicitProviderId));
-        }
-
-        return findProviderEntityByEmail(email)
-                .orElseThrow(() -> ProviderNotFoundException.byDomain(extractDomain(email)));
+    public MailProviderEntity resolveOAuthProvider(String registrationId) {
+        return providerRepository.findByOauth2RegistrationId(registrationId)
+                .orElseThrow(() -> ProviderNotFoundException.byOAuth2Registration(registrationId));
     }
 
     /**

@@ -419,11 +419,17 @@
 			},
 			"gmail": {
 				"description": "Nyní budete bezpečně přesměrováni na stránky Googlu. Vaše heslo zadáváte přímo Googlu, naše aplikace ho nikdy neuvidí ani neuloží.",
-				"loginButton": "Přihlásit přes Google"
+				"loginButton": "Přihlásit přes Google",
+				"organizationHint": "U účtu Google Workspace může správce vaší organizace aplikace třetích stran omezit, a pak tuto musí nejdřív povolit."
 			},
 			"outlook": {
 				"description": "Nyní budete bezpečně přesměrováni na stránky Microsoftu. Vaše heslo zadáváte přímo Microsoftu, naše aplikace ho nikdy neuvidí ani neuloží.",
-				"loginButton": "Přihlásit přes Microsoft"
+				"loginButton": "Přihlásit přes Microsoft",
+				"organizationHint": "U pracovního nebo školního účtu může Microsoft chtít, aby aplikaci nejdřív schválil správce vaší organizace."
+			},
+			"organization": {
+				"heading": "Pracovní nebo školní účet?",
+				"description": "Pokud poštu vaší organizace provozuje Microsoft 365 nebo Google Workspace, přihlaste se raději tam – heslo ani nastavení serverů zadávat nemusíte."
 			}
 		}
 	},

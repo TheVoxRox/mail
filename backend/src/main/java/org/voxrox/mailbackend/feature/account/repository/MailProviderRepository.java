@@ -21,4 +21,6 @@ public interface MailProviderRepository extends JpaRepository<MailProviderEntity
     List<MailProviderEntity> findByDomainKey(@Param("domainKey") String domainKey);
 
     Optional<MailProviderEntity> findByName(String name);
+
+    Optional<MailProviderEntity> findByOauth2RegistrationId(String oauth2RegistrationId);
 }

@@ -120,8 +120,8 @@ public class ExternalProviderLoginService {
         }
         log.info("{} External login for: {} (provider={})", LogCategory.AUTH, LogMasker.maskEmail(email), providerName);
 
-        MailProviderEntity provider = providerService.resolveProvider(email, null);
-        String providerLabel = (provider != null) ? provider.getName() : "External";
+        MailProviderEntity provider = providerService.resolveOAuthProvider(providerName);
+        String providerLabel = provider.getName();
 
         AccountEntity account = findOrCreateExternalAccount(providerName, email, externalId, provider, providerLabel);
         syncExternalAccountMetadata(account, name, providerName, externalId);
@@ -199,7 +199,7 @@ public class ExternalProviderLoginService {
      * across accounts, so there is no second row to create either.
      */
     private AccountEntity findOrCreateExternalAccount(String providerName, String email, String externalId,
-            @Nullable MailProviderEntity provider, String providerLabel) {
+            MailProviderEntity provider, String providerLabel) {
         return accountRepository.findByOauth2ProviderAndExternalId(providerName, externalId)
                 .or(() -> accountRepository.findByEmail(email).map(byEmail -> {
                     if (byEmail.getOauth2Provider() != null || byEmail.getExternalId() != null) {
@@ -221,19 +221,7 @@ public class ExternalProviderLoginService {
                     newAcc.setEmail(email);
                     newAcc.setActive(true);
                     newAcc.setProvider(provider);
-                    /*
-                     * Server config is NOT NULL in the DB — denormalizing from the template is
-                     * required for a successful insert. The OAuth flow so far falls under
-                     * domain-based auto-detection (Gmail), so the provider is usually non-null.
-                     * Defensive guard: if auto-detection returned null (an unknown OAuth provider
-                     * outside the catalog) we have nothing to fill in — that is an invariant
-                     * violation, not a user-input error.
-                     */
-                    if (provider == null) {
-                        throw new IllegalStateException(
-                                "External provider login without a template in mail_providers — "
-                                        + "add it to the V1 seed or extend auto-detection.");
-                    }
+                    // Server config is NOT NULL in the DB: denormalized from the template.
                     newAcc.setImapConfig(copyOf(provider.getImapConfig()));
                     newAcc.setSmtpConfig(copyOf(provider.getSmtpConfig()));
                     AccountEntity saved = accountRepository.save(newAcc);

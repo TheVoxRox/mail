@@ -44,6 +44,7 @@ public enum MailFailureCause implements MessageSourceResolvable {
     // spotless:off
     REFUSED_RESPONSE("error.mail.cause.refusedResponse", "the server sent a response the app refused for safety"),
     AUTHENTICATION("error.mail.cause.authentication", "the server rejected the sign-in"),
+    SMTP_AUTH_DISABLED("error.mail.cause.smtpAuthDisabled", "the organization has turned off sending over SMTP (SMTP AUTH) for this mailbox, and only its administrator can turn it on"),
     TLS("error.mail.cause.tls", "a secure connection to the server could not be established"),
     UNKNOWN_HOST("error.mail.cause.unknownHost", "the server could not be found"),
     TIMEOUT("error.mail.cause.timeout", "the server did not answer in time"),
@@ -62,6 +63,17 @@ public enum MailFailureCause implements MessageSourceResolvable {
      * it by the time the failure arrives here.
      */
     public static final String REFUSED_RESPONSE_MARKER = "Refused an implausible IMAP response";
+
+    /**
+     * What Exchange Online answers a correct sign-in with when the organization has
+     * SMTP AUTH turned off, for the whole tenant or for the one mailbox:
+     * {@code 535 5.7.139 Authentication unsuccessful, SmtpClientAuthentication is
+     * disabled for the Tenant}. It arrives as an
+     * {@code AuthenticationFailedException} like a wrong token does, but signing in
+     * again cannot help — only the organization's administrator can turn it on — so
+     * it is told apart by its text.
+     */
+    static final String SMTP_AUTH_DISABLED_MARKER = "SmtpClientAuthentication is disabled";
 
     /** How deep {@link #classify} follows a cause chain. */
     private static final int MAX_CHAIN = 20;
@@ -97,6 +109,9 @@ public enum MailFailureCause implements MessageSourceResolvable {
         }
         if (anyInChain(failure, MailFailureCause::isRefusedResponse)) {
             return REFUSED_RESPONSE;
+        }
+        if (anyInChain(failure, MailFailureCause::isSmtpAuthDisabled)) {
+            return SMTP_AUTH_DISABLED;
         }
         if (anyInChain(failure,
                 e -> e instanceof AuthenticationFailedException || e instanceof MailAuthenticationException)) {
@@ -160,6 +175,11 @@ public enum MailFailureCause implements MessageSourceResolvable {
     private static boolean isRefusedResponse(Throwable e) {
         String message = e.getMessage();
         return message != null && message.contains(REFUSED_RESPONSE_MARKER);
+    }
+
+    private static boolean isSmtpAuthDisabled(Throwable e) {
+        String message = e.getMessage();
+        return message != null && message.contains(SMTP_AUTH_DISABLED_MARKER);
     }
 
     private static boolean hasInvalidAddresses(SendFailedException e) {

@@ -419,11 +419,17 @@
 			},
 			"gmail": {
 				"description": "You will now be securely redirected to Google. You enter your password directly with Google — our app never sees it or stores it.",
-				"loginButton": "Sign in with Google"
+				"loginButton": "Sign in with Google",
+				"organizationHint": "With a Google Workspace account, your organization's administrator may restrict third-party apps and have to allow this one first."
 			},
 			"outlook": {
 				"description": "You will now be securely redirected to Microsoft. You enter your password directly with Microsoft — our app never sees it or stores it.",
-				"loginButton": "Sign in with Microsoft"
+				"loginButton": "Sign in with Microsoft",
+				"organizationHint": "With a work or school account, Microsoft may ask for your organization's administrator to approve the app first."
+			},
+			"organization": {
+				"heading": "Work or school account?",
+				"description": "If your organization's mail runs on Microsoft 365 or Google Workspace, sign in there instead — no password or server settings needed."
 			}
 		}
 	},

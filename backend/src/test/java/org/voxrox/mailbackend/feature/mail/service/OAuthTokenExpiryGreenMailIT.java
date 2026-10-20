@@ -64,10 +64,8 @@ class OAuthTokenExpiryGreenMailIT {
     private static final Path DATA_DIR = Path.of("target", "test-tmp", "OAuthTokenExpiryGreenMailIT").toAbsolutePath()
             .normalize();
 
-    // An OAuth account needs a provider the catalog knows by domain. Nothing
-    // reaches
-    // Google: the host and the token endpoint are both replaced before the first
-    // pass.
+    // Nothing reaches Google: the host and the token endpoint are both replaced
+    // before the first pass.
     private static final String EMAIL = "voxrox-oauth-it@gmail.com";
     private static final String TOKEN_PATH = "/token";
 
