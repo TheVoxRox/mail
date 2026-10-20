@@ -7,10 +7,12 @@ import {
 	INSTALL_ENTRIES,
 	aotCacheProblems,
 	formatReport,
+	installerVersion,
 	missingEntries,
 	samePath,
 	sessionProblems,
-	strayDataDirs
+	strayDataDirs,
+	treeDifferences
 } from './lib/installed-app-smoke.mjs';
 
 /*
@@ -167,5 +169,65 @@ describe('formatReport', () => {
 
 	it('fails a run that recorded no check at all', () => {
 		expect(formatReport([])).toBe('Installed app smoke failed: 0 of 0 checks.');
+	});
+
+	it('names the smoke it reports for', () => {
+		expect(formatReport([], 'Installed app update smoke')).toBe(
+			'Installed app update smoke failed: 0 of 0 checks.'
+		);
+	});
+});
+
+describe('installerVersion', () => {
+	it('reads the version, prerelease suffix included, from the name the build gives an installer', () => {
+		expect(installerVersion('voxrox-mail-0.1.0-windows-x64-setup.exe')).toBe('0.1.0');
+		expect(installerVersion('voxrox-mail-0.1.1-beta.1-windows-x64-setup.exe')).toBe('0.1.1-beta.1');
+	});
+
+	it('refuses a name that does not carry a version where the build puts it', () => {
+		expect(installerVersion('setup.exe')).toBeNull();
+		expect(installerVersion('voxrox-mail-latest-windows-x64-setup.exe')).toBeNull();
+		expect(installerVersion('voxrox-mail-0.1.0-windows-x64-setup.exe.sha256')).toBeNull();
+	});
+
+	it('reads the names tauri-build.mjs writes', () => {
+		expect(read('tauri-build.mjs')).toMatch(
+			/\$\{slug\}-\$\{version\}-windows-\$\{artifact\.arch\}-setup\.exe/
+		);
+	});
+});
+
+describe('treeDifferences', () => {
+	const tree = (entries) => new Map(Object.entries(entries));
+
+	it('finds nothing when the update laid down exactly what a fresh install does', () => {
+		const files = { 'voxrox-mail.exe': 'a', 'app\\mail.aot': 'b' };
+
+		expect(treeDifferences(tree(files), tree(files))).toEqual({
+			missing: [],
+			differing: [],
+			leftover: []
+		});
+	});
+
+	it('tells a file the update did not write from one it did not replace', () => {
+		const fresh = tree({ 'runtime\\bin\\server\\jvm.dll': 'new', 'app\\mail.aot': 'new' });
+		const updated = tree({ 'runtime\\bin\\server\\jvm.dll': 'old' });
+
+		expect(treeDifferences(updated, fresh)).toEqual({
+			missing: ['app\\mail.aot'],
+			differing: ['runtime\\bin\\server\\jvm.dll'],
+			leftover: []
+		});
+	});
+
+	it('names what the previous version left behind, the versioned jar being the expected one', () => {
+		const fresh = tree({ 'app\\mail-backend-0.1.1.jar': 'new' });
+		const updated = tree({
+			'app\\mail-backend-0.1.0.jar': 'old',
+			'app\\mail-backend-0.1.1.jar': 'new'
+		});
+
+		expect(treeDifferences(updated, fresh).leftover).toEqual(['app\\mail-backend-0.1.0.jar']);
 	});
 });

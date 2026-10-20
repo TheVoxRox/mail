@@ -205,8 +205,10 @@ stretch of the release by wall clock.
   did not start. It
   installs the installer attached to the draft on a clean runner and covers the
   machine half of §3, §3a and §6 — the note at the top of RELEASE_CHECKLIST §3
-  lists what. A red run stops the release here: nothing manual is worth doing
-  on an installer that fails it.
+  lists what. On a second runner it updates to the candidate from the latest
+  published stable release, over the running installation, and checks the
+  result against a fresh install (§3a). A red run stops the release here:
+  nothing manual is worth doing on an installer that fails it.
 - RELEASE_CHECKLIST §3–§7 on the installed candidate for what the smoke does
   not cover, then §8.1 in the same sitting — the sections, and within them the
   items, that `npm run release:status` reports as re-take. The others carry

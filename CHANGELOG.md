@@ -86,6 +86,12 @@ Entries before 2026-09-17 predate that split and are left as written.
   everything since is a fix; the release docs and `todo.md` said "from 0.2.0"
   for the first release after the v0.1.0 exception and now name it, and the
   update smoke vN-1 → vN is due before 0.1.1 (#759).
+- Release Candidate Smoke has a second job that updates to the candidate from
+  the latest published stable release: it installs that release, adds a
+  contact, runs the candidate's installer with the updater's `/P /UPDATE` over
+  the running shell and sidecar, and checks the data, the start, a file-by-file
+  match with a fresh install, what the previous release left behind, and the
+  downgrade block. Until 0.1.1 is tagged it reinstalls 0.1.0 over itself (#761).
 
 ## [0.1.0] - 2026-10-19
 
