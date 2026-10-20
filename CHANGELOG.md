@@ -73,6 +73,10 @@ Entries before 2026-09-17 predate that split and are left as written.
   their original text to `todo-archive.md`. The update smoke vN-1 → vN, accepted
   for the first ship, stays open as the item before 0.2.0, which now carries
   why it cannot be skipped (#757).
+- The release after v0.1.0 is 0.1.1, through `0.1.1-beta.1`, because
+  everything since is a fix; the release docs and `todo.md` said "from 0.2.0"
+  for the first release after the v0.1.0 exception and now name it, and the
+  update smoke vN-1 → vN is due before 0.1.1 (#759).
 
 ## [0.1.0] - 2026-10-19
 
