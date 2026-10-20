@@ -87,7 +87,8 @@
       "frontend/src/lib/components/boot/BootErrorView.svelte": "97dd8ca6d1342e2de330fae3e99ea69f668c98e2",
       "frontend/src/lib/components/UpdatePromptDialog.svelte": "2b8ebb25f1f32468f3bfb327acfcaaf100fb8cfc",
       "frontend/src/lib/components/UpdateFailureDialog.svelte": "f49306c645ca1c4895a9ef609571faa912d498f6",
-      "frontend/src/lib/components/settings/AboutSettings.svelte": "cf846c6b2f0ca70f4e81a901a3509c8a0f03ff59"
+      "frontend/src/lib/components/settings/AboutSettings.svelte": "cf846c6b2f0ca70f4e81a901a3509c8a0f03ff59",
+      "frontend/src-tauri/tauri.conf.json": "25cfcc0cf727934168262af6532f95922628a527"
     },
     "acknowledgements": [
       {
@@ -113,6 +114,10 @@
       {
         "date": "2026-10-18",
         "note": "Save logs on the error view for a backend that never started (#734). Under Code paths only BootErrorView.svelte moves, and only in the dump's props and the action row: they become required, and BootDiagnosticActions is rendered unconditionally instead of a restart-only fallback. The manual update check this audit covers (its button, handleCheckForUpdates, checkForUpdateManually and the status region) is byte-identical, and no updater request, command or call site is added or removed. Verdict stays PASS."
+      },
+      {
+        "date": "2026-10-20",
+        "note": "The base-config pubkey becomes AA238C4CC59B9906, the key the signed release workflow bakes in from TAURI_UPDATER_PUBKEY and the only key in the installed v0.1.0 voxrox-mail.exe, in place of 6334AE8C9D8495FE, which no release used (#755). Only that one value of tauri.conf.json moves; the endpoint and the rest of the file are untouched. Section 6's note still holds as written: the base block is a dev reference and the shipped key still comes from the release config, where requireEnv in lib/tauri-config.mjs still throws on an empty key. verify-updater-signature.mjs with --config set to the base file passes on v0.1.0's installer and latest.json and fails on the old value. Verdict stays PASS."
       }
     ]
   },
