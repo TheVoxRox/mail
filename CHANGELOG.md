@@ -58,6 +58,10 @@ Entries before 2026-09-17 predate that split and are left as written.
   AOT cache, read from the JVM's `aot` warnings in `mail-frontend.log`. Only an
   installation shows that chain end to end, and the JVM only warns, so no other
   check noticed 0.1.0's cache going unused (#756).
+- `todo.md` closes the release items that publishing v0.1.0 settled and moves
+  their original text to `todo-archive.md`. The update smoke vN-1 → vN, accepted
+  for the first ship, stays open as the item before 0.2.0, which now carries
+  why it cannot be skipped (#757).
 
 ## [0.1.0] - 2026-10-19
 
