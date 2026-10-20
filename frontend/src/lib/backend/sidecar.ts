@@ -164,13 +164,22 @@ export async function ensureBackendSidecar(): Promise<void> {
 		return;
 	}
 
+	/*
+	 * Lifted before either early return below, not only for a new spawn. A stop
+	 * that arrives while a spawn is under way finds no child to kill and only
+	 * sets the flag: a Restart pressed during the automatic restart, or a second
+	 * Restart before the first one's spawn is through. The Restart's own call
+	 * here then joins that spawn, and with the flag left set the backend it
+	 * starts read as stopped on its next exit: not restarted, and its exit not
+	 * handed on. Whoever calls this wants a backend running.
+	 */
+	runtime.stopRequested = false;
 	if (runtime.child) {
 		backendSidecarState.set({ status: 'running', pid: runtime.child.pid });
 		return;
 	}
 	if (runtime.startPromise) return runtime.startPromise;
 
-	runtime.stopRequested = false;
 	runtime.startPromise = spawnBackendSidecar().finally(() => {
 		runtime.startPromise = null;
 	});

@@ -19,6 +19,17 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Frontend
+
+- A backend that crashes is restarted again after a **Restartovat službu**
+  that landed while a start was under way: pressed twice in a row, or in the
+  moment the app was starting the backend again after a crash. That Restart
+  found no backend to stop and joined the start, but left the stop it had asked
+  for in force, so the backend it got read as stopped from then on: its next
+  crash left the app with no backend, and the account's sync pause never heard
+  of it. The two gaps the B1-23 pass named in the tests of the same code are
+  closed with it (#758).
+
 ### Tauri / Release
 
 - The installed backend starts on the AOT class cache that release builds
