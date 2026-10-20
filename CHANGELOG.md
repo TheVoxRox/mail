@@ -64,6 +64,10 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Tauri / Release
 
+- The shell's TLS stack no longer trusts the distrusted emSign intermediates:
+  `rustls-webpki` 0.103.16 and `webpki-roots` / `webpki-root-certs` 1.0.10
+  (RUSTSEC-2026-0381, -0382, -0383, published 2026-10-19 and 2026-10-20). Only
+  the lockfile moves (#763).
 - The installed backend starts on the AOT class cache that release builds
   carry since #719, which 0.1.0 shipped and never used. The NSIS installer keeps
   a file's time only to 2 seconds, rounding down, and the JVM refuses a cache
