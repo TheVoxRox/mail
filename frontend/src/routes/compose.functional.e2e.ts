@@ -21,6 +21,38 @@ async function highlightSuggestion(page: Page, field: Locator, name: RegExp): Pr
 	await expect(options.nth(index)).toHaveAttribute('aria-selected', 'true');
 }
 
+/**
+ * Dispatches a paste on the focused element, with clipboard data shaped as
+ * Edge 155 hands it over (measured): every file, an image on the clipboard
+ * among them, is in `files` and in `items`, and only a file copied in
+ * Explorer has a file system entry. A DataTransfer built in a page cannot
+ * hold an entry, so the data is a stand-in. Resolves to whether the paste was
+ * left to the browser, that is, not cancelled.
+ */
+async function paste(
+	page: Page,
+	files: { name: string; type: string; content: string; fromFileSystem: boolean }[]
+): Promise<boolean> {
+	return page.evaluate((specs) => {
+		const fileObjects = specs.map(
+			(spec) => new File([spec.content], spec.name, { type: spec.type })
+		);
+		const clipboardData = {
+			files: fileObjects,
+			items: specs.map((spec, index) => ({
+				kind: 'file',
+				type: spec.type,
+				getAsFile: () => fileObjects[index],
+				webkitGetAsEntry: () => (spec.fromFileSystem ? { isFile: true } : null)
+			})),
+			getData: () => ''
+		};
+		const event = new ClipboardEvent('paste', { bubbles: true, cancelable: true });
+		Object.defineProperty(event, 'clipboardData', { value: clipboardData });
+		return (document.activeElement ?? document.body).dispatchEvent(event);
+	}, files);
+}
+
 test.describe('Compose', () => {
 	test('sidebar používá tlačítko Nová zpráva a Ctrl+N otevře compose', async ({ page }) => {
 		await openApp(page, '/mail/1/INBOX');
@@ -636,7 +668,9 @@ test.describe('Compose', () => {
 		).toBeVisible();
 	});
 
-	test('přílohu ze schránky lze přidat přes Ctrl+V a odeslat v payloadu', async ({ page }) => {
+	test('soubor zkopírovaný v Průzkumníkovi lze vložit přes Ctrl+V jako přílohu a odeslat', async ({
+		page
+	}) => {
 		const sendBodies: unknown[] = [];
 		page.on('request', (request) => {
 			if (
@@ -650,17 +684,15 @@ test.describe('Compose', () => {
 		await openApp(page, '/compose');
 
 		await page.locator('#compose-body').focus();
-		await page.evaluate(() => {
-			const transfer = new DataTransfer();
-			transfer.items.add(
-				new File(['Obsah vložené přílohy'], 'vlozena-priloha.txt', {
-					type: 'text/plain'
-				})
-			);
-			const event = new ClipboardEvent('paste', { bubbles: true, cancelable: true });
-			Object.defineProperty(event, 'clipboardData', { value: transfer });
-			document.activeElement?.dispatchEvent(event);
-		});
+		const leftToBrowser = await paste(page, [
+			{
+				name: 'vlozena-priloha.txt',
+				type: 'text/plain',
+				content: 'Obsah vložené přílohy',
+				fromFileSystem: true
+			}
+		]);
+		expect(leftToBrowser).toBe(false);
 
 		await expect(
 			page.getByRole('list', { name: 'Přílohy' }).getByText('vlozena-priloha.txt')
@@ -686,6 +718,21 @@ test.describe('Compose', () => {
 				}
 			]
 		});
+	});
+
+	test('obrázek ze schránky se nepřiloží, jen soubor z disku', async ({ page }) => {
+		// An image on the clipboard is a file to the paste too, named image.png.
+		// Taking it attached a screenshot, and the picture Excel puts beside the
+		// text of copied cells.
+		await openApp(page, '/compose');
+
+		await page.locator('#compose-body').focus();
+		const leftToBrowser = await paste(page, [
+			{ name: 'image.png', type: 'image/png', content: 'png', fromFileSystem: false }
+		]);
+
+		expect(leftToBrowser).toBe(true);
+		await expect(page.getByRole('list', { name: 'Přílohy' })).toHaveCount(0);
 	});
 
 	test('příliš velká příloha zobrazí lokalizovanou chybu a nepřidá se do payloadu', async ({

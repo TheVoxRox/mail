@@ -80,6 +80,10 @@ Entries before 2026-09-17 predate that split and are left as written.
   the attachments. The composer now downloads them the same way it does for a
   reopened draft, and they appear among the new message's attachments, where
   any of them can be removed before sending (#767).
+- Ctrl+V in a new message attaches only files copied in Explorer. It took any
+  image on the clipboard as an attachment named `image.png` too: a screenshot,
+  and the picture Excel puts there beside the text of copied cells, so a paste
+  of cells attached a picture in place of the paste (#768).
 
 ### Tauri / Release
 

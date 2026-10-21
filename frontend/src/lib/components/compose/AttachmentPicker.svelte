@@ -5,7 +5,7 @@
 	import { focusRingWithin } from '#lib/components/ui/focus-ring/index.js';
 	import { cn } from '#lib/utils.js';
 	import { formatSize } from '#lib/formatters.js';
-	import { dragHasFiles, filesFromDataTransfer } from '#lib/dragPayload.js';
+	import { dragHasFiles, filesFromDataTransfer, filesFromFileSystem } from '#lib/dragPayload.js';
 	import { clientConfig } from '#lib/stores/clientConfig.js';
 	import { confirmAction } from '#lib/stores/confirmDialog.js';
 	import { announcePolite } from '#lib/stores/toasts.js';
@@ -129,12 +129,6 @@
 		);
 	}
 
-	function clipboardFileName(file: File, index: number): string {
-		if (file.name) return file.name;
-		const subtype = file.type.split('/')[1]?.split(';')[0] || 'bin';
-		return `clipboard-${index + 1}.${subtype}`;
-	}
-
 	async function addFiles(files: File[], options: { clipboard?: boolean } = {}) {
 		if (disabled || files.length === 0) return;
 		onSelectStart?.();
@@ -150,13 +144,12 @@
 		try {
 			if (!(await confirmLargeFiles(files))) return;
 			const added: ComposeAttachment[] = [];
-			for (const [index, file] of files.entries()) {
-				const fileName = options.clipboard ? clipboardFileName(file, index) : file.name;
-				readingFileName = fileName;
+			for (const file of files) {
+				readingFileName = file.name;
 				const base64Data = await readAsBase64(file);
 				added.push({
 					localId: crypto.randomUUID(),
-					fileName,
+					fileName: file.name,
 					contentType: file.type || 'application/octet-stream',
 					base64Data,
 					size: file.size
@@ -242,8 +235,13 @@
 		};
 	});
 
+	/*
+	 * Only a file copied from the file system becomes an attachment on a
+	 * paste; anything else on the clipboard, an image among it, is left to the
+	 * paste the browser makes. See filesFromFileSystem for why.
+	 */
 	function handlePaste(event: ClipboardEvent): void {
-		const files = filesFromDataTransfer(event.clipboardData);
+		const files = filesFromFileSystem(event.clipboardData);
 		if (disabled || files.length === 0) return;
 		event.preventDefault();
 		void addFiles(files, { clipboard: true });
