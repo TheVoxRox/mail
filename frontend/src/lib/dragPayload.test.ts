@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { filesFromFileSystem } from './dragPayload.js';
 
+interface PastedItem {
+	kind: 'string' | 'file';
+	type: string;
+	getAsFile: () => File | null;
+	webkitGetAsEntry: () => { isFile: boolean } | null;
+}
+
 /**
  * The items a paste hands over, shaped as measured in Edge 155: a file from
  * the file system has an entry, an image from the clipboard has none.
@@ -12,7 +19,7 @@ function clipboard(
 	>
 ): DataTransfer {
 	return {
-		items: items.map((item) =>
+		items: items.map((item): PastedItem =>
 			item.kind === 'string'
 				? { kind: 'string', type: item.type, getAsFile: () => null, webkitGetAsEntry: () => null }
 				: {
