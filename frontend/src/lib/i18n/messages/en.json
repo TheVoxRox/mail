@@ -105,7 +105,7 @@
 		"listLabel": "Message list",
 		"loading": "Loading messages…",
 		"errorPrefix": "Error: {message}",
-		"empty": "No messages in this folder.",
+		"empty": "This folder is empty.",
 		"selectAll": "Select all",
 		"selectMessage": "Select message {subject}",
 		"selectedCount": "{count, plural, one {{count} selected message} other {{count} selected messages}}",

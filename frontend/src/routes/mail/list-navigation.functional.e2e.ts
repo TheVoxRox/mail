@@ -170,7 +170,7 @@ test.describe('Seznam zpráv v režimu bez podokna čtení', () => {
 		await expect(rows.first().locator('[data-col="2"]')).toBeFocused();
 		await page.keyboard.press('Delete');
 
-		const empty = page.getByRole('status').filter({ hasText: 'Žádné zprávy' });
+		const empty = page.getByRole('status').filter({ hasText: 'Tato složka je prázdná' });
 		await expect(empty).toBeVisible();
 		await expect(empty).toBeFocused();
 	});
