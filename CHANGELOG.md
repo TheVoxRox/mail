@@ -61,6 +61,10 @@ Entries before 2026-09-17 predate that split and are left as written.
   restart the stop came before no longer happens; a **Restartovat službu** in
   either moment still gets its backend. An update runs the code of the
   installed version, so this protects updates from 0.1.1 on (#760).
+- A screen reader hears **Přidat přílohu** in a new message once, as the
+  button. The chip's visible caption stayed in the accessibility tree next to
+  the button that carries the same name, so browse mode read it as a line of
+  text and then the button said it again (#764).
 
 ### Tauri / Release
 

@@ -1174,6 +1174,16 @@ test.describe('Přístupnost', () => {
 		await expect(dialog.getByRole('button', { name: 'Zahodit změny' })).toBeVisible();
 	});
 
+	test('tlačítko Přidat přílohu se čte jednou, bez stejného textu před sebou', async ({ page }) => {
+		// The chip's visible caption stayed in the tree beside the file input,
+		// which carries the same name, so browse mode read "Přidat přílohu" as a
+		// line of text and then the button that said it again.
+		await openApp(page, '/compose');
+		const tree = await page.getByRole('group', { name: 'Přílohy zprávy' }).ariaSnapshot();
+		expect(tree).toContain('- button "Přidat přílohu"');
+		expect(tree.match(/Přidat přílohu/g)).toHaveLength(1);
+	});
+
 	test('Esc na detailu zprávy zavře detail a vrátí fokus do seznamu', async ({ page }) => {
 		const folderHref = `/mail/${mailFixture.accountId}/${encodeURIComponent(mailFixture.folderName)}`;
 		const detailHref = `${folderHref}/${encodeURIComponent(mailFixture.stableId)}`;
