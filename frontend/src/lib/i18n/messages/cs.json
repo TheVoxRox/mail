@@ -105,7 +105,7 @@
 		"listLabel": "Seznam zpráv",
 		"loading": "Načítám zprávy…",
 		"errorPrefix": "Chyba: {message}",
-		"empty": "Žádné zprávy v této složce.",
+		"empty": "Tato složka je prázdná.",
 		"selectAll": "Vybrat vše",
 		"selectMessage": "Vybrat zprávu {subject}",
 		"selectedCount": "{count, plural, one {{count} vybraná zpráva} few {{count} vybrané zprávy} other {{count} vybraných zpráv}}",

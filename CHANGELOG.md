@@ -43,6 +43,9 @@ Entries before 2026-09-17 predate that split and are left as written.
   be reachable only by switching the form to provider selection and picking
   Microsoft from the list. The sign-in step now also says that the
   organization's administrator may have to approve the app first (#763).
+- A folder with no messages now says **Tato složka je prázdná.** ("This
+  folder is empty.") instead of "Žádné zprávy v této složce." — a plainer
+  statement of the same fact (#765).
 
 - A backend that crashes is restarted again after a **Restartovat službu**
   that landed while a start was under way: pressed twice in a row, or in the
