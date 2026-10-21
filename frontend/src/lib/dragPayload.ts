@@ -23,7 +23,7 @@ export function dragHasFiles(event: DragEvent): boolean {
 
 /**
  * The files a drop is carrying. `files` is the list once the drop has landed;
- * `items` is what a paste hands over, and what some sources fill instead.
+ * `items` is what some sources fill instead.
  */
 export function filesFromDataTransfer(dataTransfer: DataTransfer | null): File[] {
 	if (!dataTransfer) return [];
@@ -31,6 +31,25 @@ export function filesFromDataTransfer(dataTransfer: DataTransfer | null): File[]
 	if (files.length > 0) return files;
 	return Array.from(dataTransfer.items)
 		.filter((item) => item.kind === 'file')
+		.map((item) => item.getAsFile())
+		.filter((file): file is File => file != null);
+}
+
+/**
+ * The files a paste is carrying that come from the file system: what Explorer
+ * puts on the clipboard when a file is copied. An image on the clipboard
+ * reaches the paste as a file too, named `image.png`, and is left out. Excel
+ * puts a picture of the copied cells there beside their text, so taking it
+ * turned a paste of cells into an attachment and swallowed the text.
+ *
+ * Measured in Edge 155, the Chromium of the app's WebView2: a file from the
+ * file system has a file system entry, an image from the clipboard has none.
+ * A copied folder has an entry that is not a file, and is left out as well.
+ */
+export function filesFromFileSystem(dataTransfer: DataTransfer | null): File[] {
+	if (!dataTransfer) return [];
+	return Array.from(dataTransfer.items)
+		.filter((item) => item.kind === 'file' && item.webkitGetAsEntry()?.isFile === true)
 		.map((item) => item.getAsFile())
 		.filter((file): file is File => file != null);
 }
