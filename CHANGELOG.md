@@ -74,6 +74,12 @@ Entries before 2026-09-17 predate that split and are left as written.
   Adding attachments is announced too, with the name and size, or the count
   and total size for several, and says when they came from the clipboard: a
   file pasted into the body was otherwise added without a sound (#766).
+- Forwarding a message now sends its attachments too. Until now a forward
+  carried only the quoted text: the composer took the body the backend
+  prepared and left the original's files behind, so the recipient never got
+  the attachments. The composer now downloads them the same way it does for a
+  reopened draft, and they appear among the new message's attachments, where
+  any of them can be removed before sending (#767).
 
 ### Tauri / Release
 

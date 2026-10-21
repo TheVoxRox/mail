@@ -103,6 +103,40 @@ test.describe('Compose', () => {
 		);
 	});
 
+	test('forward přenese přílohy původní zprávy a odešle je', async ({ page }) => {
+		// The backend's forward prefill holds only the quoted body; the composer
+		// downloads the original's attachments itself, as it does for a draft.
+		// It did not, so a forward left every attachment behind.
+		const sendBodies: unknown[] = [];
+		page.on('request', (request) => {
+			if (
+				request.method() === 'POST' &&
+				request.url().includes('/api/v1/messages/account/1/send')
+			) {
+				sendBodies.push(request.postDataJSON());
+			}
+		});
+
+		await openApp(page, '/compose?forward=msg-01');
+
+		await expect(page.getByRole('list', { name: 'Přílohy' }).getByText('brief.pdf')).toBeVisible();
+		await page.locator('#compose-to').fill('forward-recipient@example.com');
+		await page.getByRole('button', { name: 'Odeslat' }).click();
+
+		await page.waitForURL('**/mail/1/INBOX');
+		expect(sendBodies).toHaveLength(1);
+		expect(sendBodies[0]).toMatchObject({
+			subject: 'Fwd: Projektové podklady',
+			attachments: [
+				{
+					fileName: 'brief.pdf',
+					contentType: 'application/pdf',
+					base64Data: Buffer.from('fixture attachment').toString('base64')
+				}
+			]
+		});
+	});
+
 	test('reply prefill doplní adresáta, Re, citaci a reply hlavičky do draftu', async ({ page }) => {
 		const draftBodies: unknown[] = [];
 		page.on('request', (request) => {
