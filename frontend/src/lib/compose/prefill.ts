@@ -1,5 +1,5 @@
 import { prepareForward, prepareReply } from '#lib/api/mailWrite.js';
-import type { MailRequest } from '#lib/types.js';
+import type { AttachmentResponse, MailRequest } from '#lib/types.js';
 import type { ComposeAttachment } from '#lib/compose/request.js';
 import { isMailHtml, mailHtmlToPlainText } from '#lib/mail/content-sanitizer.js';
 
@@ -39,6 +39,32 @@ function blobToBase64(blob: Blob): Promise<string> {
 	});
 }
 
+/**
+ * Downloads a message's attachments into the composer, which holds every
+ * attachment in memory and rebuilds the MIME from them on send. One failed
+ * download fails the whole prefill: a draft that silently lost a file, or a
+ * forward without the file it was being sent for, is worse than an error the
+ * user can retry.
+ */
+async function loadAttachments(
+	stableId: string,
+	attachments: AttachmentResponse[]
+): Promise<ComposeAttachment[]> {
+	const { downloadAttachment } = await import('#lib/api/mailRead.js');
+	return Promise.all(
+		attachments.map(async (att) => {
+			const blob = await downloadAttachment(stableId, att.partPath, att.fileName);
+			return {
+				localId: crypto.randomUUID(),
+				fileName: att.fileName,
+				contentType: att.contentType,
+				base64Data: await blobToBase64(blob),
+				size: blob.size
+			};
+		})
+	);
+}
+
 export async function loadComposePrefill(
 	params: Pick<URLSearchParams, 'get'>
 ): Promise<ComposePrefill | null> {
@@ -53,7 +79,17 @@ export async function loadComposePrefill(
 	}
 
 	if (forwardId) {
-		return fromMailRequest(await prepareForward(forwardId));
+		// The forward carries the original's attachments as its reading pane
+		// lists them; the backend's prefill holds only the quoted body. Without
+		// this a forward left every attachment behind.
+		const { getMessageDetail } = await import('#lib/api/mailRead.js');
+		const [request, detail] = await Promise.all([
+			prepareForward(forwardId),
+			getMessageDetail(forwardId)
+		]);
+		return fromMailRequest(request, {
+			attachments: await loadAttachments(forwardId, detail.attachments ?? [])
+		});
 	}
 
 	if (to) {
@@ -61,8 +97,7 @@ export async function loadComposePrefill(
 	}
 
 	if (draftId) {
-		const { getMessageDetail, getMessageContent, downloadAttachment } =
-			await import('#lib/api/mailRead.js');
+		const { getMessageDetail, getMessageContent } = await import('#lib/api/mailRead.js');
 		const [detail, content] = await Promise.all([
 			getMessageDetail(draftId),
 			getMessageContent(draftId)
@@ -71,18 +106,7 @@ export async function loadComposePrefill(
 		// Pull the draft's attachments into the composer so an edited send rebuilds
 		// the MIME with them intact (an untouched draft is still sent as-is, see
 		// ComposeForm.handleSend).
-		const attachments: ComposeAttachment[] = await Promise.all(
-			(detail.attachments ?? []).map(async (att) => {
-				const blob = await downloadAttachment(draftId, att.partPath, att.fileName);
-				return {
-					localId: crypto.randomUUID(),
-					fileName: att.fileName,
-					contentType: att.contentType,
-					base64Data: await blobToBase64(blob),
-					size: blob.size
-				};
-			})
-		);
+		const attachments = await loadAttachments(draftId, detail.attachments ?? []);
 
 		// The content endpoint returns sanitized display HTML; the composer is a
 		// plain-text editor, so flatten it (same as reply/forward do server-side).
