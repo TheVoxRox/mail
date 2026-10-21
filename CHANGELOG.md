@@ -84,6 +84,11 @@ Entries before 2026-09-17 predate that split and are left as written.
   image on the clipboard as an attachment named `image.png` too: a screenshot,
   and the picture Excel puts there beside the text of copied cells, so a paste
   of cells attached a picture in place of the paste (#768).
+- An empty file is refused when it is added, with **Soubor … je prázdný,
+  nelze ho přiložit.**, the way a file over the size limit is. It used to be
+  attached, after which every autosave and the send failed with "Data
+  přílohy (Base64) nesmí být prázdná.", which named neither the file nor
+  what to do (#769).
 
 ### Tauri / Release
 

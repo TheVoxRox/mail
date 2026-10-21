@@ -277,6 +277,7 @@
 		"attachmentAdded": "{count, plural, one {Attachment {name} added, {size}.} other {{count} attachments added, {size} in total.}}",
 		"attachmentAddedFromClipboard": "{count, plural, one {Attachment {name} added from the clipboard, {size}.} other {{count} attachments added from the clipboard, {size} in total.}}",
 		"attachmentRemoved": "Attachment {name} removed.",
+		"attachmentEmpty": "The file {name} is empty and cannot be attached.",
 		"attachmentTooLarge": "Attachment {name} is larger than the {limit} limit.",
 		"attachmentsTooLarge": "Total attachment size must not exceed {limit}.",
 		"largeAttachmentConfirm": "{count, plural, one {This attachment is larger than {limit}. Load it into memory?} other {{count} attachments are larger than {limit}. Load them into memory?}}",

@@ -755,6 +755,25 @@ test.describe('Compose', () => {
 		).toHaveCount(0);
 	});
 
+	test('prázdný soubor se odmítne srozumitelnou chybou a nepřiloží se', async ({ page }) => {
+		// An empty file read as empty data, which the backend refused on every
+		// autosave and send with a message about Base64.
+		await openApp(page, '/compose');
+
+		await page.locator('input[type="file"]').setInputFiles({
+			name: 'prazdny.txt',
+			mimeType: 'text/plain',
+			buffer: Buffer.alloc(0)
+		});
+
+		await expect(
+			page
+				.getByRole('alert')
+				.filter({ hasText: 'Soubor prazdny.txt je prázdný, nelze ho přiložit.' })
+		).toBeVisible();
+		await expect(page.getByRole('list', { name: 'Přílohy' })).toHaveCount(0);
+	});
+
 	test('odeslání bez předmětu zobrazí chybu u pole Předmět a zůstane na compose', async ({
 		page
 	}) => {
