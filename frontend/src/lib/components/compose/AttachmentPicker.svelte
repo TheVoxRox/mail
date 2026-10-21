@@ -266,7 +266,12 @@
 		)}
 	>
 		<Icon name="paperclip" size={14} />
-		<span>{$_('compose.addAttachment')}</span>
+		<!--
+			The visible caption for the chip; the input below carries the same name
+			for the screen reader. Hidden from it, or browse mode read the caption
+			as a line of text right before the button that says the same thing.
+		-->
+		<span aria-hidden="true">{$_('compose.addAttachment')}</span>
 		<input
 			type="file"
 			multiple
