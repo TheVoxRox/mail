@@ -8,6 +8,7 @@
 	import { dragHasFiles, filesFromDataTransfer } from '#lib/dragPayload.js';
 	import { clientConfig } from '#lib/stores/clientConfig.js';
 	import { confirmAction } from '#lib/stores/confirmDialog.js';
+	import { announcePolite } from '#lib/stores/toasts.js';
 	import { _, appLocale } from '#lib/i18n/index.js';
 	import { toErrorMessage } from '#lib/api/errors.js';
 	import type { ComposeAttachment } from '#lib/compose/request.js';
@@ -46,6 +47,7 @@
 	}: Props = $props();
 	let readingFileName = $state('');
 	let dragActive = $state(false);
+	let fileInput = $state<HTMLInputElement | null>(null);
 	// addFiles can overlap (file dialog, drop and document-level paste are all
 	// live during a read), so `reading` must clear only when the LAST batch
 	// settles — a plain boolean would be cleared by whichever finishes first.
@@ -108,6 +110,25 @@
 		});
 	}
 
+	/*
+	 * Nothing the screen reader follows moves when a file lands: the file
+	 * dialog hands focus back to the button it opened from, and a paste leaves
+	 * it in the body. Without this an added attachment was found only by
+	 * walking the strip, and one pasted into the body not at all.
+	 */
+	function announceAdded(added: ComposeAttachment[], clipboard: boolean): void {
+		const values = {
+			count: added.length,
+			name: added[0]?.fileName ?? '',
+			size: formatSize(attachmentTotalSize(added), $appLocale)
+		};
+		announcePolite(
+			clipboard
+				? $_('compose.attachmentAddedFromClipboard', { values })
+				: $_('compose.attachmentAdded', { values })
+		);
+	}
+
 	function clipboardFileName(file: File, index: number): string {
 		if (file.name) return file.name;
 		const subtype = file.type.split('/')[1]?.split(';')[0] || 'bin';
@@ -142,6 +163,7 @@
 				});
 			}
 			attachments = [...attachments, ...added];
+			announceAdded(added, options.clipboard === true);
 		} catch (err) {
 			onError?.(toErrorMessage(err));
 		} finally {
@@ -231,9 +253,22 @@
 		handlePaste(event as ClipboardEvent);
 	}
 
+	/*
+	 * The chip leaves with the focused button inside it, which dropped focus
+	 * on <body> and left a screen reader nowhere. Focus lands on the add
+	 * button, the one control the strip always has, as removing a recipient
+	 * lands in the address field. It moves there before the chip goes, not
+	 * after: moved a tick later, focus did reach the button, but JAWS rebuilt
+	 * its view of the strip in between and kept its cursor where the chip had
+	 * been, on the end of the group.
+	 */
 	function removeAttachment(localId: string) {
 		if (disabled) return;
+		const removed = attachments.find((a) => a.localId === localId);
+		if (!removed) return;
+		fileInput?.focus();
 		attachments = attachments.filter((a) => a.localId !== localId);
+		announcePolite($_('compose.attachmentRemoved', { values: { name: removed.fileName } }));
 	}
 
 	onMount(() => {
@@ -273,6 +308,7 @@
 		-->
 		<span aria-hidden="true">{$_('compose.addAttachment')}</span>
 		<input
+			bind:this={fileInput}
 			type="file"
 			multiple
 			{disabled}

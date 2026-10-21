@@ -68,6 +68,12 @@ Entries before 2026-09-17 predate that split and are left as written.
   button. The chip's visible caption stayed in the accessibility tree next to
   the button that carries the same name, so browse mode read it as a line of
   text and then the button said it again (#764).
+- Removing an attachment from a new message puts focus on **Přidat přílohu**
+  and a screen reader hears which attachment was removed. Focus used to drop
+  to the page with the removed chip's button, leaving the reader nowhere.
+  Adding attachments is announced too, with the name and size, or the count
+  and total size for several, and says when they came from the clipboard: a
+  file pasted into the body was otherwise added without a sound (#766).
 
 ### Tauri / Release
 
