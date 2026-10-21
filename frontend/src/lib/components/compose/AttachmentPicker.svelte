@@ -58,6 +58,14 @@
 	}
 
 	function validateFiles(files: File[]): string | null {
+		// An empty file reads as empty data, which the backend refuses on every
+		// save and send, so the draft could neither be kept nor sent, with a
+		// message about Base64. It is refused here, by name, instead.
+		const empty = files.find((file) => file.size === 0);
+		if (empty) {
+			return $_('compose.attachmentEmpty', { values: { name: empty.name } });
+		}
+
 		const tooLarge = files.find((file) => file.size > $clientConfig.attachmentMaxBytes);
 		if (tooLarge) {
 			return $_('compose.attachmentTooLarge', {
