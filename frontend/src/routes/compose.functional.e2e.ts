@@ -215,7 +215,9 @@ test.describe('Compose', () => {
 			mimeType: 'text/plain',
 			buffer: Buffer.from('Obsah faktury')
 		});
-		await expect(page.getByText('faktura.txt')).toBeVisible();
+		await expect(
+			page.getByRole('list', { name: 'Přílohy' }).getByText('faktura.txt')
+		).toBeVisible();
 
 		await page.getByRole('button', { name: 'Odeslat' }).click();
 
@@ -444,18 +446,65 @@ test.describe('Compose', () => {
 		await expect(page.getByRole('dialog', { name: 'Zahodit rozepsanou zprávu?' })).toBeVisible();
 	});
 
-	test('přílohu lze přidat a odebrat přístupným tlačítkem', async ({ page }) => {
+	test('přílohu lze přidat a odebrat přístupným tlačítkem, obojí se ohlásí', async ({ page }) => {
+		// Neither step moves anything a screen reader follows by itself: the file
+		// dialog hands focus back to the add button, and the removed chip took
+		// the focused button with it, which dropped focus on <body>. Both are
+		// announced, and a removal lands on the add button — handed straight
+		// over from the remove button while the chip is still there. Moved there
+		// only after the chip had gone, focus ended up in the same place, but
+		// JAWS kept its cursor where the chip had been.
 		await openApp(page, '/compose');
+		const attachments = page.getByRole('list', { name: 'Přílohy' });
+		const content = 'Text přílohy';
 
 		await page.locator('input[type="file"]').setInputFiles({
 			name: 'poznamka.txt',
 			mimeType: 'text/plain',
-			buffer: Buffer.from('Text přílohy')
+			buffer: Buffer.from(content)
 		});
 
-		await expect(page.getByText('poznamka.txt')).toBeVisible();
+		await expect(attachments.getByText('poznamka.txt')).toBeVisible();
+		await expect(page.locator('#live-region')).toContainText(
+			`Přidána příloha poznamka.txt, ${Buffer.byteLength(content)} B.`
+		);
+		await page.evaluate(() => {
+			const label = (node: EventTarget | null) =>
+				node instanceof Element ? node.getAttribute('aria-label') : null;
+			const moves: { from: string | null; to: string | null }[] = [];
+			(window as { __focusMoves?: typeof moves }).__focusMoves = moves;
+			document.addEventListener(
+				'focusout',
+				(event) => moves.push({ from: label(event.target), to: label(event.relatedTarget) }),
+				true
+			);
+		});
 		await page.getByRole('button', { name: 'Odebrat přílohu poznamka.txt' }).click();
-		await expect(page.getByText('poznamka.txt')).toHaveCount(0);
+		await expect(attachments.getByText('poznamka.txt')).toHaveCount(0);
+		await expect(page.locator('#live-region')).toContainText('Příloha poznamka.txt odebrána.');
+		await expect(page.getByRole('button', { name: 'Přidat přílohu' })).toBeFocused();
+		expect(
+			await page.evaluate(() => (window as { __focusMoves?: unknown[] }).__focusMoves)
+		).toContainEqual({ from: 'Odebrat přílohu poznamka.txt', to: 'Přidat přílohu' });
+	});
+
+	test('více příloh najednou se ohlásí počtem a součtem, odebrání jedné vrátí fokus na Přidat přílohu', async ({
+		page
+	}) => {
+		await openApp(page, '/compose');
+		const attachments = page.getByRole('list', { name: 'Přílohy' });
+
+		await page.locator('input[type="file"]').setInputFiles([
+			{ name: 'prvni.txt', mimeType: 'text/plain', buffer: Buffer.alloc(300) },
+			{ name: 'druha.txt', mimeType: 'text/plain', buffer: Buffer.alloc(200) }
+		]);
+
+		await expect(page.locator('#live-region')).toContainText('Přidány 2 přílohy, celkem 500 B.');
+		await page.getByRole('button', { name: 'Odebrat přílohu prvni.txt' }).click();
+		await expect(page.locator('#live-region')).toContainText('Příloha prvni.txt odebrána.');
+		await expect(page.getByRole('button', { name: 'Přidat přílohu' })).toBeFocused();
+		await expect(attachments.getByText('prvni.txt')).toHaveCount(0);
+		await expect(attachments.getByText('druha.txt')).toBeVisible();
 	});
 
 	test('odeslání během načítání přílohy se zablokuje, ať se příloha neztratí', async ({ page }) => {
@@ -523,7 +572,9 @@ test.describe('Compose', () => {
 		await expect(page.getByText('Pusťte soubory pro přidání do zprávy.')).toBeVisible();
 		await dropTarget.dispatchEvent('drop', { dataTransfer });
 
-		await expect(page.getByText('pretazena-priloha.txt')).toBeVisible();
+		await expect(
+			page.getByRole('list', { name: 'Přílohy' }).getByText('pretazena-priloha.txt')
+		).toBeVisible();
 	});
 
 	test('přílohu lze přetáhnout i na tělo zprávy, nejen na pruh příloh', async ({ page }) => {
@@ -546,7 +597,9 @@ test.describe('Compose', () => {
 		await expect(page.getByText('Pusťte soubory pro přidání do zprávy.')).toBeVisible();
 		await messageBody.dispatchEvent('drop', { dataTransfer });
 
-		await expect(page.getByText('z-tela-zpravy.txt')).toBeVisible();
+		await expect(
+			page.getByRole('list', { name: 'Přílohy' }).getByText('z-tela-zpravy.txt')
+		).toBeVisible();
 	});
 
 	test('přílohu ze schránky lze přidat přes Ctrl+V a odeslat v payloadu', async ({ page }) => {
@@ -575,7 +628,13 @@ test.describe('Compose', () => {
 			document.activeElement?.dispatchEvent(event);
 		});
 
-		await expect(page.getByText('vlozena-priloha.txt')).toBeVisible();
+		await expect(
+			page.getByRole('list', { name: 'Přílohy' }).getByText('vlozena-priloha.txt')
+		).toBeVisible();
+		// A paste leaves focus in the body, so nothing else says a file was added.
+		await expect(page.locator('#live-region')).toContainText(
+			`Ze schránky přidána příloha vlozena-priloha.txt, ${Buffer.byteLength('Obsah vložené přílohy')} B.`
+		);
 
 		await page.locator('#compose-to').fill('clipboard-attachment@example.com');
 		await page.locator('#compose-subject').fill('Příloha ze schránky');
