@@ -26,7 +26,7 @@ export function createWorkspaceCommands(locale: AppLocale | null): Command[] {
 				['contacts', 'switch to contacts']
 			),
 			shortcut: SHORTCUT_LABELS.workspaceContacts,
-			icon: 'book-open',
+			icon: 'users',
 			priority: 90,
 			available: () => true,
 			run: () => goToWorkspaceMode('contacts')

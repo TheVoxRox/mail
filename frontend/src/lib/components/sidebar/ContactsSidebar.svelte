@@ -169,7 +169,7 @@
 				<li>
 					<SidebarNavItem href={viewHref()} active={!createActive && currentLabelId == null}>
 						{#snippet icon()}
-							<Icon name="book-open" />
+							<Icon name="users" />
 						{/snippet}
 
 						{$_('contacts.allContacts')}
