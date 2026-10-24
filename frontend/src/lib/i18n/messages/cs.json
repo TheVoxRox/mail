@@ -280,6 +280,7 @@
 		"attachmentEmpty": "Soubor {name} je prázdný, nelze ho přiložit.",
 		"attachmentTooLarge": "Příloha {name} je větší než limit {limit}.",
 		"attachmentsTooLarge": "Celková velikost příloh nesmí překročit {limit}.",
+		"attachmentsTooMany": "Ke zprávě lze přiložit nejvýš {limit} příloh. {remaining, plural, =0 {Další už přidat nelze.} one {Přidat lze ještě jednu.} other {Přidat lze ještě {remaining}.}}",
 		"largeAttachmentConfirm": "{count, plural, one {Příloha je větší než {limit}. Načíst ji do paměti?} few {{count} přílohy jsou větší než {limit}. Načíst je do paměti?} other {{count} příloh je větší než {limit}. Načíst je do paměti?}}",
 		"largeAttachmentConfirmTitle": "Velká příloha",
 		"largeAttachmentConfirmAction": "Připojit",

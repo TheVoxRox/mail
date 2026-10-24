@@ -802,6 +802,40 @@ test.describe('Compose', () => {
 		await expect(page.getByRole('list', { name: 'Přílohy' })).toHaveCount(0);
 	});
 
+	test('příloha nad strop 50 se odmítne při přidání a řekne, kolik se ještě vejde', async ({
+		page
+	}) => {
+		// Only the backend held the cap: the 51st attachment was added, and
+		// every autosave and the send then failed with a generic message.
+		await openApp(page, '/compose');
+
+		const fileInput = page.locator('input[type="file"]');
+		const files = (count: number, prefix: string) =>
+			Array.from({ length: count }, (_, index) => ({
+				name: `${prefix}-${index + 1}.txt`,
+				mimeType: 'text/plain',
+				buffer: Buffer.from(`${prefix} ${index + 1}`)
+			}));
+		const attachments = page.getByRole('list', { name: 'Přílohy' }).getByRole('listitem');
+		const tooMany = page
+			.getByRole('alert')
+			.filter({ hasText: 'Ke zprávě lze přiložit nejvýš 50 příloh.' });
+
+		await fileInput.setInputFiles(files(49, 'prvni'));
+		await expect(attachments).toHaveCount(49);
+
+		await fileInput.setInputFiles(files(2, 'druha'));
+		await expect(tooMany.filter({ hasText: 'Přidat lze ještě jednu.' })).toBeVisible();
+		await expect(attachments).toHaveCount(49);
+
+		await fileInput.setInputFiles(files(1, 'treti'));
+		await expect(attachments).toHaveCount(50);
+
+		await fileInput.setInputFiles(files(1, 'ctvrta'));
+		await expect(tooMany.filter({ hasText: 'Další už přidat nelze.' })).toBeVisible();
+		await expect(attachments).toHaveCount(50);
+	});
+
 	test('odeslání bez předmětu zobrazí chybu u pole Předmět a zůstane na compose', async ({
 		page
 	}) => {
