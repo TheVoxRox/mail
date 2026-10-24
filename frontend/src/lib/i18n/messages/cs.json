@@ -889,7 +889,9 @@
 		"mailSidebarLabel": "Podokno pošty",
 		"contactsSidebarLabel": "Podokno kontaktů",
 		"settingsSidebarLabel": "Podokno nastavení",
-		"paneToggle": "{pane} ({shortcut})"
+		"mailPaneToggle": "Zobrazit nebo skrýt podokno pošty",
+		"contactsPaneToggle": "Zobrazit nebo skrýt podokno kontaktů",
+		"settingsPaneToggle": "Zobrazit nebo skrýt podokno nastavení"
 	},
 	"railSwitch": {
 		"goToMode": "{mode} ({shortcut})"

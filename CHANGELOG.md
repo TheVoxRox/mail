@@ -46,6 +46,16 @@ Entries before 2026-09-17 predate that split and are left as written.
 - A folder with no messages now says **Tato složka je prázdná.** ("This
   folder is empty.") instead of "Žádné zprávy v této složce." — a plainer
   statement of the same fact (#765).
+- The button at the top of the left rail that shows and hides the side pane
+  now draws a window with a side pane instead of a hamburger, and a rule sets
+  it apart from **Pošta**, **Kontakty** and **Nastavení** below it. Testers
+  read the hamburger as a menu holding the three workspaces and the button as
+  one more of them, rather than as the control for the pane. A screen reader
+  now hears what the button does, **Zobrazit nebo skrýt podokno pošty**, where
+  it used to hear only the pane's name and Ctrl+Y, a key that goes to the pane
+  and never hides it. Neither this button nor the three workspace links offer
+  their name a second time as the description any more, which a tooltip with
+  the same words beside an `aria-label` did.
 
 - A backend that crashes is restarted again after a **Restartovat službu**
   that landed while a start was under way: pressed twice in a row, or in the

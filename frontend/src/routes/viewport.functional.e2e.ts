@@ -54,8 +54,10 @@ test.describe('Viewport baseline', () => {
  */
 test.describe('Podokno v úzkém okně', () => {
 	const pane = (page: Page, name = 'Podokno pošty') => page.getByRole('region', { name });
+	// The toggle is named after what it does to the pane: "Zobrazit nebo skrýt
+	// podokno pošty" for the region "Podokno pošty".
 	const toggle = (page: Page, name = 'Podokno pošty') =>
-		page.getByRole('button', { name: `${name} (Ctrl+Y)` });
+		page.getByRole('button', { name: `Zobrazit nebo skrýt ${name.toLowerCase()}`, exact: true });
 
 	async function openAt(page: Page, path: string, width: number, height: number) {
 		await page.setViewportSize({ width, height });
@@ -72,9 +74,13 @@ test.describe('Podokno v úzkém okně', () => {
 		await expect(page.getByRole('heading', { level: 1, name: /^Doručené/ })).toBeFocused();
 		await expect(pane(page)).toHaveCount(0);
 		await expect(toggle(page)).toHaveAttribute('aria-expanded', 'false');
-		// The shortcut is in the name; aria-keyshortcuts as well made a reader
-		// that speaks both say it twice.
+		// Ctrl+Y goes to the pane rather than pressing the button, so it is in
+		// neither the name nor aria-keyshortcuts. The name comes from the title
+		// alone: beside an aria-label, Chromium exposes the same title as the
+		// description too. toHaveAccessibleDescription cannot tell, because
+		// Playwright reads the title as the description in both cases.
 		await expect(toggle(page)).not.toHaveAttribute('aria-keyshortcuts');
+		await expect(toggle(page)).not.toHaveAttribute('aria-label');
 
 		await toggle(page).click();
 		await expect(toggle(page)).toHaveAttribute('aria-expanded', 'true');
