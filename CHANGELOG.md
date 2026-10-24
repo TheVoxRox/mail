@@ -115,6 +115,10 @@ Entries before 2026-09-17 predate that split and are left as written.
   cursor sat on the ring's left edge and could not be told apart from it. The
   recipient and subject text now also starts in line with the sender in Od
   (#771).
+- A screen reader hears the outcome of creating, renaming or deleting a
+  contact label, and of applying labels to selected contacts, once. Each
+  dialog announced the sentence itself next to a toast that already announces
+  it, so it was read twice (#775).
 
 ### Tauri / Release
 

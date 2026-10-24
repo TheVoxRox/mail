@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { contactGrid, openApp, setMockFlags } from './e2e-helpers';
+import { contactGrid, expectAnnouncedOnce, openApp, setMockFlags } from './e2e-helpers';
 
 type ContactSeed = {
 	name: string;
@@ -756,6 +756,9 @@ test.describe('Contacts', () => {
 		await dialog.getByRole('button', { name: 'Přidat štítek' }).click();
 		await expect(dialog.getByLabel('Název nového štítku')).toHaveValue('');
 		await expect(nav.getByRole('link', { name: 'Škola 0 kontaktů' })).toBeVisible();
+		// The toast announces itself; the dialog used to announce the same
+		// sentence again beside it, so a screen reader heard each outcome twice.
+		await expectAnnouncedOnce(page, 'Štítek vytvořen.');
 
 		// Duplicita liší se jen velikostí písmen -> 409 inline, ne vytvoření.
 		await dialog.getByLabel('Název nového štítku').fill('škola');
@@ -770,6 +773,7 @@ test.describe('Contacts', () => {
 		await renameField.fill('Zákazníci');
 		await dialog.getByRole('button', { name: 'Uložit' }).click();
 		await expect(nav.getByRole('link', { name: 'Zákazníci 1 kontakt' })).toBeVisible();
+		await expectAnnouncedOnce(page, 'Štítek přejmenován.');
 
 		// Smazání se ptá inline a jmenuje počet dotčených kontaktů. Potvrzení je
 		// uvnitř téhož dialogu, ne vnořený modál — fokus tak nikdy neopustí
@@ -781,6 +785,7 @@ test.describe('Contacts', () => {
 		await confirm.getByRole('button', { name: 'Smazat', exact: true }).click();
 
 		await expect(nav.getByRole('link', { name: /Zákazníci/ })).toHaveCount(0);
+		await expectAnnouncedOnce(page, 'Štítek smazán.');
 		// Kontakt přežil, jen přišel o štítek.
 		await dialog.getByRole('button', { name: 'Zavřít' }).click();
 		await expect(page.getByText('Jana Novak')).toBeVisible();
@@ -829,6 +834,7 @@ test.describe('Contacts', () => {
 		await expect(
 			page.getByRole('region', { name: 'Oznámení' }).getByText(/Štítky upraveny u 2 kontaktů z 2/)
 		).toBeVisible();
+		await expectAnnouncedOnce(page, 'Štítky upraveny u 2 kontaktů z 2.');
 		expect(assignRequests).toHaveLength(1);
 		// Klienti zůstali mimo obě pole — nedotčený smíšený štítek se neposílá.
 		expect(assignRequests[0]).toEqual({

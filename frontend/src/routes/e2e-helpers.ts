@@ -57,6 +57,19 @@ export async function waitForFocus(target: Locator): Promise<void> {
 }
 
 /**
+ * Waits for `text` in the polite live region and asserts it is there once: a
+ * second copy is read a second time. The count is read once, as soon as the
+ * first copy shows, not retried — the region drops each message 1.5 s after
+ * it arrives, and a copy pushed in the same tick leaves in the same instant,
+ * so a retrying `toHaveCount(1)` could pass in the gap between the removals.
+ */
+export async function expectAnnouncedOnce(page: Page, text: string): Promise<void> {
+	const copies = page.locator('#live-region').getByText(text, { exact: true });
+	await expect(copies.first()).toBeAttached();
+	expect(await copies.count(), `"${text}" in the live region`).toBe(1);
+}
+
+/**
  * Go to `path` and wait for the shell — what all but two navigations in the
  * suite do, and what the two exceptions deliberately do not: the boot specs
  * navigate to observe the pre-shell loading state, so they still call
