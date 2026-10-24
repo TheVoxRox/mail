@@ -122,6 +122,9 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- `zod`, which only `knip` pulls in, moves from 4.6.5 to 4.6.7 for
+  GHSA-mrhx-c7xc-m3w5, a memory exhaustion on oversized collections that
+  failed the npm audit gate. Development tooling only; nothing ships (#771).
 - `todo.md` records what the 2026-10-21 pass over the new message's
   attachments left open: a real Explorer copy to paste, the 50-attachment cap
   that only the backend enforces, a possible double announcement in the
