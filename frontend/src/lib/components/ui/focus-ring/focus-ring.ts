@@ -31,6 +31,11 @@ export const focusRing =
  * For elements whose ring would be clipped or would overlap a neighbour —
  * grid cells packed edge to edge, and inputs that sit borderless inside
  * somebody else's bordered container.
+ *
+ * A text field that carries it needs horizontal padding of its own. The ring
+ * is painted inside the box, so with none the caret at the start of the text
+ * sits on the ring's left edge and disappears into it — the compose fields
+ * shipped that way and testers could not see where they were typing.
  */
 export const focusRingInset =
 	'outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring';

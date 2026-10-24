@@ -113,7 +113,7 @@
 			aria-invalid={subjectError ? 'true' : undefined}
 			aria-describedby={subjectError ? subjectErrorId : undefined}
 			class={cn(
-				'min-w-0 flex-1 border-0 bg-transparent py-2.5 text-sm text-foreground',
+				'min-w-0 flex-1 border-0 bg-transparent px-2.5 py-2.5 text-sm text-foreground',
 				focusRingInset
 			)}
 		/>
