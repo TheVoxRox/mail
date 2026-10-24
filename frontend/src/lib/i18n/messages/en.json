@@ -280,6 +280,7 @@
 		"attachmentEmpty": "The file {name} is empty and cannot be attached.",
 		"attachmentTooLarge": "Attachment {name} is larger than the {limit} limit.",
 		"attachmentsTooLarge": "Total attachment size must not exceed {limit}.",
+		"attachmentsTooMany": "A message can have at most {limit} attachments. {remaining, plural, =0 {No more can be added.} one {One more can be added.} other {{remaining} more can be added.}}",
 		"largeAttachmentConfirm": "{count, plural, one {This attachment is larger than {limit}. Load it into memory?} other {{count} attachments are larger than {limit}. Load them into memory?}}",
 		"largeAttachmentConfirmTitle": "Large attachment",
 		"largeAttachmentConfirmAction": "Attach",

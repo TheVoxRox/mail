@@ -103,6 +103,12 @@ Entries before 2026-09-17 predate that split and are left as written.
   attached, after which every autosave and the send failed with "Data
   přílohy (Base64) nesmí být prázdná.", which named neither the file nor
   what to do (#769).
+- An attachment past the 50 a message may carry is refused when it is added,
+  with **Ke zprávě lze přiložit nejvýš 50 příloh.** and how many still fit.
+  Only the backend held that cap, so the 51st was attached and every autosave
+  and the send then failed with a generic validation message. Files still
+  being read count towards the cap and the total size, so two batches added
+  at once cannot pass them together (#774).
 - The text cursor in the compose fields (Komu, Kopie, Skrytá kopie, Předmět
   and the message body) is visible again. The fields had no padding of their
   own and draw their focus ring inside the box, so at the start of a field the

@@ -1,5 +1,13 @@
 import type { AttachmentRequest, DraftRequest, MailRequest } from '#lib/types.js';
 
+/**
+ * The most attachments a draft save or a send accepts: `@Size(max = 50)` on
+ * the attachment list of both MailRequest and DraftRequest. It is not in the
+ * client config, so it is written down here; request.test.ts holds it to the
+ * `maxItems` the OpenAPI snapshot records for both.
+ */
+export const MAX_ATTACHMENTS = 50;
+
 export interface ComposeAttachment extends AttachmentRequest {
 	localId: string;
 	size: number;

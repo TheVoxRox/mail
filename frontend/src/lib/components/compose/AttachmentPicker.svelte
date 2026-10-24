@@ -11,7 +11,7 @@
 	import { announcePolite } from '#lib/stores/toasts.js';
 	import { _, appLocale } from '#lib/i18n/index.js';
 	import { toErrorMessage } from '#lib/api/errors.js';
-	import type { ComposeAttachment } from '#lib/compose/request.js';
+	import { MAX_ATTACHMENTS, type ComposeAttachment } from '#lib/compose/request.js';
 	import { onDestroy, onMount } from 'svelte';
 
 	interface Props {
@@ -52,9 +52,19 @@
 	// live during a read), so `reading` must clear only when the LAST batch
 	// settles — a plain boolean would be cleared by whichever finishes first.
 	let readingBatches = 0;
+	// What those overlapping batches have been let through with but not yet
+	// added. The limits below are on the message, so a batch validated while
+	// another is still reading has to count that one too, or two of them that
+	// each fit pass together over the limit.
+	let pendingCount = 0;
+	let pendingBytes = 0;
 
 	function attachmentTotalSize(list: ComposeAttachment[]): number {
 		return list.reduce((total, item) => total + item.size, 0);
+	}
+
+	function fileTotalSize(files: File[]): number {
+		return files.reduce((total, file) => total + file.size, 0);
 	}
 
 	function validateFiles(files: File[]): string | null {
@@ -76,8 +86,17 @@
 			});
 		}
 
-		const nextTotal =
-			attachmentTotalSize(attachments) + files.reduce((total, file) => total + file.size, 0);
+		// Past the backend's cap the attachment would be added, and every
+		// autosave and the send would then fail with a generic validation
+		// message. Refused whole, as for the size, saying how many still fit.
+		const remaining = MAX_ATTACHMENTS - attachments.length - pendingCount;
+		if (files.length > remaining) {
+			return $_('compose.attachmentsTooMany', {
+				values: { limit: MAX_ATTACHMENTS, remaining: Math.max(0, remaining) }
+			});
+		}
+
+		const nextTotal = attachmentTotalSize(attachments) + pendingBytes + fileTotalSize(files);
 		if (nextTotal > $clientConfig.attachmentTotalMaxBytes) {
 			return $_('compose.attachmentsTooLarge', {
 				values: { limit: formatSize($clientConfig.attachmentTotalMaxBytes, $appLocale) }
@@ -149,6 +168,9 @@
 		// selected, so a snapshot of `attachments` is incomplete from here on.
 		readingBatches += 1;
 		reading = true;
+		const batchBytes = fileTotalSize(files);
+		pendingCount += files.length;
+		pendingBytes += batchBytes;
 		try {
 			if (!(await confirmLargeFiles(files))) return;
 			const added: ComposeAttachment[] = [];
@@ -168,6 +190,8 @@
 		} catch (err) {
 			onError?.(toErrorMessage(err));
 		} finally {
+			pendingCount -= files.length;
+			pendingBytes -= batchBytes;
 			readingBatches -= 1;
 			if (readingBatches === 0) {
 				reading = false;
