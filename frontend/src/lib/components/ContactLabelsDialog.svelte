@@ -7,7 +7,7 @@
 	import { toErrorMessage } from '#lib/api/errors.js';
 	import { _ } from '#lib/i18n/index.js';
 	import { contactCounts, refreshContactCounts } from '#lib/stores/contactCounts.js';
-	import { announcePolite, pushToast } from '#lib/stores/toasts.js';
+	import { pushToast } from '#lib/stores/toasts.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { DialogDescription, DialogShell, DialogTitle } from '#lib/components/ui/dialog/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
@@ -85,10 +85,10 @@
 			await createContactLabel({ name });
 			newName = '';
 			await notifyChanged();
+			// Focus stays in the field for a run of additions, so the result is
+			// heard rather than found: the toast speaks it through the live region
+			// itself. A second announcePolite beside it was read twice.
 			pushToast($_('contacts.labelCreated'), { tone: 'success' });
-			// Focus stays in the field for a run of additions; the toast is visual,
-			// so the live region carries the result for a screen-reader user.
-			announcePolite($_('contacts.labelCreated'));
 			newNameInput?.focus();
 		} catch (err) {
 			createError = toErrorMessage(err);
@@ -131,7 +131,6 @@
 			renamingId = null;
 			await notifyChanged();
 			pushToast($_('contacts.labelRenamed'), { tone: 'success' });
-			announcePolite($_('contacts.labelRenamed'));
 			void tick().then(() =>
 				document.getElementById(`contact-label-rename-action-${labelId}`)?.focus()
 			);
@@ -168,7 +167,6 @@
 			await deleteContactLabel(labelId);
 			await notifyChanged();
 			pushToast($_('contacts.labelDeleted'), { tone: 'success' });
-			announcePolite($_('contacts.labelDeleted'));
 			newNameInput?.focus();
 		} catch (err) {
 			pushToast(toErrorMessage(err), { tone: 'error' });

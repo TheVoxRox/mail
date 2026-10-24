@@ -3,7 +3,7 @@
 	import { toErrorMessage } from '#lib/api/errors.js';
 	import { _ } from '#lib/i18n/index.js';
 	import { contactCounts } from '#lib/stores/contactCounts.js';
-	import { announcePolite, pushToast } from '#lib/stores/toasts.js';
+	import { pushToast } from '#lib/stores/toasts.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { DialogDescription, DialogShell, DialogTitle } from '#lib/components/ui/dialog/index.js';
 	import { StateMessage } from '#lib/components/ui/state-message/index.js';
@@ -121,7 +121,6 @@
 							values: { changed: result.changed, total: result.total }
 						});
 			pushToast(message, { tone: 'success' });
-			announcePolite(message);
 			onOpenChange(false);
 			await onAssigned();
 		} catch (err) {
