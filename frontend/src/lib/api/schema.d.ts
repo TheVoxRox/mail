@@ -761,7 +761,7 @@ export interface paths {
 		};
 		/**
 		 * Prepare forward
-		 * @description Returns a pre-filled MailRequest for forwarding the message, including the quoted body and references to the original attachments.
+		 * @description Returns a pre-filled MailRequest for forwarding the message: the subject, the quoted body and the original's References. The attachments list is empty; the client downloads the original's attachments itself.
 		 */
 		get: operations['prepareForward'];
 		put?: never;

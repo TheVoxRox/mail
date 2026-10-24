@@ -71,7 +71,7 @@ public class MailWriteController {
         return mailFacade.prepareReply(stableId, all);
     }
 
-    @Operation(summary = "Prepare forward", description = "Returns a pre-filled MailRequest for forwarding the message, including the quoted body and references to the original attachments.")
+    @Operation(summary = "Prepare forward", description = "Returns a pre-filled MailRequest for forwarding the message: the subject, the quoted body and the original's References. The attachments list is empty; the client downloads the original's attachments itself.")
     @GetMapping("/{stableId}/forward")
     public MailRequest prepareForward(
             @PathVariable @NotBlank(message = "{validation.notBlank}") @Size(max = 128, message = "{validation.size.max}") String stableId) {

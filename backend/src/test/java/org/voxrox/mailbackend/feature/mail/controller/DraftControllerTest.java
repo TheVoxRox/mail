@@ -154,6 +154,18 @@ class DraftControllerTest {
     }
 
     @Test
+    @DisplayName("POST draft — empty attachment data -> 202 (a forwarded or reopened empty file saves)")
+    void saveDraftEmptyAttachmentAccepted() throws Exception {
+        MailRequest.AttachmentRequest empty = new MailRequest.AttachmentRequest("empty.txt", "text/plain", "");
+        DraftRequest req = new DraftRequest("to@x.cz", null, null, "Subj", "Body", List.of(empty), null, null);
+
+        mockMvc.perform(post("/api/v1/accounts/7/drafts").contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req))).andExpect(status().isAccepted());
+
+        verify(draftPersistenceService).saveDraftAsync(eq(7L), any(DraftRequest.class), isNull(), eq(IDENTITY));
+    }
+
+    @Test
     @DisplayName("POST draft — non-positive accountId -> 400")
     void saveDraftInvalidAccountId() throws Exception {
         mockMvc.perform(post("/api/v1/accounts/0/drafts").contentType(MediaType.APPLICATION_JSON)

@@ -4,6 +4,7 @@ import java.util.List;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import org.jspecify.annotations.Nullable;
@@ -42,8 +43,12 @@ public record MailRequest(@NotBlank(message = "{validation.mail.recipientRequire
              * the pre-deserialization aggregate bound is a documented residual (Boundary 3
              * is loopback + X-API-KEY, and the client enforces a 25 MB total). See
              * docs/API_SURFACE_AUDIT.md.
+             *
+             * Required, but empty is allowed: a zero-length part is valid MIME and does
+             * arrive, in a received message, a draft written elsewhere or a forward of
+             * either. @NotBlank refused it on every save and send of such a draft.
              */
-            @NotBlank(message = "{validation.attachment.dataRequired}") @Size(max = 70 * 1024
+            @NotNull(message = "{validation.attachment.dataRequired}") @Size(max = 70 * 1024
                     * 1024, message = "{validation.attachment.dataTooLarge}") String base64Data) {
     }
 }
