@@ -49,7 +49,9 @@
       "backend/src/main/java/org/voxrox/mailbackend/feature/account/controller": "d6f66df6b1e89193b66619a929c10a85fa085dc3",
       "backend/src/main/java/org/voxrox/mailbackend/exception": "ca41911d2f4b626bf55045d8a9a6e7cb2468df80",
       "backend/src/main/java/org/voxrox/mailbackend/feature/contact/controller": "93f7bef6566200224d13677b84e383911f4b44a2",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/contact/dto": "e6d0fef2d532703dec028de80ff1a44fc07db9a9"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/contact/dto": "e6d0fef2d532703dec028de80ff1a44fc07db9a9",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller": "5e0370d0dc16ee71e70b7751d748c45276cfd134",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "1c70c00fc26f838ec5977cb2dceea4cf67342554"
     },
     "acknowledgements": [
       {
@@ -79,6 +81,10 @@
       {
         "date": "2026-10-20",
         "note": "Under Code paths only the exception package moves. MailFailureCause gains SMTP_AUTH_DISABLED, picked ahead of AUTHENTICATION when a message in the cause chain contains Exchange Online's 'SmtpClientAuthentication is disabled'; it renders error.mail.cause.smtpAuthDisabled, a fixed sentence in both bundles, so the server's reply still reaches only the log and section 3's claim holds. Section 3's list of causes names eleven and the code now has twelve; the next re-verification adds it. ProviderNotFoundException.byDomain becomes byOAuth2Registration, whose message argument is the registration id the sign-in went through (google or microsoft), the app's own value. Verdict unchanged."
+      },
+      {
+        "date": "2026-10-24",
+        "note": "Two paths under Code paths move (#776). In feature/mail/dto, base64Data of MailRequest.AttachmentRequest, which DraftRequest shares, goes from @NotBlank to @NotNull: the field is still required, so a missing value is a 400 with validation.attachment.dataRequired as before, but an empty string now passes, because a zero-length part is valid MIME and arrives with a forward or a draft written elsewhere; MimeMessageBuilder decodes it to an empty part. Section A1's bounds do not move: the 70 MiB @Size on base64Data, the 50-attachment @Size on both lists and the body cap are unchanged, and an empty string adds nothing to the payload. In feature/mail/controller only the @Operation description of GET /{stableId}/forward changes, which promised references to the original attachments the endpoint never returns; no mapping, parameter or constraint changes, so section 2's twelve of 18 @Validated controllers still hold. The OpenAPI snapshot, outside Code paths, changes in that description only; the AttachmentRequest schema reads the same, minLength 0 either way. Verdict unchanged. This is the eighth acknowledgement: the next change under Code paths needs the audit re-verified."
       }
     ]
   },

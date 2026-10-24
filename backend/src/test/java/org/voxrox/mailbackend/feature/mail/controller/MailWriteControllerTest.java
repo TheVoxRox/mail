@@ -157,6 +157,31 @@ class MailWriteControllerTest {
     }
 
     @Test
+    @DisplayName("POST send — empty attachment data -> 202 (a zero-length part is valid MIME)")
+    void sendEmptyAttachmentAccepted() throws Exception {
+        MailRequest.AttachmentRequest empty = new MailRequest.AttachmentRequest("empty.txt", "text/plain", "");
+        MailRequest req = new MailRequest("to@x.cz", null, null, "subj", "body", List.of(empty), null, null);
+
+        mockMvc.perform(post("/api/v1/messages/account/7/send").contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req))).andExpect(status().isAccepted());
+
+        verify(smtpService).sendEmailAsync(eq(7L), any(MailRequest.class), anyString(), isNull());
+    }
+
+    @Test
+    @DisplayName("POST send — attachment without base64Data -> 400 (data required)")
+    void sendAttachmentWithoutDataRejected() throws Exception {
+        String req = """
+                {"to":"to@x.cz","subject":"subj","body":"body",
+                 "attachments":[{"fileName":"a.txt","contentType":"text/plain"}]}""";
+
+        mockMvc.perform(post("/api/v1/messages/account/7/send").contentType(MediaType.APPLICATION_JSON).content(req))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(smtpService);
+    }
+
+    @Test
     @DisplayName("POST send — missing body -> 400 (HttpMessageNotReadable)")
     void sendMissingBody() throws Exception {
         mockMvc.perform(post("/api/v1/messages/account/7/send").contentType(MediaType.APPLICATION_JSON))

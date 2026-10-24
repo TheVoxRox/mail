@@ -34,6 +34,11 @@ Entries before 2026-09-17 predate that split and are left as written.
   pointed at signing in again where only the organization's administrator can
   help. A refused IMAP sign-in mentions the administrator too: Exchange answers
   a mailbox with IMAP turned off the same way as a rejected token (#763).
+- A forward or a reopened draft that carries an empty attachment can be saved
+  and sent. A zero-length part is valid in an email and does arrive, but the
+  attachment data had to be non-empty, so every autosave and the send of such
+  a message failed with "Data přílohy (Base64) nesmí být prázdná." The data
+  must still be present; an empty file the user adds is still refused (#776).
 
 ### Frontend
 
@@ -146,6 +151,10 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The OpenAPI description of the forward endpoint no longer promises
+  references to the original attachments: it returns none, and the composer
+  downloads them itself since #767. The change under the API surface audit's
+  `Code paths` is acknowledged in its ledger, now at 8 of 8 (#776).
 - `zod`, which only `knip` pulls in, moves from 4.6.5 to 4.6.7 for
   GHSA-mrhx-c7xc-m3w5, a memory exhaustion on oversized collections that
   failed the npm audit gate. Development tooling only; nothing ships (#771).

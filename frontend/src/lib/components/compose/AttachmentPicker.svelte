@@ -68,9 +68,11 @@
 	}
 
 	function validateFiles(files: File[]): string | null {
-		// An empty file reads as empty data, which the backend refuses on every
-		// save and send, so the draft could neither be kept nor sent, with a
-		// message about Base64. It is refused here, by name, instead.
+		// An empty file the user picks is almost always a mistake (a download
+		// that never finished, the wrong file), so it is refused by name. The
+		// backend takes empty data, since a zero-length part is valid MIME and
+		// arrives with a forward or a draft written elsewhere; this guard is for
+		// what the user adds, not a limit of the message.
 		const empty = files.find((file) => file.size === 0);
 		if (empty) {
 			return $_('compose.attachmentEmpty', { values: { name: empty.name } });

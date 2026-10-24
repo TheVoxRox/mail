@@ -3,6 +3,7 @@ package org.voxrox.mailbackend.feature.mail.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -338,6 +339,30 @@ class MimeMessageBuilderTest {
             assertThat(mp.getCount()).isEqualTo(3); // body + 2 attachments
             assertThat(mp.getBodyPart(1).getFileName()).isEqualTo("a.txt");
             assertThat(mp.getBodyPart(2).getFileName()).isEqualTo("b.bin");
+        }
+
+        @Test
+        @DisplayName("Empty attachment — written and read back as a named part with no content")
+        void emptyAttachmentSurvivesTheWire() throws Exception {
+            // A zero-length part is valid MIME and arrives in received mail, so a
+            // forward or a draft written elsewhere carries one; what is written
+            // must parse back as that part, not lose it or the multipart.
+            MailRequest.AttachmentRequest empty = new MailRequest.AttachmentRequest("empty.txt", "text/plain", "");
+
+            MimeMessage msg = buildSend(req("to@example.com", null, null, "s", "b", List.of(empty), null, null));
+            msg.saveChanges();
+            ByteArrayOutputStream wire = new ByteArrayOutputStream();
+            msg.writeTo(wire);
+            MimeMessage parsed = new MimeMessage(Session.getInstance(new Properties()),
+                    new ByteArrayInputStream(wire.toByteArray()));
+
+            Multipart mp = (Multipart) parsed.getContent();
+            assertThat(mp.getCount()).isEqualTo(2); // body + the empty attachment
+            BodyPart attPart = mp.getBodyPart(1);
+            assertThat(attPart.getFileName()).isEqualTo("empty.txt");
+            try (var in = attPart.getInputStream()) {
+                assertThat(in.readAllBytes()).isEmpty();
+            }
         }
     }
 
