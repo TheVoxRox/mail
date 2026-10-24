@@ -773,6 +773,14 @@ test.describe('Přístupnost', () => {
 			const rail = page.locator('nav[aria-label="Přepínač prostředí"]');
 			await expect(rail).toBeAttached();
 			await expect(rail.locator('a[aria-current="page"]')).toHaveAccessibleName(testCase.label);
+			// The title alone names every rail control: beside an aria-label,
+			// Chromium exposes the same title as the description and the name is
+			// offered twice. Playwright reads the title as the description either
+			// way, so the attribute is what can be checked.
+			await expect(rail.locator('a, button')).toHaveCount(4);
+			for (const control of await rail.locator('a, button').all()) {
+				await expect(control).not.toHaveAttribute('aria-label');
+			}
 		}
 	});
 

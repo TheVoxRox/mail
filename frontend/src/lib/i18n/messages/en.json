@@ -889,7 +889,9 @@
 		"mailSidebarLabel": "Mail pane",
 		"contactsSidebarLabel": "Contacts pane",
 		"settingsSidebarLabel": "Settings pane",
-		"paneToggle": "{pane} ({shortcut})"
+		"mailPaneToggle": "Show or hide the Mail pane",
+		"contactsPaneToggle": "Show or hide the Contacts pane",
+		"settingsPaneToggle": "Show or hide the Settings pane"
 	},
 	"railSwitch": {
 		"goToMode": "Go to {mode} ({shortcut})"
