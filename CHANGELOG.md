@@ -55,7 +55,7 @@ Entries before 2026-09-17 predate that split and are left as written.
   it used to hear only the pane's name and Ctrl+Y, a key that goes to the pane
   and never hides it. Neither this button nor the three workspace links offer
   their name a second time as the description any more, which a tooltip with
-  the same words beside an `aria-label` did.
+  the same words beside an `aria-label` did (#772).
 
 - A backend that crashes is restarted again after a **Restartovat službu**
   that landed while a start was under way: pressed twice in a row, or in the
