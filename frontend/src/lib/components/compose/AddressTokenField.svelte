@@ -303,7 +303,7 @@
 					: undefined}
 				aria-keyshortcuts={shortcut}
 				class={cn(
-					'min-w-[min(10rem,100%)] flex-1 border-0 bg-transparent py-1 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-50',
+					'min-w-[min(10rem,100%)] flex-1 border-0 bg-transparent px-2.5 py-1 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-50',
 					focusRingInset
 				)}
 				oninput={handleInput}

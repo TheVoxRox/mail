@@ -596,7 +596,7 @@
 				disabled={busy}
 				aria-describedby="compose-body-hint"
 				class={cn(
-					'flex-1 resize-none border-0 bg-transparent text-sm leading-relaxed text-foreground disabled:cursor-not-allowed disabled:opacity-50',
+					'-mx-2.5 flex-1 resize-none border-0 bg-transparent px-2.5 py-2 text-sm leading-relaxed text-foreground disabled:cursor-not-allowed disabled:opacity-50',
 					focusRingInset
 				)}></textarea>
 			<!--

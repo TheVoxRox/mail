@@ -125,6 +125,34 @@ test.describe('Compose', () => {
 		);
 	});
 
+	/*
+	 * The compose fields draw `focusRingInset`, which is painted inside the box.
+	 * With no horizontal padding the caret at the start of an empty field sat on
+	 * the ring's left edge and testers could not see it. Measured as padding
+	 * rather than in pixels on screen because the caret blinks.
+	 */
+	test('textová pole compose mají odstup, aby kurzor nesplynul s focus ringem', async ({
+		page
+	}) => {
+		await openApp(page, '/compose');
+		await expect(page.locator('#compose-body')).toBeVisible();
+
+		const ids = ['compose-to', 'compose-cc', 'compose-bcc', 'compose-subject', 'compose-body'];
+		const paddings = await page.evaluate(
+			(fieldIds) =>
+				fieldIds.map((id) => {
+					const field = document.getElementById(id);
+					return field ? parseFloat(getComputedStyle(field).paddingLeft) : null;
+				}),
+			ids
+		);
+
+		// The ring is 2px; the caret needs clear space beyond it.
+		for (const [index, padding] of paddings.entries()) {
+			expect(padding, ids[index]).toBeGreaterThanOrEqual(6);
+		}
+	});
+
 	test('forward prefill doplní Fwd předmět a citované tělo', async ({ page }) => {
 		await openApp(page, '/compose?forward=msg-01');
 

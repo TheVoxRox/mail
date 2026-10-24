@@ -89,6 +89,12 @@ Entries before 2026-09-17 predate that split and are left as written.
   attached, after which every autosave and the send failed with "Data
   přílohy (Base64) nesmí být prázdná.", which named neither the file nor
   what to do (#769).
+- The text cursor in the compose fields (Komu, Kopie, Skrytá kopie, Předmět
+  and the message body) is visible again. The fields had no padding of their
+  own and draw their focus ring inside the box, so at the start of a field the
+  cursor sat on the ring's left edge and could not be told apart from it. The
+  recipient and subject text now also starts in line with the sender in Od
+  (#771).
 
 ### Tauri / Release
 
@@ -116,6 +122,15 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- `zod`, which only `knip` pulls in, moves from 4.6.5 to 4.6.7 for
+  GHSA-mrhx-c7xc-m3w5, a memory exhaustion on oversized collections that
+  failed the npm audit gate. Development tooling only; nothing ships (#771).
+- `todo.md` records what the 2026-10-21 pass over the new message's
+  attachments left open: a real Explorer copy to paste, the 50-attachment cap
+  that only the backend enforces, a possible double announcement in the
+  contact labels dialog, the forward endpoint's wrong description, empty
+  attachments that come from the server, and the observations not yet
+  discussed (#771).
 - The independent pass over B1-23's fix re-verified the IMAP/SMTP audit
   against the tenth cut's v0.1.0 tag (1.76) and confirmed both halves of #750
   by removing each and watching its tests fail. In the running app none of 40
