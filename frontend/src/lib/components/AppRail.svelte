@@ -17,14 +17,14 @@
 
 	type RailItem = {
 		mode: WorkspaceMode;
-		icon: 'inbox' | 'book-open' | 'cog';
+		icon: 'inbox' | 'users' | 'cog';
 		labelKey: string;
 		shortcut: string;
 	};
 
 	const items: RailItem[] = [
 		{ mode: 'mail', icon: 'inbox', labelKey: 'workspace.mail', shortcut: '1' },
-		{ mode: 'contacts', icon: 'book-open', labelKey: 'workspace.contacts', shortcut: '2' },
+		{ mode: 'contacts', icon: 'users', labelKey: 'workspace.contacts', shortcut: '2' },
 		{ mode: 'settings', icon: 'cog', labelKey: 'workspace.settings', shortcut: '3' }
 	];
 
