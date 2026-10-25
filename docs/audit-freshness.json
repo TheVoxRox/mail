@@ -83,5 +83,29 @@
         "note": "ExternalProviderLoginService takes the provider template from the OAuth registration the sign-in went through (AccountProviderService.resolveOAuthProvider, a lookup by mail_providers.oauth2_registration_id) instead of from the domain of the address the provider returned, so a Microsoft 365 or Google Workspace account at an organization's own domain gets an account instead of ProviderNotFoundException. The template only fills a new row's server settings: the lookup order of findOrCreateExternalAccount, the refusal of an address another identity owns, the credential write, the after-commit invalidation and the reauth clear are unchanged, and a missing template still throws before any write. What a sign-in can reach narrows rather than widens: an address at another provider's domain no longer gives a new row that provider's servers, so a token is only ever presented to the servers of the provider that issued it. Under feature/auth nothing changes. Verdict unchanged."
       }
     ]
+  },
+  "docs/API_SURFACE_AUDIT.md": {
+    "reviewedTrees": {
+      "backend/src/main/java/org/voxrox/mailbackend/core/diagnostic": "355f994bbf62ebc22a60ae3b72e21a6154210087",
+      "backend/src/main/java/org/voxrox/mailbackend/util/LogMasker.java": "3f4505bc59b3ccbd77e006a0e8fea88f024182b9",
+      "frontend/src-tauri/src/redact.rs": "e3ef405696e6e359819667780df7c4b96f9d6a0e"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-10-25",
+        "note": "Recorded in the audit itself as v1.21, the fix of A4 outside the Basic Multilingual Plane, A5 and A6 (#780), waiting for its independent pass. Under core/diagnostic only DiagnosticLogRedactor changed: an address is scanned by hand, by code point, instead of by a pattern with a lookbehind (one UTF-16 unit back) and a group over the domain's labels (a stack frame a label, StackOverflowError from 2,000), and the token pattern's \\b became (?<!\\w). LogMasker keeps the first and last character of a local part whole, which changes its output only for a character outside the plane, where it wrote half of one. redact.rs drops the mark walk it copied from Java's \\b. Against the dump's redactor of 8e00d4e, over 750,000 random lines: more tokens replaced on 334 (after a mark), fewer addresses masked on 10, each a local part running on from a '*' through a character outside the plane that the old lookbehind half-read and the port never masked; the dump and the Save logs ZIP now agree on every line. No controller, DTO, filter, endpoint or the dump's set of entries changes, so sections 1 to 4 do not move. Verdict PASS, A4, A5 and A6 fixed."
+      }
+    ]
+  },
+  "docs/UPDATER_AUDIT.md": {
+    "reviewedTrees": {
+      "frontend/src-tauri/src": "1089fffcbe59b0fee617df23f0555fd49029b497"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-10-25",
+        "note": "The only change under frontend/src-tauri/src is redact.rs, the Save logs ZIP's redactor, which is the API surface audit's subject (A4, its 1.21): the mark walk that copied Java's \\b is gone, so a token right after a non-spacing mark is replaced, and the comments now describe the Java side's hand scan. No updater command, capability, endpoint, version pin, signature check or install step is touched, and redact.rs is not on the update path: it runs only when the user saves the logs. Verdict unchanged."
+      }
+    ]
   }
 }

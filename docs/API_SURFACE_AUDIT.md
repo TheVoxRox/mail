@@ -878,7 +878,13 @@ at the first). Measured on throwaway probes: over 750,000 random lines of three
 seeds built from boundary characters, characters outside the plane, marks,
 fragments of every token shape and the key among them, the two redactors write
 identical output and count the same replacements, and the two of `8e00d4e`
-differ on 646 of the same lines.
+differ on 646 of the same lines. Against the dump's redactor of `8e00d4e` on
+those lines, the new one replaces more tokens on 334 (a token after a mark) and
+masks fewer addresses on 10. Each of the 10 is a local part that runs on from a
+`*` through a character outside the plane, as in `j***k𝐁=x@y.cz`: the old
+lookbehind saw half of that character and let a match start after it, which
+the port never did. The miss of §5, no match right after a `*` or a character
+an address may hold, now holds by character in both.
 
 ### A5 (Low) — the dump's redactor takes quadratic time on a long run of combining marks — ACCEPTED FOR 0.1.0, FIXED IN 1.21
 
