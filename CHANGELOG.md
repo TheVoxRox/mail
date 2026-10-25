@@ -170,6 +170,11 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The IMAP/SMTP audit is 1.78, the independent pass over the account budget of
+  1.77, re-anchored to `f2780de` and clearing its acknowledgement. The budget is
+  confirmed; what it leaves is corrected, since the sets the sync's UID listing
+  builds lie outside it, so two hostile accounts syncing at once rather than
+  four could exhaust the heap (#782).
 - The IMAP/SMTP audit is 1.77: the account budget closes the residual of B1-14
   and B1-21, waiting for its independent pass. The todo item on Esc with a
   screen reader is closed without a code change: JAWS takes the first Esc in

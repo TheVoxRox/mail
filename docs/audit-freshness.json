@@ -112,18 +112,5 @@
         "note": "The only change under frontend/src-tauri/src is redact.rs, the Save logs ZIP's redactor, which is the API surface audit's subject (A4, its 1.21): the mark walk that copied Java's \\b is gone, so a token right after a non-spacing mark is replaced, and the comments now describe the Java side's hand scan. No updater command, capability, endpoint, version pin, signature check or install step is touched, and redact.rs is not on the update path: it runs only when the user saves the logs. Verdict unchanged."
       }
     ]
-  },
-  "docs/IMAP_SMTP_AUDIT.md": {
-    "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "540a58c66d13eb26098b20bb025441bb0f856067",
-      "backend/src/main/java/org/voxrox/mailbackend/core/config/mail": "714e543e3ccfad1dde4a278421d6eac923120566",
-      "backend/src/main/resources/application.properties": "cdb1274a127a61947454d98a7820795791d5b8c5"
-    },
-    "acknowledgements": [
-      {
-        "date": "2026-10-25",
-        "note": "Recorded in the audit itself as v1.77 (#781), waiting for its independent pass: one memory budget per account closes the residual of B1-14 and B1-21. Under feature/mail/service, AccountMemoryBudget is new and BoundedImapProtocol reports what it holds (its selection's kept total plus the running command's charge until command() returns) and checks the account's sum after its own bounds, refusing as they do; it releases on disconnect, on CLOSE and UNSELECT, and when a command returns. BoundedImapStore.install puts the budget object into the session, ImapConnectionManager keeps one per account for both lanes and drops it on purge, MailConnectionProbe gives the probe its own. Under core/config/mail, ImapProperties gains accountBudget (96MB, zero refused at startup); application.properties sets and documents it. No per-response, per-command, per-folder, nesting, EXPUNGE, TLS, timeout or credential behaviour changes: the account check runs after them and only adds refusals. Verdict PASS, two findings accepted (B1-21, B1-24), B1-21's residual closed."
-      }
-    ]
   }
 }
