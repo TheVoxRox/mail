@@ -41,49 +41,6 @@
     "Both clocks reset the same way: re-verify the audit, bump `Audited commit`,",
     "and delete the entry from this file."
   ],
-  "docs/UPDATER_AUDIT.md": {
-    "reviewedTrees": {
-      "frontend/src-tauri/src": "7ac92fa286b95f3afcb984758f918ffcd8e35d49",
-      "frontend/src/lib/updates.ts": "3f5774f8447b80e3b5355baeed1468ed700acd0d",
-      "frontend/src/lib/nativeShell.ts": "88ad0252ba0c6541fafd92d0576bb011c604e39b",
-      "frontend/src/lib/bootstrap.ts": "c55c02af6bf1b445463387db6c34229efa0d076e",
-      "frontend/src/lib/components/boot/BootErrorView.svelte": "97dd8ca6d1342e2de330fae3e99ea69f668c98e2",
-      "frontend/src/lib/components/UpdatePromptDialog.svelte": "2b8ebb25f1f32468f3bfb327acfcaaf100fb8cfc",
-      "frontend/src/lib/components/UpdateFailureDialog.svelte": "f49306c645ca1c4895a9ef609571faa912d498f6",
-      "frontend/src/lib/components/settings/AboutSettings.svelte": "cf846c6b2f0ca70f4e81a901a3509c8a0f03ff59",
-      "frontend/src-tauri/tauri.conf.json": "25cfcc0cf727934168262af6532f95922628a527"
-    },
-    "acknowledgements": [
-      {
-        "date": "2026-10-12",
-        "note": "Under src-tauri/src the Save logs path of section 1 changes (API_SURFACE_AUDIT.md A4, fixed in its v1.16): logs.rs passes each line through the new redact.rs and unpacks rotated .gz files with flate2, and export_logs also reads session.json next to the logs folder for the key to replace; lib.rs gains `mod redact`. The command list is unchanged: export_logs, log_sidecar_stderr and log_sidecar_exit, none taking a path, URL, key or version from the renderer. regex and flate2 were already in the tree, so Cargo.lock gains edges and no crate. check_for_update, download_pending_update, install_pending_update, PendingUpdate, DownloadedUpdate, the channel map and the pubkey are untouched. Verdict stays PASS."
-      },
-      {
-        "date": "2026-10-12",
-        "note": "Under src-tauri/src only redact.rs changes (API_SURFACE_AUDIT.md A4, fixed again in its v1.18): the redactor of the Save logs ZIP now writes what DiagnosticLogRedactor writes, the Java lookaround and backtracking done by hand and the token pattern on Java's ASCII classes. It is a pure function of a line, called only from logs.rs, which does not change; the command list, lib.rs and Cargo.toml do not change either, and no crate is added. check_for_update, download_pending_update, install_pending_update, PendingUpdate, DownloadedUpdate, the channel map and the pubkey are untouched. Verdict stays PASS."
-      },
-      {
-        "date": "2026-10-12",
-        "note": "Under src-tauri/src only the test module of redact.rs changes (API_SURFACE_AUDIT.md v1.19): its shared-vectors test also asserts each vector's replacement counts. No code outside #[cfg(test)] moves, so the build the updater ships is the same. Verdict stays PASS."
-      },
-      {
-        "date": "2026-10-13",
-        "note": "Under src-tauri/src only the test module of logs.rs changes, for the zip 4 -> 9 bump: file_names() yields Result from 9 on and the one test that lists entries collects through it. No code outside #[cfg(test)] moves; Cargo.toml and Cargo.lock move zip to 9.0.2 and add typed-path and nix under it, none of them on the update path. check_for_update, download_pending_update, install_pending_update, PendingUpdate, DownloadedUpdate, the channel map and the pubkey are untouched. Verdict stays PASS."
-      },
-      {
-        "date": "2026-10-17",
-        "note": "The SvelteKit 3 migration (#721). Seven frontend paths move (updates.ts, nativeShell.ts, bootstrap.ts, BootErrorView, UpdatePromptDialog, UpdateFailureDialog, AboutSettings), and only in import specifiers: $lib/... became #lib/... (package.json imports, the same files) and $app/environment became $app/env (the same module, renamed). After normalising those two renames the removed and added lines are identical. The startup check, the prompt, skip and postpone, the three-step install with the sidecar stopped in between, and src-tauri/src are untouched. Verdict stays PASS."
-      },
-      {
-        "date": "2026-10-18",
-        "note": "Save logs on the error view for a backend that never started (#734). Under Code paths only BootErrorView.svelte moves, and only in the dump's props and the action row: they become required, and BootDiagnosticActions is rendered unconditionally instead of a restart-only fallback. The manual update check this audit covers (its button, handleCheckForUpdates, checkForUpdateManually and the status region) is byte-identical, and no updater request, command or call site is added or removed. Verdict stays PASS."
-      },
-      {
-        "date": "2026-10-20",
-        "note": "The base-config pubkey becomes AA238C4CC59B9906, the key the signed release workflow bakes in from TAURI_UPDATER_PUBKEY and the only key in the installed v0.1.0 voxrox-mail.exe, in place of 6334AE8C9D8495FE, which no release used (#755). Only that one value of tauri.conf.json moves; the endpoint and the rest of the file are untouched. Section 6's note still holds as written: the base block is a dev reference and the shipped key still comes from the release config, where requireEnv in lib/tauri-config.mjs still throws on an empty key. verify-updater-signature.mjs with --config set to the base file passes on v0.1.0's installer and latest.json and fails on the old value. Verdict stays PASS."
-      }
-    ]
-  },
   "docs/CRYPTO_STORAGE_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/core/init": "6b860914def198938000e51a328137049fffac81",
@@ -98,43 +55,6 @@
       {
         "date": "2026-10-11",
         "note": "Recorded in the audit itself as v1.2: the PBKDF2 iteration count moves from CryptoProperties (mail.crypto.pbkdf2-iterations, @Min 1000, default 600000) to a private constant PBKDF2_ITERATIONS = 600_000 in CryptoService, and CryptoProperties.java joins Code paths with this entry, so a format value cannot come back as a property unseen. The bean constructor is now @Autowired and passes the constant to a package-private constructor that takes the count, which CryptoServiceTest uses with 1000; getOrDeriveKey reads the field where it read the property. Section 2 holds with the same values: AES/GCM, 12-byte IV, 128-bit tag, PBKDF2WithHmacSHA256 at 600,000 over global salt || accountId to 256 bits, accountId as AAD, the self-test, the LRU and the shutdown hygiene are byte-identical, and a ciphertext pinned in CryptoServiceTest from the production constructor decrypts (changing the constant to 700_000 fails it, run and seen). Section 1 is untouched: core/init and core/security/secret did not change. Verdict stays PASS."
-      }
-    ]
-  },
-  "docs/CONTENT_RENDERING_AUDIT.md": {
-    "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailContentService.java": "5a026cf65d84e4fbe0defbc561e06c66b5139aba",
-      "frontend/src/lib/mail/mailFrame.ts": "02867dae73807fdafe343cd56cc950914b188ae3",
-      "frontend/src/lib/components/message-detail": "c7a07ce058b691049a59c93c579846307caa2df7"
-    },
-    "acknowledgements": [
-      {
-        "date": "2026-09-22",
-        "note": "A comment, and nothing else: the two changed lines of MailContentService are the comment on the catch around body extraction. It said the wrapped exception lets MailFacade surface a contentError on the cached body; the message detail no longer calls this service and the field is gone, so it now says the caller gets a typed mail error instead of a 500. The sanitize call, the cid collection, the plain-text escape, the byte cap and the oversize flag are byte-identical, and the body still reaches the frame only through /content, which returns what this service produced. Verdict stays PASS."
-      },
-      {
-        "date": "2026-09-28",
-        "note": "The exception-text change of API_SURFACE_AUDIT.md 1.9: a new MailFailureCause enum in the exception package classifies a caught exception into a stable cause code, and MailConnectionException / MailOperationException gained constructors that take the cause and pass the classification, not the text, as the message argument. Under this audit's paths only MailContentService changes, in one line: the failure to extract a message's text passes the caught exception as the cause of its MailOperationException instead of appending its text to the message. What the service extracts, sanitizes or renders is unchanged, so no claim of this audit moves."
-      },
-      {
-        "date": "2026-10-03",
-        "note": "Every not-found and validation error names a message key of its own, recorded in API_SURFACE_AUDIT.md as v1.11: ResourceNotFoundException(String) and ValidationException(String), which passed the message as the {0} of a generic key, are removed, and each site that used them names a key. Under this audit's path MailContentService changes in two throws: a message missing from the database names error.message.notFound, and one no longer on the server error.message.goneFromServer. What the service extracts, sanitizes, caps or renders is unchanged, so no claim of this audit moves. Verdict stays PASS."
-      },
-      {
-        "date": "2026-10-11",
-        "note": "#689: the body frame's base stylesheet becomes one per text-size step, read against section 3 (Frame -- defense in depth). The claim holds as written: the frame's <meta> CSP is still default-src 'none' with script-src and style-src each pinned to one sha256, base-uri and form-action 'none', the sandbox is still allow-scripts without allow-same-origin, and the forwarder script and its hash are byte-identical. What moved: MAIL_FRAME_STYLE and MAIL_FRAME_STYLE_SHA256 are now tables keyed by small/medium/large, generated from one template whose only variable is the frame's root font size (15/16/18px from stores/textSize.ts); the body's 14px became 0.875rem; mailFrameCsp(loadRemoteImages, textSize) names the hash of the one step it is given, so a frame admits its own style and not the other two; MessageContent.svelte passes the current text size to buildMailFrameSrcdoc and is otherwise unchanged. The 'recompute the CSP hashes' method note still applies, three times: the three hashes were derived from the generated strings with SHA-256/base64 and match, and mailFrame.test.ts recomputes them. No sanitizer, remote-image, link-relay or height-relay code changed. Verdict unchanged."
-      },
-      {
-        "date": "2026-10-11",
-        "note": "The forwarder's preventDefault predicate gains Ctrl+Y, read against section 3 (Frame -- defense in depth). The app claims Ctrl+Y for the workspace pane since #687, and the predicate is meant to mirror what handleGlobalKeydown claims, so the genuine keystroke in the frame is cancelled as Ctrl+R and Ctrl+P are; the letter class /^[kprfqu]$/i became /^[kprfquy]$/i and nothing else in the script moved. Cancelling a default grants the frame nothing: what it posts out is unchanged (every isTrusted keydown was already relayed), and so are the link relay and the height relay. MAIL_FRAME_SCRIPT_SHA256 was recomputed from the new string with SHA-256/base64 and mailFrame.test.ts recomputes it; the CSP still pins script-src to that one hash, the sandbox is still allow-scripts without allow-same-origin. Under message-detail, MessageHeaderCard.svelte adds min-h-0 to the class of the inline address link, a layout change only. No sanitizer or remote-image code changed. Verdict unchanged."
-      },
-      {
-        "date": "2026-10-17",
-        "note": "The SvelteKit 3 migration (#721). mailFrame.ts and the files under message-detail move only in import specifiers: $lib/... became #lib/... (package.json imports, the same files) and $app/environment became $app/env (the same module, renamed). After normalising those two renames the removed and added lines are identical. The frame's CSP and its two pinned hashes, the sandbox, the forwarder script, the link and height relays and the remote-image gate are byte-identical. Verdict unchanged."
-      },
-      {
-        "date": "2026-10-19",
-        "note": "Under Code paths only MailContentService moves (#745, IMAP/SMTP audit 1.73, B1-22): before the IMAP fetch of a body that is not cached it asks SyncCrashGuard whether the account's sync is paused and refuses with MAIL_ACCOUNT_SYNC_PAUSED (409, error.mail.accountSyncPaused) if it is, and it runs the fetch inside crashGuard.whileFetching. The fetch action is byte-identical — getMessageByUID, extractBody and the oversize flag, escapePlainText for text/plain, referencedCids and collectInlineImages, HtmlSanitizer.sanitize — so every sanitization and rendering claim holds; a cached or oversize body is answered before the new check, as before. Verdict unchanged."
       }
     ]
   },

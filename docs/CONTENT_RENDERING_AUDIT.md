@@ -2,11 +2,12 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 2.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| **Date**           | 2026-09-21                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| **Audited commit** | `c0ff3b0` (re-verified 2026-09-21; 1.9 anchor `0c1b61b`; 1.7-1.8 anchor `d558098`; 1.4-1.6 anchor `cad05cb`, recorded pre-squash as `5799e8b`; 1.0–1.3 baseline: `d55b753` / `fc71cb4`)                                                                                                                                                                                                                                                                                                 |
+| **Version**        | 2.1                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **Date**           | 2026-10-25                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **Applies to**     | VoxRox Mail V0.1.0 (`0d84ec6`), which under `Code paths` is byte-identical to the audited commit                                                                                                                                                                                                                                                                                                                                                                                        |
+| **Audited commit** | `246b2ba` (re-verified 2026-10-25, clearing seven acknowledgements; 2.0 anchor `c0ff3b0`, re-verified 2026-09-21; 1.9 anchor `0c1b61b`; 1.7-1.8 anchor `d558098`; 1.4-1.6 anchor `cad05cb`, recorded pre-squash as `5799e8b`; 1.0–1.3 baseline: `d55b753` / `fc71cb4`)                                                                                                                                                                                                                  |
 | **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/util/HtmlSanitizer.java`, `backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailContentService.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/RemoteImageAllowlistService.java`, `frontend/src/lib/mail/content-sanitizer.ts`, `frontend/src/lib/mail/mailFrame.ts`, `frontend/src/lib/components/message-detail` |
+| **Auditor**        | 2.1 re-verified by Claude Opus 5.5, a session that wrote none of the delta it read, #555 to #745; the revisions before it did not record their auditor                                                                                                                                                                                                                                                                                                                                  |
 | **Subsystem**      | Untrusted email HTML rendering — Boundary 4 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                  |
 | **Verdict**        | **Security: PASS** (no exploitable finding). F1 (dead links), F2 (embedded images + remote-image opt-in), F3 (plain-text fidelity), F4 (URLs in plain-text bodies were not links) and F5 (a link into the message opened the app's own URL) all **fixed**.                                                                                                                                                                                                                              |
 
@@ -16,6 +17,25 @@ highest-value untrusted-input boundary in the product. Method: static
 data-flow trace across backend and frontend, enumeration of every consumer
 and DOM injection sink, plus an empirical browser-engine check of the mail
 body sandbox (see §5).
+
+**Method (2.1).** Every file under `Code paths` read in full against
+`246b2ba`, and the whole delta since the previous anchor
+(`git diff c0ff3b0 246b2ba -- <Code paths>`) read as one change rather than as
+the seven acknowledgements it had been recorded in: a comment in
+`MailContentService` (#555), its extraction failure passed as a cause (#599)
+and its two not-found errors given keys (#608), one base style per text-size
+step in `mailFrame.ts` (#689), Ctrl+Y in the forwarder's predicate and a class
+on the header card's address link (#693), import specifiers of SvelteKit 3
+(#721), and the crash guard's check before a body is fetched (#745). The §2
+checklist was re-run with the commands of §4, after they were corrected
+(change log, 2.1), and the four CSP hashes were recomputed from the source
+literals. The pass was held to the rule of [AUDIT_GUIDE.md](AUDIT_GUIDE.md) §5,
+stated before it began: a claim false at the audited commit, or a finding that
+reaches confidentiality or integrity, blocks the record; an availability
+finding within the boundary, or an observation on code the delta did not
+touch, is recorded and not chased. Static only: nothing was built, run or
+probed beyond the hash computation. Where a test is cited, it passed in the CI
+run of `main` at `246b2ba`.
 
 ## 1. Pipeline — triple-layer defense (confirmed)
 
@@ -57,7 +77,10 @@ IMAP raw body
 'sha256-…'; base-uri 'none'; form-action 'none'`. The only executable script
    is the hash-pinned first-party key forwarder; every mail-body script is
    blocked by hash mismatch, and inline event handlers are blocked by
-   `script-src` without `'unsafe-inline'`. The frame has one mount point,
+   `script-src` without `'unsafe-inline'`. The base stylesheet comes in one
+   variant per text-size step since #689, and a frame's CSP names the hash of
+   its own variant only, so it admits that stylesheet and not the other two.
+   The frame has one mount point,
    [MessageContent.svelte](../frontend/src/lib/components/message-detail/MessageContent.svelte),
    and since v2.0 two places mount it: the reading pane and
    [MessagePrintSheet.svelte](../frontend/src/lib/components/message-detail/MessagePrintSheet.svelte),
@@ -72,11 +95,16 @@ IMAP raw body
 - [x] **No dangerous DOM sinks** — `.innerHTML =`, `insertAdjacentHTML`,
       `outerHTML =`, `document.write` = 0 occurrences in production code under
       `frontend/src`. The only path from content to live DOM is the sandboxed
-      iframe `srcdoc`. (Two occurrences exist, both under vitest and neither in
-      a shipped bundle: `stores/palette.test.ts` assigns the constant `''` to
-      `document.body.innerHTML` in a teardown, and — since #300 —
-      `components/grid/rowActivation.test.ts` builds a row from a literal markup
-      fixture. Both take a first-party constant, never message content.)
+      iframe `srcdoc`. (Five occurrences exist, in four vitest files and none
+      in a shipped bundle: `stores/palette.test.ts`,
+      `shortcuts/focusAnchor.test.ts` (since #556) and
+      `components/boot/BootErrorView.svelte.test.ts` (since #734) assign the
+      constant `''` to `document.body.innerHTML` in a teardown, and
+      `focusAnchor.test.ts` and — since #300 —
+      `components/grid/rowActivation.test.ts` mount literal markup fixtures. All
+      take a first-party constant, never message content. **Corrected in 2.1**:
+      this said two, which held at `c0ff3b0`; the files are outside
+      `Code paths`, so `check:audits` did not see the three added since.)
 - [x] **Sanitizer has no unprotected consumer** — `sanitizeMailHtml` is
       imported only by `mailFrame.ts` (+ its own test), where **two** functions
       call it: `buildMailFrameSrcdoc`, whose output goes into the CSP frame, and
@@ -322,13 +350,19 @@ one, so no dead `cid:` source is ever retained.
 
   ```
   grep -rn "{@html" frontend/src --include=*.svelte
-  grep -rn ".innerHTMLs*=|insertAdjacentHTML|.outerHTMLs*=|document.write" frontend/src
+  grep -rnE '\.innerHTML\s*=|insertAdjacentHTML|\.outerHTML\s*=|document\.write' frontend/src
   grep -rn "sanitizeMailHtml" frontend/src --include=*.ts --include=*.svelte
   grep -rn "mailHtmlToPlainText" frontend/src --include=*.ts --include=*.svelte
-  grep -n "Safelist|removeProtocols|rel\", \"nofollow" backend/src/main/java/org/voxrox/mailbackend/util/HtmlSanitizer.java
-  grep -n "MAX_DEPTH|MAX_INLINE_IMAGE_BYTES|MAX_TOTAL_INLINE_BYTES|MAX_BODY_BYTES" backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java
+  grep -nE 'Safelist|removeProtocols|rel", "nofollow' backend/src/main/java/org/voxrox/mailbackend/util/HtmlSanitizer.java
+  grep -nE 'MAX_DEPTH|MAX_INLINE_IMAGE_BYTES|MAX_TOTAL_INLINE_BYTES|MAX_BODY_BYTES' backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java
   cd backend && mvn -Dtest='HtmlSanitizerTest,HtmlSanitizerMalformedInputTest,MimePartExtractorTest' test
   ```
+
+  **Corrected in 2.1.** Three of these lines had lost their backslashes and
+  their `-E`: `.innerHTMLs*=` instead of `\.innerHTML\s*=`, and `|` read as a
+  literal character by basic `grep`. Each returned no line at all, so the sink
+  sweep reported zero whatever the tree held. Re-run as written above, the
+  sweep finds the five test occurrences §2 names.
 
   The frontend guards run inside the ordinary suites (`npm run test:unit` for
   `mailFrame.test.ts` and `content-sanitizer.test.ts`, `npm run test:e2e` for
@@ -345,8 +379,11 @@ one, so no dead `cid:` source is ever retained.
   guarantee is "exactly one script may execute", and it is only as good as
   `MAIL_FRAME_SCRIPT_SHA256` matching `MAIL_FRAME_SCRIPT`. `mailFrame.test.ts`
   pins it, but a re-verification should derive it independently: SHA-256 of the
-  string literal, base64. The same holds for `MAIL_FRAME_STYLE_SHA256`. Done on
-  2026-09-03 after the forwarder gained its `preventDefault` — both matched.
+  string literal, base64. The same holds for `MAIL_FRAME_STYLE_SHA256`, which
+  since #689 holds one hash per text-size step: the template with each step's
+  root font size from `stores/textSize.ts` substituted. Done on 2026-09-03
+  after the forwarder gained its `preventDefault` — both matched — and on
+  2026-10-25 over the script and all three styles, which matched.
 
 - **Method when jsoup moves.** Compile `HtmlSanitizer` against both versions and
   diff the corpus output. The run on 2026-08-31 for 1.23.1 to 1.23.2 found
@@ -402,6 +439,36 @@ bridge restores working links without changing the sandbox.
 
 ## 7. Change log
 
+- **2.1** (2026-10-25) — re-verified against `246b2ba`, every claim, by a
+  session that wrote none of the delta it read, clearing the seven
+  acknowledgements recorded since 2026-09-22, one short of the ledger's cap.
+  The delta since `c0ff3b0` was read as one change (#555, #599, #608, #689,
+  #693, #721, #745; the method paragraph names what each moved), held to the
+  rule of [AUDIT_GUIDE.md](AUDIT_GUIDE.md) §5 stated before the pass. **No
+  finding.** None of the delta touches the sanitizer, the frame's sandbox or
+  its CSP beyond the style hash: `HtmlSanitizer`, `MimePartExtractor`,
+  `RemoteImageAllowlistService` and `content-sanitizer.ts` are byte-identical
+  to the anchor; `MailContentService` refuses a body for a paused account
+  before the fetch and leaves the fetch action, the sanitize call, the cid
+  collection, the plain-text escape and the oversize flag as they were. The
+  §2 checklist, re-run: `{@html}` still 0 across `frontend/src`;
+  `sanitizeMailHtml` still consumed only by `mailFrame.ts`
+  (`buildMailFrameSrcdoc` and `countRemoteImages`); `mailHtmlToPlainText` still
+  only the plain-text view and the compose prefill; the safelist and the
+  20 / 2 MiB / 8 MiB / 8 MiB caps unchanged; the `srcdoc` binding still occurs
+  once. The script hash and all three style hashes were **recomputed from the
+  source literals** and match. Static only; the tests cited passed in CI on
+  `main` at `246b2ba`. Two claims were false at the audited commit, each
+  corrected here: the §4 commands for the sink sweep, the safelist and the
+  caps had lost their backslashes and `-E` when they were written in 1.9 and
+  returned no line, so the sweep read as zero whatever the tree held; and §2
+  counted two `innerHTML` test occurrences, where #556 and #734 had added three
+  more, all vitest and first-party literals, so production code is still at 0.
+  In the threat model, the Boundary 4 **T / I** row named a count of the
+  frontend sanitizer's unit tests from the initial import, which no gate
+  recomputes and which had moved; the count is dropped. Added: the per-step
+  style hash of #689 in §1 and §4, and the `Auditor` row the guide requires.
+  Verdict unchanged (**PASS**).
 - **2.0** (2026-09-21) — re-verified against `c0ff3b0`, closing the six
   acknowledgements the ledger held rather than adding a seventh for the change
   that prompted it: printing the messages ticked in a list (#532) mounts the

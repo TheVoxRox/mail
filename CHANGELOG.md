@@ -151,6 +151,11 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The content rendering and updater audits are re-verified against `246b2ba`
+  as 2.1 and 1.19, clearing seven acknowledgements each. No finding. The
+  content rendering audit's re-run commands for its DOM sink sweep returned no
+  line whatever the tree held and are fixed, and the updater audit no longer
+  says the key-pair gate never ran on a real release (#779).
 - The API surface audit is re-verified against `8e00d4e` as 1.20, which
   clears the eight acknowledgements its ledger entry had reached. No finding;
   four claims that had gone stale are corrected, among them the cause for SMTP
