@@ -59,4 +59,30 @@ class ImapPropertiesTest {
                 .isInstanceOf(BindException.class).hasRootCauseInstanceOf(IllegalArgumentException.class).rootCause()
                 .hasMessageContaining("mail.client.imap.open-folder-budget");
     }
+
+    /*
+     * The account budget (B1-14, B1-21), bound the same three ways: what the
+     * properties file names, the variable it tells a tester to use, and zero.
+     */
+    @Test
+    @DisplayName("The account budget is 96 MB unless the property or its environment variable says otherwise")
+    void theAccountBudgetBinds() {
+        assertThat(bind(Map.of()).accountBudget()).isEqualTo(DataSize.ofMegabytes(96));
+        assertThat(bind(Map.of("mail.client.imap.account-budget", "160MB")).accountBudget())
+                .isEqualTo(DataSize.ofMegabytes(160));
+        var environment = new SystemEnvironmentPropertySource(
+                StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME,
+                Map.of("MAIL_CLIENT_IMAP_ACCOUNTBUDGET", "160MB"));
+        assertThat(new Binder(ConfigurationPropertySources.from(environment))
+                .bindOrCreate("mail.client.imap", ImapProperties.class).accountBudget())
+                .isEqualTo(DataSize.ofMegabytes(160));
+    }
+
+    @Test
+    @DisplayName("An account budget of zero fails the startup instead of refusing every account")
+    void zeroAccountBudgetIsRefused() {
+        assertThatThrownBy(() -> bind(Map.of("mail.client.imap.account-budget", "0B")))
+                .isInstanceOf(BindException.class).hasRootCauseInstanceOf(IllegalArgumentException.class).rootCause()
+                .hasMessageContaining("mail.client.imap.account-budget");
+    }
 }

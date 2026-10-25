@@ -67,8 +67,10 @@ public class MailConnectionProbe {
         Store store = null;
         try {
             Session session = Session.getInstance(props);
-            // The same bounded store the connection pool uses — see BoundedImapStore.
-            BoundedImapStore.install(session, protocol, mailProperties.imap());
+            // The same bounded store the connection pool uses — see BoundedImapStore —
+            // with a budget of its own: the probe's one connection shares nothing.
+            BoundedImapStore.install(session, protocol, mailProperties.imap(),
+                    new AccountMemoryBudget(mailProperties.imap().accountBudget().toBytes(), accountId));
             store = session.getStore(protocol);
             if (details.authType() == AuthType.OAUTH2) {
                 OAuth2TokenService tokenService = oauth2TokenServiceRegistry.resolve(details.oauth2Provider());
