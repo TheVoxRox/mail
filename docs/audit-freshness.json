@@ -41,53 +41,6 @@
     "Both clocks reset the same way: re-verify the audit, bump `Audited commit`,",
     "and delete the entry from this file."
   ],
-  "docs/API_SURFACE_AUDIT.md": {
-    "reviewedTrees": {
-      "frontend/src-tauri/src/redact.rs": "22f0fb867ceb8e70135c79bee6f492c3c28acf7b",
-      "frontend/src-tauri/src/logs.rs": "0da494433ac1a8f2cb4fc52517d84edba3740ba7",
-      "frontend/src/lib/api/clientBootDiagnostics.ts": "5e76b3e95a63b5f9ff5c9f5b38ff6cad7ae4b7d6",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/account/controller": "d6f66df6b1e89193b66619a929c10a85fa085dc3",
-      "backend/src/main/java/org/voxrox/mailbackend/exception": "ca41911d2f4b626bf55045d8a9a6e7cb2468df80",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/contact/controller": "93f7bef6566200224d13677b84e383911f4b44a2",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/contact/dto": "e6d0fef2d532703dec028de80ff1a44fc07db9a9",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller": "5e0370d0dc16ee71e70b7751d748c45276cfd134",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "1c70c00fc26f838ec5977cb2dceea4cf67342554"
-    },
-    "acknowledgements": [
-      {
-        "date": "2026-10-12",
-        "note": "Recorded in the audit itself as v1.19, whose independent pass moved the anchor to 2d07187. Only the test module of redact.rs moves under Code paths: the shared-vectors test also asserts each vector's replacement counts (addresses, tokens, api_keys). The redactor's code above the test module is byte-identical, so the pass's measurements stand. The vectors file and DiagnosticLogRedactorTest, outside Code paths, gain the vectors and counts the pass found missing, and .github/workflows/ci.yml runs `cargo test --lib -- redact::` in the Tauri (Rust) job. No endpoint, filter, DTO, error response or dump entry changes. Verdict PASS."
-      },
-      {
-        "date": "2026-10-13",
-        "note": "Under Code paths only the test module of logs.rs moves, for zip 4 -> 9: from 9 on ZipArchive::file_names() yields Result, so the test listing a ZIP written without logs collects through Result before it compares. The writer code above #[cfg(test)] is byte-identical, and ZipWriter, SimpleFileOptions and CompressionMethod compile unchanged against 9, so the Save logs ZIP is written by the same calls. redact.rs, the command list and the redaction vectors do not change. Verdict PASS."
-      },
-      {
-        "date": "2026-10-17",
-        "note": "The SvelteKit 3 migration (#721). Under Code paths only frontend/src/lib/api/clientBootDiagnostics.ts moves, and only in import specifiers: $lib/... became #lib/... (package.json imports, the same files) and $app/environment became $app/env (the same module, renamed). Every changed line under the paths of the four audits this touches was compared after normalising those two renames, and the removed and added lines are identical. What the client sends to /api/internal/client-boot, and when, is unchanged. Verdict unchanged."
-      },
-      {
-        "date": "2026-10-18",
-        "note": "Under Code paths only MailProviderController moves: GET /api/v1/accounts/providers/{id} is removed with its @Positive path variable, and the import that served it. Its only client was the provider template list on the account edit page, removed in #735. The controller keeps its class-level @Validated and the constrained email parameter of /resolve, so §2's twelve @Validated controllers out of 18, each one declaring constrained parameters, still hold; the controller count does not change, and no claim in the audit names the endpoint. Authorization is path-independent (§1), so a path that goes away changes no posture. The OpenAPI snapshot, outside Code paths, drops the operation, which makes its return fail OpenApiSnapshotTest. Verdict unchanged."
-      },
-      {
-        "date": "2026-10-19",
-        "note": "Under Code paths only ErrorCode moves (#745): it gains MAIL_ACCOUNT_SYNC_PAUSED, which MailContentService throws as a MailOperationException with 409 and the message key error.mail.accountSyncPaused, through the existing AppException mapping of GlobalExceptionHandler (ProblemDetail with the status, errorCode and the localized detail; MailReadControllerTest pins the response). No controller, filter, DTO, endpoint or dump entry changes, and the detail carries no server data. Verdict unchanged."
-      },
-      {
-        "date": "2026-10-19",
-        "note": "ContactController gains DELETE /api/v1/contacts/autocomplete/history/{historyId}, which forgets one harvested address (CorrespondentService.forget, a single bulk DELETE by id) and answers 204, also for an id that names no row. Its path variable is @Positive on the already @Validated controller, so section 2's twelve of 18 still hold; 0 is a 400 through the existing handler (ContactControllerTest). Like the other bare-id endpoints it takes no accountId and checks no account ownership, which section 1 records as the posture: authorization is path-independent behind the key, and every account belongs to the same OS user. ContactAutocompleteResponse gains historyId, the correspondent row id, on HISTORY rows only; it names a row of the user's own cache and carries no server data. The controller count does not change, and only GET /autocomplete still takes an accountId. The OpenAPI snapshot, outside Code paths, gains the operation and the field. Verdict unchanged."
-      },
-      {
-        "date": "2026-10-20",
-        "note": "Under Code paths only the exception package moves. MailFailureCause gains SMTP_AUTH_DISABLED, picked ahead of AUTHENTICATION when a message in the cause chain contains Exchange Online's 'SmtpClientAuthentication is disabled'; it renders error.mail.cause.smtpAuthDisabled, a fixed sentence in both bundles, so the server's reply still reaches only the log and section 3's claim holds. Section 3's list of causes names eleven and the code now has twelve; the next re-verification adds it. ProviderNotFoundException.byDomain becomes byOAuth2Registration, whose message argument is the registration id the sign-in went through (google or microsoft), the app's own value. Verdict unchanged."
-      },
-      {
-        "date": "2026-10-24",
-        "note": "Two paths under Code paths move (#776). In feature/mail/dto, base64Data of MailRequest.AttachmentRequest, which DraftRequest shares, goes from @NotBlank to @NotNull: the field is still required, so a missing value is a 400 with validation.attachment.dataRequired as before, but an empty string now passes, because a zero-length part is valid MIME and arrives with a forward or a draft written elsewhere; MimeMessageBuilder decodes it to an empty part. Section A1's bounds do not move: the 70 MiB @Size on base64Data, the 50-attachment @Size on both lists and the body cap are unchanged, and an empty string adds nothing to the payload. In feature/mail/controller only the @Operation description of GET /{stableId}/forward changes, which promised references to the original attachments the endpoint never returns; no mapping, parameter or constraint changes, so section 2's twelve of 18 @Validated controllers still hold. The OpenAPI snapshot, outside Code paths, changes in that description only; the AttachmentRequest schema reads the same, minLength 0 either way. Verdict unchanged. This is the eighth acknowledgement: the next change under Code paths needs the audit re-verified."
-      }
-    ]
-  },
   "docs/UPDATER_AUDIT.md": {
     "reviewedTrees": {
       "frontend/src-tauri/src": "7ac92fa286b95f3afcb984758f918ffcd8e35d49",
