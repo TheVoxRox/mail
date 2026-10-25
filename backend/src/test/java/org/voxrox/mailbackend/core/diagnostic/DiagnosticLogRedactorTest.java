@@ -83,6 +83,23 @@ class DiagnosticLogRedactorTest {
     }
 
     /*
+     * A7. The JSON web token shape tried a match at every eyJ after a '-', and each
+     * read the rest of the [\w-] run looking for a dot that cannot be in it:
+     * 160,000 characters took 9 s, and a million had not finished after 28 minutes.
+     */
+    @Test
+    @DisplayName("A long run of eyJ after dashes is redacted in linear time")
+    void aRunOfWebTokenStartsIsRedactedInLinearTime() {
+        DiagnosticLogRedactor redactor = new DiagnosticLogRedactor(null);
+        String starts = "-eyJ".repeat(250_000);
+
+        assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
+            assertThat(redactor.redact(starts)).isEqualTo(starts);
+            assertThat(redactor.redact(starts + ".abcdefgh.abcdefgh")).isEqualTo("-[token]");
+        });
+    }
+
+    /*
      * A6. A regex group over the labels took a stack frame a label, and from about
      * two thousand of them the dump failed with StackOverflowError.
      */

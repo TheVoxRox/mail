@@ -56,10 +56,16 @@ final class DiagnosticLogRedactor {
      * takes a non-spacing mark on a letter or digit for part of a word: it walked
      * back through every mark before each position (A5), and it let an accent
      * written as a mark hide the token the accented letter does not.
+     *
+     * One shape is not here: the JSON web token, which webToken scans by hand. As
+     * the alternative (?<!\w)eyJ[\w-]{8,}\.[\w-]{8,}\.[\w-]{8,} it started a match
+     * at every eyJ after a '-', and each read the rest of the [\w-] run and gave it
+     * back looking for a dot that cannot be in it (A7). Every other shape here
+     * either matches once its run is long enough or fails within a few characters,
+     * so the regex stays linear on them.
      */
     private static final Pattern TOKENS = Pattern.compile(String.join("|", "(?<!\\w)ya29\\.[\\w-]{20,}",
-            "(?<![\\w/])1//[\\w-]{20,}", "(?<!\\w)eyJ[\\w-]{8,}\\.[\\w-]{8,}\\.[\\w-]{8,}",
-            "(?<!\\w)Ew[A-Za-z0-9+/]{40,}={0,2}", "(?<!\\w)Bearer\\s+[\\w.~+/-]{16,}=*",
+            "(?<![\\w/])1//[\\w-]{20,}", "(?<!\\w)Ew[A-Za-z0-9+/]{40,}={0,2}", "(?<!\\w)Bearer\\s+[\\w.~+/-]{16,}=*",
             "(?<!\\w)dXNlcj[0-3][A-Za-z0-9+/]{16,}={0,2}",
             "(?<!\\w)(?:access_token|refresh_token|id_token|client_secret|code_verifier)[\"']?\\s*[=:]\\s*[\"']?[\\w.~+/-]{8,}"));
 
@@ -81,11 +87,106 @@ final class DiagnosticLogRedactor {
             apiKeys++;
             result = result.replace(apiKey, API_KEY);
         }
-        result = replaceAll(TOKENS, result, match -> {
+        return maskAddresses(replaceTokens(result));
+    }
+
+    /*
+     * Every token replaced, leftmost first and each search going on from the end of
+     * the last match, as one regex over all the shapes would: the matches of TOKENS
+     * and of webToken merged by where they start. No two shapes can start at the
+     * same character (each starts with its own), so the earlier start is the one
+     * the combined pattern would find. Each side is searched again only once a
+     * match has passed where its last find started.
+     */
+    private String replaceTokens(String text) {
+        Matcher shapes = TOKENS.matcher(text);
+        boolean shape = shapes.find();
+        @Nullable
+        Span webToken = webToken(text, 0);
+        if (!shape && webToken == null) {
+            return text;
+        }
+        StringBuilder result = new StringBuilder(text.length());
+        int copied = 0;
+        while (shape || webToken != null) {
+            Span match = webToken != null && (!shape || webToken.start() < shapes.start())
+                    ? webToken
+                    : new Span(shapes.start(), shapes.end());
             tokens++;
-            return TOKEN;
-        });
-        return maskAddresses(result);
+            result.append(text, copied, match.start()).append(TOKEN);
+            copied = match.end();
+            if (shape && shapes.start() < copied) {
+                shape = shapes.find(copied);
+            }
+            if (webToken != null && webToken.start() < copied) {
+                webToken = webToken(text, copied);
+            }
+        }
+        return result.append(text, copied, text.length()).toString();
+    }
+
+    private record Span(int start, int end) {
+    }
+
+    /*
+     * The first JSON web token from `from` on: eyJ where no ASCII word character
+     * comes before it, then three parts of [\w-], eight or more each, joined by
+     * dots. A part runs to the end of its [\w-] run, since a dot cannot be in one,
+     * so every eyJ in a run shares the run's end as the end of its first part, and
+     * what follows that end is checked once a run. The match is the first eyJ of
+     * the run that may start one and leaves the part eight characters or more,
+     * which is where the regex's leftmost search lands. A run without a token is
+     * passed whole, so no character is read more than a few times (A7).
+     */
+    private static @Nullable Span webToken(String text, int from) {
+        int index = from;
+        while (true) {
+            int first = text.indexOf("eyJ", index);
+            if (first < 0) {
+                return null;
+            }
+            int runEnd = skipWebTokenPart(text, first);
+            int end = webTokenEnd(text, runEnd);
+            if (end >= 0) {
+                for (int start = first; start + 3 + 8 <= runEnd; start++) {
+                    if (text.startsWith("eyJ", start) && (start == 0 || !isAsciiWord(text.charAt(start - 1)))) {
+                        return new Span(start, end);
+                    }
+                }
+            }
+            index = runEnd;
+        }
+    }
+
+    /*
+     * Where a token whose first part ends at `firstEnd` ends: after a dot, a second
+     * part, a dot and a third part, each eight or more. Or -1.
+     */
+    private static int webTokenEnd(String text, int firstEnd) {
+        if (firstEnd >= text.length() || text.charAt(firstEnd) != '.') {
+            return -1;
+        }
+        int secondEnd = skipWebTokenPart(text, firstEnd + 1);
+        if (secondEnd - (firstEnd + 1) < 8 || secondEnd >= text.length() || text.charAt(secondEnd) != '.') {
+            return -1;
+        }
+        int thirdEnd = skipWebTokenPart(text, secondEnd + 1);
+        return thirdEnd - (secondEnd + 1) >= 8 ? thirdEnd : -1;
+    }
+
+    /*
+     * Past the [\w-] characters from `index` on, \w being ASCII as Java reads it.
+     */
+    private static int skipWebTokenPart(String text, int index) {
+        int end = index;
+        while (end < text.length() && (isAsciiWord(text.charAt(end)) || text.charAt(end) == '-')) {
+            end++;
+        }
+        return end;
+    }
+
+    private static boolean isAsciiWord(char character) {
+        return character < 128 && (Character.isLetterOrDigit(character) || character == '_');
     }
 
     /*
@@ -202,18 +303,5 @@ final class DiagnosticLogRedactor {
     }
 
     record Counts(long addresses, long tokens, long apiKeys) {
-    }
-
-    private static String replaceAll(Pattern pattern, String text, UnaryOperator<String> replacement) {
-        Matcher matcher = pattern.matcher(text);
-        if (!matcher.find()) {
-            return text;
-        }
-        StringBuilder result = new StringBuilder(text.length());
-        do {
-            matcher.appendReplacement(result, Matcher.quoteReplacement(replacement.apply(matcher.group())));
-        } while (matcher.find());
-        matcher.appendTail(result);
-        return result.toString();
     }
 }
