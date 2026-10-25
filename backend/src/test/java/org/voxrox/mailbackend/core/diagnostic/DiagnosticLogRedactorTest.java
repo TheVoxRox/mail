@@ -1,6 +1,7 @@
 package org.voxrox.mailbackend.core.diagnostic;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -60,6 +61,39 @@ class DiagnosticLogRedactorTest {
         assertThat(redactor.redact(HEAD + "X-API-KEY canary-api-key-4417-abcdefghij rejected"))
                 .isEqualTo(HEAD + "X-API-KEY [api-key] rejected");
         assertThat(redactor.counts()).isEqualTo(new DiagnosticLogRedactor.Counts(0, 3, 1));
+    }
+
+    /*
+     * API_SURFACE_AUDIT.md A5. Java's \b walked back through every mark before each
+     * position it was tried at, and the address lookbehind, reading one UTF-16 unit
+     * back, let a match start after every character outside the Basic Multilingual
+     * Plane along a run; each of these lines took minutes.
+     */
+    @Test
+    @DisplayName("A long run of combining marks, or of characters outside the BMP, is redacted in linear time")
+    void longRunsAreRedactedInLinearTime() {
+        DiagnosticLogRedactor redactor = new DiagnosticLogRedactor(null);
+        String marks = "a" + "ͅ".repeat(200_000);
+        String pairs = "x@ " + "𝐀a".repeat(200_000);
+
+        assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
+            assertThat(redactor.redact(marks + "Bearer abcdefghijklmnopqrstuvwxyz")).isEqualTo(marks + "[token]");
+            assertThat(redactor.redact(pairs)).isEqualTo(pairs);
+        });
+    }
+
+    /*
+     * A6. A regex group over the labels took a stack frame a label, and from about
+     * two thousand of them the dump failed with StackOverflowError.
+     */
+    @Test
+    @DisplayName("An address whose domain has a hundred thousand labels is masked, not a stack overflow")
+    void domainOfManyLabelsIsMasked() {
+        DiagnosticLogRedactor redactor = new DiagnosticLogRedactor(null);
+        String labels = ".cc".repeat(100_000);
+
+        assertThat(redactor.redact("a@b" + labels + "-")).isEqualTo("a***@b" + labels + "-");
+        assertThat(redactor.counts().addresses()).isEqualTo(1);
     }
 
     /*

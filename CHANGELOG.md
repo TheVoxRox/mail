@@ -39,6 +39,15 @@ Entries before 2026-09-17 predate that split and are left as written.
   attachment data had to be non-empty, so every autosave and the send of such
   a message failed with "Data přílohy (Base64) nesmí být prázdná." The data
   must still be present; an empty file the user adds is still refused (#776).
+- The diagnostic dump no longer fails or stalls on a log line a mail server
+  wrote in a hostile shape. An address whose domain had about two thousand
+  labels overflowed the redactor's stack, so the dump failed every time for as
+  long as that line stayed in the logs, and a long run of combining marks took
+  minutes; any line now takes time in proportion to its length. The redactor
+  also reads a character outside the Basic Multilingual Plane whole, so the
+  dump masks the same addresses as the Save logs ZIP and never writes half a
+  character, and it replaces a token right after an accent written as a
+  combining mark, which it used to leave (#780).
 
 ### Frontend
 
@@ -148,8 +157,17 @@ Entries before 2026-09-17 predate that split and are left as written.
   or uninstalls: its check for a running app ended only the app's window
   process, and the backend takes up to ten seconds more to shut down while it
   still holds those files open (#762).
+- Save logs replaces a token right after an accent written as a combining
+  mark, as the diagnostic dump now does, instead of keeping it as part of the
+  word before (#780).
 
 ### Repo
+
+- The API surface audit is 1.21: A4's difference outside the Basic
+  Multilingual Plane, A5 (quadratic time) and A6 (found while fixing A5: a stack
+  overflow that failed the dump) are fixed, waiting for their independent pass.
+  The change is acknowledged in the API surface and updater audits' ledgers
+  (#780).
 
 - The content rendering and updater audits are re-verified against `246b2ba`
   as 2.1 and 1.19, clearing seven acknowledgements each. No finding. The

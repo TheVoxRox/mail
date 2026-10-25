@@ -11,16 +11,16 @@
 //! vectors in backend/src/test/resources/diagnostic/redaction-vectors.json run
 //! against both, so a step out of line fails a build.
 //!
-//! Same rules means the same output, not similar patterns, and two things stand
-//! between the Java patterns and Rust's regex. Rust's regex has no lookaround,
-//! so the lookbehind and lookahead are done by hand around a match, the way
-//! Java's backtracking arrives at the same match: an address whose end runs on
-//! into a letter, digit, '_' or '-' falls back to the longest shorter domain
-//! that does not, and a match refused at its start lets the next one begin
-//! after its '@'. And Java reads `\w`, `\b` and `\s` as ASCII where Rust reads
-//! them as Unicode, so the token patterns spell the ASCII classes out; Java's
-//! `\b` with one exception, a non-spacing mark on a letter or digit, which it
-//! counts as part of the word and `java_word_before` does too.
+//! Same rules means the same output, not similar code. Java scans for an
+//! address by hand; here a regex finds the shape of one and the rest is checked
+//! around the match, so that both arrive at the same match: an address whose
+//! end runs on into a letter, digit, '_' or '-' falls back to the longest
+//! shorter domain that does not, and a match refused at its start lets the next
+//! one begin after its '@'. The token patterns are Java's, but Java reads `\w`
+//! and `\s` as ASCII where Rust reads them as Unicode, so they spell the ASCII
+//! classes out. Both read a line by character, not by UTF-16 unit, and neither
+//! takes a non-spacing mark for part of a word, so an accent written as a mark
+//! ends one like any other character that is not ASCII.
 
 use std::sync::OnceLock;
 
@@ -48,8 +48,8 @@ fn address() -> &'static Regex {
 }
 
 /// A character no address starts right after: a '*', or one an address may
-/// hold. The Java pattern's lookbehind; '*' first, because after the '-' that
-/// ends `LOCAL_PART_CHARACTER` it would make a range.
+/// hold, as `DiagnosticLogRedactor.maskAddresses` picks a start; '*' first,
+/// because after the '-' that ends `LOCAL_PART_CHARACTER` it would make a range.
 fn blocks_a_start() -> &'static Regex {
     static BLOCKS: OnceLock<Regex> = OnceLock::new();
     BLOCKS.get_or_init(|| {
@@ -57,8 +57,8 @@ fn blocks_a_start() -> &'static Regex {
     })
 }
 
-/// A character an address may not run on into. The Java pattern's lookahead:
-/// letters and digits by general category, which `char::is_alphanumeric` is
+/// A character an address may not run on into, as `DiagnosticLogRedactor.runsOn`
+/// has it: letters and digits by general category, which `char::is_alphanumeric` is
 /// not (it also takes combining marks such as U+0345).
 fn runs_on() -> &'static Regex {
     static RUNS_ON: OnceLock<Regex> = OnceLock::new();
@@ -71,22 +71,11 @@ fn top_level() -> &'static Regex {
     TOP_LEVEL.get_or_init(|| Regex::new(r"^\p{L}{2,}").expect("top-level pattern"))
 }
 
-/// A non-spacing mark (general category Mn).
-fn non_spacing_mark() -> &'static Regex {
-    static MARK: OnceLock<Regex> = OnceLock::new();
-    MARK.get_or_init(|| Regex::new(r"^\p{Mn}$").expect("mark pattern"))
-}
-
-/// What Java's `Character.isLetterOrDigit` takes.
-fn letter_or_digit() -> &'static Regex {
-    static LETTER_OR_DIGIT: OnceLock<Regex> = OnceLock::new();
-    LETTER_OR_DIGIT.get_or_init(|| Regex::new(r"^[\p{L}\p{Nd}]$").expect("letter pattern"))
-}
-
 /// The token shapes of frontend/scripts/lib/log-scan.mjs, in one pass and in
-/// its order, with Java's ASCII `\w` ([0-9A-Za-z_]), `\b` and `\s`
-/// ([\t\n\x0B\f\r ]). The Google refresh token is group 1: its lookbehind is
-/// checked by hand, and so is the one way Java's `\b` is not ASCII.
+/// its order, with Java's ASCII `\w` ([0-9A-Za-z_]) and `\s`
+/// ([\t\n\x0B\f\r ]). A token starts where no ASCII word character comes before
+/// it, which is what an ASCII `\b` says in front of its first letter. The Google
+/// refresh token is group 1: its lookbehind is checked by hand.
 fn tokens() -> &'static Regex {
     static TOKENS: OnceLock<Regex> = OnceLock::new();
     TOKENS.get_or_init(|| {
@@ -145,10 +134,9 @@ impl Redactor {
 }
 
 /// Every token shape in `text` replaced. A refresh token right after an ASCII
-/// word character or a '/' is not one, and no other shape is one right after a
-/// character Java's `\b` takes for part of a word. Either way no other shape
-/// starts at the same character (they start with a letter, the refresh token
-/// with '1'), so the search goes on from the next one, as Java's does.
+/// word character or a '/' is not one, and no other shape starts at the same
+/// character (they start with a letter, the refresh token with '1'), so the
+/// search goes on from the next one, as Java's does.
 fn replace_tokens(text: &str) -> (String, u64) {
     let mut result = String::with_capacity(text.len());
     let mut copied_up_to = 0;
@@ -156,14 +144,11 @@ fn replace_tokens(text: &str) -> (String, u64) {
     let mut from = 0;
     while let Some(caps) = tokens().captures_at(text, from) {
         let found = caps.get(0).expect("a match has its whole");
-        let refused = if caps.get(1).is_some() {
-            text[..found.start()]
+        let refused = caps.get(1).is_some()
+            && text[..found.start()]
                 .chars()
                 .next_back()
-                .is_some_and(|c| c.is_ascii_alphanumeric() || c == '_' || c == '/')
-        } else {
-            java_word_before(text, found.start())
-        };
+                .is_some_and(|c| c.is_ascii_alphanumeric() || c == '_' || c == '/');
         if refused {
             from = found.start() + 1;
             continue;
@@ -178,38 +163,15 @@ fn replace_tokens(text: &str) -> (String, u64) {
     (result, count)
 }
 
-/// Whether Java's `\b` takes the character before `index` for part of a word:
-/// an ASCII word character, or a non-spacing mark on a letter or digit, which
-/// `Pattern` counts with its base whatever `\w` means.
-fn java_word_before(text: &str, index: usize) -> bool {
-    let mut before = text[..index].chars().rev();
-    match before.next() {
-        Some(c) if c.is_ascii_alphanumeric() || c == '_' => true,
-        Some(c) if is_one_of(non_spacing_mark(), c) => {
-            for c in before {
-                if is_one_of(letter_or_digit(), c) {
-                    return true;
-                }
-                if !is_one_of(non_spacing_mark(), c) {
-                    return false;
-                }
-            }
-            false
-        }
-        _ => false,
-    }
-}
-
 /// Every address in `text` that is not masked yet, masked as `LogMasker` masks
-/// one, where Java's pattern finds it.
+/// one, where `DiagnosticLogRedactor` finds it.
 ///
 /// The regex finds the leftmost address with the longest domain that has the
 /// shape of one. A start right after a '*' or a local-part character is
-/// refused, which Java's lookbehind does to every start inside that local
-/// part, so the next one to try is the first after its '@'. An end that runs on
-/// into a letter, digit, '_' or '-' falls back to an earlier dot, latest first,
-/// which is the order Java's backtracking gives the labels up in; with no dot
-/// left to fall back to, the address is refused too.
+/// refused, as Java refuses every start inside that local part, so the next one
+/// to try is the first after its '@'. An end that runs on into a letter, digit,
+/// '_' or '-' falls back to an earlier dot, latest first, the order Java tries
+/// them in; with no dot left to fall back to, the address is refused too.
 fn mask_addresses(text: &str) -> (String, u64) {
     let mut result = String::with_capacity(text.len());
     let mut copied_up_to = 0;
@@ -243,8 +205,8 @@ fn mask_addresses(text: &str) -> (String, u64) {
 
 /// Where an address whose shape ends at `end` really ends: there, unless it
 /// runs on; else at the top-level domain after an earlier dot that does not.
-/// The dots before the last are the only places Java's backtracking can end a
-/// match: a shorter top-level domain leaves a letter after it.
+/// The dots before the last are the only places left to end one: a shorter
+/// top-level domain leaves a letter after it.
 fn whole_address_end(text: &str, at: usize, end: usize) -> Option<usize> {
     if !runs_on_at(text, end) {
         return Some(end);
@@ -274,9 +236,8 @@ fn is_one_of(class: &Regex, c: char) -> bool {
     class.is_match(c.encode_utf8(&mut buffer))
 }
 
-/// `jan.novak@seznam.cz` -> `j***k@seznam.cz`, as `LogMasker.maskEmail` writes it.
-/// Counted in characters where Java counts UTF-16 units, which differ only for a
-/// local part with a character outside the Basic Multilingual Plane.
+/// `jan.novak@seznam.cz` -> `j***k@seznam.cz`, as `LogMasker.maskEmail` writes it,
+/// counting characters as it does.
 fn mask_email(address: &str) -> String {
     let Some(at) = address.find('@') else {
         return "***".to_string();
