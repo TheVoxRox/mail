@@ -99,7 +99,10 @@ import org.voxrox.mailbackend.util.LogCategory;
  * per selected folder: on what is spent in time rather than memory, since each
  * EXPUNGE costs Angus a pass over the folder, however short its line (B1-13),
  * and on what the folder keeps of the FETCH responses it is handed, which
- * outlives the command that brought it (B1-14).
+ * outlives the command that brought it (B1-14). And the last across all of an
+ * account's connections: what their folders keep and their commands carry is
+ * summed in the account's {@link AccountMemoryBudget}, which this connection
+ * reports to and is refused by like the others.
  * <p>
  * The superclass constructor reads the server greeting through
  * {@link #readResponse()}, which runs before any field of this class is
@@ -107,7 +110,7 @@ import org.voxrox.mailbackend.util.LogCategory;
  * budgets need have no initializer — null is what that first read must see.
  * {@link #isEnabled(String)} is safe there: Angus null-checks its set.
  */
-final class BoundedImapProtocol extends IMAPProtocol {
+final class BoundedImapProtocol extends IMAPProtocol implements AccountMemoryBudget.Holder {
 
     private static final Logger log = LoggerFactory.getLogger(BoundedImapProtocol.class);
 
@@ -401,6 +404,14 @@ final class BoundedImapProtocol extends IMAPProtocol {
      */
     static final String OPEN_FOLDER_BUDGET_PROPERTY = "voxrox.openfolderbudget";
 
+    /**
+     * The session property, under {@code mail.<protocol>.}, that carries the
+     * account's {@link AccountMemoryBudget} to the protocol: the object itself, not
+     * a string, so that every session of the account hands its connections the same
+     * one. {@link BoundedImapStore#install} writes it, and nothing else reads it.
+     */
+    static final String ACCOUNT_BUDGET_PROPERTY = "voxrox.accountbudget";
+
     /** The body sections {@link #isContentSection} counts as content. */
     private static final Pattern CONTENT_SECTION = Pattern.compile("(?i)(\\d+(\\.\\d+)*)?(\\.?TEXT)?");
 
@@ -436,11 +447,47 @@ final class BoundedImapProtocol extends IMAPProtocol {
      * default then.
      */
     private final long configuredOpenFolderBudget;
+    /*
+     * The account this connection's holdings count against, or null for a session
+     * that carries none. Null too while the constructor reads the greeting, which
+     * is charged to no account: the connection registers once it exists.
+     */
+    private final @Nullable AccountMemoryBudget account;
+    /*
+     * What this connection holds as the account reads it from other threads: what
+     * the selected folder keeps plus what the command in progress has been charged
+     * (CommandBudget.held). Volatile and republished after every change, so a
+     * reader never has to lock this connection.
+     */
+    private volatile long held;
 
     BoundedImapProtocol(String name, String host, int port, Properties props, boolean isSSL, MailLogger logger)
             throws IOException, ProtocolException {
         super(name, host, port, props, isSSL, logger);
         configuredOpenFolderBudget = openFolderBudget(props, name);
+        account = accountBudget(props, "mail." + name);
+        if (account != null) {
+            account.opened(this);
+        }
+    }
+
+    /**
+     * The account budget a session carries under {@code prefix} (
+     * {@code mail.<protocol>}), or null when it carries none.
+     */
+    private static @Nullable AccountMemoryBudget accountBudget(Properties props, String prefix) {
+        return props.get(prefix + "." + ACCOUNT_BUDGET_PROPERTY) instanceof AccountMemoryBudget shared ? shared : null;
+    }
+
+    @Override
+    public long heldBytes() {
+        return held;
+    }
+
+    private void publishHeld() {
+        SelectionBudget folder = selection;
+        CommandBudget command = budget;
+        held = (folder == null ? 0 : folder.kept()) + (command == null ? 0 : command.held());
     }
 
     /**
@@ -539,15 +586,58 @@ final class BoundedImapProtocol extends IMAPProtocol {
      * trusted to mark, since it may send tagged lines that are not the command's
      * own, and every command the client sends — {@code Protocol.command}, the
      * AUTHENTICATE loops, {@code readEach} — begins here. A SELECT or EXAMINE also
-     * starts a fresh {@link SelectionBudget}, for the folder it selects.
+     * starts a fresh {@link SelectionBudget}, for the folder it selects, and a
+     * CLOSE or UNSELECT ends the one in force: Angus closes a folder with one of
+     * the two, and the folder's messages go with it, so what they kept no longer
+     * counts against the account.
      */
     @Override
     public String writeCommand(String command, @Nullable Argument args) throws IOException, ProtocolException {
         budget = null;
-        if ("SELECT".equalsIgnoreCase(command) || "EXAMINE".equalsIgnoreCase(command)) {
+        if ("SELECT".equalsIgnoreCase(command) || "EXAMINE".equalsIgnoreCase(command)
+                || "CLOSE".equalsIgnoreCase(command) || "UNSELECT".equalsIgnoreCase(command)) {
             selection = null;
         }
+        publishHeld();
         return super.writeCommand(command, args);
+    }
+
+    /**
+     * A command's responses stop counting against the account when it returns: its
+     * caller has handled them by then and lets them go, and what a folder kept of
+     * them is counted as the folder's. Only the account's sum: the command's own
+     * budget still runs until the next command starts.
+     */
+    @Override
+    public synchronized Response[] command(String command, @Nullable Argument args) {
+        try {
+            return super.command(command, args);
+        } finally {
+            CommandBudget current = budget;
+            if (current != null) {
+                current.returned();
+            }
+            publishHeld();
+        }
+    }
+
+    /**
+     * A connection that ends holds nothing, so its account stops counting it.
+     * Synchronized as {@code Protocol.disconnect} is, which the call below takes
+     * anyway. The budget is read from the session rather than from this class's
+     * field: the superclass constructor disconnects when the greeting fails, before
+     * the field is assigned, and its own fields are set by then.
+     */
+    @Override
+    public synchronized void disconnect() {
+        try {
+            super.disconnect();
+        } finally {
+            AccountMemoryBudget shared = accountBudget(props, prefix);
+            if (shared != null) {
+                shared.closed(this);
+            }
+        }
     }
 
     @Override
@@ -580,6 +670,7 @@ final class BoundedImapProtocol extends IMAPProtocol {
             throw new ImplausibleResponseException("the response could not be read (" + e + ")", e);
         }
         Response response = read.response();
+        boolean charged = false;
         if (response instanceof IMAPResponse imapResponse) {
             String refusal = refusal(imapResponse, isEnabled("QRESYNC"));
             if (refusal != null) {
@@ -602,6 +693,7 @@ final class BoundedImapProtocol extends IMAPProtocol {
                 long budget = openFolderBudget();
                 long before = folder.kept();
                 String overkept = folder.chargeKept(keptBytes(fetch, read.wireSize(), fetchingContent), budget);
+                charged = true;
                 if (overkept != null) {
                     throw refused(overkept);
                 }
@@ -632,8 +724,22 @@ final class BoundedImapProtocol extends IMAPProtocol {
                     ? vanishedUids(imapResponse)
                     : 0;
             String overspent = current.charge(read.wireSize(), vanished);
+            charged = true;
             if (overspent != null) {
                 throw refused(overspent);
+            }
+        }
+        /*
+         * And what the account's connections hold together, this one with what it just
+         * charged. Checked after this connection's own bounds, so a response past one
+         * of them is refused for that, the narrower reason.
+         */
+        AccountMemoryBudget shared = account;
+        if (charged && shared != null) {
+            publishHeld();
+            String overheld = shared.refusal();
+            if (overheld != null) {
+                throw refused(overheld);
             }
         }
         return response;
@@ -1464,11 +1570,31 @@ final class BoundedImapProtocol extends IMAPProtocol {
 
         private long bytes;
         private long vanishedUids;
+        private long held;
+
+        /**
+         * What the account counts of this command: what it was charged until it
+         * returned, and after that only what arrives later. The budget itself runs on
+         * until the next command, since its end is not something the server can be
+         * trusted to mark.
+         */
+        long held() {
+            return held;
+        }
+
+        /**
+         * The command has returned: its caller has handled its responses and lets them
+         * go, and what a folder kept of them is the folder's to count.
+         */
+        void returned() {
+            held = 0;
+        }
 
         /** Charges one untagged response: the reason to refuse it, or null. */
         @Nullable
         String charge(int wireBytes, long vanished) {
             bytes += wireBytes + (long) RESPONSE_OVERHEAD_BYTES;
+            held += wireBytes + (long) RESPONSE_OVERHEAD_BYTES;
             vanishedUids += vanished;
             if (bytes > MAX_COMMAND_BYTES) {
                 return "one command's responses passed " + MAX_COMMAND_BYTES + " bytes";

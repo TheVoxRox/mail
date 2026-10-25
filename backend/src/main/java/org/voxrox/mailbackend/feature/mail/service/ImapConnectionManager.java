@@ -100,6 +100,14 @@ public class ImapConnectionManager {
      * stays empty in the normal case rather than growing like the lock map.
      */
     private final Map<Long, Instant> interactiveLaneCooldown = new ConcurrentHashMap<>();
+    /**
+     * One {@link AccountMemoryBudget} per account, shared by the sessions of both
+     * lanes and so by every connection they open (IMAP/SMTP audit B1-14). Kept
+     * while the account exists rather than per store: a store reconnected after a
+     * failure must count against the same budget as the other lane's, which may
+     * still hold a folder open.
+     */
+    private final Map<Long, AccountMemoryBudget> accountBudgets = new ConcurrentHashMap<>();
 
     private final AccountConnectionDetailsService connectionDetailsService;
     private final AccountRepository accountRepository;
@@ -555,6 +563,7 @@ public class ImapConnectionManager {
     public void purgeAccount(Long accountId) {
         removeConnection(accountId);
         interactiveLaneCooldown.remove(accountId);
+        accountBudgets.remove(accountId);
     }
 
     public PoolStats getPoolStats() {
@@ -656,6 +665,7 @@ public class ImapConnectionManager {
         connectionPool.clear();
         accountLocks.clear();
         interactiveLaneCooldown.clear();
+        accountBudgets.clear();
     }
 
     private Store createNewConnectedStore(Long accountId) throws MessagingException {
@@ -706,8 +716,10 @@ public class ImapConnectionManager {
         }
 
         Session session = Session.getInstance(props);
-        // Server-stated sizes checked before Angus allocates for them (audit B1-3).
-        BoundedImapStore.install(session, protocol, mailProps.imap());
+        // Server-stated sizes checked before Angus allocates for them (audit B1-3),
+        // and what the account's connections hold bounded together (B1-14).
+        BoundedImapStore.install(session, protocol, mailProps.imap(), accountBudgets.computeIfAbsent(accountId,
+                id -> new AccountMemoryBudget(mailProps.imap().accountBudget().toBytes(), id)));
         Store store = session.getStore(protocol);
 
         /*

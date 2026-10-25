@@ -70,6 +70,9 @@ class MailConnectionProbeTest {
      */
     private static final DataSize OPEN_FOLDER_BUDGET = DataSize.ofMegabytes(48);
 
+    /** The account budget configured here, for the same reason: not the default. */
+    private static final DataSize ACCOUNT_BUDGET = DataSize.ofMegabytes(72);
+
     @Mock
     private OAuth2TokenServiceRegistry oauth2TokenServiceRegistry;
     @Mock
@@ -83,7 +86,7 @@ class MailConnectionProbeTest {
     void setUp() {
         ImapProperties imap = new ImapProperties(993, Duration.ofSeconds(30), Duration.ofSeconds(60),
                 Duration.ofSeconds(60), "imaps", "imap", Duration.ofSeconds(1), Duration.ofMinutes(5),
-                OPEN_FOLDER_BUDGET);
+                OPEN_FOLDER_BUDGET, ACCOUNT_BUDGET);
         SmtpProperties smtp = new SmtpProperties(Duration.ofSeconds(15), Duration.ofSeconds(10));
         MailClientProperties props = new MailClientProperties(imap, smtp, null, null);
         probe = new MailConnectionProbe(props, oauth2TokenServiceRegistry, smtpTransportFactory);
@@ -115,15 +118,20 @@ class MailConnectionProbeTest {
         }
 
         @Test
-        @DisplayName("The probe opens the same bounded store the pool does, with its open-folder budget "
-                + "(audit B1-3, B1-14)")
+        @DisplayName("The probe opens the same bounded store the pool does, with its open-folder budget and an "
+                + "account budget (audit B1-3, B1-14)")
         void probeUsesTheBoundedStore() throws Exception {
             Session sessionMock = mock(Session.class);
             Properties sessionProps = new Properties();
             when(sessionMock.getProperties()).thenReturn(sessionProps);
             AtomicLong budgetAtGetStore = new AtomicLong();
+            AtomicLong accountBudgetAtGetStore = new AtomicLong();
             when(sessionMock.getStore("imaps")).thenAnswer(invocation -> {
                 budgetAtGetStore.set(BoundedImapProtocol.openFolderBudget(sessionProps, "imaps"));
+                if (sessionProps.get("mail.imaps."
+                        + BoundedImapProtocol.ACCOUNT_BUDGET_PROPERTY) instanceof AccountMemoryBudget account) {
+                    accountBudgetAtGetStore.set(account.limit());
+                }
                 return mock(Store.class);
             });
 
@@ -140,6 +148,7 @@ class MailConnectionProbeTest {
             assertThat(provider.getValue().getProtocol()).isEqualTo("imaps");
             assertThat(provider.getValue().getClassName()).isEqualTo(BoundedImapStore.class.getName());
             assertThat(budgetAtGetStore).hasValue(OPEN_FOLDER_BUDGET.toBytes());
+            assertThat(accountBudgetAtGetStore).hasValue(ACCOUNT_BUDGET.toBytes());
         }
 
         /**

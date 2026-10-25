@@ -8,6 +8,8 @@ import static org.mockito.Mockito.*;
 import java.lang.reflect.Field;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -79,6 +81,9 @@ class ImapConnectionManagerTest {
      */
     private static final DataSize OPEN_FOLDER_BUDGET = DataSize.ofMegabytes(48);
 
+    /** The account budget configured here, for the same reason: not the default. */
+    private static final DataSize ACCOUNT_BUDGET = DataSize.ofMegabytes(72);
+
     @Mock
     private AccountConnectionDetailsService connectionDetailsService;
     @Mock
@@ -144,8 +149,9 @@ class ImapConnectionManagerTest {
     }
 
     private void stubInteractiveRetryAfter(Duration retryAfter) {
-        when(mailProps.imap()).thenReturn(new ImapProperties(993, Duration.ofSeconds(30), Duration.ofSeconds(60),
-                Duration.ofSeconds(60), "imaps", "imap", Duration.ofSeconds(1), retryAfter, OPEN_FOLDER_BUDGET));
+        when(mailProps.imap()).thenReturn(
+                new ImapProperties(993, Duration.ofSeconds(30), Duration.ofSeconds(60), Duration.ofSeconds(60), "imaps",
+                        "imap", Duration.ofSeconds(1), retryAfter, OPEN_FOLDER_BUDGET, ACCOUNT_BUDGET));
     }
 
     @Nested
@@ -842,6 +848,50 @@ class ImapConnectionManagerTest {
             assertThat(provider.getValue().getClassName()).as("the connect ended with %s", thrown)
                     .isEqualTo(BoundedImapStore.class.getName());
             assertThat(budgetAtGetStore).hasValue(OPEN_FOLDER_BUDGET.toBytes());
+        }
+
+        /*
+         * B1-14, B1-21: the account's connections are bounded together only if every
+         * one of them reports to the same budget, and a lane reconnected on its own
+         * opens a session of its own. A budget per session would bound each lane apart,
+         * which is the residual the account budget exists to close.
+         */
+        @Test
+        @DisplayName("Both lanes' sessions carry one budget for the account, and a purged account starts a new one")
+        void bothLanesShareTheAccountBudget() throws Exception {
+            for (Lane lane : Lane.values()) {
+                Store dead = mock(Store.class);
+                when(dead.isConnected()).thenReturn(false);
+                pool().put(key(lane), dead);
+            }
+            when(connectionDetailsService.getImapConnectionDetails(ACCOUNT_ID)).thenReturn(passwordDetails());
+            stubInteractiveRetryAfter(Duration.ofMinutes(5));
+            List<Properties> sessionProps = new ArrayList<>();
+            List<Throwable> connects = new ArrayList<>();
+
+            try (MockedStatic<Session> sessions = mockStatic(Session.class)) {
+                sessions.when(() -> Session.getInstance(any(Properties.class))).thenAnswer(invocation -> {
+                    Properties props = new Properties();
+                    sessionProps.add(props);
+                    Session session = mock(Session.class);
+                    when(session.getProperties()).thenReturn(props);
+                    lenient().when(session.getStore("imaps")).thenReturn(mock(Store.class));
+                    return session;
+                });
+                // How the mocked connects end is not the question.
+                connects.add(catchThrowable(() -> manager.getConnectedStore(ACCOUNT_ID, Lane.BACKGROUND)));
+                connects.add(catchThrowable(() -> manager.getConnectedStore(ACCOUNT_ID, Lane.INTERACTIVE)));
+                manager.purgeAccount(ACCOUNT_ID);
+                connects.add(catchThrowable(() -> manager.getConnectedStore(ACCOUNT_ID, Lane.BACKGROUND)));
+            }
+
+            String key = "mail.imaps." + BoundedImapProtocol.ACCOUNT_BUDGET_PROPERTY;
+            assertThat(sessionProps).as("the connects ended with %s", connects).hasSize(3);
+            AccountMemoryBudget background = (AccountMemoryBudget) sessionProps.get(0).get(key);
+            assertThat(background).isNotNull();
+            assertThat(background.limit()).isEqualTo(ACCOUNT_BUDGET.toBytes());
+            assertThat(sessionProps.get(1).get(key)).isSameAs(background);
+            assertThat(sessionProps.get(2).get(key)).isNotNull().isNotSameAs(background);
         }
     }
 

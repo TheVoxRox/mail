@@ -48,6 +48,14 @@ import org.springframework.util.unit.DataSize;
  *            a measured honest pass: a beta tester whose folder keeps running
  *            into it can raise it without a new build. See
  *            {@code BoundedImapProtocol.DEFAULT_OPEN_FOLDER_BUDGET}.
+ * @param accountBudget
+ *            what all of an account's IMAP connections may hold together: what
+ *            their open folders keep, as for {@code openFolderBudget}, and the
+ *            responses of the commands they are running (IMAP/SMTP audit B1-14,
+ *            B1-21). Past it the connection that charged last is closed. One
+ *            bound across the account, so the heap a hostile server can take no
+ *            longer grows with the number of connections it drives at once. See
+ *            {@code AccountMemoryBudget}.
  */
 public record ImapProperties(@Min(1) @Max(65535) @DefaultValue("993") int defaultPort,
         @NotNull @DefaultValue("30s") Duration connectionTimeout, @NotNull @DefaultValue("60s") Duration readTimeout,
@@ -55,7 +63,8 @@ public record ImapProperties(@Min(1) @Max(65535) @DefaultValue("993") int defaul
         @NotBlank @DefaultValue("imap") String protocolStandard,
         @NotNull @DefaultValue("1s") Duration roleLookupTimeout,
         @NotNull @DefaultValue("5m") Duration interactiveLaneRetryAfter,
-        @NotNull @DefaultValue("64MB") DataSize openFolderBudget) {
+        @NotNull @DefaultValue("64MB") DataSize openFolderBudget,
+        @NotNull @DefaultValue("96MB") DataSize accountBudget) {
 
     public ImapProperties {
         // Zero would refuse every FETCH, so every folder; a startup failure says so
@@ -63,6 +72,11 @@ public record ImapProperties(@Min(1) @Max(65535) @DefaultValue("993") int defaul
         if (openFolderBudget.toBytes() <= 0) {
             throw new IllegalArgumentException(
                     "mail.client.imap.open-folder-budget must be positive, was " + openFolderBudget);
+        }
+        // Zero would refuse every response an account's connections are charged for.
+        if (accountBudget.toBytes() <= 0) {
+            throw new IllegalArgumentException(
+                    "mail.client.imap.account-budget must be positive, was " + accountBudget);
         }
     }
 }

@@ -48,6 +48,13 @@ Entries before 2026-09-17 predate that split and are left as written.
   dump masks the same addresses as the Save logs ZIP and never writes half a
   character, and it replaces a token right after an accent written as a
   combining mark, which it used to leave (#780).
+- An account's IMAP connections share one memory budget, 96 MB by default
+  (`mail.client.imap.account-budget`). Each open folder and each command was
+  bounded on its own, but an account has several connections at once, so a
+  hostile mail server driving them all together could take about the whole
+  heap and end the backend. Together they now hold some 100 MB at most; past
+  the budget the connection that charged last is closed and its work retried,
+  as with the other bounds (#781).
 
 ### Frontend
 
@@ -163,6 +170,10 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The IMAP/SMTP audit is 1.77: the account budget closes the residual of B1-14
+  and B1-21, waiting for its independent pass. The todo item on Esc with a
+  screen reader is closed without a code change: JAWS takes the first Esc in
+  forms mode (#781).
 - The API surface audit is 1.21: A4's difference outside the Basic
   Multilingual Plane, A5 (quadratic time) and A6 (found while fixing A5: a stack
   overflow that failed the dump) are fixed, waiting for their independent pass.

@@ -39,13 +39,17 @@ public final class BoundedImapStore extends IMAPStore {
 
     /**
      * Makes this class the session's store for {@code protocol}, and hands its
-     * connections the open-folder budget (B1-14) the way Angus hands them
-     * everything else, as a session property they read when they open. Called on
-     * every session that opens an IMAP store, before its {@code getStore}.
+     * connections the open-folder budget (B1-14) and the account's
+     * {@link AccountMemoryBudget} the way Angus hands them everything else, as
+     * session properties they read when they open. Called on every session that
+     * opens an IMAP store, before its {@code getStore}; every session of one
+     * account gets the same {@code account}.
      */
-    static void install(Session session, String protocol, ImapProperties imap) throws NoSuchProviderException {
+    static void install(Session session, String protocol, ImapProperties imap, AccountMemoryBudget account)
+            throws NoSuchProviderException {
         session.getProperties().put("mail." + protocol + "." + BoundedImapProtocol.OPEN_FOLDER_BUDGET_PROPERTY,
                 String.valueOf(imap.openFolderBudget().toBytes()));
+        session.getProperties().put("mail." + protocol + "." + BoundedImapProtocol.ACCOUNT_BUDGET_PROPERTY, account);
         session.setProvider(
                 new Provider(Provider.Type.STORE, protocol, BoundedImapStore.class.getName(), "VoxRox Mail", null));
     }
