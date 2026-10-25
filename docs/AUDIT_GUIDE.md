@@ -113,6 +113,33 @@ doc's own change log) and update the audit's row in the verdict index in
 `backend/SECURITY_RELEASE_CHECK.md` (tier, version, date, commit, verdict —
 never claim details).
 
+**Say when the pass ends before it starts.** The brief for the pass states
+which outcomes block the record and which are written down and accepted, and
+the audit's change-log entry repeats it, so the pass that follows a fix is
+judged by the same rule. The default, unless the brief argues otherwise:
+
+- **Blocks:** a claim in the audit that is false at the audited commit, and a
+  finding that reaches confidentiality or integrity — data leaving the
+  boundary, a check that can be bypassed, a write that lands where it should
+  not.
+- **Recorded, not chased:** a finding limited to availability within the
+  boundary's own scope (the same account, the same local process), rated as
+  the threat model rates its adversary, and an observation on code the change
+  did not touch. Each gets its severity, the reason it is accepted and an
+  upgrade path, in the audit's residual or as a `todo.md` item; the pass does
+  not wait on its fix.
+- **A fix gets one pass, over the fix.** A blocking finding is fixed and the
+  next pass checks that fix and the claims it changed, under the same rule —
+  not the whole boundary again. What that pass finds outside the fix falls
+  under the first two items.
+
+Without this a pass after each fix went on looking, and every pass found
+something: the IMAP/SMTP audit ran fix → pass → new finding from 2026-09-27
+to 2026-10-08, and B1-16 and B1-18 to B1-21 were each a new shape of server
+reply that the same memory estimate missed. It stopped when B1-21 was accepted
+as residual, with a bound by construction planned as its own change instead
+of another refinement of the estimate.
+
 ## 6. Coverage checklist (ASVS-derived, right-sized for this app)
 
 Not every item applies to every boundary — mark N/A explicitly rather than

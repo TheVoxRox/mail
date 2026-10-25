@@ -151,6 +151,11 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- `docs/AUDIT_GUIDE.md` §5 now has the verification pass state, before it
+  starts, what blocks the record (a false claim, a confidentiality or
+  integrity finding) and what is recorded and accepted, and limits the pass
+  after a fix to that fix. Without it the IMAP/SMTP audit ran fix → pass →
+  new finding for eleven days (#777).
 - The OpenAPI description of the forward endpoint no longer promises
   references to the original attachments: it returns none, and the composer
   downloads them itself since #767. The change under the API surface audit's
