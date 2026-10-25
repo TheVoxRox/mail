@@ -40,16 +40,17 @@ public final class LogMasker {
 
         String user = email.substring(0, atIndex);
         String domain = email.substring(atIndex);
+        int length = user.codePointCount(0, user.length());
 
-        if (user.length() == 1) {
+        if (length == 1) {
             return user + "***" + domain;
         }
 
-        if (user.length() == 2) {
-            return user.charAt(0) + "***" + domain;
+        if (length == 2) {
+            return first(user) + "***" + domain;
         }
 
-        return user.charAt(0) + "***" + user.charAt(user.length() - 1) + domain;
+        return first(user) + "***" + last(user) + domain;
     }
 
     /*
@@ -74,11 +75,23 @@ public final class LogMasker {
             return EMPTY;
         }
 
-        if (username.length() <= 2) {
+        if (username.codePointCount(0, username.length()) <= 2) {
             return "***";
         }
 
-        return username.charAt(0) + "***" + username.charAt(username.length() - 1);
+        return first(username) + "***" + last(username);
+    }
+
+    /*
+     * The first and last character, whole: a character outside the Basic
+     * Multilingual Plane is two chars, and half of one is no text.
+     */
+    private static String first(String value) {
+        return Character.toString(value.codePointAt(0));
+    }
+
+    private static String last(String value) {
+        return Character.toString(value.codePointBefore(value.length()));
     }
 
     private static Object lazy(@Nullable String value, java.util.function.Function<@Nullable String, String> masker) {

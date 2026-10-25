@@ -138,6 +138,38 @@
       "why": "letters of any script, in the local part and the domain"
     },
     {
+      "line": "550 <𝐀jan𝐁@example.org> unknown",
+      "redacted": "550 <𝐀***𝐁@example.org> unknown",
+      "addresses": 1,
+      "tokens": 0,
+      "apiKeys": 0,
+      "why": "a character outside the Basic Multilingual Plane is kept or masked whole, never split"
+    },
+    {
+      "line": "550 <𝐀b@example.org> unknown",
+      "redacted": "550 <𝐀***@example.org> unknown",
+      "addresses": 1,
+      "tokens": 0,
+      "apiKeys": 0,
+      "why": "a two-character local part counts characters, not UTF-16 units"
+    },
+    {
+      "line": "*𝐀b@cc.dd.ee@ff.gg",
+      "redacted": "*𝐀b@c***e@ff.gg",
+      "addresses": 1,
+      "tokens": 0,
+      "apiKeys": 0,
+      "why": "no match starts right after a character outside the Basic Multilingual Plane that an address may hold"
+    },
+    {
+      "line": "a@bb.cz'𝐀c@dd.cz",
+      "redacted": "a***@bb.cz'𝐀c@dd.cz",
+      "addresses": 1,
+      "tokens": 0,
+      "apiKeys": 0,
+      "why": "the known miss after a character an address may hold, with one outside the Basic Multilingual Plane"
+    },
+    {
       "line": "a@b.cd and ab@cd.ef",
       "redacted": "a***@b.cd and a***@cd.ef",
       "addresses": 2,
@@ -283,19 +315,27 @@
     },
     {
       "line": "Žͅid_token: abcdefgh12345",
-      "redacted": "Žͅid_token: abcdefgh12345",
-      "addresses": 0,
-      "tokens": 0,
-      "apiKeys": 0,
-      "why": "a non-spacing mark on a letter is part of the word for Java's \\b, so no token starts after it"
-    },
-    {
-      "line": " ͅid_token: abcdefgh12345",
-      "redacted": " ͅ[token]",
+      "redacted": "Žͅ[token]",
       "addresses": 0,
       "tokens": 1,
       "apiKeys": 0,
-      "why": "a non-spacing mark with no letter under it is not, so the token starts after it"
+      "why": "a non-spacing mark on a letter is no ASCII word character, so a token starts right after it"
+    },
+    {
+      "line": "éBearer abcdefghijklmnopqrstuvwxyz",
+      "redacted": "é[token]",
+      "addresses": 0,
+      "tokens": 1,
+      "apiKeys": 0,
+      "why": "an accent written as a mark after its letter ends no word, as the accented letter written as one character does not"
+    },
+    {
+      "line": "a𝅧Bearer abcdefghijklmnopqrstuvwxyz",
+      "redacted": "a𝅧[token]",
+      "addresses": 0,
+      "tokens": 1,
+      "apiKeys": 0,
+      "why": "a mark outside the Basic Multilingual Plane is one character to both, not two halves"
     },
     {
       "line": "ya29.a0AfH6SMBabcdefghijk",
@@ -426,36 +466,12 @@
       "why": "a digit after the domain runs on, with no shorter domain to fall back to"
     },
     {
-      "line": "Ž́ͅBearer abcdefghijklmnopqrstuvwxyz",
-      "redacted": "Ž́ͅBearer abcdefghijklmnopqrstuvwxyz",
-      "addresses": 0,
-      "tokens": 0,
-      "apiKeys": 0,
-      "why": "Java's \\b looks back through every mark to the letter under them"
-    },
-    {
       "line": "1ͅBearer abcdefghijklmnopqrstuvwxyz",
-      "redacted": "1ͅBearer abcdefghijklmnopqrstuvwxyz",
-      "addresses": 0,
-      "tokens": 0,
-      "apiKeys": 0,
-      "why": "a decimal digit under a mark is a base, so no token starts after it"
-    },
-    {
-      "line": "²ͅya29.a0AfH6SMBabcdefghijklmnop",
-      "redacted": "²ͅ[token]",
+      "redacted": "1ͅ[token]",
       "addresses": 0,
       "tokens": 1,
       "apiKeys": 0,
-      "why": "a number that is not a decimal digit is no base, so the token starts after the mark"
-    },
-    {
-      "line": "ŽःBearer abcdefghijklmnopqrstuvwxyz",
-      "redacted": "Žः[token]",
-      "addresses": 0,
-      "tokens": 1,
-      "apiKeys": 0,
-      "why": "a spacing mark (Mc) is not a non-spacing one, so the token starts after it"
+      "why": "nor is a mark on a digit"
     },
     {
       "line": "X-API-KEY canary-api-key-4417-abcdefghij rejected",
