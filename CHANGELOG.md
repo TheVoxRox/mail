@@ -151,6 +151,10 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The API surface audit is re-verified against `8e00d4e` as 1.20, which
+  clears the eight acknowledgements its ledger entry had reached. No finding;
+  four claims that had gone stale are corrected, among them the cause for SMTP
+  AUTH turned off that §3 did not list yet (#778).
 - `docs/AUDIT_GUIDE.md` §5 now has the verification pass state, before it
   starts, what blocks the record (a false claim, a confidentiality or
   integrity finding) and what is recorded and accepted, and limits the pass

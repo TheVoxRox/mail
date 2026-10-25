@@ -2,12 +2,12 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.19                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| **Date**           | 2026-10-12                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| **Applies to**     | VoxRox Mail V0.1.0, cut at or after the audited commit — the draft `v0.1.0` tag (`d626a9b`) predates #574, #577, #578, #623, #700, #704 and #705 (§1, §3, §5, §6)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| **Audited commit** | `2d07187` (the 1.19 pass read the whole delta since `66a0377`, which is `redact.rs` of #705; the tests of 1.19 are acknowledged in the ledger; 1.17 anchor `66a0377`, the independent pass over #704; 1.15 anchor `5def679`, every claim re-verified 2026-10-12, clearing eight acknowledgements at the ledger's cap; 1.14 anchor `55f4afa`, re-verified 2026-10-05; 1.8–1.13 anchor `55fdd1b`, re-verified 2026-09-27)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| **Version**        | 1.20                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **Date**           | 2026-10-25                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| **Applies to**     | VoxRox Mail at or after the audited commit. The published `v0.1.0` (`0d84ec6`) predates #763 and #776 under `Code paths`: it has neither the cause for SMTP AUTH turned off (§3) nor the empty attachment of A1, and every other claim holds for it                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| **Audited commit** | `8e00d4e` (every claim re-verified 2026-10-25, clearing eight acknowledgements at the ledger's cap; 1.19 anchor `2d07187`, the independent pass over #705; 1.17 anchor `66a0377`, the independent pass over #704; 1.15 anchor `5def679`, every claim re-verified 2026-10-12, clearing eight acknowledgements at the ledger's cap; 1.14 anchor `55f4afa`, re-verified 2026-10-05; 1.8–1.13 anchor `55fdd1b`, re-verified 2026-09-27)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller`, `backend/src/main/java/org/voxrox/mailbackend/feature/account/controller`, `backend/src/main/java/org/voxrox/mailbackend/feature/contact/controller`, `backend/src/main/java/org/voxrox/mailbackend/core/clientconfig`, `backend/src/main/java/org/voxrox/mailbackend/core/diagnostic`, `backend/src/main/java/org/voxrox/mailbackend/core/system`, `backend/src/main/java/org/voxrox/mailbackend/core/security`, `backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java`, `backend/src/main/java/org/voxrox/mailbackend/core/init/HandshakeService.java`, `backend/src/main/java/org/voxrox/mailbackend/exception`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto`, `backend/src/main/java/org/voxrox/mailbackend/feature/contact/dto`, `backend/src/main/java/org/voxrox/mailbackend/feature/account/dto`, `backend/src/main/java/org/voxrox/mailbackend/feature/account/mapper/AccountMapper.java`, `backend/src/main/java/org/voxrox/mailbackend/util/LogMasker.java`, `backend/src/main/resources/application.properties`, `frontend/src/lib/api/clientBootDiagnostics.ts`, `frontend/src-tauri/src/logs.rs`, `frontend/src-tauri/src/redact.rs` |
-| **Auditor**        | Claude (1.0 in #134; 1.8 re-verified by Claude Opus 5.5; 1.14 re-verified by Claude Opus 5.5, a separate agent from the author of 1.9–1.13; 1.15 re-verified by Claude, an independent agent and not the author of #700 or #701; 1.17 the independent pass over #704 by Claude, a session that wrote neither #701 nor #704, which then wrote the 1.18 fix; 1.19 the independent pass over #705 by Claude, an agent separate from the session that wrote #705, which recorded it) + owner review                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| **Auditor**        | Claude (1.0 in #134; 1.8 re-verified by Claude Opus 5.5; 1.14 re-verified by Claude Opus 5.5, a separate agent from the author of 1.9–1.13; 1.15 re-verified by Claude, an independent agent and not the author of #700 or #701; 1.17 the independent pass over #704 by Claude, a session that wrote neither #701 nor #704, which then wrote the 1.18 fix; 1.19 the independent pass over #705 by Claude, an agent separate from the session that wrote #705, which recorded it; 1.20 re-verified by Claude Opus 5.5, a session that wrote none of the delta it read, #708 to #776) + owner review                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | **Subsystem**      | Sidecar REST API — Boundary 3 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | **Verdict**        | **Security: PASS** for the HTTP API. **A4** (Low, raised by the 1.15 pass: the shell's Save logs ZIP carried the logs without the redaction the diagnostic dump applies) was fixed in 1.16, reopened by the independent pass of 1.17 and fixed again in 1.18; the independent pass of 1.19 **confirmed** that fix for text in the Basic Multilingual Plane, and a difference on characters outside it is accepted for 0.1.0 (§6). **A5** (Low, raised by the 1.19 pass: the dump's redactor takes quadratic time on a long run of combining marks) is accepted for 0.1.0. **A1** (unbounded JSON write-body) is fixed, its pre-deserialization residual accepted. **A2** and **A3** (a user-named folder in the dump) were fixed on 2026-09-27 and are **superseded by the owner's decision of 2026-10-12** that what the user's own log holds may go to the developers the user sends the bundle to (§5, §6). Informational notes recorded. The default-deny of §1 was passed by the session an OAuth sign-in leaves in the browser: **B2-1** (High), fixed 2026-10-05 and confirmed by the independent verification pass, recorded in [OAUTH_AUDIT.md](OAUTH_AUDIT.md).                                                                                                                                                                                         |
 
@@ -100,6 +100,32 @@ the Unicode tables of both over every scalar value; 51 neutralizations of
 and measured against the corpora; and the time and memory of both on single
 lines of up to 64 MB in thirteen adversarial shapes. What it found is under A4
 and A5 (§6).
+
+**Method (1.20).** Every file under `Code paths` read in full against
+`8e00d4e`, and the whole delta since the previous anchor
+(`git diff 2d07187 8e00d4e -- <Code paths>`) read as one change rather than as
+the eight acknowledgements it had been recorded in: the redactor tests counting
+replacements (#708), the test of `logs.rs` on zip 9 (#713), import specifiers
+of SvelteKit 3 (#721), `GET /api/v1/accounts/providers/{id}` removed (#736),
+`MAIL_ACCOUNT_SYNC_PAUSED` (#745), `DELETE
+/api/v1/contacts/autocomplete/history/{historyId}` (#747), the cause for SMTP
+AUTH turned off and a provider found by its OAuth registration (#763), and
+`base64Data` required but allowed empty, with the forward endpoint's
+description (#776). The four enumeration commands below and the three of §3
+were re-run. What the list below leaves out of `Code paths` was checked for
+change since `2d07187`, and what had changed was read: `ContactService`
+(#747), `AccountLastErrorCode` (#740), `clientErrors.ts` (#721),
+`AttachmentPicker.svelte` (its 50-attachment check, #774), the springdoc
+exclusion in `backend/pom.xml`, the OpenAPI snapshot, the message bundles, and
+`log-scan.mjs` (#738, which left its token shapes as they were). The pass was
+held to the rule of [AUDIT_GUIDE.md](AUDIT_GUIDE.md) §5 (#777), stated before
+it began: a claim false at the audited commit, or a finding that reaches
+confidentiality or integrity, blocks the record; an availability finding
+within the boundary, or an observation on code the delta did not touch, is
+recorded and not chased. Static only: this pass built nothing and ran no test
+or probe. Where it cites a test, that test passed in the CI run of `main` at
+`8e00d4e`, where Backend quality runs `mvn verify` with the integration tests
+and Tauri (Rust) runs the tests of `redact.rs`.
 
 `Code paths` covers the chokepoints the sections trace. What else they cite is
 knowingly left out, because it changes often for reasons that rarely touch this
@@ -231,7 +257,10 @@ audit map in [AUDIT_GUIDE.md](AUDIT_GUIDE.md)).
   #265, so the contact endpoints sit at `/api/v1/contacts` and
   `/api/v1/contact-labels` and address a contact by a bare `contactId`, exactly
   as the mail endpoints do with `stableId`; e-mail uniqueness is enforced across
-  the whole book. Only `GET /api/v1/contacts/autocomplete` still takes an
+  the whole book. A harvested address is named the same way, by a bare
+  `historyId` (`DELETE /api/v1/contacts/autocomplete/history/{historyId}`,
+  since #747), which forgets one typeahead suggestion and answers 204 whether
+  or not the id names a row. Only `GET /api/v1/contacts/autocomplete` still takes an
   `accountId`, as a `@RequestParam @Positive`, because it suggests
   correspondents seen on one account. That leaves no foreign id to probe for, so
   the 404-rather-than-403 reasoning earlier versions of this section relied on no
@@ -286,8 +315,11 @@ text the handlers do return:
   `MailConnectionException` or `MailOperationException` that wraps a caught
   exception carries a `MailFailureCause` as the `{0}` of
   `error.mail.connectionFailed` / `error.mail.operationFailed` — connection,
-  unknown host, timeout, TLS, rejected sign-in, rejected request, rejected
-  recipients, refused response, local database, local file or unexpected —
+  unknown host, timeout, TLS, rejected sign-in, SMTP AUTH turned off by the
+  organization (since #763, told apart from a rejected sign-in by a marker in
+  the server's reply, which picks the cause and goes no further than the log),
+  rejected request, rejected recipients, refused response, local database,
+  local file or unexpected —
   which the message source renders in the request's language and JSON renders
   by name. The caught exception stays the cause, and its text goes to the log
   the handler writes; until 1.9 eight throw sites built the message from it
@@ -295,7 +327,8 @@ text the handlers do return:
   and `messageArgs` in English, inside the Czech sentence. An exception thrown
   with no cause carries a message key of its own: in the mail layer since 1.10
   — the OAuth sign-in and token messages, the OAuth-without-TLS guards, a
-  missing folder for a role, named as the folder list names it — or, for a
+  missing folder for a role, named as the folder list names it, and since #745
+  the refusal to download a body while the account's sync is paused (409) — or, for a
   guard on the app's own state the user cannot act on, the unexpected cause;
   and since 1.11 every `ResourceNotFoundException` and `ValidationException`
   as well. Until then each passed the English sentence the app wrote for its
@@ -317,7 +350,11 @@ sync, SMTP send and draft save store a failure's `MailFailureCause` under
 `cause`, never its text, and `AccountMapper` renders it through the
 `account.lastError.*` templates in the reader's language; a stored argument
 that is not a cause's name renders as the unexpected one. The fallback text
-stored beside the code names the exception's class and the cause. Until 1.9
+stored beside the code names the cause, and for the sync the exception's class
+and a folder as well, never the exception's text (**corrected in 1.20**: it
+said the class for all three, which since 1.9 has held for the sync only). The
+pause the crash guard records (`MAIL_SYNC_PAUSED_AFTER_CRASHES`, #740) stores
+no cause and a sentence of its own. Until 1.9
 they stored `getMessage()` as `detail` — for the sync from a
 `catch (Exception)`, so Hibernate's text of a failed SQL statement could reach
 `GET /api/v1/accounts`. Regenerate the sites that store a cause:
@@ -359,9 +396,8 @@ inherits, or a `config/` directory or `application.properties` in its working
 directory — and whoever can write those is a same-user actor, whom the threat
 model already puts out of scope. Until #574 the jar also carried
 `application-dev.properties`, which did loosen them once the `dev` profile was
-switched on (change log, 1.7). The draft `v0.1.0` tag at `d626a9b` predates
-#574, so this paragraph holds for V0.1.0 only once it is cut at or after
-`77abf9b`.
+switched on (change log, 1.7). The published `v0.1.0` (`0d84ec6`) was cut
+after #574 (`77abf9b`), so this paragraph holds for it.
 
 ## 4. Attachment streaming — no path traversal (confirmed)
 
@@ -502,7 +538,9 @@ characters under keys of letters and digits — the `kind` is allow-listed, an
 event id is kept only in its own shape, and the route and a page source are
 cut by the same route sanitizer as client-boot's (a script under `/_app/` keeps
 its path and loses its query). At most 20 reports a minute are written, and
-the dropped ones are counted in one line once the minute ends. That bounds what
+the dropped ones are counted in one line, which the first report after that
+minute writes; with no report after it the count is not written (**corrected
+in 1.20**: it said once the minute ends). That bounds what
 reaches the log, not what is accepted: a report past the limit is still read
 and answered 202. Like every JSON body here, the request is deserialized whole
 before anything is cut — a `context` map of any size and strings up to the
@@ -529,7 +567,8 @@ possession of the API key could therefore submit an arbitrarily large JSON body
 loopback-only and requires the `X-API-KEY` from `session.json`, so the actor is
 a same-user process — already out of scope (§1 of the threat model; such an
 actor can read the plaintext DB and crash the JVM by other means). The
-legitimate client enforces a 10 MB/attachment and 25 MB/total cap in
+legitimate client enforces a 10 MB/attachment and 25 MB/total cap, and since
+#774 the 50-attachment one, in
 [AttachmentPicker.svelte](../frontend/src/lib/components/compose/AttachmentPicker.svelte).
 This is a defense-in-depth hardening gap, not an exploitable vulnerability.
 
@@ -542,6 +581,10 @@ corrected the misleading "aligned with multipart 50 MB" comment. Regression
 tests: `MailWriteControllerTest.sendBodyTooLong` and `sendTooManyAttachments`
 (both assert 400 + no service call); since #583 also
 `DraftControllerTest.saveDraftBodyTooLong` and `saveDraftTooManyAttachments`.
+Since #776 `base64Data` is `@NotNull` where it was `@NotBlank`: a zero-length
+part is valid MIME and arrives with a forward or a draft written elsewhere, and
+an empty string adds nothing to the payload. The 70 MiB cap and both counts
+are unchanged.
 
 **Residual (accepted).** The per-field `@Size` caps run post-deserialization, so
 the true pre-deserialization aggregate bound is not closed in code. It is not
@@ -916,6 +959,32 @@ does not walk back from every position (`todo.md`, after 0.1.0).
 
 ## 9. Change log
 
+- **1.20** (2026-10-25) — **re-verified against `8e00d4e`**, every claim, by a
+  session that wrote none of the delta it read, clearing the eight
+  acknowledgements recorded since 2026-10-12 at the ledger's cap. The delta
+  since `2d07187` was read as one change: #708, #713, #721, #736, #745, #747,
+  #763 and #776, which the 1.20 method names one by one. The pass was held to
+  the rule of [AUDIT_GUIDE.md](AUDIT_GUIDE.md) §5 (#777), stated before it
+  began: a claim false at the audited commit, or a confidentiality or
+  integrity finding, blocks the record; an availability finding within the
+  boundary, or an observation on code the delta did not touch, is recorded and
+  not chased. **No finding.** The four enumeration commands give 18, 5, 12 and
+  4, and §3's three commands 0 throw sites, 5 sites in 3 services and 1 file,
+  as at 1.15. Static only: nothing was built, run or probed, and the tests
+  cited passed in CI on `main` at `8e00d4e`. Four claims were false at the
+  audited commit, each corrected here: §3's list of mail failure causes had no
+  cause for SMTP AUTH turned off (#763, which its acknowledgement left to this
+  re-verification); §3 said an account's stored fallback text names the
+  exception's class, which since 1.9 has held for the sync only; §5 said the
+  dropped client error reports are counted once the minute ends, where since
+  1.15 the first report after it writes the count; and `Applies to` and §3
+  described the draft `v0.1.0` tag, where the published one is `0d84ec6`,
+  which under `Code paths` predates #763 and #776. Added: the bare `historyId`
+  of #747 in §1, #745's refusal to download a body among §3's keyed errors, the
+  crash guard's last error of #740 in §3, and in A1 the empty attachment of
+  #776 and the client's 50-attachment check of #774. Verdict unchanged:
+  **PASS**, A1 fixed with its residual accepted, A4 confirmed for text in the
+  Basic Multilingual Plane, A5 accepted.
 - **1.19** (2026-10-12) — **the independent pass over #705** (#708), by an agent
   separate from the session that wrote #705, which records it; **anchor moved
   to `2d07187`**, the delta since `66a0377` being #705's `redact.rs`.
