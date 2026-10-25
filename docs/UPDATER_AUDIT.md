@@ -2,14 +2,14 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.18                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| **Date**           | 2026-10-12                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| **Audited commit** | `5def679` (re-verified 2026-10-12, clearing seven acknowledgements; v1.16/1.17 anchor: `a2e6d43`, re-verified 2026-09-16, clearing seven; v1.5–1.15 anchor: `0165149`, itself a re-verification on 2026-09-07 clearing five; v1.10/1.11 anchor: `3e71529`; v1.5–v1.9 anchor: `c6744a1`; v1.4 anchor: `cad05cb`, recorded pre-squash as `5799e8b`; v1.2/1.3 anchor: `3162e6a` (#144), v1.0/1.1 baseline: `d55b753`)                                                                                                                                                                                                                                                                                                                                                                                                               |
+| **Version**        | 1.19                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| **Date**           | 2026-10-25                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **Applies to**     | VoxRox Mail V0.1.0 (`0d84ec6`), which under `Code paths` differs from the audited commit only in the base config's pubkey (#755), a value a release build replaces (§6)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| **Audited commit** | `246b2ba` (re-verified 2026-10-25, clearing seven acknowledgements; v1.18 anchor: `5def679`, re-verified 2026-10-12, clearing seven; v1.16/1.17 anchor: `a2e6d43`, re-verified 2026-09-16, clearing seven; v1.5–1.15 anchor: `0165149`, itself a re-verification on 2026-09-07 clearing five; v1.10/1.11 anchor: `3e71529`; v1.5–v1.9 anchor: `c6744a1`; v1.4 anchor: `cad05cb`, recorded pre-squash as `5799e8b`; v1.2/1.3 anchor: `3162e6a` (#144), v1.0/1.1 baseline: `d55b753`)                                                                                                                                                                                                                                                                                                                                              |
 | **Code paths**     | `frontend/src-tauri/src`, `frontend/src-tauri/tauri.conf.json`, `frontend/src-tauri/capabilities`, `frontend/src/lib/updates.ts`, `frontend/src/lib/nativeShell.ts`, `frontend/src/lib/bootstrap.ts`, `frontend/src/lib/components/boot/BootErrorView.svelte`, `frontend/src/lib/components/UpdatePromptDialog.svelte`, `frontend/src/lib/components/UpdateFailureDialog.svelte`, `frontend/src/lib/components/settings/AboutSettings.svelte`, `.github/workflows/windows-signed-release.yml`, `.github/workflows/beta-channel.yml`, `frontend/scripts/beta-channel-guard.mjs`, `frontend/scripts/generate-tauri-latest-windows.mjs`, `frontend/scripts/verify-updater-signature.mjs`, `frontend/scripts/lib/minisign.mjs`, `frontend/scripts/prepare-tauri-windows-release-config.mjs`, `frontend/scripts/lib/tauri-config.mjs` |
-| **Auditor**        | 1.18 re-verified by Claude, an independent agent and not the author of #701; the revisions before it did not record their auditor                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| **Auditor**        | 1.19 re-verified by Claude Opus 5.5, a session that wrote none of the delta it read, #704 to #755; 1.18 re-verified by Claude, an independent agent and not the author of #701; the revisions before it did not record their auditor                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | **Subsystem**      | Tauri auto-updater — Boundary 6 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| **Verdict**        | **Security: PASS** — nothing in the trust chain, re-verified against `5def679`. The one finding this audit raised (U-1, workflow script injection, **Low**) is fixed, and so is the HTTPS-only note §6 had carried since v1.0; one procedural note stays open. The v1.5 code changes came from the operational review in `todo.md`, not from this audit.                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| **Verdict**        | **Security: PASS** — nothing in the trust chain, re-verified against `246b2ba`. The one finding this audit raised (U-1, workflow script injection, **Low**) is fixed, and so is the HTTPS-only note §6 had carried since v1.0; one procedural note stays open. The v1.5 code changes came from the operational review in `todo.md`, not from this audit.                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 Per-subsystem release audit of the update channel **"GitHub release →
 signature-verified install"**. This is the one path that cannot be fixed after a
@@ -33,6 +33,29 @@ on the boot error view (#698, v1.17), and the log commands and log rotation of
 counted for §4, and U-1's property re-checked over both workflows (§6). Static
 only: nothing was built, run or measured. Where a test is cited, it passed in
 the CI run of `main` at `5def679` (the Rust and frontend unit jobs).
+
+**Method (1.19).** The whole delta since the previous anchor
+(`git diff 5def679 246b2ba -- <Code paths>`) read as one change rather than as
+the seven acknowledgements it had been recorded in: the Save logs redactor and
+its parity fixes (#704, #705, #708), `logs.rs` on zip 9 (#713), import
+specifiers of SvelteKit 3 (#721), Save logs on the error view for a backend
+that never started (#734), and the base config's pubkey (#755). `lib.rs`,
+`logs.rs`, `redact.rs`, `tauri.conf.json`, `capabilities/default.json` and
+`BootErrorView.svelte` read in full at `246b2ba`, and the install and startup
+paths of `updates.ts`; the rest of what #721 touched is import specifiers only,
+read as a diff. The files under `Code paths` that are byte-identical to
+`5def679` (both workflows, the six release scripts, `tray.rs`,
+`update_preference.rs`, `webview_defaults.rs`, `main.rs`), which 1.18 read in
+full, were checked claim by claim rather than re-read line by line. The
+commands of §1 re-run, `{@html}` counted for §4, and U-1's property re-checked
+over both workflows with a scanner that finds the two interpolations `ci.yml`
+keeps (§6), so it can find one. The pass was held to the rule of
+[AUDIT_GUIDE.md](AUDIT_GUIDE.md) §5, stated before it began: a claim false at
+the audited commit, or a finding that reaches confidentiality or integrity,
+blocks the record; an availability finding within the boundary, or an
+observation on code the delta did not touch, is recorded and not chased.
+Static only: nothing was built, run or measured. Where a test is cited, it
+passed in the CI run of `main` at `246b2ba`.
 
 ## 1. Signature verification — no bypass (confirmed)
 
@@ -80,8 +103,11 @@ the CI run of `main` at `5def679` (the Rust and frontend unit jobs).
   folder as managed state (`LogsDir`) and gives `tauri-plugin-log` a 1 MB file
   with two older ones kept. `export_logs` takes nothing from the renderer: on a
   blocking thread it zips the logs folder into a new file in the Downloads
-  folder (opened with `create_new`, so never one that is already there) and
-  returns that file's path. The other two write one bounded line each into
+  folder, or in the data root when there is none (opened with `create_new`, so
+  never one that is already there), and returns that file's path. Since #704
+  every line passes through `redact.rs` on the way in, with the session's key
+  read from `session.json` in the data root, which A4 of the API surface audit
+  records. The other two write one bounded line each into
   `mail-frontend.log`: a stderr line has its CR/LF replaced and is cut at 2000
   characters, at most 500 a run; an exit is two optional integers and a
   boolean, with no count limit, which the log's rotation bounds on disk. None
@@ -181,10 +207,12 @@ half of the key pair was _present_ — never that they _matched_.
 baked into the app, they are unrelated secrets, and a rotated or mistyped half
 let the workflow finish green while every installation that took the release
 lost its updater permanently: the app can only be repaired by an update it now
-refuses to accept. The gate above closes that, and it is the one control here
-that **has never run on a real release** — the verifier is proven against a
-genuine `tauri signer sign` artifact (the test fixture) and the npm wiring is
-smoked, but the happy path needs a full release build.
+refuses to accept. The gate above closes that. It has since run on real
+release builds: the signed workflow ran it on five builds of `v0.1.0` from
+2026-09-21 on, and it passed on each, the published one (run 39303298552, at
+`0d84ec6`) among them. **Corrected in
+1.19**: this paragraph said the gate had never run on a real release, which
+that build ended.
 
 ## 3. Config & transport hardening (confirmed)
 
@@ -361,7 +389,11 @@ renders through `{message}` in a `<span>` — Svelte text interpolation, no
   smoke shows that, and `CheckIfAppIsRunning` in the bundled NSIS template still
   guards only `${MAINBINARYNAME}.exe`, so a **manual** reinstall while the app
   runs (a path outside this flow) has nothing covering the sidecar. Tracked in
-  `todo.md`, not claimed here.
+  `todo.md`, not claimed here. Since #761 Release Candidate Smoke has a job
+  that runs a candidate's installer with the updater's `/P /UPDATE` over the
+  running shell and sidecar of the latest published release, but it has not
+  yet passed on a candidate (its one run, on the pull request that added it,
+  did not), so it proves nothing yet either.
 
 ## 6. Findings and informational notes
 
@@ -399,7 +431,11 @@ renders through `{message}` in a `<span>` — Svelte text interpolation, no
   there) produce **no `.sig`**, so such a build cannot be a valid release — but
   the guard against publishing one is **procedural** (RELEASE_CHECKLIST §3a),
   not enforced in code. Pubkeys are public by nature, so committing one leaks no
-  secret.
+  secret. Since #755 the base key is the one releases sign with,
+  `AA238C4CC59B9906`, in place of a key no release used, so
+  `verify-updater-signature.mjs` with `--config` set to the base file verifies a
+  published release; the shipped key still comes from the release config,
+  where `requireEnv` still throws on an empty one.
 - ~~**`dangerousInsecureTransportProtocol`** is env-gated and unset; a future CI
   lint asserting it is never `true` for a release would make the HTTPS-only
   guarantee explicit rather than default.~~ **Closed 2026-08-28** (v1.9), after
@@ -418,6 +454,32 @@ renders through `{message}` in a `<span>` — Svelte text interpolation, no
 
 ## 8. Change log
 
+- **1.19** (2026-10-25) — **re-verified against `246b2ba`, clearing the seven
+  acknowledgements recorded since 2026-10-12; verdict stays PASS.** By a
+  session that wrote none of the delta, at 7 of 8, together with the content
+  rendering audit. The delta since `5def679` was read as one change (method
+  above), held to the rule of [AUDIT_GUIDE.md](AUDIT_GUIDE.md) §5 stated before
+  the pass. **No finding.** Nothing in the trust chain moved: under
+  `frontend/src-tauri/src` the delta is `redact.rs`, `logs.rs` and one
+  `mod redact;` line in `lib.rs`, so `check_for_update`,
+  `download_pending_update`, `install_pending_update`, `PendingUpdate`,
+  `DownloadedUpdate` and `beta_endpoint_override` are byte-identical to the
+  anchor; `generate_handler!` still lists the three updater, two preference,
+  three tray and three log commands and nothing else; `capabilities/` grants
+  nothing under `updater:` and no `emit`; `tauri.conf.json` moved only the base
+  pubkey (#755), with the CSP, `allowDowngrades` and the endpoint untouched;
+  both workflows and the release scripts are byte-identical, and no `${{ }}`
+  sits inside a `run:` block of either workflow; `{@html}` is still absent from
+  `frontend/src`; the frontend files moved in import specifiers (#721) and, in
+  `BootErrorView.svelte`, in the dump's props (#734), with the manual check
+  unchanged. Static only; the tests cited passed in CI on `main` at
+  `246b2ba`. One claim was false at the audited commit and is corrected: §2
+  said the key-pair gate had never run on a real release, where it has passed
+  on five builds of `v0.1.0`, the published one among them. Made more precise:
+  §1's `export_logs` falls back to the data root when there is no Downloads
+  folder, which it has done since #701, and redacts since #704; §5 names the
+  update job of Release Candidate Smoke (#761), which has not passed on a
+  candidate yet; §6 says the base config's key is the release key since #755.
 - **1.18** (2026-10-12) — **re-verified against `5def679`, clearing the seven
   acknowledgements recorded since 2026-09-16; verdict stays PASS.** Done by an
   agent that is not the author of #701, at 7 of 8, one acknowledgement short of
