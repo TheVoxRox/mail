@@ -50,6 +50,18 @@ concurrency:
 # one that then stalled, and dropping either entry trades away the failover that
 # got the attempt as far as it did to save ~38s of rediscovery per attempt.
 #
+# The packages themselves come from the Actions cache when it has them, which is
+# what narrows that limit to the index. On 2026-10-26 three runs went red here
+# (#793, #794, #796) on the same shape: the 12.6 MB of indexes arrived in 1-7s,
+# then the 63.7 MB of packages came at 13-82 kB/s in every one of the nine
+# attempts, against 3.8-15 MB/s in the reruns that passed. A fresh connection
+# did not land anywhere faster, so the retry had nothing to recover. With apt's
+# archive seeded from the cache, apt-get install has nothing left to fetch.
+# apt-get update still asks the mirror and still decides what is installed, so
+# a cached run installs exactly what an uncached one would today: the cache
+# changes where the bytes come from, never which ones. A miss, or a version the
+# cache does not hold yet, is fetched from the mirror under the same retry.
+#
 # dpkg --configure -a runs between apt attempts because timeout kills apt with
 # SIGTERM. The stalls seen so far were all in the fetch phase, where there is
 # nothing half-configured to repair, but an attempt cut during unpack would
@@ -136,12 +148,39 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # Entries are named after the files they hold (see Collect apt archives),
+      # so no exact key exists to ask for: the prefix takes the newest entry,
+      # whichever set of versions that is. A cache that cannot be reached must
+      # cost no more than the mirror it stands in for, so a stalled download is
+      # abandoned after a minute and the step may fail -- both mean a miss, and
+      # the install below goes to the mirror as it did before this cache.
+      - name: Restore apt archive cache
+        id: apt-cache
+        uses: actions/cache/restore@v6
+        timeout-minutes: 3
+        continue-on-error: true
+        env:
+          SEGMENT_DOWNLOAD_TIMEOUT_MINS: 1
+        with:
+          path: ~/apt-archives
+          key: apt-archives-${{ runner.os }}-
+          restore-keys: apt-archives-${{ runner.os }}-
+
       - name: Install Tauri system deps
         # Clear of the loop's own worst case below, with room for dpkg to do real
         # work, so an exhausted retry reports through its exit 1 rather than being
         # cut here -- the three warnings are the whole diagnostic value.
         timeout-minutes: 13
         run: |
+          # apt counts a file already in its archive as downloaded when name and
+          # size match the index entry, and fetches everything else as before. A
+          # file of the wrong size is deleted and fetched again, so a truncated
+          # entry costs a download, not the install.
+          if [ -d ~/apt-archives ]; then
+            echo "Seeding apt's archive with $(ls ~/apt-archives | wc -l) cached files"
+            sudo cp ~/apt-archives/*.deb /var/cache/apt/archives/
+          fi
+
           # Acquire Timeout bounds a connection that has gone silent, which is what
           # the 200s cap was really catching. In run 32295477243 attempt 1 fetched
           # the InRelease files by 20:04:48 and then printed nothing at all until
@@ -189,6 +228,40 @@ jobs:
             fi
           done
           exit 1
+
+      # Right after the install and before anything that fails for reasons of its
+      # own, so a clippy finding does not cost the next run its cache. autoclean
+      # drops each file the index no longer offers -- every version an update has
+      # superseded -- so the entry follows the archive instead of growing with
+      # each security release. The key is the list of file names, and a name
+      # carries the package's version: a run that fetched nothing new computes
+      # the key it restored and saves nothing, one that fetched a new version
+      # saves a new entry once. No file at all (everything already on the image)
+      # means no key and no save, rather than an empty entry.
+      - name: Collect apt archives
+        id: apt-archives
+        run: |
+          sudo apt-get autoclean
+          rm -rf ~/apt-archives
+          mkdir ~/apt-archives
+          find /var/cache/apt/archives -maxdepth 1 -name '*.deb' -exec cp -t ~/apt-archives {} +
+          files=$(LC_ALL=C ls ~/apt-archives)
+          if [ -n "$files" ]; then
+            echo "Collected $(echo "$files" | wc -l) files, $(du -sh ~/apt-archives | cut -f1)"
+            echo "key=apt-archives-${RUNNER_OS}-$(echo "$files" | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Who can write an entry main reads is the same as for the Cargo cache
+      # below: runs on main. A pull request saves into its own scope only. A save
+      # that fails or stalls leaves this run as it was, so it may not fail it.
+      - name: Save apt archive cache
+        if: steps.apt-archives.outputs.key != '' && steps.apt-archives.outputs.key != steps.apt-cache.outputs.cache-matched-key
+        uses: actions/cache/save@v6
+        timeout-minutes: 3
+        continue-on-error: true
+        with:
+          path: ~/apt-archives
+          key: ${{ steps.apt-archives.outputs.key }}
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
