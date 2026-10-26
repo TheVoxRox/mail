@@ -179,7 +179,7 @@ test.describe('Compose', () => {
 
 		await openApp(page, '/compose?forward=msg-01');
 
-		await expect(page.getByRole('list', { name: 'Přílohy' }).getByText('brief.pdf')).toBeVisible();
+		await expect(page.getByRole('grid', { name: 'Přílohy' }).getByText('brief.pdf')).toBeVisible();
 		await page.locator('#compose-to').fill('forward-recipient@example.com');
 		await page.getByRole('button', { name: 'Odeslat' }).click();
 
@@ -310,7 +310,7 @@ test.describe('Compose', () => {
 			buffer: Buffer.from('Obsah faktury')
 		});
 		await expect(
-			page.getByRole('list', { name: 'Přílohy' }).getByText('faktura.txt')
+			page.getByRole('grid', { name: 'Přílohy' }).getByText('faktura.txt')
 		).toBeVisible();
 
 		await page.getByRole('button', { name: 'Odeslat' }).click();
@@ -549,7 +549,7 @@ test.describe('Compose', () => {
 		// only after the chip had gone, focus ended up in the same place, but
 		// JAWS kept its cursor where the chip had been.
 		await openApp(page, '/compose');
-		const attachments = page.getByRole('list', { name: 'Přílohy' });
+		const attachments = page.getByRole('grid', { name: 'Přílohy' });
 		const content = 'Text přílohy';
 
 		await page.locator('input[type="file"]').setInputFiles({
@@ -653,7 +653,7 @@ test.describe('Compose', () => {
 			buffer: Buffer.from('Text přílohy')
 		});
 		await expect(
-			page.getByRole('list', { name: 'Přílohy' }).getByText('poznamka.txt')
+			page.getByRole('grid', { name: 'Přílohy' }).getByText('poznamka.txt')
 		).toBeVisible();
 		await expect(hint).toHaveCount(0);
 	});
@@ -674,15 +674,15 @@ test.describe('Compose', () => {
 		await expect(dialog).not.toContainText('paměti');
 		await dialog.getByRole('button', { name: 'Připojit' }).click();
 		await expect(
-			page.getByRole('list', { name: 'Přílohy' }).getByText('velka-priloha.bin')
+			page.getByRole('grid', { name: 'Přílohy' }).getByText('velka-priloha.bin')
 		).toBeVisible();
 	});
 
-	test('více příloh najednou se ohlásí počtem a součtem, odebrání jedné vrátí fokus na Přidat přílohu', async ({
+	test('více příloh najednou se ohlásí počtem a součtem, odebrání jedné přesune fokus na další přílohu', async ({
 		page
 	}) => {
 		await openApp(page, '/compose');
-		const attachments = page.getByRole('list', { name: 'Přílohy' });
+		const attachments = page.getByRole('grid', { name: 'Přílohy' });
 
 		await page.locator('input[type="file"]').setInputFiles([
 			{ name: 'prvni.txt', mimeType: 'text/plain', buffer: Buffer.alloc(300) },
@@ -692,9 +692,56 @@ test.describe('Compose', () => {
 		await expect(page.locator('#live-region')).toContainText('Přidány 2 přílohy, celkem 500 B.');
 		await page.getByRole('button', { name: 'Odebrat přílohu prvni.txt' }).click();
 		await expect(page.locator('#live-region')).toContainText('Příloha prvni.txt odebrána.');
-		await expect(page.getByRole('button', { name: 'Přidat přílohu' })).toBeFocused();
+		// The same cell of the next attachment, as the arrows would reach it.
+		await expect(page.getByRole('button', { name: 'Odebrat přílohu druha.txt' })).toBeFocused();
 		await expect(attachments.getByText('prvni.txt')).toHaveCount(0);
 		await expect(attachments.getByText('druha.txt')).toBeVisible();
+	});
+
+	test('přílohy jsou jedna zastávka Tabu, šipky se v nich pohybují a Delete přílohu odebere', async ({
+		page
+	}) => {
+		// As a list of buttons, Tab from the subject to the body stopped on every
+		// remove button.
+		await openApp(page, '/compose');
+		const grid = page.getByRole('grid', { name: 'Přílohy' });
+		const file = (name: string) => grid.getByRole('rowheader', { name: new RegExp(name) });
+		const remove = (name: string) => page.getByRole('button', { name: `Odebrat přílohu ${name}` });
+
+		await page.locator('input[type="file"]').setInputFiles([
+			{ name: 'prvni.txt', mimeType: 'text/plain', buffer: Buffer.alloc(300) },
+			{ name: 'druha.txt', mimeType: 'text/plain', buffer: Buffer.alloc(200) },
+			{ name: 'treti.txt', mimeType: 'text/plain', buffer: Buffer.alloc(100) }
+		]);
+		await expect(grid.getByRole('rowheader')).toHaveCount(3);
+
+		await page.locator('#compose-subject').press('Tab');
+		await expect(page.getByRole('button', { name: 'Přidat přílohu' })).toBeFocused();
+		await page.keyboard.press('Tab');
+		await expect(file('prvni.txt')).toBeFocused();
+		await page.keyboard.press('Tab');
+		await expect(page.locator('#compose-body')).toBeFocused();
+		await page.keyboard.press('Shift+Tab');
+		await expect(file('prvni.txt')).toBeFocused();
+
+		await page.keyboard.press('ArrowDown');
+		await expect(file('druha.txt')).toBeFocused();
+		await page.keyboard.press('ArrowRight');
+		await expect(remove('druha.txt')).toBeFocused();
+
+		await page.keyboard.press('Delete');
+		await expect(page.locator('#live-region')).toContainText('Příloha druha.txt odebrána.');
+		await expect(remove('treti.txt')).toBeFocused();
+
+		// After the last attachment, the one before it.
+		await page.keyboard.press('Delete');
+		await expect(remove('prvni.txt')).toBeFocused();
+
+		await page.keyboard.press('ArrowLeft');
+		await expect(file('prvni.txt')).toBeFocused();
+		await page.keyboard.press('Delete');
+		await expect(page.getByRole('button', { name: 'Přidat přílohu' })).toBeFocused();
+		await expect(grid).toHaveCount(0);
 	});
 
 	test('odeslání během načítání přílohy se zablokuje, ať se příloha neztratí', async ({ page }) => {
@@ -734,7 +781,7 @@ test.describe('Compose', () => {
 		// Uvolni čtení; příloha se objeví v seznamu a odeslání už projde — i s přílohou.
 		await page.evaluate(() => (window as { __releaseFileRead?: () => void }).__releaseFileRead?.());
 		await expect(
-			page.getByRole('list', { name: 'Přílohy' }).getByText('pomala-priloha.txt')
+			page.getByRole('grid', { name: 'Přílohy' }).getByText('pomala-priloha.txt')
 		).toBeVisible();
 		await page.getByRole('button', { name: 'Odeslat' }).click();
 		await page.waitForURL('**/mail/1/INBOX');
@@ -763,7 +810,7 @@ test.describe('Compose', () => {
 		await dropTarget.dispatchEvent('drop', { dataTransfer });
 
 		await expect(
-			page.getByRole('list', { name: 'Přílohy' }).getByText('pretazena-priloha.txt')
+			page.getByRole('grid', { name: 'Přílohy' }).getByText('pretazena-priloha.txt')
 		).toBeVisible();
 	});
 
@@ -788,7 +835,7 @@ test.describe('Compose', () => {
 		await messageBody.dispatchEvent('drop', { dataTransfer });
 
 		await expect(
-			page.getByRole('list', { name: 'Přílohy' }).getByText('z-tela-zpravy.txt')
+			page.getByRole('grid', { name: 'Přílohy' }).getByText('z-tela-zpravy.txt')
 		).toBeVisible();
 	});
 
@@ -819,7 +866,7 @@ test.describe('Compose', () => {
 		expect(leftToBrowser).toBe(false);
 
 		await expect(
-			page.getByRole('list', { name: 'Přílohy' }).getByText('vlozena-priloha.txt')
+			page.getByRole('grid', { name: 'Přílohy' }).getByText('vlozena-priloha.txt')
 		).toBeVisible();
 		// A paste leaves focus in the body, so nothing else says a file was added.
 		await expect(page.locator('#live-region')).toContainText(
@@ -856,7 +903,7 @@ test.describe('Compose', () => {
 		]);
 
 		expect(leftToBrowser).toBe(true);
-		await expect(page.getByRole('list', { name: 'Přílohy' })).toHaveCount(0);
+		await expect(page.getByRole('grid', { name: 'Přílohy' })).toHaveCount(0);
 	});
 
 	test('příliš velká příloha zobrazí lokalizovanou chybu a nepřidá se do payloadu', async ({
@@ -895,7 +942,7 @@ test.describe('Compose', () => {
 				.getByRole('alert')
 				.filter({ hasText: 'Soubor prazdny.txt je prázdný, nelze ho přiložit.' })
 		).toBeVisible();
-		await expect(page.getByRole('list', { name: 'Přílohy' })).toHaveCount(0);
+		await expect(page.getByRole('grid', { name: 'Přílohy' })).toHaveCount(0);
 	});
 
 	test('příloha nad strop 50 se odmítne při přidání a řekne, kolik se ještě vejde', async ({
@@ -912,7 +959,7 @@ test.describe('Compose', () => {
 				mimeType: 'text/plain',
 				buffer: Buffer.from(`${prefix} ${index + 1}`)
 			}));
-		const attachments = page.getByRole('list', { name: 'Přílohy' }).getByRole('listitem');
+		const attachments = page.getByRole('grid', { name: 'Přílohy' }).getByRole('rowheader');
 		const tooMany = page
 			.getByRole('alert')
 			.filter({ hasText: 'Ke zprávě lze přiložit nejvýš 50 příloh.' });

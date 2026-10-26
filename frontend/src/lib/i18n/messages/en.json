@@ -279,6 +279,8 @@
 		"attachmentRemoved": "Attachment {name} removed.",
 		"attachmentDuplicate": "{count, plural, one {The file {name} is already attached and was not added again.} other {{count} files are already attached and were not added again.}}",
 		"attachmentsTotal": "{total} of {limit} in total.",
+		"attachmentColumnFile": "Attachment",
+		"attachmentColumnActions": "Actions",
 		"attachmentEmpty": "The file {name} is empty and cannot be attached.",
 		"attachmentTooLarge": "Attachment {name} is larger than the {limit} limit.",
 		"attachmentsTooLarge": "Total attachment size must not exceed {limit}.",

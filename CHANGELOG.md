@@ -193,6 +193,13 @@ Entries before 2026-09-17 predate that split and are left as written.
   it and says so: **Soubor … už je přiložený, podruhé se nepřidal.** The other
   files of the same selection are still added. It used to be attached a second
   time, usually from a second drop or paste of the same file (#797).
+- The attachments of a new message are one stop for Tab: from **Předmět** the
+  next Tab reaches **Přidat přílohu**, then the attachments, then the body.
+  Tab used to stop on every **Odebrat přílohu** button on the way. The
+  attachments are a grid, as the message list is: the arrows move between
+  them and to their remove button, **Delete** removes the attachment of the
+  row, and focus moves to the next one, or to **Přidat přílohu** once none is
+  left (#798).
 
 ### Tauri / Release
 

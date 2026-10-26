@@ -279,6 +279,8 @@
 		"attachmentRemoved": "Příloha {name} odebrána.",
 		"attachmentDuplicate": "{count, plural, one {Soubor {name} už je přiložený, podruhé se nepřidal.} few {{count} soubory už jsou přiložené, podruhé se nepřidaly.} other {{count} souborů už je přiložených, podruhé se nepřidaly.}}",
 		"attachmentsTotal": "Celkem {total} z {limit}.",
+		"attachmentColumnFile": "Příloha",
+		"attachmentColumnActions": "Akce",
 		"attachmentEmpty": "Soubor {name} je prázdný, nelze ho přiložit.",
 		"attachmentTooLarge": "Příloha {name} je větší než limit {limit}.",
 		"attachmentsTooLarge": "Celková velikost příloh nesmí překročit {limit}.",
