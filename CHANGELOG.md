@@ -39,15 +39,15 @@ Entries before 2026-09-17 predate that split and are left as written.
   attachment data had to be non-empty, so every autosave and the send of such
   a message failed with "Data přílohy (Base64) nesmí být prázdná." The data
   must still be present; an empty file the user adds is still refused (#776).
-- The diagnostic dump no longer fails or stalls on a log line a mail server
-  wrote in a hostile shape. An address whose domain had about two thousand
-  labels overflowed the redactor's stack, so the dump failed every time for as
-  long as that line stayed in the logs, and a long run of combining marks took
-  minutes; any line now takes time in proportion to its length. The redactor
-  also reads a character outside the Basic Multilingual Plane whole, so the
-  dump masks the same addresses as the Save logs ZIP and never writes half a
-  character, and it replaces a token right after an accent written as a
-  combining mark, which it used to leave (#780).
+- The diagnostic dump no longer fails or stalls on two hostile shapes of log
+  line a mail server could write. An address whose domain had about two
+  thousand labels overflowed the redactor's stack, so the dump failed every time
+  for as long as that line stayed in the logs, and a long run of combining marks
+  took minutes; a line of either shape now takes time in proportion to its
+  length. The redactor also reads a character outside the Basic Multilingual
+  Plane whole, so the dump masks the same addresses as the Save logs ZIP and
+  never writes half a character, and it replaces a token right after an accent
+  written as a combining mark, which it used to leave (#780).
 - An account's IMAP connections share one memory budget, 96 MB by default
   (`mail.client.imap.account-budget`). Each open folder and each command was
   bounded on its own, but an account has several connections at once, so a
@@ -170,6 +170,11 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The API surface audit is 1.22, the independent pass over #780. It confirms
+  the fixes of A4 outside the Basic Multilingual Plane, A5 and A6, and finds A7
+  (Low, open): the diagnostic dump's redactor still takes quadratic time on a
+  long run of JWT prefixes, which 1.21 said no line does. The anchor stays at
+  `8e00d4e` (#783).
 - The IMAP/SMTP audit is 1.78, the independent pass over the account budget of
   1.77, re-anchored to `f2780de` and clearing its acknowledgement. The budget is
   confirmed; what it leaves is corrected, since the sets the sync's UID listing
