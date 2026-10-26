@@ -94,7 +94,7 @@ class DraftControllerTest {
                 .andExpect(jsonPath("$.stableId").value(IDENTITY.stableId()));
 
         // The async save runs under the same identity the 202 body carries.
-        verify(draftPersistenceService).saveDraftAsync(eq(7L), any(DraftRequest.class), isNull(), eq(IDENTITY));
+        verify(draftPersistenceService).saveDraftAsync(eq(7L), isNull(), eq(IDENTITY));
     }
 
     @Test
@@ -106,7 +106,7 @@ class DraftControllerTest {
 
         // The typed recipients join the chain of the named revision before the 202.
         verify(draftPersistenceService).acceptDraftSave(eq(7L), any(DraftRequest.class), eq("abc123"));
-        verify(draftPersistenceService).saveDraftAsync(eq(7L), any(DraftRequest.class), eq("abc123"), eq(IDENTITY));
+        verify(draftPersistenceService).saveDraftAsync(eq(7L), eq("abc123"), eq(IDENTITY));
     }
 
     @Test
@@ -162,7 +162,7 @@ class DraftControllerTest {
         mockMvc.perform(post("/api/v1/accounts/7/drafts").contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req))).andExpect(status().isAccepted());
 
-        verify(draftPersistenceService).saveDraftAsync(eq(7L), any(DraftRequest.class), isNull(), eq(IDENTITY));
+        verify(draftPersistenceService).saveDraftAsync(eq(7L), isNull(), eq(IDENTITY));
     }
 
     @Test

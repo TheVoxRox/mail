@@ -104,6 +104,11 @@ class DraftRecipientsChainIT {
     private final ImapActionService imapActionService = mock(ImapActionService.class);
     /** Whether the server stores the next APPEND; it answers without APPENDUID. */
     private final AtomicBoolean storeNext = new AtomicBoolean(true);
+    /**
+     * Runs once inside the next APPEND, as what happens while the server takes it.
+     */
+    private final AtomicReference<Runnable> duringAppend = new AtomicReference<>(() -> {
+    });
     private AccountEntity account;
     private DraftPersistenceService service;
 
@@ -115,13 +120,21 @@ class DraftRecipientsChainIT {
         ImapFolderService folders = mock(ImapFolderService.class);
         when(folders.findFolderNameByRoleOrThrow(account.getId(), FolderRole.DRAFTS)).thenReturn("Drafts");
         when(builder.build(any(), any(), any(), any(), any())).thenAnswer(invocation -> mock(MimeMessage.class));
-        when(appendService.appendDraft(anyLong(), anyString(), any()))
-                .thenAnswer(invocation -> new ImapAppendService.DraftAppendOutcome(storeNext.get(), null, null));
+        // As the service runs it: the draft is asked for under the lane, and a source
+        // with nothing to append is not appended.
+        when(appendService.appendDraft(anyLong(), anyString(), any())).thenAnswer(invocation -> {
+            if (invocation.getArgument(2, ImapAppendService.DraftSource.class).message() == null) {
+                return ImapAppendService.DraftAppendOutcome.failed();
+            }
+            duringAppend.getAndSet(() -> {
+            }).run();
+            return new ImapAppendService.DraftAppendOutcome(storeNext.get(), null, null);
+        });
         // No message rows unless a test gives one: without APPENDUID a save writes
         // none, so a replaced revision is never found and never deleted from the
         // server.
         service = new DraftPersistenceService(accountService, folders, messageService, imapActionService, appendService,
-                builder, mock(MessageMapper.class), mock(AccountRepository.class), repository);
+                builder, mock(MessageMapper.class), mock(AccountRepository.class), repository, new WaitingDraftSaves());
     }
 
     /**
@@ -175,7 +188,7 @@ class DraftRecipientsChainIT {
         }
         storeNext.set(true);
         for (int i = accepted.size() - 1; i >= 0; i--) {
-            service.saveDraftAsync(account.getId(), request(), named.get(i), accepted.get(i));
+            service.saveDraftAsync(account.getId(), named.get(i), accepted.get(i));
         }
 
         assertThat(currentEntries()).containsExactlyInAnyOrder(hidden.messageId(), accepted.getLast().messageId());
@@ -343,7 +356,10 @@ class DraftRecipientsChainIT {
     /**
      * What a save deletes besides the revision it names is bounded by its draft and
      * its order: another draft's revision stays, and so does a later revision of
-     * its own draft, one whose save ran first.
+     * its own draft. Since B1-25 a save with a later one accepted appends nothing,
+     * so the later revision here is accepted, and given a row, while the server
+     * takes this save's APPEND, the one window that is left; the revisions it
+     * deletes are looked up after it.
      */
     @Test
     @DisplayName("A save deletes only earlier revisions of its own draft")
@@ -354,12 +370,10 @@ class DraftRecipientsChainIT {
         giveRow(first, 32);
         DraftPersistenceService.DraftIdentity second = service.acceptDraftSave(account.getId(), request(),
                 first.stableId());
-        DraftPersistenceService.DraftIdentity third = service.acceptDraftSave(account.getId(), request(),
-                second.stableId());
-        giveRow(third, 34);
         storeNext.set(true);
+        duringAppend.set(() -> giveRow(service.acceptDraftSave(account.getId(), request(), second.stableId()), 34));
 
-        service.saveDraftAsync(account.getId(), request(), first.stableId(), second);
+        service.saveDraftAsync(account.getId(), first.stableId(), second);
 
         verify(imapActionService).hardDelete(account.getId(), "Drafts", 32L);
         verify(imapActionService, never()).hardDelete(account.getId(), "Drafts", 31L);
@@ -439,7 +453,7 @@ class DraftRecipientsChainIT {
 
         storeNext.set(true);
         for (int i = 0; i < accepted.size(); i++) {
-            service.saveDraftAsync(account.getId(), request(), named.get(i), accepted.get(i));
+            service.saveDraftAsync(account.getId(), named.get(i), accepted.get(i));
         }
 
         assertThat(currentEntries()).containsExactlyInAnyOrder(hidden.messageId(), accepted.getLast().messageId());
@@ -466,7 +480,7 @@ class DraftRecipientsChainIT {
         assertThat(repository.findById(new DraftRecipientsEntity.Key(account.getId(), held.messageId())))
                 .as("the held revision's entry").isPresent();
         storeNext.set(true);
-        service.saveDraftAsync(account.getId(), request(), stored.stableId(), held);
+        service.saveDraftAsync(account.getId(), stored.stableId(), held);
         assertThat(currentEntries()).contains(held.messageId()).doesNotContain(stored.messageId());
     }
 
@@ -555,7 +569,7 @@ class DraftRecipientsChainIT {
     private DraftPersistenceService.DraftIdentity save(String replaces, boolean stored) {
         DraftPersistenceService.DraftIdentity identity = service.acceptDraftSave(account.getId(), request(), replaces);
         storeNext.set(stored);
-        service.saveDraftAsync(account.getId(), request(), replaces, identity);
+        service.saveDraftAsync(account.getId(), replaces, identity);
         return identity;
     }
 

@@ -61,6 +61,15 @@ Entries before 2026-09-17 predate that split and are left as written.
   and a million seven minutes; the dump waited for it on every
   try while the line stayed in the logs. It now reads such a run once, and
   replaces exactly the tokens it did before (#784).
+- Writing a message with large attachments no longer brings the backend down.
+  Every autosave waited for the account's connection, behind a sync or the
+  upload of the save before it, holding the whole message, so with 25 MB
+  attached the fifth waiting autosave ran the backend out of memory and it
+  restarted. Only a draft's newest waiting save now keeps its content, and a
+  save a later one has replaced is not uploaded at all. The queue also left a
+  copy of the draft in **Rozepsané** for each waiting save until the next one
+  was stored, and a message sent while a save was still waiting came back to
+  **Rozepsané** after the send; neither happens any more (#794).
 
 ### Frontend
 

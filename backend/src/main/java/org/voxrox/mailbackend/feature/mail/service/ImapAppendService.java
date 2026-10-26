@@ -2,6 +2,7 @@ package org.voxrox.mailbackend.feature.mail.service;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.Optional;
 
 import jakarta.mail.Flags;
@@ -123,14 +124,35 @@ public class ImapAppendService {
     }
 
     /**
+     * The draft an append stores, asked for once the lane is held. A draft save
+     * waits for the lane after the 202, behind a sync or another upload, so what it
+     * carries is decided only then: a later save of the same draft may have been
+     * accepted meanwhile, and the source then has nothing to append (IMAP/SMTP
+     * audit B1-25). Asked again for the same append when the action is retried
+     * after an authentication failure, so it must hand out the same message.
+     */
+    @FunctionalInterface
+    public interface DraftSource {
+        /** The message to append, or {@code null} when there is none any more. */
+        @Nullable
+        MimeMessage message() throws MessagingException, IOException;
+    }
+
+    /**
      * Appends a draft to the given (pre-resolved) folder, requesting the UIDPLUS
      * APPENDUID so the caller can persist the local row immediately. Same
      * best-effort contract as {@link #appendByRole}: never throws, and a caller
-     * that deletes prior state on success MUST gate it on {@code appended()}.
+     * that deletes prior state on success MUST gate it on {@code appended()}. A
+     * source with nothing to append leaves the folder unopened and the outcome not
+     * appended, logging nothing: the caller knows why.
      */
-    public DraftAppendOutcome appendDraft(Long accountId, String folderName, MimeMessage message) {
+    public DraftAppendOutcome appendDraft(Long accountId, String folderName, DraftSource source) {
         try {
             DraftAppendOutcome outcome = imapConnectionManager.executeWithLock(accountId, Lane.BACKGROUND, store -> {
+                MimeMessage message = source.message();
+                if (message == null) {
+                    return DraftAppendOutcome.failed();
+                }
                 Folder folder = store.getFolder(folderName);
                 if (!folder.exists()) {
                     log.warn("{} Drafts folder {} does not exist.", LogCategory.SMTP, folderName);

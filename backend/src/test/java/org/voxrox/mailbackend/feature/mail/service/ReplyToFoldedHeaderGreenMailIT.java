@@ -184,7 +184,7 @@ class ReplyToFoldedHeaderGreenMailIT {
         DraftRequest draft = new DraftRequest(reply.to(), reply.cc(), reply.bcc(), reply.subject(), reply.body(),
                 reply.attachments(), reply.inReplyTo(), reply.references());
         DraftPersistenceService.DraftIdentity identity = draftPersistenceService.acceptDraftSave(account, draft, null);
-        draftPersistenceService.saveDraftAsync(account, draft, null, identity);
+        draftPersistenceService.saveDraftAsync(account, null, identity);
 
         // The APPENDUID upsert makes the row addressable without a sync: the save was
         // built and stored.
