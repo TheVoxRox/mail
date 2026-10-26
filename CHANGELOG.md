@@ -87,6 +87,11 @@ Entries before 2026-09-17 predate that split and are left as written.
   rail, in the command palette and on **Všechny kontakty** in the contacts
   pane. A book read as documentation or reading rather than an address book;
   Outlook draws its People the same way (#773).
+- The section headings in the side panes, **Složky** over the folder list,
+  **Štítky** in contacts, **Předvolby** in settings and the rest, are now a
+  step larger than the items under them, 16px over 14px. Since #674 they had
+  the items' size and stood apart by weight alone, and testers asked for the
+  heading to be larger than the list it heads (#789).
 
 - A backend that crashes is restarted again after a **Restartovat službu**
   that landed while a start was under way: pressed twice in a row, or in the
