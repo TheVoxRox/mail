@@ -593,7 +593,7 @@ test.describe('Compose', () => {
 		).setFiles({ name: 'zkratkou.txt', mimeType: 'text/plain', buffer: Buffer.from('Text') });
 
 		await expect(
-			page.getByRole('list', { name: 'Přílohy' }).getByText('zkratkou.txt')
+			page.getByRole('grid', { name: 'Přílohy' }).getByText('zkratkou.txt')
 		).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Přidat přílohu' })).toHaveAttribute(
 			'aria-keyshortcuts',
@@ -617,7 +617,7 @@ test.describe('Compose', () => {
 	}) => {
 		await openApp(page, '/compose');
 		const fileInput = page.locator('input[type="file"]');
-		const attachments = page.getByRole('list', { name: 'Přílohy' });
+		const attachments = page.getByRole('grid', { name: 'Přílohy' });
 		const note = {
 			name: 'poznamka.txt',
 			mimeType: 'text/plain',
