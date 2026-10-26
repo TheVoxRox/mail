@@ -289,7 +289,7 @@ public class DraftPersistenceService {
         try {
             return draftRecipientsRepository.findLaterRevision(accountId, stableId).isPresent() ? null : request;
         } catch (RuntimeException e) {
-            log.debug("{} Could not look up the later saves of draft {}; appending it: {}", LogCategory.SMTP, stableId,
+            log.warn("{} Could not look up the later saves of draft {}; appending it: {}", LogCategory.SMTP, stableId,
                     e.getMessage());
             return request;
         }

@@ -4893,7 +4893,9 @@ leaving its content fails
 `aSaveThatStopsBeforeTheLaneDoesNotMakeItsEntryCurrent`.
 
 **Residual.** A save already appending when a later one is accepted is not
-stopped, so a draft can still be uploaded twice in a row. The row of a stored
+stopped, so a draft can still be uploaded twice in a row. A save skipped for a
+later one is not stored if that later one then fails, so the server keeps the
+revision before both until the user's next change saves again. The row of a stored
 save is written after its APPEND, outside the lane, so a later save whose
 APPEND ends before that write still misses the copy; the window is two local
 writes against a whole upload. A discard deletes the newest stableId only, and
