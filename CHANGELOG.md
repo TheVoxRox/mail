@@ -212,6 +212,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The IMAP/SMTP audit is 1.80 and the API surface audit 1.25, the independent
+  pass over #794: B1-25's fix is confirmed, and both audits are re-verified
+  against `2338c31`, clearing their ledger entries. Recorded and not chased: a
+  draft reopened from an older revision while a newer save of it waits for the
+  lane loses that save's edits, as the chain of 1.68 already did at the next
+  stored save (#799).
 - The `Tauri (Rust)` job takes WebKitGTK and the other system packages from the
   Actions cache when it holds them, instead of from the Ubuntu mirror. Three
   runs went red on 2026-10-26 with the mirror serving those 63.7 MB at 13-82
