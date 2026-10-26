@@ -180,9 +180,10 @@ class DraftLifecycleGreenMailIT {
         Long accountId = account.getId();
 
         // --- Phase 1: identity minted at save time, upserted on the APPENDUID -------
-        DraftPersistenceService.DraftIdentity id1 = draftPersistenceService.prepareDraftIdentity(accountId);
+        DraftPersistenceService.DraftIdentity id1 = draftPersistenceService.acceptDraftSave(accountId,
+                draft("Draft revision one"), null);
         assertThat(id1.draftsFolder()).isEqualTo(DRAFTS);
-        draftPersistenceService.saveDraftAsync(accountId, draft("Draft revision one"), "", id1);
+        draftPersistenceService.saveDraftAsync(accountId, null, id1);
 
         // The row becomes addressable without a sync — proof the APPENDUID upsert ran
         // and that the id the controller returned in the 202 is the id the row gets.
@@ -193,13 +194,15 @@ class DraftLifecycleGreenMailIT {
         assertThat(serverDraftCount()).isEqualTo(1);
 
         // --- Phase 2: a replaces= chain of three revisions leaves exactly one draft --
-        DraftPersistenceService.DraftIdentity id2 = draftPersistenceService.prepareDraftIdentity(accountId);
-        draftPersistenceService.saveDraftAsync(accountId, draft("Draft revision two"), id1.stableId(), id2);
+        DraftPersistenceService.DraftIdentity id2 = draftPersistenceService.acceptDraftSave(accountId,
+                draft("Draft revision two"), id1.stableId());
+        draftPersistenceService.saveDraftAsync(accountId, id1.stableId(), id2);
         await(() -> messageService.getByStableId(id2.stableId()).isPresent()
                 && messageService.getByStableId(id1.stableId()).isEmpty());
 
-        DraftPersistenceService.DraftIdentity id3 = draftPersistenceService.prepareDraftIdentity(accountId);
-        draftPersistenceService.saveDraftAsync(accountId, draft("Draft revision three"), id2.stableId(), id3);
+        DraftPersistenceService.DraftIdentity id3 = draftPersistenceService.acceptDraftSave(accountId,
+                draft("Draft revision three"), id2.stableId());
+        draftPersistenceService.saveDraftAsync(accountId, id2.stableId(), id3);
         await(() -> messageService.getByStableId(id3.stableId()).isPresent()
                 && messageService.getByStableId(id2.stableId()).isEmpty());
 
@@ -220,8 +223,9 @@ class DraftLifecycleGreenMailIT {
         assertThat(messageRepository.countByAccountIdAndFolderName(accountId, DRAFTS)).isEqualTo(1);
 
         // --- Phase 4: a recipient the user has not finished typing ------------------
-        DraftPersistenceService.DraftIdentity id4 = draftPersistenceService.prepareDraftIdentity(accountId);
-        draftPersistenceService.saveDraftAsync(accountId, halfTypedDraft(), "", id4);
+        DraftPersistenceService.DraftIdentity id4 = draftPersistenceService.acceptDraftSave(accountId, halfTypedDraft(),
+                null);
+        draftPersistenceService.saveDraftAsync(accountId, null, id4);
 
         // The save completes at all: strict address parsing used to abort it with an
         // AddressException before anything reached the server, so autosaving while

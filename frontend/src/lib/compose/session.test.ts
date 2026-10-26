@@ -2,7 +2,7 @@ import { get } from 'svelte/store';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import { composeSnapshotFingerprint, createComposeSession } from './session.js';
-import type { ComposeDraft } from './request.js';
+import type { ComposeAttachment, ComposeDraft } from './request.js';
 
 vi.mock('#lib/api/drafts.js', () => ({
 	saveDraft: vi.fn()
@@ -342,5 +342,76 @@ describe('composeSession', () => {
 		await flushMicrotasks();
 		expect(get(session).draftStableId).toBeNull();
 		expect(get(session).saving).toBe(false);
+	});
+	/*
+	 * IMAP/SMTP audit B1-25: every stored revision uploads the whole message and
+	 * holds the account's sync lane while it does, so a draft with large
+	 * attachments saves at most once a minute once it has been saved.
+	 */
+	describe('a draft with large attachments', () => {
+		const MB = 1024 * 1024;
+
+		function attachment(localId: string, size: number): ComposeAttachment {
+			return {
+				localId,
+				fileName: `${localId}.bin`,
+				contentType: 'application/octet-stream',
+				base64Data: 'QUJD',
+				size
+			};
+		}
+
+		function largeDraft(body: string): ComposeDraft {
+			return makeDraft({ body, attachments: [attachment('a1', 6 * MB)] });
+		}
+
+		it('saves at most once a minute while it is edited, and edits do not push the save back', async () => {
+			saveDraftMock.mockResolvedValue({ stableId: 'd1' });
+			const session = beginNewCompose();
+
+			session.noteChange(1, largeDraft('v0'));
+			await vi.advanceTimersByTimeAsync(1000);
+			expect(saveDraftMock).toHaveBeenCalledTimes(1);
+			const firstSaveAt = Date.now();
+
+			// An edit every 2 s for 70 s, never the 3 s pause the steady debounce waits
+			// for, so only the interval brings the next save, and none after it.
+			let secondSaveAt: number | null = null;
+			for (let edit = 1; edit <= 35; edit++) {
+				session.noteChange(1, largeDraft(`v${edit}`));
+				await vi.advanceTimersByTimeAsync(2000);
+				if (secondSaveAt == null && saveDraftMock.mock.calls.length === 2)
+					secondSaveAt = Date.now();
+			}
+
+			expect(secondSaveAt).toBe(firstSaveAt + 60_000);
+			expect(saveDraftMock).toHaveBeenCalledTimes(2);
+			expect(saveDraftMock.mock.calls[1][1]).toMatchObject({ body: 'v30' });
+		});
+
+		it('saves 3 s after a pause again once its attachments fall below the large size', async () => {
+			saveDraftMock.mockResolvedValue({ stableId: 'd1' });
+			const session = beginNewCompose();
+
+			session.noteChange(1, largeDraft('v0'));
+			await vi.advanceTimersByTimeAsync(1000);
+			expect(saveDraftMock).toHaveBeenCalledTimes(1);
+
+			session.noteChange(1, makeDraft({ body: 'v1', attachments: [attachment('a2', MB)] }));
+			await vi.advanceTimersByTimeAsync(3000);
+			expect(saveDraftMock).toHaveBeenCalledTimes(2);
+		});
+
+		it('saves at once when flushed, whatever the interval', async () => {
+			saveDraftMock.mockResolvedValue({ stableId: 'd1' });
+			const session = beginNewCompose();
+
+			session.noteChange(1, largeDraft('v0'));
+			await vi.advanceTimersByTimeAsync(1000);
+			session.noteChange(1, largeDraft('v1'));
+
+			await expect(session.flush()).resolves.toBe('saved');
+			expect(saveDraftMock).toHaveBeenCalledTimes(2);
+		});
 	});
 });

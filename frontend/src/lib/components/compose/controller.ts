@@ -22,6 +22,7 @@ type ComposeShortcutHandlers = {
 	onSave: () => void;
 	onDiscard: () => void;
 	onFocusField: (fieldId: 'compose-cc' | 'compose-bcc') => void;
+	onAddAttachment: () => void;
 };
 
 export function mapComposePrefill(prefill: ComposePrefill): ComposePrefillValues | null {
@@ -49,7 +50,8 @@ export function targetHref(url: Pick<URL, 'pathname' | 'search' | 'hash'>): stri
 }
 
 /*
- * Compose-scoped shortcuts (send, save, discard, focus Cc/Bcc). When a
+ * Compose-scoped shortcuts (send, save, discard, focus Cc/Bcc, add an
+ * attachment). When a
  * shortcut changes here, update the user-facing overview in
  * routes/settings/shortcuts/+page.svelte — it is a hand-maintained mirror.
  */
@@ -57,7 +59,7 @@ export function handleComposeShortcuts(
 	event: KeyboardEvent,
 	handlers: ComposeShortcutHandlers
 ): void {
-	const { formElement, onSend, onSave, onDiscard, onFocusField } = handlers;
+	const { formElement, onSend, onSave, onDiscard, onFocusField, onAddAttachment } = handlers;
 	if (!formElement || !(event.target instanceof Node) || !formElement.contains(event.target)) {
 		return;
 	}
@@ -73,11 +75,17 @@ export function handleComposeShortcuts(
 	const key = event.key.toLowerCase();
 
 	if (event.shiftKey) {
-		if (key === 'c' || key === 'b' || key === 'd') {
+		if (key === 'c' || key === 'b' || key === 'd' || key === 'a') {
 			event.preventDefault();
 			event.stopPropagation();
 			if (key === 'd') {
 				onDiscard();
+				return;
+			}
+			// Outlook has no one-chord key for it (its ribbon's is Alt+N, A, F);
+			// Ctrl+Shift+A is Thunderbird's, and free in the compose window.
+			if (key === 'a') {
+				onAddAttachment();
 				return;
 			}
 			onFocusField(key === 'c' ? 'compose-cc' : 'compose-bcc');

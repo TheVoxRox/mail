@@ -61,6 +61,15 @@ Entries before 2026-09-17 predate that split and are left as written.
   and a million seven minutes; the dump waited for it on every
   try while the line stayed in the logs. It now reads such a run once, and
   replaces exactly the tokens it did before (#784).
+- Writing a message with large attachments no longer brings the backend down.
+  Every autosave waited for the account's connection, behind a sync or the
+  upload of the save before it, holding the whole message, so with 25 MB
+  attached the fifth waiting autosave ran the backend out of memory and it
+  restarted. Only a draft's newest waiting save now keeps its content, and a
+  save a later one has replaced is not uploaded at all. The queue also left a
+  copy of the draft in **Rozepsané** for each waiting save until the next one
+  was stored, and a message sent while a save was still waiting came back to
+  **Rozepsané** after the send; neither happens any more (#794).
 
 ### Frontend
 
@@ -87,6 +96,11 @@ Entries before 2026-09-17 predate that split and are left as written.
   rail, in the command palette and on **Všechny kontakty** in the contacts
   pane. A book read as documentation or reading rather than an address book;
   Outlook draws its People the same way (#773).
+- The section headings in the side panes, **Složky** over the folder list,
+  **Štítky** in contacts, **Předvolby** in settings and the rest, are now a
+  step larger than the items under them, 16px over 14px. Since #674 they had
+  the items' size and stood apart by weight alone, and testers asked for the
+  heading to be larger than the list it heads (#790).
 
 - A backend that crashes is restarted again after a **Restartovat službu**
   that landed while a start was under way: pressed twice in a row, or in the
@@ -104,7 +118,7 @@ Entries before 2026-09-17 predate that split and are left as written.
   The stop now waits for a start under way and ends what it started, and a
   restart the stop came before no longer happens; a **Restartovat službu** in
   either moment still gets its backend. An update runs the code of the
-  installed version, so this protects updates from 0.1.1 on (#760).
+  installed version, so this protects updates from 0.2.0 on (#760).
 - A screen reader hears **Přidat přílohu** in a new message once, as the
   button. The chip's visible caption stayed in the accessibility tree next to
   the button that carries the same name, so browse mode read it as a line of
@@ -146,6 +160,46 @@ Entries before 2026-09-17 predate that split and are left as written.
   contact label, and of applying labels to selected contacts, once. Each
   dialog announced the sentence itself next to a toast that already announces
   it, so it was read twice (#775).
+- Typing in a new message with large attachments no longer lags. To tell an
+  edit from no change, the composer compared the whole message on every key
+  press, the attachments' data included, so with 25 MB attached each key took
+  about 145 ms and every save left two more copies of the attachments in
+  memory. An attachment now counts by its identity, and a key press costs the
+  same with attachments as without (#793).
+- A message with large attachments is autosaved at most once a minute while
+  you write it, instead of after every pause of three seconds. Each autosave
+  uploads the whole message, attachments included, to the mail provider and
+  holds up that account's sync until it is done, so on a slow connection the
+  upload ran for as long as the writing did. This applies once the attachments
+  reach 5 MB, the size **Velká příloha** asks about; leaving the message,
+  Ctrl+S and sending still save at once. A crash now loses at most the last
+  minute of writing in such a message (#795).
+- The **Velká příloha** dialog says what a large attachment means for the
+  message: it takes longer to save and send, and the recipient's mail server
+  may refuse it. It used to ask **Načíst ji do paměti?**, which described the
+  program rather than the message (#796).
+- The hint about dragging files into a new message shows only while nothing is
+  attached yet, or while files are being dragged, and a screen reader no longer
+  reads it on every pass through the attachments; Ctrl+V for a file copied in
+  File Explorer is listed under **Klávesové zkratky** instead (#796).
+- **Ctrl+Shift+A** in a new message opens the file dialog to add an
+  attachment. Outlook has no single key for it, and finding the button meant
+  tabbing back to it from the body; the key is listed under **Klávesové
+  zkratky** (#797).
+- A new message shows the total size of its attachments against the limit,
+  for example **Celkem 7,4 MB z 25,0 MB.**, so the limit is not met only by
+  the error once a file goes over it (#797).
+- Adding a file that is already attached, with the same name and size, skips
+  it and says so: **Soubor … už je přiložený, podruhé se nepřidal.** The other
+  files of the same selection are still added. It used to be attached a second
+  time, usually from a second drop or paste of the same file (#797).
+- The attachments of a new message are one stop for Tab: from **Předmět** the
+  next Tab reaches **Přidat přílohu**, then the attachments, then the body.
+  Tab used to stop on every **Odebrat přílohu** button on the way. The
+  attachments are a grid, as the message list is: the arrows move between
+  them and to their remove button, **Delete** removes the attachment of the
+  row, and focus moves to the next one, or to **Přidat přílohu** once none is
+  left (#798).
 
 ### Tauri / Release
 
@@ -176,6 +230,27 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The IMAP/SMTP audit is 1.80 and the API surface audit 1.25, the independent
+  pass over #794: B1-25's fix is confirmed, and both audits are re-verified
+  against `2338c31`, clearing their ledger entries. Recorded and not chased: a
+  draft reopened from an older revision while a newer save of it waits for the
+  lane loses that save's edits, as the chain of 1.68 already did at the next
+  stored save (#799).
+- The `Tauri (Rust)` job takes WebKitGTK and the other system packages from the
+  Actions cache when it holds them, instead of from the Ubuntu mirror. Three
+  runs went red on 2026-10-26 with the mirror serving those 63.7 MB at 13-82
+  kB/s through all three bounded attempts, which no retry recovers from; apt
+  still resolves against a fresh index, so the cache changes where the files
+  come from, not which ones get installed (#800).
+- The weekly soak runs against Dovecot in a container instead of GreenMail. Its
+  failure of 2026-10-24 (#770) was GreenMail's: while another client expunges,
+  it renumbers the backend's selected mailbox before telling it, so a UID was
+  stored with its neighbour's envelope. On Dovecot the soak also runs the
+  QRESYNC path rather than the fallback that fetches every flag (#792).
+- `sidecar.test.ts` no longer fails the pre-push gate on a busy machine. Its
+  crash tests left each automatic restart waiting on a real 1 s timer, which
+  fired inside a later test once the file ran longer than that and called the
+  sidecar mock every test shares; they run on fake timers now (#791).
 - The API surface audit is 1.24, the independent pass over #784: A7's fix is
   confirmed and the audit re-verified against `f8d07ff`, clearing its ledger.
   Four more shared vectors pin what the hand scan added and no test held, the
@@ -272,6 +347,10 @@ Entries before 2026-09-17 predate that split and are left as written.
   the running shell and sidecar, and checks the data, the start, a file-by-file
   match with a fresh install, what the previous release left behind, and the
   downgrade block. Until 0.1.1 is tagged it reinstalls 0.1.0 over itself (#761).
+- The release after v0.1.0 is 0.2.0, not 0.1.1: Ctrl+Shift+A, the attachment
+  total and the duplicate check are its first new feature, and the maintainer
+  chose to merge them before the cut rather than after. The release model,
+  `docs/RELEASE_PROCESS.md` and `todo.md` name 0.2.0 now (#797).
 
 ## [0.1.0] - 2026-10-19
 

@@ -32,8 +32,8 @@ The one recorded exception is the **first ship, `v0.1.0`, which goes straight to
 stable** — the closed beta is the whole audience there, and a prerelease-only
 repository leaves the stable channel (every installation's default) without a
 manifest. The reasoning is in that same OPERATIONS section; from the release
-after `v0.1.0` on the model holds literally. That release is `0.1.1`, not
-`0.2.0`: the content sets the number, and so far it is fixes only.
+after `v0.1.0` on the model holds literally. That release is `0.2.0`: the
+content sets the number, and it carries the first new feature (#797).
 
 **Where the release stands.** `npm run release:status` (from `frontend/`) reads
 the newest candidate sheet in the checklist on `main`, the tag on origin, CI for

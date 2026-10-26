@@ -57,6 +57,7 @@ public class DraftPersistenceService {
     private final MessageMapper messageMapper;
     private final AccountRepository accountRepository;
     private final DraftRecipientsRepository draftRecipientsRepository;
+    private final WaitingDraftSaves waitingSaves;
 
     /**
      * How many drafts an account keeps typed recipients for, each with all its
@@ -87,7 +88,7 @@ public class DraftPersistenceService {
     public DraftPersistenceService(AccountService accountService, ImapFolderService imapFolderService,
             MessageService messageService, ImapActionService imapActionService, ImapAppendService appendService,
             MimeMessageBuilder mimeMessageBuilder, MessageMapper messageMapper, AccountRepository accountRepository,
-            DraftRecipientsRepository draftRecipientsRepository) {
+            DraftRecipientsRepository draftRecipientsRepository, WaitingDraftSaves waitingSaves) {
         this.accountService = accountService;
         this.imapFolderService = imapFolderService;
         this.messageService = messageService;
@@ -97,6 +98,7 @@ public class DraftPersistenceService {
         this.messageMapper = messageMapper;
         this.accountRepository = accountRepository;
         this.draftRecipientsRepository = draftRecipientsRepository;
+        this.waitingSaves = waitingSaves;
     }
 
     /**
@@ -137,14 +139,39 @@ public class DraftPersistenceService {
      * without it: an entry that cannot be written fails the save here, visibly,
      * rather than leaving a revision checked against the server's own copy.
      *
+     * <p>
+     * The content waits in {@link WaitingDraftSaves} for the task to take it, and
+     * the content of the draft's earlier saves still waiting there is dropped:
+     * their tasks will find a later save of the draft accepted and append nothing
+     * ({@link #saveDraftAsync}), so holding their attachments until then bought
+     * nothing but the heap they filled (B1-25).
+     *
      * @throws RuntimeException
      *             when the chain cannot be looked up or the entry cannot be
      *             written; nothing has been dispatched then.
      */
     public DraftIdentity acceptDraftSave(Long accountId, DraftRequest request, @Nullable String replacesStableId) {
         DraftIdentity identity = prepareDraftIdentity(accountId);
-        keepTypedRecipients(accountId, identity, request, chainOf(accountId, replacesStableId, identity.stableId()));
+        String chainId = chainOf(accountId, replacesStableId, identity.stableId());
+        keepTypedRecipients(accountId, identity, request, chainId);
+        waitingSaves.hold(identity.stableId(), request);
+        if (!chainId.equals(identity.stableId())) {
+            dropEarlierWaitingSaves(accountId, identity.stableId());
+        }
         return identity;
+    }
+
+    /**
+     * Best-effort: content left here still waits only until its task takes the
+     * lane, finds the later save in the chain and drops it.
+     */
+    private void dropEarlierWaitingSaves(Long accountId, String stableId) {
+        try {
+            waitingSaves.drop(draftRecipientsRepository.findEarlierRevisions(accountId, stableId));
+        } catch (RuntimeException e) {
+            log.debug("{} Could not look up the earlier saves of draft {} to drop their waiting content: {}",
+                    LogCategory.SMTP, stableId, e.getMessage());
+        }
     }
 
     /**
@@ -166,31 +193,47 @@ public class DraftPersistenceService {
      * waiting had not left, so a server holding the APPEND lane kept every later
      * autosave current (B1-5, reopened at 1.43 and 1.46).
      *
+     * <p>
+     * The content to append is taken from {@link WaitingDraftSaves} only once the
+     * lane is held, and only while no later save of the same draft has been
+     * accepted: that save carries everything this one does and replaces it as soon
+     * as it is stored, so appending this one too would upload the whole message to
+     * be deleted again. Until 1.79 the task held its content from the 202 on, a
+     * lane held by a sync or a slow upload queued every autosave with its
+     * attachments, and the packaged heap ran out at the fifth with 25 MB attached
+     * (B1-25, measured). A save that finds its draft moved on appends nothing and
+     * records no failure; its entry stays accepted as above.
+     *
+     * <p>
      * After a successful append the draft's earlier revisions are hard-deleted
      * (IMAP expunge + DB row): the one {@code replacesStableId} names, and every
      * other earlier revision of the draft the server still holds a row for
-     * ({@link #replacedRevisions}). Order matters: append-new must succeed,
-     * otherwise the user would lose content. A failed hard-delete is logged but
-     * does not fail the operation; the next stored save deletes the copy it left.
-     * The old revision's typed recipients stay, set aside by the append's
+     * ({@link #replacedRevisions}). Looked up after the append, not before: a save
+     * queued behind its draft's previous one looked up before that one's row
+     * existed, and the queue left a copy per save on the server until the next
+     * stored save (B1-25, measured). Order matters: append-new must succeed,
+     * otherwise the user would lose content. A failed lookup or hard-delete is
+     * logged but does not fail the operation; the next stored save deletes the copy
+     * it left. The old revision's typed recipients stay, set aside by the append's
      * {@link #markStored}, whatever the server answered to the delete: a server can
      * claim it and keep the revision, and until 1.58 that one autosave left the
      * revision before the newest with no entry, its untouched send checked against
      * the server's own copy (B1-5, reopened at 1.57).
      */
     @Async("userMailExecutor")
-    public void saveDraftAsync(Long accountId, DraftRequest request, String replacesStableId, DraftIdentity identity) {
+    public void saveDraftAsync(Long accountId, @Nullable String replacesStableId, DraftIdentity identity) {
         log.info("{} Saving draft for account ID: {} (replaces={})", LogCategory.SMTP, accountId, replacesStableId);
 
         try {
-            /*
-             * Resolve the old revisions before the append so we remember their UIDs and
-             * folders. The actual delete runs only after a successful append.
-             */
-            List<MessageEntity> replaced = replacedRevisions(accountId, replacesStableId, identity.stableId());
-
             AccountEntity account = accountService.getAccountOrThrow(accountId);
-            if (!appendDraftMessage(account, identity, request)) {
+            Appended appended = appendDraftMessage(account, identity,
+                    () -> takeUnlessFollowed(accountId, identity.stableId()));
+            if (appended == Appended.NOTHING_TO_APPEND) {
+                log.info("{} Draft {} of account {} has a later save or was sent; nothing appended for this save.",
+                        LogCategory.SMTP, identity.stableId(), accountId);
+                return;
+            }
+            if (appended == Appended.REJECTED) {
                 /*
                  * The new revision could not be stored. Keep the previous draft intact and
                  * surface the failure — deleting the old copy now would destroy the only
@@ -207,7 +250,7 @@ public class DraftPersistenceService {
                 return;
             }
 
-            for (MessageEntity old : replaced) {
+            for (MessageEntity old : storedRevisionsReplacedBy(accountId, replacesStableId, identity.stableId())) {
                 try {
                     imapActionService.hardDelete(accountId, old.getFolderName(), old.getUid());
                     messageService.deleteByStableId(old.getStableId());
@@ -225,7 +268,74 @@ public class DraftPersistenceService {
             accountRepository.updateLastError(accountId, AccountLastError.of(AccountLastErrorCode.DRAFT_SAVE_FAILED,
                     java.util.Map.of(AccountLastErrorCode.CAUSE, failure.name()), "Draft save failed: " + failure),
                     LocalDateTime.now());
+        } finally {
+            // A task that stopped before the lane leaves its content behind otherwise.
+            waitingSaves.drop(List.of(identity.stableId()));
         }
+    }
+
+    /**
+     * Under the lane: the save's content, unless a later save of its draft has been
+     * accepted. The content is dropped at that acceptance already
+     * ({@link #acceptDraftSave}); the chain decides as well, for a later save
+     * accepted before this one's content was held. A failed lookup appends, since
+     * an upload too many costs less than a revision not stored.
+     */
+    private @Nullable DraftRequest takeUnlessFollowed(Long accountId, String stableId) {
+        DraftRequest request = waitingSaves.take(stableId);
+        if (request == null) {
+            return null;
+        }
+        try {
+            return draftRecipientsRepository.findLaterRevision(accountId, stableId).isPresent() ? null : request;
+        } catch (RuntimeException e) {
+            log.warn("{} Could not look up the later saves of draft {}; appending it: {}", LogCategory.SMTP, stableId,
+                    e.getMessage());
+            return request;
+        }
+    }
+
+    /**
+     * The revisions a stored save deletes ({@link #replacedRevisions}), looked up
+     * once it is stored. Best-effort: the save is stored, and a copy left on the
+     * server is deleted by the draft's next stored save or its send.
+     */
+    private List<MessageEntity> storedRevisionsReplacedBy(Long accountId, @Nullable String replacesStableId,
+            String stableId) {
+        try {
+            return replacedRevisions(accountId, replacesStableId, stableId);
+        } catch (RuntimeException e) {
+            log.warn("{} Could not look up the revisions draft {} replaces; they stay until its next save: {}",
+                    LogCategory.SMTP, stableId, e.getMessage());
+            return List.of();
+        }
+    }
+
+    /** What {@link #appendDraftMessage} did with a save. */
+    private enum Appended {
+        STORED, REJECTED, NOTHING_TO_APPEND
+    }
+
+    /** The content of a save, asked for once the lane is held. */
+    @FunctionalInterface
+    private interface DraftContent {
+        /** The content to append, or {@code null} when there is none any more. */
+        @Nullable
+        DraftRequest take();
+    }
+
+    /**
+     * What one append took and built, kept across a retry of the lane's action
+     * ({@link ImapAppendService.DraftSource}), which runs on this thread.
+     */
+    private static final class AppendAttempt {
+        @Nullable
+        DraftRequest request;
+        @Nullable
+        MimeMessage message;
+        boolean nothingToAppend;
+        @Nullable
+        Exception buildFailure;
     }
 
     /**
@@ -249,8 +359,55 @@ public class DraftPersistenceService {
      * or {@link #saveRecoveryDraft}. A stored revision's entry becomes the draft's
      * current one here, retiring its earlier revisions; one this did not store
      * stays accepted, whichever way this leaves.
+     *
+     * <p>
+     * The content is asked for, and the MIME built, only once the lane is held
+     * (B1-25). A build failure is rethrown here, after the lane, so the save
+     * records its own cause rather than a failed APPEND.
      */
-    private boolean appendDraftMessage(AccountEntity account, DraftIdentity identity, DraftRequest request)
+    private Appended appendDraftMessage(AccountEntity account, DraftIdentity identity, DraftContent content)
+            throws MessagingException, java.io.UnsupportedEncodingException {
+        AppendAttempt attempt = new AppendAttempt();
+        var appendOutcome = appendService.appendDraft(account.getId(), identity.draftsFolder(), () -> {
+            if (attempt.message == null && !attempt.nothingToAppend && attempt.buildFailure == null) {
+                DraftRequest request = content.take();
+                if (request == null) {
+                    attempt.nothingToAppend = true;
+                } else {
+                    try {
+                        attempt.message = buildDraftMessage(account, identity, request);
+                        attempt.request = request;
+                    } catch (MessagingException | java.io.UnsupportedEncodingException | RuntimeException e) {
+                        attempt.buildFailure = e;
+                    }
+                }
+            }
+            return attempt.message;
+        });
+        Exception buildFailure = attempt.buildFailure;
+        if (buildFailure instanceof MessagingException e) {
+            throw e;
+        }
+        if (buildFailure instanceof java.io.UnsupportedEncodingException e) {
+            throw e;
+        }
+        if (buildFailure instanceof RuntimeException e) {
+            throw e;
+        }
+        MimeMessage message = attempt.message;
+        DraftRequest request = attempt.request;
+        if (attempt.nothingToAppend) {
+            return Appended.NOTHING_TO_APPEND;
+        }
+        if (message == null || request == null || !appendOutcome.appended()) {
+            return Appended.REJECTED;
+        }
+        markStored(account.getId(), identity);
+        upsertLocalDraftRow(account, identity, request, message, appendOutcome);
+        return Appended.STORED;
+    }
+
+    private MimeMessage buildDraftMessage(AccountEntity account, DraftIdentity identity, DraftRequest request)
             throws MessagingException, java.io.UnsupportedEncodingException {
         Session session = Session.getInstance(new Properties());
         MimeMessage message = mimeMessageBuilder.build(session, account, request.toMailRequest(),
@@ -264,14 +421,7 @@ public class DraftPersistenceService {
          */
         message.saveChanges();
         message.setHeader("Message-ID", identity.messageId());
-
-        var appendOutcome = appendService.appendDraft(account.getId(), identity.draftsFolder(), message);
-        if (!appendOutcome.appended()) {
-            return false;
-        }
-        markStored(account.getId(), identity);
-        upsertLocalDraftRow(account, identity, request, message, appendOutcome);
-        return true;
+        return message;
     }
 
     /**
@@ -300,7 +450,7 @@ public class DraftPersistenceService {
                 log.warn("{} Could not keep the recipients of recovery draft {}; sending it untouched checks the row "
                         + "instead: {}", LogCategory.SMTP, identity.stableId(), e.getMessage());
             }
-            if (appendDraftMessage(account, identity, draftRequest)) {
+            if (appendDraftMessage(account, identity, () -> draftRequest) == Appended.STORED) {
                 log.info("{} Failed send parked as recovery draft {} for account {}.", LogCategory.SMTP,
                         identity.stableId(), accountId);
                 return identity.stableId();
@@ -334,9 +484,12 @@ public class DraftPersistenceService {
      * as well, for the reason a stored save deletes them
      * ({@link #replacedRevisions}): after a rejected autosave the send names a
      * revision the server never stored, and the last stored one stayed in Drafts
-     * after the message went out.
+     * after the message went out. A save of the draft still waiting for the lane is
+     * dropped first, so it does not append the sent draft back after the send
+     * (B1-25); one already appending is not stopped.
      */
     public void deleteSupersededDraft(Long accountId, String stableId) {
+        waitingSaves.drop(List.of(stableId));
         try {
             MessageEntity draft = awaitSupersededDraft(stableId);
             if (draft == null) {

@@ -136,6 +136,16 @@
 					scopeKey: 'settings.shortcuts.scopes.compose'
 				},
 				{
+					shortcut: 'Ctrl+Shift+A',
+					actionKey: 'settings.shortcuts.actions.addAttachment',
+					scopeKey: 'settings.shortcuts.scopes.compose'
+				},
+				{
+					shortcut: 'Ctrl+V',
+					actionKey: 'settings.shortcuts.actions.pasteAttachment',
+					scopeKey: 'settings.shortcuts.scopes.compose'
+				},
+				{
 					shortcut: 'Delete',
 					actionKey: 'settings.shortcuts.actions.forgetSuggestion',
 					scopeKey: 'settings.shortcuts.scopes.addressSuggestions'

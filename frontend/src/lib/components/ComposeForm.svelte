@@ -482,7 +482,10 @@
 			onSave: () => void handleSaveDraft(),
 			onDiscard: handleDiscard,
 			onFocusField: (fieldId) =>
-				formElement?.querySelector<HTMLInputElement>(`#${fieldId}`)?.focus()
+				formElement?.querySelector<HTMLInputElement>(`#${fieldId}`)?.focus(),
+			// A disabled input opens no file dialog, so a busy form ignores the key.
+			onAddAttachment: () =>
+				formElement?.querySelector<HTMLInputElement>('#compose-attachment-input')?.click()
 		});
 	}
 
