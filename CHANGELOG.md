@@ -58,7 +58,7 @@ Entries before 2026-09-17 predate that split and are left as written.
 - The diagnostic dump no longer stalls on a log line with a long run of
   `-eyJ`, the start of a JSON web token. The redactor tried a token at every one
   and read the rest of the line each time, so 160,000 characters took 9 seconds
-  and a million did not finish in half an hour; the dump waited for it on every
+  and a million seven minutes; the dump waited for it on every
   try while the line stayed in the logs. It now reads such a run once, and
   replaces exactly the tokens it did before (#784).
 
@@ -176,6 +176,11 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The API surface audit is 1.24, the independent pass over #784: A7's fix is
+  confirmed and the audit re-verified against `f8d07ff`, clearing its ledger.
+  Four more shared vectors pin what the hand scan added and no test held, the
+  length of a token's first two parts and both orders in which its matches meet
+  the other shapes'; three statements of 1.23 are corrected (#785).
 - The API surface audit is 1.23: A7 is fixed and waits for its independent
   pass. Four shared vectors now pin where a JSON web token starts in a run of
   several `eyJ` (#784).
