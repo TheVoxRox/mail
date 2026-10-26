@@ -55,6 +55,12 @@ Entries before 2026-09-17 predate that split and are left as written.
   heap and end the backend. Together they now hold some 100 MB at most; past
   the budget the connection that charged last is closed and its work retried,
   as with the other bounds (#781).
+- The diagnostic dump no longer stalls on a log line with a long run of
+  `-eyJ`, the start of a JSON web token. The redactor tried a token at every one
+  and read the rest of the line each time, so 160,000 characters took 9 seconds
+  and a million did not finish in half an hour; the dump waited for it on every
+  try while the line stayed in the logs. It now reads such a run once, and
+  replaces exactly the tokens it did before (#784).
 
 ### Frontend
 
@@ -170,6 +176,9 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The API surface audit is 1.23: A7 is fixed and waits for its independent
+  pass. Four shared vectors now pin where a JSON web token starts in a run of
+  several `eyJ` (#784).
 - The API surface audit is 1.22, the independent pass over #780. It confirms
   the fixes of A4 outside the Basic Multilingual Plane, A5 and A6, and finds A7
   (Low, open): the diagnostic dump's redactor still takes quadratic time on a
