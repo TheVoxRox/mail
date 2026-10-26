@@ -151,6 +151,12 @@ Entries before 2026-09-17 predate that split and are left as written.
   contact label, and of applying labels to selected contacts, once. Each
   dialog announced the sentence itself next to a toast that already announces
   it, so it was read twice (#775).
+- Typing in a new message with large attachments no longer lags. To tell an
+  edit from no change, the composer compared the whole message on every key
+  press, the attachments' data included, so with 25 MB attached each key took
+  about 145 ms and every save left two more copies of the attachments in
+  memory. An attachment now counts by its identity, and a key press costs the
+  same with attachments as without (#793).
 
 ### Tauri / Release
 
