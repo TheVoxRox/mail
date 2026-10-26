@@ -181,6 +181,11 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The weekly soak runs against Dovecot in a container instead of GreenMail. Its
+  failure of 2026-10-24 (#770) was GreenMail's: while another client expunges,
+  it renumbers the backend's selected mailbox before telling it, so a UID was
+  stored with its neighbour's envelope. On Dovecot the soak also runs the
+  QRESYNC path rather than the fallback that fetches every flag (#792).
 - `sidecar.test.ts` no longer fails the pre-push gate on a busy machine. Its
   crash tests left each automatic restart waiting on a real 1 s timer, which
   fired inside a later test once the file ran longer than that and called the
