@@ -211,7 +211,7 @@ Kanonicky seznam _kroku_ je [backend/RELEASE_CHECKLIST.md](backend/RELEASE_CHECK
 - [x] **Third-party license audit pro v0.1.0** — HOTOVO 2026-10-19: `regen:licenses:all` v §1 listu kandidata nezmenil zadny inventar; u dalsich releasu ho vede [backend/RELEASE_CHECKLIST.md](backend/RELEASE_CHECKLIST.md) §8a, pustit pred §1.
 - [x] **Nezavisly pruchod nad opravou A4 (audit B3 1.18)** — HOTOVO 2026-10-12 (#708): audit 1.19, kotva `2d07187`; shoda potvrzena pro text v BMP, Rust test vektoru bezi v CI, vektory doplneny. Znaky mimo BMP a A5 prijaty pro 0.1.0, viz dve polozky nize.
 - [x] **Oba redaktory nad znaky mimo BMP stejne (A4) a v linearnim case (A5)** — HOTOVO 2026-10-25 (#780): oba ctou po znacich, Java hleda adresu rucne; navic nalezen a opraven A6 (dump padal na StackOverflowError u domeny s tisici casti). Audit B3 1.21; nezavisly pruchod 1.22 (#783) potvrdil A4, A5 i A6 a nasel A7, polozka nize.
-- [x] **A7 (Low): redaktor dumpu kvadraticky na dlouhem behu `-eyJ`** — HOTOVO 2026-10-26 (#784): tvar JWT se hleda rucne, jednou na beh `[\w-]`; vystup beze zmeny. Audit B3 1.23, ceka na nezavisly pruchod.
+- [x] **A7 (Low): redaktor dumpu kvadraticky na dlouhem behu `-eyJ`** — HOTOVO 2026-10-26 (#784): tvar JWT se hleda rucne, jednou na beh `[\w-]`; vystup beze zmeny. Audit B3 1.23; nezavisly pruchod 1.24 (#785) opravu potvrdil, kotva `f8d07ff`, ledger vycisten.
 - [x] **Re-verifikovat audity API (B3) a updateru (B6) pred re-cutem v0.1.0** — HOTOVO 2026-10-12 (#702): B3 1.15 a B6 1.18 proti `5def679`, oba zaznamy z ledgeru smazane; B3 nasel A4 (Low, otevreny: „Ulozit logy" nese logy bez redakce), rozhodnuti je na vlastnikovi.
 
 ---

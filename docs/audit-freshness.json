@@ -84,28 +84,6 @@
       }
     ]
   },
-  "docs/API_SURFACE_AUDIT.md": {
-    "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/core/diagnostic": "2060686d03b811b9cfdcba419b7e9230434dbb09",
-      "backend/src/main/java/org/voxrox/mailbackend/util/LogMasker.java": "3f4505bc59b3ccbd77e006a0e8fea88f024182b9",
-      "frontend/src-tauri/src/redact.rs": "e3ef405696e6e359819667780df7c4b96f9d6a0e",
-      "backend/src/main/resources/application.properties": "cdb1274a127a61947454d98a7820795791d5b8c5"
-    },
-    "acknowledgements": [
-      {
-        "date": "2026-10-25",
-        "note": "Recorded in the audit itself as v1.21, the fix of A4 outside the Basic Multilingual Plane, A5 and A6 (#780), waiting for its independent pass. Under core/diagnostic only DiagnosticLogRedactor changed: an address is scanned by hand, by code point, instead of by a pattern with a lookbehind (one UTF-16 unit back) and a group over the domain's labels (a stack frame a label, StackOverflowError from 2,000), and the token pattern's \\b became (?<!\\w). LogMasker keeps the first and last character of a local part whole, which changes its output only for a character outside the plane, where it wrote half of one. redact.rs drops the mark walk it copied from Java's \\b. Against the dump's redactor of 8e00d4e, over 750,000 random lines: more tokens replaced on 334 (after a mark), fewer addresses masked on 10, each a local part running on from a '*' through a character outside the plane that the old lookbehind half-read and the port never masked; the dump and the Save logs ZIP now agree on every line. No controller, DTO, filter, endpoint or the dump's set of entries changes, so sections 1 to 4 do not move. Verdict PASS, A4, A5 and A6 fixed."
-      },
-      {
-        "date": "2026-10-25",
-        "note": "application.properties, under Code paths for the API surface audit, gains mail.client.imap.account-budget=96MB with its comment, beside mail.client.imap.open-folder-budget, whose comment drops the line saying the budget is per connection and an account has two. Both are IMAP client bounds, the IMAP/SMTP audit's subject (B1-14, its 1.77): no key this audit reads changes — not the server address, the CORS and security settings, the multipart and body limits, springdoc or the diagnostic paths — and no endpoint, filter, DTO or dump entry moves. Verdict unchanged."
-      },
-      {
-        "date": "2026-10-26",
-        "note": "Recorded in the audit itself as v1.23, the fix of A7 (#784), waiting for its independent pass. Under core/diagnostic only DiagnosticLogRedactor changed: the JSON web token alternative left TOKENS and webToken finds the shape by hand, once a run of [\\w-], its matches merged with the pattern's by where they start (no two shapes start with the same character); the replaceAll helper went with it. What the dump writes does not change: over 1,500,000 random lines dense with token fragments, its output equals that of d43358f and of redact.rs on every line, and four new shared vectors pin where a token starts in a run of several eyJ, passing on both redactors before and after. redact.rs, the dump's entries and every endpoint are untouched. Verdict PASS, A4 to A7 fixed."
-      }
-    ]
-  },
   "docs/UPDATER_AUDIT.md": {
     "reviewedTrees": {
       "frontend/src-tauri/src": "1089fffcbe59b0fee617df23f0555fd49029b497"

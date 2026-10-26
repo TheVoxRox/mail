@@ -450,6 +450,38 @@
       "why": "a JSON web token that fails at its second part leaves the next one to start inside what it read"
     },
     {
+      "line": "eyJabcdefg.abcdefgh.abcdefgh",
+      "redacted": "eyJabcdefg.abcdefgh.abcdefgh",
+      "addresses": 0,
+      "tokens": 0,
+      "apiKeys": 0,
+      "why": "a first part one character short of a JSON web token: eight after the eyJ, not counting it"
+    },
+    {
+      "line": "eyJabcdefgh.abcdefg.abcdefgh",
+      "redacted": "eyJabcdefgh.abcdefg.abcdefgh",
+      "addresses": 0,
+      "tokens": 0,
+      "apiKeys": 0,
+      "why": "a second part one character short of a JSON web token"
+    },
+    {
+      "line": "/Ewaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa+eyJabcdefgh_-eyJabcdefgh.abcdefgh.abcdefgh",
+      "redacted": "/[token]_-[token]",
+      "addresses": 0,
+      "tokens": 2,
+      "apiKeys": 0,
+      "why": "a token of another shape that starts first takes the eyJ a JSON web token would start at, and the next eyJ of the run starts one"
+    },
+    {
+      "line": "eyJabcdefgh-Ewaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_-Ewaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.abcdefgh.abcdefgh",
+      "redacted": "[token]",
+      "addresses": 0,
+      "tokens": 1,
+      "apiKeys": 0,
+      "why": "a JSON web token that starts first takes the tokens of another shape inside it, and the search goes on after its end"
+    },
+    {
       "line": "client_secret=abcdefgh",
       "redacted": "[token]",
       "addresses": 0,
