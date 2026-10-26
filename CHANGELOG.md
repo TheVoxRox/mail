@@ -166,6 +166,14 @@ Entries before 2026-09-17 predate that split and are left as written.
   about 145 ms and every save left two more copies of the attachments in
   memory. An attachment now counts by its identity, and a key press costs the
   same with attachments as without (#793).
+- A message with large attachments is autosaved at most once a minute while
+  you write it, instead of after every pause of three seconds. Each autosave
+  uploads the whole message, attachments included, to the mail provider and
+  holds up that account's sync until it is done, so on a slow connection the
+  upload ran for as long as the writing did. This applies once the attachments
+  reach 5 MB, the size **Velká příloha** asks about; leaving the message,
+  Ctrl+S and sending still save at once. A crash now loses at most the last
+  minute of writing in such a message (#795).
 
 ### Tauri / Release
 
