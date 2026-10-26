@@ -2,13 +2,16 @@ name: Soak
 
 # The accelerated soak that replaces the overnight run of RELEASE_CHECKLIST
 # §8.2 (decided 2026-09-13, see todo.md). SyncSoakIT starts the packaged backend
-# as a process of its own, keeps a GreenMail mailbox changing through a TCP
-# proxy with every interval shortened, and on a timeline drops the connections,
-# pauses the process with SIGSTOP, makes the server unreachable, kills and
-# restarts the backend and fills the disk; then it checks the database, the
-# local mirror, the heap and the WAL. The log scan runs over the backend's logs
-# afterwards. Linux on purpose: SIGSTOP and a small tmpfs are what make two of
-# the faults real, and neither exists on a Windows runner.
+# as a process of its own, keeps a Dovecot mailbox (a container, through a TCP
+# proxy) changing with every interval shortened, and on a timeline drops the
+# connections, pauses the process with SIGSTOP, makes the server unreachable,
+# kills and restarts the backend and fills the disk; then it checks the
+# database, the local mirror, the heap and the WAL. The log scan runs over the
+# backend's logs afterwards. Linux on purpose: SIGSTOP and a small tmpfs are
+# what make two of the faults real, and neither exists on a Windows runner; the
+# runner's Docker is what Dovecot needs. Dovecot rather than GreenMail because
+# GreenMail numbers a selected mailbox wrongly while another client expunges
+# (#770, see SyncSoakIT).
 #
 # The machine's own daily cycle (sleep, network changes, antivirus) is not
 # reproduced here; the beta's diagnostic dumps are how that is watched.
@@ -27,6 +30,7 @@ on:
     paths:
       - .github/workflows/soak.yml
       - backend/src/test/java/org/voxrox/mailbackend/feature/mail/service/SyncSoakIT.java
+      - backend/src/test/java/org/voxrox/mailbackend/feature/mail/service/DovecotTestServer.java
       - backend/src/test/java/org/voxrox/mailbackend/feature/mail/service/TcpFaultProxy.java
       - backend/src/test/java/org/voxrox/mailbackend/feature/mail/service/TestTls.java
       - frontend/scripts/scan-logs.mjs
