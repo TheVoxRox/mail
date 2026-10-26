@@ -12,8 +12,9 @@
  *    manual "Save draft" on an untouched reply still persists it, while a
  *    re-save of unchanged already-saved content is a cheap no-op.
  *
- * Saves are debounced (~1 s until the compose is persisted, 3 s steady),
- * serialized and coalesced to one trailing save of the latest content; the
+ * Saves are debounced (~1 s until the compose is persisted, 3 s steady; a draft
+ * with large attachments at most once a minute once saved), serialized and
+ * coalesced to one trailing save of the latest content; the
  * `replaces` chain always uses the stableId the previous save returned (minted
  * at save time by the backend, B1). Because the module — not the component —
  * owns the queue, an in-flight save finishes and keeps its identity even after
@@ -24,6 +25,7 @@ import { writable, type Readable } from 'svelte/store';
 import { saveDraft as apiSaveDraft } from '#lib/api/drafts.js';
 import { deleteMessage } from '#lib/api/mailAction.js';
 import { toErrorMessage } from '#lib/api/errors.js';
+import { getClientConfigSnapshot } from '#lib/stores/clientConfig.js';
 import { buildDraftRequest, draftFingerprint, type ComposeDraft } from './request.js';
 
 export type ComposeFlushOutcome = 'saved' | 'skipped' | 'blocked' | 'failed';
@@ -53,8 +55,23 @@ export interface ComposeSessionBeginOptions {
 
 const FIRST_SAVE_DEBOUNCE_MS = 1000;
 const STEADY_SAVE_DEBOUNCE_MS = 3000;
+/**
+ * Once saved, a draft whose attachments reach the large-attachment size saves
+ * at most once in this interval while it is edited, and further edits do not
+ * push a pending save back. Every stored revision uploads the whole message to
+ * the provider and holds the account's sync lane while it does (IMAP/SMTP audit
+ * B1-25), so a save after every pause kept an upload going for as long as the
+ * user typed. Leaving, Ctrl+S and sending still save at once; a crash loses at
+ * most this much typing. Outlook's own default is three minutes.
+ */
+const LARGE_DRAFT_SAVE_INTERVAL_MS = 60_000;
 /** One retry for the discard delete: the async append may not have landed yet. */
 const DISCARD_RETRY_DELAY_MS = 1500;
+
+function hasLargeAttachments(draft: ComposeDraft): boolean {
+	const total = draft.attachments.reduce((sum, attachment) => sum + attachment.size, 0);
+	return total >= getClientConfigSnapshot().largeAttachmentWarningBytes;
+}
 
 /** The "never create an empty draft" floor (an existing draft may be emptied). */
 function hasComposeContent(draft: ComposeDraft): boolean {
@@ -146,6 +163,10 @@ export function createComposeSession(): ComposeSession {
 	let dirty = false;
 	let detached = false;
 	let timer: ReturnType<typeof setTimeout> | null = null;
+	/** The pending autosave is a large draft's, which a further edit does not push back. */
+	let timerThrottled = false;
+	/** When the last save of this compose started (Date.now()), null before the first. */
+	let lastSaveStartedAt: number | null = null;
 	/** Serializes queue runs; each run coalesces everything requested before it. */
 	let tail: Promise<unknown> = Promise.resolve();
 
@@ -193,8 +214,18 @@ export function createComposeSession(): ComposeSession {
 	}
 
 	function scheduleAutosave(): void {
+		const debounceMs = draftStableId == null ? FIRST_SAVE_DEBOUNCE_MS : STEADY_SAVE_DEBOUNCE_MS;
+		const throttledSince =
+			lastSaveStartedAt != null && latest != null && hasLargeAttachments(latest.draft)
+				? lastSaveStartedAt
+				: null;
+		if (throttledSince != null && timer != null && timerThrottled) return;
 		cancelTimer();
-		const delayMs = draftStableId == null ? FIRST_SAVE_DEBOUNCE_MS : STEADY_SAVE_DEBOUNCE_MS;
+		timerThrottled = throttledSince != null;
+		const delayMs =
+			throttledSince == null
+				? debounceMs
+				: Math.max(debounceMs, throttledSince + LARGE_DRAFT_SAVE_INTERVAL_MS - Date.now());
 		timer = setTimeout(() => {
 			timer = null;
 			if (isSuspended()) {
@@ -229,6 +260,7 @@ export function createComposeSession(): ComposeSession {
 
 	async function saveOnce(snapshot: DraftSnapshot): Promise<ComposeFlushOutcome> {
 		const gen = generation;
+		lastSaveStartedAt = Date.now();
 		saving = true;
 		publish();
 		try {
@@ -267,6 +299,7 @@ export function createComposeSession(): ComposeSession {
 		saveError = null;
 		saving = false;
 		latest = null;
+		lastSaveStartedAt = null;
 		attachmentReading = false;
 		dirty = false;
 		detached = false;
