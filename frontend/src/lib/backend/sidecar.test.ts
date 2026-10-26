@@ -318,6 +318,22 @@ describe('ensureBackendSidecar — env / lifecycle short-circuits', () => {
 });
 
 describe('handleUnexpectedExit — exit code → user-readable error message', () => {
+	/*
+	 * Every exit here that is not permanent leaves an automatic restart waiting
+	 * out its 1 s delay, and nothing stops the module once the test is over. On
+	 * real timers that restart fired after the test, inside a later one as soon
+	 * as the machine was busy enough, and called the Command.sidecar mock every
+	 * test shares: calls the later test never made, or the handle it had queued
+	 * for itself. On fake timers it never fires, and useRealTimers drops it.
+	 */
+	beforeEach(() => {
+		vi.useFakeTimers();
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
 	async function setupSpawned() {
 		const handle = createCommandHandle();
 		commandSidecarMock.mockReturnValue(handle.cmd);

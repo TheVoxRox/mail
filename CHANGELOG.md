@@ -181,6 +181,10 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- `sidecar.test.ts` no longer fails the pre-push gate on a busy machine. Its
+  crash tests left each automatic restart waiting on a real 1 s timer, which
+  fired inside a later test once the file ran longer than that and called the
+  sidecar mock every test shares; they run on fake timers now (#791).
 - The API surface audit is 1.24, the independent pass over #784: A7's fix is
   confirmed and the audit re-verified against `f8d07ff`, clearing its ledger.
   Four more shared vectors pin what the hand scan added and no test held, the
