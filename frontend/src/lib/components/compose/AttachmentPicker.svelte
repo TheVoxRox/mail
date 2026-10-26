@@ -12,6 +12,7 @@
 	import { _, appLocale } from '#lib/i18n/index.js';
 	import { toErrorMessage } from '#lib/api/errors.js';
 	import { MAX_ATTACHMENTS, type ComposeAttachment } from '#lib/compose/request.js';
+	import { duplicateKey, splitDuplicates } from '#lib/compose/attachmentDuplicates.js';
 	import { onDestroy, onMount } from 'svelte';
 
 	interface Props {
@@ -58,7 +59,7 @@
 	// each fit pass together over the limit.
 	let pendingCount = 0;
 	let pendingBytes = 0;
-	const pendingKeys = new Set<string>();
+	let pendingKeys: string[] = [];
 
 	function attachmentTotalSize(list: ComposeAttachment[]): number {
 		return list.reduce((total, item) => total + item.size, 0);
@@ -66,37 +67,6 @@
 
 	function fileTotalSize(files: File[]): number {
 		return files.reduce((total, file) => total + file.size, 0);
-	}
-
-	/*
-	 * By name and size, since a file's content is read only after this: a
-	 * file whose name and size match an attachment in the message, one still
-	 * being read, or one earlier in the same batch is taken for the same file
-	 * added again. It is skipped and the rest of the batch goes on, where an
-	 * empty or oversized file refuses the whole batch, because a duplicate is
-	 * nearly always a second drop or paste of what is already there.
-	 */
-	function duplicateKey(name: string, size: number): string {
-		return `${size}/${name}`;
-	}
-
-	function splitDuplicates(files: File[]): { fresh: File[]; duplicates: File[] } {
-		const seen = new Set([
-			...attachments.map((attachment) => duplicateKey(attachment.fileName, attachment.size)),
-			...pendingKeys
-		]);
-		const fresh: File[] = [];
-		const duplicates: File[] = [];
-		for (const file of files) {
-			const key = duplicateKey(file.name, file.size);
-			if (seen.has(key)) {
-				duplicates.push(file);
-			} else {
-				seen.add(key);
-				fresh.push(file);
-			}
-		}
-		return { fresh, duplicates };
 	}
 
 	function validateFiles(files: File[]): string | null {
@@ -193,7 +163,10 @@
 	async function addFiles(selected: File[], options: { clipboard?: boolean } = {}) {
 		if (disabled || selected.length === 0) return;
 		onSelectStart?.();
-		const { fresh: files, duplicates } = splitDuplicates(selected);
+		const { fresh: files, duplicates } = splitDuplicates(selected, [
+			...attachments.map((attachment) => duplicateKey(attachment.fileName, attachment.size)),
+			...pendingKeys
+		]);
 		if (duplicates.length > 0) {
 			onError?.(
 				$_('compose.attachmentDuplicate', {
@@ -215,7 +188,7 @@
 		const batchKeys = files.map((file) => duplicateKey(file.name, file.size));
 		pendingCount += files.length;
 		pendingBytes += batchBytes;
-		batchKeys.forEach((key) => pendingKeys.add(key));
+		pendingKeys = [...pendingKeys, ...batchKeys];
 		try {
 			if (!(await confirmLargeFiles(files))) return;
 			const added: ComposeAttachment[] = [];
@@ -237,7 +210,7 @@
 		} finally {
 			pendingCount -= files.length;
 			pendingBytes -= batchBytes;
-			batchKeys.forEach((key) => pendingKeys.delete(key));
+			pendingKeys = pendingKeys.filter((key) => !batchKeys.includes(key));
 			readingBatches -= 1;
 			if (readingBatches === 0) {
 				reading = false;
