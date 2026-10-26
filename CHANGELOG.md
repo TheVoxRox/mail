@@ -118,7 +118,7 @@ Entries before 2026-09-17 predate that split and are left as written.
   The stop now waits for a start under way and ends what it started, and a
   restart the stop came before no longer happens; a **Restartovat službu** in
   either moment still gets its backend. An update runs the code of the
-  installed version, so this protects updates from 0.1.1 on (#760).
+  installed version, so this protects updates from 0.2.0 on (#760).
 - A screen reader hears **Přidat přílohu** in a new message once, as the
   button. The chip's visible caption stayed in the accessibility tree next to
   the button that carries the same name, so browse mode read it as a line of
@@ -340,6 +340,10 @@ Entries before 2026-09-17 predate that split and are left as written.
   the running shell and sidecar, and checks the data, the start, a file-by-file
   match with a fresh install, what the previous release left behind, and the
   downgrade block. Until 0.1.1 is tagged it reinstalls 0.1.0 over itself (#761).
+- The release after v0.1.0 is 0.2.0, not 0.1.1: Ctrl+Shift+A, the attachment
+  total and the duplicate check are its first new feature, and the maintainer
+  chose to merge them before the cut rather than after. The release model,
+  `docs/RELEASE_PROCESS.md` and `todo.md` name 0.2.0 now (#797).
 
 ## [0.1.0] - 2026-10-19
 
