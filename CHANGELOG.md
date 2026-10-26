@@ -230,6 +230,13 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The threat model (3.32) and the IMAP/SMTP audit (1.81, §4z) rate a denial of
+  service only an account's own mail server can cause Low, while what lasts is
+  that account's loss: the owner's rule of #669, applied now that the account
+  budget and the crash guard keep such a server to its own account. Six
+  findings move from Medium; eleven stay, because a sender can cause them or it
+  is not established that only the server can, honest use reaches them, or they
+  stop every account (#801).
 - The IMAP/SMTP audit is 1.80 and the API surface audit 1.25, the independent
   pass over #794: B1-25's fix is confirmed, and both audits are re-verified
   against `2338c31`, clearing their ledger entries. Recorded and not chased: a
