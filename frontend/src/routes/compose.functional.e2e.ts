@@ -582,6 +582,62 @@ test.describe('Compose', () => {
 		).toContainEqual({ from: 'Odebrat přílohu poznamka.txt', to: 'Přidat přílohu' });
 	});
 
+	test('Ctrl+Shift+A otevře výběr souboru a vybraný soubor přiloží', async ({ page }) => {
+		await openApp(page, '/compose');
+		const body = page.locator('#compose-body');
+
+		const chooser = page.waitForEvent('filechooser');
+		await body.press('Control+Shift+A');
+		await (
+			await chooser
+		).setFiles({ name: 'zkratkou.txt', mimeType: 'text/plain', buffer: Buffer.from('Text') });
+
+		await expect(
+			page.getByRole('list', { name: 'Přílohy' }).getByText('zkratkou.txt')
+		).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Přidat přílohu' })).toHaveAttribute(
+			'aria-keyshortcuts',
+			'Control+Shift+A'
+		);
+	});
+
+	test('pod přílohami je jejich součet proti limitu zprávy', async ({ page }) => {
+		await openApp(page, '/compose');
+
+		await page.locator('input[type="file"]').setInputFiles([
+			{ name: 'prvni.txt', mimeType: 'text/plain', buffer: Buffer.alloc(300) },
+			{ name: 'druha.txt', mimeType: 'text/plain', buffer: Buffer.alloc(200) }
+		]);
+
+		await expect(page.getByText('Celkem 500 B z 25,0 MB.')).toBeVisible();
+	});
+
+	test('tentýž soubor podruhé se přeskočí, ostatní z dávky se přidají a řekne se to', async ({
+		page
+	}) => {
+		await openApp(page, '/compose');
+		const fileInput = page.locator('input[type="file"]');
+		const attachments = page.getByRole('list', { name: 'Přílohy' });
+		const note = {
+			name: 'poznamka.txt',
+			mimeType: 'text/plain',
+			buffer: Buffer.from('Text přílohy')
+		};
+
+		await fileInput.setInputFiles(note);
+		await expect(attachments.getByText('poznamka.txt')).toBeVisible();
+		await fileInput.setInputFiles([
+			note,
+			{ name: 'dalsi.txt', mimeType: 'text/plain', buffer: Buffer.from('Další') }
+		]);
+
+		await expect(page.getByRole('alert')).toHaveText(
+			'Soubor poznamka.txt už je přiložený, podruhé se nepřidal.'
+		);
+		await expect(attachments.getByText('dalsi.txt')).toBeVisible();
+		await expect(attachments.getByText('poznamka.txt')).toHaveCount(1);
+	});
+
 	test('nápověda k přetažení je vidět jen bez příloh a čtečka ji nečte', async ({ page }) => {
 		// Read on every pass through the strip, though files are not dragged with
 		// a screen reader; Ctrl+V is on the shortcuts page instead.

@@ -58,6 +58,7 @@
 	// each fit pass together over the limit.
 	let pendingCount = 0;
 	let pendingBytes = 0;
+	const pendingKeys = new Set<string>();
 
 	function attachmentTotalSize(list: ComposeAttachment[]): number {
 		return list.reduce((total, item) => total + item.size, 0);
@@ -65,6 +66,37 @@
 
 	function fileTotalSize(files: File[]): number {
 		return files.reduce((total, file) => total + file.size, 0);
+	}
+
+	/*
+	 * By name and size, since a file's content is read only after this: a
+	 * file whose name and size match an attachment in the message, one still
+	 * being read, or one earlier in the same batch is taken for the same file
+	 * added again. It is skipped and the rest of the batch goes on, where an
+	 * empty or oversized file refuses the whole batch, because a duplicate is
+	 * nearly always a second drop or paste of what is already there.
+	 */
+	function duplicateKey(name: string, size: number): string {
+		return `${size}/${name}`;
+	}
+
+	function splitDuplicates(files: File[]): { fresh: File[]; duplicates: File[] } {
+		const seen = new Set([
+			...attachments.map((attachment) => duplicateKey(attachment.fileName, attachment.size)),
+			...pendingKeys
+		]);
+		const fresh: File[] = [];
+		const duplicates: File[] = [];
+		for (const file of files) {
+			const key = duplicateKey(file.name, file.size);
+			if (seen.has(key)) {
+				duplicates.push(file);
+			} else {
+				seen.add(key);
+				fresh.push(file);
+			}
+		}
+		return { fresh, duplicates };
 	}
 
 	function validateFiles(files: File[]): string | null {
@@ -158,9 +190,18 @@
 		);
 	}
 
-	async function addFiles(files: File[], options: { clipboard?: boolean } = {}) {
-		if (disabled || files.length === 0) return;
+	async function addFiles(selected: File[], options: { clipboard?: boolean } = {}) {
+		if (disabled || selected.length === 0) return;
 		onSelectStart?.();
+		const { fresh: files, duplicates } = splitDuplicates(selected);
+		if (duplicates.length > 0) {
+			onError?.(
+				$_('compose.attachmentDuplicate', {
+					values: { count: duplicates.length, name: duplicates[0]?.name ?? '' }
+				})
+			);
+		}
+		if (files.length === 0) return;
 		const validationError = validateFiles(files);
 		if (validationError) {
 			onError?.(validationError);
@@ -171,8 +212,10 @@
 		readingBatches += 1;
 		reading = true;
 		const batchBytes = fileTotalSize(files);
+		const batchKeys = files.map((file) => duplicateKey(file.name, file.size));
 		pendingCount += files.length;
 		pendingBytes += batchBytes;
+		batchKeys.forEach((key) => pendingKeys.add(key));
 		try {
 			if (!(await confirmLargeFiles(files))) return;
 			const added: ComposeAttachment[] = [];
@@ -194,6 +237,7 @@
 		} finally {
 			pendingCount -= files.length;
 			pendingBytes -= batchBytes;
+			batchKeys.forEach((key) => pendingKeys.delete(key));
 			readingBatches -= 1;
 			if (readingBatches === 0) {
 				reading = false;
@@ -341,12 +385,14 @@
 		<span aria-hidden="true">{$_('compose.addAttachment')}</span>
 		<input
 			bind:this={fileInput}
+			id="compose-attachment-input"
 			type="file"
 			multiple
 			{disabled}
 			class="sr-only"
 			onchange={handleAttachmentSelect}
 			aria-label={$_('compose.addAttachment')}
+			aria-keyshortcuts="Control+Shift+A"
 		/>
 	</label>
 	<!--
@@ -379,6 +425,14 @@
 				</li>
 			{/each}
 		</ul>
+		<p class="text-xs text-muted-foreground">
+			{$_('compose.attachmentsTotal', {
+				values: {
+					total: formatSize(attachmentTotalSize(attachments), $appLocale),
+					limit: formatSize($clientConfig.attachmentTotalMaxBytes, $appLocale)
+				}
+			})}
+		</p>
 	{/if}
 	{#if reading && readingFileName}
 		<p class="text-xs text-muted-foreground" role="status">

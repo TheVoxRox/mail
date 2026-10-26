@@ -182,6 +182,17 @@ Entries before 2026-09-17 predate that split and are left as written.
   attached yet, or while files are being dragged, and a screen reader no longer
   reads it on every pass through the attachments; Ctrl+V for a file copied in
   File Explorer is listed under **Klávesové zkratky** instead (#796).
+- **Ctrl+Shift+A** in a new message opens the file dialog to add an
+  attachment. Outlook has no single key for it, and finding the button meant
+  tabbing back to it from the body; the key is listed under **Klávesové
+  zkratky** (#797).
+- A new message shows the total size of its attachments against the limit,
+  for example **Celkem 7,4 MB z 25,0 MB.**, so the limit is not met only by
+  the error once a file goes over it (#797).
+- Adding a file that is already attached, with the same name and size, skips
+  it and says so: **Soubor … už je přiložený, podruhé se nepřidal.** The other
+  files of the same selection are still added. It used to be attached a second
+  time, usually from a second drop or paste of the same file (#797).
 
 ### Tauri / Release
 

@@ -136,6 +136,11 @@
 					scopeKey: 'settings.shortcuts.scopes.compose'
 				},
 				{
+					shortcut: 'Ctrl+Shift+A',
+					actionKey: 'settings.shortcuts.actions.addAttachment',
+					scopeKey: 'settings.shortcuts.scopes.compose'
+				},
+				{
 					shortcut: 'Ctrl+V',
 					actionKey: 'settings.shortcuts.actions.pasteAttachment',
 					scopeKey: 'settings.shortcuts.scopes.compose'
