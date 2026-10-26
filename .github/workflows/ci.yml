@@ -175,10 +175,12 @@ jobs:
           # apt counts a file already in its archive as downloaded when name and
           # size match the index entry, and fetches everything else as before. A
           # file of the wrong size is deleted and fetched again, so a truncated
-          # entry costs a download, not the install.
+          # entry costs a download, not the install. find rather than a glob: a
+          # restore cut short can leave the directory without a single .deb,
+          # and that must be a miss, not a cp failure that ends the job.
           if [ -d ~/apt-archives ]; then
             echo "Seeding apt's archive with $(ls ~/apt-archives | wc -l) cached files"
-            sudo cp ~/apt-archives/*.deb /var/cache/apt/archives/
+            find ~/apt-archives -maxdepth 1 -name '*.deb' -exec sudo cp -t /var/cache/apt/archives {} +
           fi
 
           # Acquire Timeout bounds a connection that has gone silent, which is what
