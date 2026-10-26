@@ -12,6 +12,7 @@
 	import { _, appLocale } from '#lib/i18n/index.js';
 	import { toErrorMessage } from '#lib/api/errors.js';
 	import { MAX_ATTACHMENTS, type ComposeAttachment } from '#lib/compose/request.js';
+	import { duplicateKey, splitDuplicates } from '#lib/compose/attachmentDuplicates.js';
 	import { onDestroy, onMount } from 'svelte';
 
 	interface Props {
@@ -58,6 +59,7 @@
 	// each fit pass together over the limit.
 	let pendingCount = 0;
 	let pendingBytes = 0;
+	let pendingKeys: string[] = [];
 
 	function attachmentTotalSize(list: ComposeAttachment[]): number {
 		return list.reduce((total, item) => total + item.size, 0);
@@ -158,9 +160,21 @@
 		);
 	}
 
-	async function addFiles(files: File[], options: { clipboard?: boolean } = {}) {
-		if (disabled || files.length === 0) return;
+	async function addFiles(selected: File[], options: { clipboard?: boolean } = {}) {
+		if (disabled || selected.length === 0) return;
 		onSelectStart?.();
+		const { fresh: files, duplicates } = splitDuplicates(selected, [
+			...attachments.map((attachment) => duplicateKey(attachment.fileName, attachment.size)),
+			...pendingKeys
+		]);
+		if (duplicates.length > 0) {
+			onError?.(
+				$_('compose.attachmentDuplicate', {
+					values: { count: duplicates.length, name: duplicates[0]?.name ?? '' }
+				})
+			);
+		}
+		if (files.length === 0) return;
 		const validationError = validateFiles(files);
 		if (validationError) {
 			onError?.(validationError);
@@ -171,8 +185,10 @@
 		readingBatches += 1;
 		reading = true;
 		const batchBytes = fileTotalSize(files);
+		const batchKeys = files.map((file) => duplicateKey(file.name, file.size));
 		pendingCount += files.length;
 		pendingBytes += batchBytes;
+		pendingKeys = [...pendingKeys, ...batchKeys];
 		try {
 			if (!(await confirmLargeFiles(files))) return;
 			const added: ComposeAttachment[] = [];
@@ -194,6 +210,7 @@
 		} finally {
 			pendingCount -= files.length;
 			pendingBytes -= batchBytes;
+			pendingKeys = pendingKeys.filter((key) => !batchKeys.includes(key));
 			readingBatches -= 1;
 			if (readingBatches === 0) {
 				reading = false;
@@ -341,12 +358,14 @@
 		<span aria-hidden="true">{$_('compose.addAttachment')}</span>
 		<input
 			bind:this={fileInput}
+			id="compose-attachment-input"
 			type="file"
 			multiple
 			{disabled}
 			class="sr-only"
 			onchange={handleAttachmentSelect}
 			aria-label={$_('compose.addAttachment')}
+			aria-keyshortcuts="Control+Shift+A"
 		/>
 	</label>
 	<!--
@@ -379,6 +398,14 @@
 				</li>
 			{/each}
 		</ul>
+		<p class="text-xs text-muted-foreground">
+			{$_('compose.attachmentsTotal', {
+				values: {
+					total: formatSize(attachmentTotalSize(attachments), $appLocale),
+					limit: formatSize($clientConfig.attachmentTotalMaxBytes, $appLocale)
+				}
+			})}
+		</p>
 	{/if}
 	{#if reading && readingFileName}
 		<p class="text-xs text-muted-foreground" role="status">

@@ -118,7 +118,7 @@ Entries before 2026-09-17 predate that split and are left as written.
   The stop now waits for a start under way and ends what it started, and a
   restart the stop came before no longer happens; a **Restartovat službu** in
   either moment still gets its backend. An update runs the code of the
-  installed version, so this protects updates from 0.1.1 on (#760).
+  installed version, so this protects updates from 0.2.0 on (#760).
 - A screen reader hears **Přidat přílohu** in a new message once, as the
   button. The chip's visible caption stayed in the accessibility tree next to
   the button that carries the same name, so browse mode read it as a line of
@@ -182,6 +182,17 @@ Entries before 2026-09-17 predate that split and are left as written.
   attached yet, or while files are being dragged, and a screen reader no longer
   reads it on every pass through the attachments; Ctrl+V for a file copied in
   File Explorer is listed under **Klávesové zkratky** instead (#796).
+- **Ctrl+Shift+A** in a new message opens the file dialog to add an
+  attachment. Outlook has no single key for it, and finding the button meant
+  tabbing back to it from the body; the key is listed under **Klávesové
+  zkratky** (#797).
+- A new message shows the total size of its attachments against the limit,
+  for example **Celkem 7,4 MB z 25,0 MB.**, so the limit is not met only by
+  the error once a file goes over it (#797).
+- Adding a file that is already attached, with the same name and size, skips
+  it and says so: **Soubor … už je přiložený, podruhé se nepřidal.** The other
+  files of the same selection are still added. It used to be attached a second
+  time, usually from a second drop or paste of the same file (#797).
 
 ### Tauri / Release
 
@@ -329,6 +340,10 @@ Entries before 2026-09-17 predate that split and are left as written.
   the running shell and sidecar, and checks the data, the start, a file-by-file
   match with a fresh install, what the previous release left behind, and the
   downgrade block. Until 0.1.1 is tagged it reinstalls 0.1.0 over itself (#761).
+- The release after v0.1.0 is 0.2.0, not 0.1.1: Ctrl+Shift+A, the attachment
+  total and the duplicate check are its first new feature, and the maintainer
+  chose to merge them before the cut rather than after. The release model,
+  `docs/RELEASE_PROCESS.md` and `todo.md` name 0.2.0 now (#797).
 
 ## [0.1.0] - 2026-10-19
 
