@@ -582,6 +582,46 @@ test.describe('Compose', () => {
 		).toContainEqual({ from: 'Odebrat přílohu poznamka.txt', to: 'Přidat přílohu' });
 	});
 
+	test('nápověda k přetažení je vidět jen bez příloh a čtečka ji nečte', async ({ page }) => {
+		// Read on every pass through the strip, though files are not dragged with
+		// a screen reader; Ctrl+V is on the shortcuts page instead.
+		await openApp(page, '/compose');
+		const hint = page.getByText('Přetáhněte sem soubory nebo vložte přílohu ze schránky.');
+
+		await expect(hint).toBeVisible();
+		await expect(hint).toHaveAttribute('aria-hidden', 'true');
+
+		await page.locator('input[type="file"]').setInputFiles({
+			name: 'poznamka.txt',
+			mimeType: 'text/plain',
+			buffer: Buffer.from('Text přílohy')
+		});
+		await expect(
+			page.getByRole('list', { name: 'Přílohy' }).getByText('poznamka.txt')
+		).toBeVisible();
+		await expect(hint).toHaveCount(0);
+	});
+
+	test('velká příloha se potvrzuje dialogem, který říká, co velikost znamená', async ({ page }) => {
+		await openApp(page, '/compose');
+
+		await page.locator('input[type="file"]').setInputFiles({
+			name: 'velka-priloha.bin',
+			mimeType: 'application/octet-stream',
+			buffer: Buffer.alloc(6 * 1024 * 1024)
+		});
+
+		const dialog = page.getByRole('dialog', { name: 'Velká příloha' });
+		await expect(dialog).toContainText(
+			'Zpráva se pak bude déle ukládat i odesílat a poštovní server příjemce ji může odmítnout. Přesto ji připojit?'
+		);
+		await expect(dialog).not.toContainText('paměti');
+		await dialog.getByRole('button', { name: 'Připojit' }).click();
+		await expect(
+			page.getByRole('list', { name: 'Přílohy' }).getByText('velka-priloha.bin')
+		).toBeVisible();
+	});
+
 	test('více příloh najednou se ohlásí počtem a součtem, odebrání jedné vrátí fokus na Přidat přílohu', async ({
 		page
 	}) => {

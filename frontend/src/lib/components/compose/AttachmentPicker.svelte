@@ -349,9 +349,16 @@
 			aria-label={$_('compose.addAttachment')}
 		/>
 	</label>
-	<p class="text-xs text-muted-foreground">
-		{dragActive ? $_('compose.dropAttachmentsActive') : $_('compose.dropAttachmentsHint')}
-	</p>
+	<!--
+		Shown while nothing is attached yet and during a drag, and kept from the
+		screen reader: it was read on every pass through the strip, though files
+		are not dragged with a reader, and Ctrl+V is on the shortcuts page.
+	-->
+	{#if dragActive || attachments.length === 0}
+		<p class="text-xs text-muted-foreground" aria-hidden="true">
+			{dragActive ? $_('compose.dropAttachmentsActive') : $_('compose.dropAttachmentsHint')}
+		</p>
+	{/if}
 	{#if attachments.length > 0}
 		<ul class="flex flex-wrap gap-2" aria-label={$_('compose.attachmentsLabel')}>
 			{#each attachments as att (att.localId)}

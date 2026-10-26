@@ -174,6 +174,14 @@ Entries before 2026-09-17 predate that split and are left as written.
   reach 5 MB, the size **Velká příloha** asks about; leaving the message,
   Ctrl+S and sending still save at once. A crash now loses at most the last
   minute of writing in such a message (#795).
+- The **Velká příloha** dialog says what a large attachment means for the
+  message: it takes longer to save and send, and the recipient's mail server
+  may refuse it. It used to ask **Načíst ji do paměti?**, which described the
+  program rather than the message (#796).
+- The hint about dragging files into a new message shows only while nothing is
+  attached yet, or while files are being dragged, and a screen reader no longer
+  reads it on every pass through the attachments; Ctrl+V for a file copied in
+  File Explorer is listed under **Klávesové zkratky** instead (#796).
 
 ### Tauri / Release
 
