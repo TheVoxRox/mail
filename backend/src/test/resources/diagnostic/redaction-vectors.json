@@ -418,6 +418,38 @@
       "why": "one character short of a JSON web token"
     },
     {
+      "line": "id-eyJhbGciOiJI.eyJzdWIiOiIx.abcdefgh12",
+      "redacted": "id-[token]",
+      "addresses": 0,
+      "tokens": 1,
+      "apiKeys": 0,
+      "why": "a JSON web token right after a '-'"
+    },
+    {
+      "line": "eyJ-eyJabcdefgh.abcdefgh.abcdefgh",
+      "redacted": "[token]",
+      "addresses": 0,
+      "tokens": 1,
+      "apiKeys": 0,
+      "why": "a JSON web token starts at the first eyJ of its run that may start one, its first part running to the dot"
+    },
+    {
+      "line": "xeyJ-eyJabcdefgh.abcdefgh.abcdefgh",
+      "redacted": "xeyJ-[token]",
+      "addresses": 0,
+      "tokens": 1,
+      "apiKeys": 0,
+      "why": "an eyJ right after a word character starts none, so a later one in the same run does"
+    },
+    {
+      "line": "-eyJabcdefgh.short.abcdefgh-eyJabcdefgh.abcdefgh.abcdefgh",
+      "redacted": "-eyJabcdefgh.short.abcdefgh-[token]",
+      "addresses": 0,
+      "tokens": 1,
+      "apiKeys": 0,
+      "why": "a JSON web token that fails at its second part leaves the next one to start inside what it read"
+    },
+    {
       "line": "client_secret=abcdefgh",
       "redacted": "[token]",
       "addresses": 0,
