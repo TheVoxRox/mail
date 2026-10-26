@@ -218,6 +218,12 @@ Entries before 2026-09-17 predate that split and are left as written.
   draft reopened from an older revision while a newer save of it waits for the
   lane loses that save's edits, as the chain of 1.68 already did at the next
   stored save (#799).
+- The `Tauri (Rust)` job takes WebKitGTK and the other system packages from the
+  Actions cache when it holds them, instead of from the Ubuntu mirror. Three
+  runs went red on 2026-10-26 with the mirror serving those 63.7 MB at 13-82
+  kB/s through all three bounded attempts, which no retry recovers from; apt
+  still resolves against a fresh index, so the cache changes where the files
+  come from, not which ones get installed (#800).
 - The weekly soak runs against Dovecot in a container instead of GreenMail. Its
   failure of 2026-10-24 (#770) was GreenMail's: while another client expunges,
   it renumbers the backend's selected mailbox before telling it, so a UID was
