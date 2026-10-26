@@ -12,8 +12,8 @@ records the _policy_ behind all three.
 
 | Tool                                    | When                            | Gate                                                                 |
 | --------------------------------------- | ------------------------------- | -------------------------------------------------------------------- |
-| Error Prone 2.50                        | every `javac` run (main + test) | ERROR-level bug patterns fail the build                              |
-| NullAway 0.13                           | main sources only               | ERROR (burn-down completed, see below)                               |
+| Error Prone                             | every `javac` run (main + test) | ERROR-level bug patterns fail the build                              |
+| NullAway                                | main sources only               | ERROR (burn-down completed, see below)                               |
 | javac doclint, `reference` group        | every `javac` run (main + test) | a `{@link}`/`@see`/`@throws` that does not resolve fails the build   |
 | `check:java-callers`                    | `npm run check` / pre-push      | a main-source declaration with no caller (three verdicts, see below) |
 | SpotBugs (effort Max, threshold Medium) | `mvn verify`                    | fails the build                                                      |

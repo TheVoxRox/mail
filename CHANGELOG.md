@@ -70,6 +70,13 @@ Entries before 2026-09-17 predate that split and are left as written.
   copy of the draft in **Rozepsané** for each waiting save until the next one
   was stored, and a message sent while a save was still waiting came back to
   **Rozepsané** after the send; neither happens any more (#794).
+- The backend runs on Spring Boot 4.1.2, with SQLite 3.53.4 (`sqlite-jdbc`
+  3.53.4.0) and commonmark 0.31.0, the library that turns a sent message's
+  Markdown into its HTML part; 0.31.0 fixes four parse cases and two inputs
+  that took quadratic time. Boot 4.1.2 manages Tomcat 11.0.27 and the Jackson
+  3.1.7 and 2.21.7 boms, the versions `pom.xml` had pinned for their
+  advisories, so the three pins are gone and the next Boot bump moves those
+  libraries again instead of leaving them where the pins held them (#789).
 
 ### Frontend
 
@@ -230,6 +237,14 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- Error Prone 2.51 and NullAway 0.14.3: the new `HashCodeInObjectsHash` check
+  flagged `Objects.hash` over the single id in `RemoteImageSenderEntity`, now
+  `Objects.hashCode`, and `docs/STATIC_ANALYSIS.md` stops naming either tool's
+  version, stale after every bump. Spring Boot 4.1.2 no longer cleans logging
+  up when the test framework pauses a cached context (spring-boot#52088), so
+  every integration test logged where the first one to start had pointed
+  logging and the five that read their own log failed; a test-only listener
+  cleans it up for each application a test starts (#789).
 - The IMAP/SMTP audit is 1.80 and the API surface audit 1.25, the independent
   pass over #794: B1-25's fix is confirmed, and both audits are re-verified
   against `2338c31`, clearing their ledger entries. Recorded and not chased: a
