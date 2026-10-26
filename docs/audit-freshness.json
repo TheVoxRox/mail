@@ -94,5 +94,28 @@
         "note": "The only change under frontend/src-tauri/src is redact.rs, the Save logs ZIP's redactor, which is the API surface audit's subject (A4, its 1.21): the mark walk that copied Java's \\b is gone, so a token right after a non-spacing mark is replaced, and the comments now describe the Java side's hand scan. No updater command, capability, endpoint, version pin, signature check or install step is touched, and redact.rs is not on the update path: it runs only when the user saves the logs. Verdict unchanged."
       }
     ]
+  },
+  "docs/IMAP_SMTP_AUDIT.md": {
+    "reviewedTrees": {
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "b9560ef71bf5724112efb2cf40920f6eb46f0609",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "128ea301d4195cc3cc6f271cf9e63f75f6d33135"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-10-26",
+        "note": "The fix of B1-25, recorded in the audit as 1.79 (section 4y), its independent pass to come. A queued draft save no longer holds its content while it waits for the background lane: WaitingDraftSaves keeps it by stableId, a later accepted save of the draft or a send drops it, and the task takes it only under the lane through ImapAppendService.DraftSource, and only while findLaterRevision finds no later save in its chain. The revisions a stored save deletes are looked up after its APPEND. The typed-recipient rules of B1-5 are unchanged: a save that appends nothing leaves its entry accepted, which markStored already sets aside at the next stored save. Verdict unchanged, B1-25 fixed and waiting for its pass."
+      }
+    ]
+  },
+  "docs/API_SURFACE_AUDIT.md": {
+    "reviewedTrees": {
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller": "55ef5a5b12b0922eed0d5706aa90852cd30b2ac4"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-10-26",
+        "note": "DraftController.saveDraft no longer passes the request body to saveDraftAsync, which takes the content acceptDraftSave holds (IMAP/SMTP audit B1-25, 1.79). The endpoint, its path and query parameters, the DraftRequest validation, the 202 body and the security chain are unchanged, and nothing else under the path moved. Verdict unchanged."
+      }
+    ]
   }
 }
