@@ -209,18 +209,27 @@ class DraftSaveQueueGreenMailIT {
 
     /**
      * Waits until the account's Drafts folder holds exactly {@code subjects}, in
-     * any order, and fails with what it held last.
+     * any order, and fails with what it held last. A listing that fails is tried
+     * again: the backend may expunge a replaced revision between this client's
+     * SELECT and its envelope fetch, which Angus reports as "Failed to load IMAP
+     * envelope" (seen in CI), and that is a state on the way, not the end state.
      */
     private void awaitServerDrafts(String login, List<String> subjects) throws InterruptedException {
         List<String> expected = subjects.stream().sorted().toList();
         long deadline = System.nanoTime() + AWAIT_TIMEOUT.toNanos();
         while (true) {
-            List<String> held = serverDraftSubjects(login).stream().sorted().toList();
-            if (held.equals(expected)) {
-                return;
+            String held;
+            try {
+                List<String> listed = serverDraftSubjects(login).stream().sorted().toList();
+                if (listed.equals(expected)) {
+                    return;
+                }
+                held = "holds " + listed;
+            } catch (IllegalStateException e) {
+                held = "could not be listed (" + e.getCause() + ")";
             }
             if (System.nanoTime() > deadline) {
-                throw new AssertionError("Drafts holds " + held + " after " + AWAIT_TIMEOUT + ", not " + expected);
+                throw new AssertionError("Drafts " + held + " after " + AWAIT_TIMEOUT + ", not " + expected);
             }
             Thread.sleep(100);
         }
