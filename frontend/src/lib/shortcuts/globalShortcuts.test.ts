@@ -22,6 +22,7 @@ function makeHandlers(overrides: Partial<GlobalShortcutHandlers> = {}): GlobalSh
 		toggleFlag: vi.fn(),
 		setSeen: vi.fn(),
 		deleteMessage: vi.fn(),
+		archiveMessage: vi.fn(),
 		printOpenMessage: vi.fn(),
 		announceNothingToPrint: vi.fn(),
 		isFocusInOpenMessage: () => false,
@@ -389,12 +390,58 @@ describe('handleGlobalKeydown — message actions', () => {
 		expect(h.deleteMessage).toHaveBeenCalledOnce();
 	});
 
+	it('Backspace archives the open message and consumes the key', () => {
+		const h = openMessageHandlers();
+		const ev = makeEvent({ key: 'Backspace' });
+		handleGlobalKeydown(ev, h);
+		expect(h.archiveMessage).toHaveBeenCalledOnce();
+		expect(h.deleteMessage).not.toHaveBeenCalled();
+		expect(ev.defaultPrevented).toBe(true);
+	});
+
+	it.each([
+		{ name: 'Shift+Backspace', init: { key: 'Backspace', shiftKey: true } },
+		{ name: 'Ctrl+Backspace', init: { key: 'Backspace', ctrlKey: true } },
+		{ name: 'Alt+Backspace', init: { key: 'Backspace', altKey: true } }
+	])('$name does not archive', ({ init }) => {
+		const h = openMessageHandlers();
+		const ev = makeEvent(init);
+		handleGlobalKeydown(ev, h);
+		expect(h.archiveMessage).not.toHaveBeenCalled();
+		expect(ev.defaultPrevented).toBe(false);
+	});
+
+	it('a held Backspace archives once and swallows the repeats', () => {
+		// The neighbour opens after the first archive; a repeat must not take it too.
+		const h = openMessageHandlers();
+		handleGlobalKeydown(makeEvent({ key: 'Backspace' }), h);
+		const repeat = makeEvent({ key: 'Backspace', repeat: true });
+		handleGlobalKeydown(repeat, h);
+		expect(h.archiveMessage).toHaveBeenCalledOnce();
+		expect(repeat.defaultPrevented).toBe(true);
+	});
+
+	it('Backspace in a text field deletes a character, not the message', () => {
+		// The search box stays focusable while a message is open.
+		const h = openMessageHandlers();
+		const input = document.createElement('input');
+		document.body.appendChild(input);
+		const ev = makeEvent({ key: 'Backspace' });
+		Object.defineProperty(ev, 'target', { value: input });
+		handleGlobalKeydown(ev, h);
+		document.body.removeChild(input);
+		expect(h.archiveMessage).not.toHaveBeenCalled();
+		expect(ev.defaultPrevented).toBe(false);
+	});
+
 	it('does nothing when no message is open', () => {
 		const h = makeHandlers(); // getMessageShortcutContext → null
 		handleGlobalKeydown(makeEvent({ key: 'r', ctrlKey: true }), h);
 		handleGlobalKeydown(makeEvent({ key: 'Delete' }), h);
+		handleGlobalKeydown(makeEvent({ key: 'Backspace' }), h);
 		expect(h.reply).not.toHaveBeenCalled();
 		expect(h.deleteMessage).not.toHaveBeenCalled();
+		expect(h.archiveMessage).not.toHaveBeenCalled();
 	});
 
 	it('defers to a closer handler that already called preventDefault', () => {

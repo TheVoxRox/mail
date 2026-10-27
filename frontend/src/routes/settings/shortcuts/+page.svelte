@@ -101,6 +101,11 @@
 					scopeKey: 'settings.shortcuts.scopes.openMessage'
 				},
 				{
+					shortcut: SHORTCUT_LABELS.archiveMessage,
+					actionKey: 'settings.shortcuts.actions.archiveMessage',
+					scopeKey: 'settings.shortcuts.scopes.openMessage'
+				},
+				{
 					shortcut: SHORTCUT_LABELS.printMessage,
 					actionKey: 'settings.shortcuts.actions.printMessage',
 					scopeKey: 'settings.shortcuts.scopes.printTarget'
@@ -193,6 +198,11 @@
 				{
 					shortcut: 'Delete',
 					actionKey: 'settings.shortcuts.actions.listDeleteMessage',
+					scopeKey: 'settings.shortcuts.scopes.messageGrid'
+				},
+				{
+					shortcut: SHORTCUT_LABELS.archiveMessage,
+					actionKey: 'settings.shortcuts.actions.listArchiveMessage',
 					scopeKey: 'settings.shortcuts.scopes.messageGrid'
 				}
 			]

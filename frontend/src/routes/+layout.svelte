@@ -49,7 +49,12 @@
 		type PrintJob
 	} from '#lib/mail/printMessages.js';
 	import { forwardMessage, goToInbox, replyToMessage } from '#lib/mail/actions.js';
-	import { deleteMessages, markMessagesSeen, toggleMessageFlag } from '#lib/mail/mailbox.js';
+	import {
+		archiveMessage,
+		deleteMessages,
+		markMessagesSeen,
+		toggleMessageFlag
+	} from '#lib/mail/mailbox.js';
 	import { loadSidebar } from '#lib/components/sidebar/loader.js';
 	// Straight from the module, never the sidebar-shell barrel: the barrel
 	// re-exports the component and would pull it out of its lazy chunk.
@@ -490,6 +495,7 @@
 			toggleFlag: () => runOnOpenMessage((id) => toggleMessageFlag(id)),
 			setSeen: (seen) => runOnOpenMessage((id) => markMessagesSeen([id], seen)),
 			deleteMessage: () => runOnOpenMessage((id) => deleteMessages([id])),
+			archiveMessage: () => runOnOpenMessage((id) => archiveMessage(id)),
 			printOpenMessage,
 			announceNothingToPrint: () => pushToast($_('detail.nothingToPrint'), { tone: 'info' }),
 			// The reading pane's root carries data-print="document"; focus in the

@@ -20,5 +20,6 @@ export const SHORTCUT_LABELS = {
 	markRead: 'Ctrl+Q',
 	markUnread: 'Ctrl+U',
 	printMessage: 'Ctrl+P',
-	deleteMessage: 'Delete'
+	deleteMessage: 'Delete',
+	archiveMessage: 'Backspace'
 } as const;
