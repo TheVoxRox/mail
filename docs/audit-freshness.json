@@ -97,7 +97,7 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "720925e053d2dad6d26ee96f0a81a4845d020549",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "4ad46515c1e6bacdf7a0295397a885ddb68b0136",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "d8311889bbc191f2df89057b968c4ac55f91f0cc"
     },
     "acknowledgements": [

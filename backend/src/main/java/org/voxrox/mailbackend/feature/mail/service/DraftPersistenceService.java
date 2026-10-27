@@ -686,10 +686,10 @@ public class DraftPersistenceService {
         }
         Optional<String> later = draftRecipientsRepository.findLaterRevision(accountId, replacesStableId);
         if (later.isPresent()) {
-            log.info(
-                    "{} Draft save {} of account {} names revision {}, which save {} of its draft follows; "
-                            + "it starts a draft of its own.",
-                    LogCategory.SMTP, stableId, accountId, replacesStableId, later.get());
+            // The named revision comes from the request and stays out of this line;
+            // DraftController logs it beside the same stableId.
+            log.info("{} Draft save {} of account {} names a revision that save {} of its draft follows; "
+                    + "it starts a draft of its own.", LogCategory.SMTP, stableId, accountId, later.get());
             return stableId;
         }
         return chain.get();
