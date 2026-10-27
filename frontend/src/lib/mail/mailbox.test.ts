@@ -101,8 +101,8 @@ vi.mock('#lib/stores/toasts.js', () => ({
 	pushToast: vi.fn()
 }));
 
-import { deleteMessages } from './mailbox.js';
-import { deleteMessage } from '#lib/api/mailAction.js';
+import { archiveMessage, deleteMessages } from './mailbox.js';
+import { deleteMessage, moveMessage } from '#lib/api/mailAction.js';
 import { folders } from '#lib/stores/folders.js';
 import { searchState } from '#lib/stores/search.js';
 import { confirmAction } from '#lib/stores/confirmDialog.js';
@@ -131,6 +131,7 @@ const requestConversationFocusRestoreMock = requestConversationFocusRestore as M
 const requestListFocusRestoreMock = requestListFocusRestore as Mock;
 const confirmActionMock = confirmAction as Mock;
 const deleteMessageMock = deleteMessage as Mock;
+const moveMessageMock = moveMessage as Mock;
 
 const TRASH_REF = 'Trash';
 
@@ -538,5 +539,109 @@ describe('deleteMessages - the listing the grouped view is left with', () => {
 		await deleteMessages(['c1']);
 
 		expect(adjustFolderUnreadMock).not.toHaveBeenCalled();
+	});
+});
+
+describe('archiveMessage - Backspace on the open message', () => {
+	const ARCHIVE_REF = 'Archives';
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		foldersStore.set([
+			...folderList(),
+			// A server name that is not "Archive": the role picks the target, not the name.
+			{ displayName: 'Archives', folderRef: ARCHIVE_REF, unreadCount: 0, role: 'ARCHIVE' }
+		]);
+		messagesStore.set(readyMessages('INBOX', ['m1']));
+		searchStore.set({ status: 'idle' });
+		conversationsStore.set({ status: 'idle' });
+		selectedStore.set(openMessage('m1', { folderName: 'INBOX' }));
+	});
+
+	it('moves the message to the folder whose role is ARCHIVE', async () => {
+		const result = await archiveMessage('m1');
+
+		expect(moveMessageMock).toHaveBeenCalledExactlyOnceWith('m1', { folderRef: ARCHIVE_REF });
+		expect(result?.succeeded).toBe(1);
+		expect(pushToastMock).toHaveBeenCalledWith(
+			`toolbar.moveDone ${JSON.stringify({ count: 1, failed: 0, folder: 'Archives' })}`,
+			{ tone: 'success' }
+		);
+	});
+
+	it('says so instead of moving when the account has no Archive folder', async () => {
+		foldersStore.set(folderList());
+
+		const result = await archiveMessage('m1');
+
+		expect(result).toBeUndefined();
+		expect(moveMessageMock).not.toHaveBeenCalled();
+		expect(pushToastMock).toHaveBeenCalledExactlyOnceWith('messages.noArchiveFolder', {
+			tone: 'info'
+		});
+	});
+
+	it('says so instead of moving when the message is already archived', async () => {
+		messagesStore.set(readyMessages(ARCHIVE_REF, ['m1']));
+		selectedStore.set(openMessage('m1', { folderName: ARCHIVE_REF }));
+
+		const result = await archiveMessage('m1');
+
+		expect(result).toBeUndefined();
+		expect(moveMessageMock).not.toHaveBeenCalled();
+		expect(pushToastMock).toHaveBeenCalledExactlyOnceWith('messages.alreadyArchived', {
+			tone: 'info'
+		});
+	});
+
+	it('reads the folder from the open message, not the listing it was opened from', async () => {
+		// A conversation in the Inbox can surface its archived member; that one
+		// is already where Backspace would send it.
+		selectedStore.set(openMessage('m1', { folderName: ARCHIVE_REF }));
+
+		await archiveMessage('m1');
+
+		expect(moveMessageMock).not.toHaveBeenCalled();
+		expect(pushToastMock).toHaveBeenCalledWith('messages.alreadyArchived', { tone: 'info' });
+	});
+
+	it('falls back to the folder being listed while the detail is still loading', async () => {
+		messagesStore.set(readyMessages(ARCHIVE_REF, ['m1']));
+		selectedStore.set({ ...openMessage('m1', { folderName: '' }), detail: null, loading: true });
+
+		await archiveMessage('m1');
+
+		expect(moveMessageMock).not.toHaveBeenCalled();
+		expect(pushToastMock).toHaveBeenCalledWith('messages.alreadyArchived', { tone: 'info' });
+	});
+});
+
+describe('archiveMessage - Backspace on a list row', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		foldersStore.set([
+			...folderList(),
+			{ displayName: 'Archive', folderRef: 'Archive', unreadCount: 0, role: 'ARCHIVE' }
+		]);
+		messagesStore.set(readyMessages('INBOX', ['m1', 'm2']));
+		searchStore.set({ status: 'idle' });
+		conversationsStore.set({ status: 'idle' });
+		// The reading pane shows m1 while focus sits on m2's row.
+		selectedStore.set(openMessage('m1', { folderName: 'INBOX' }));
+	});
+
+	it('archives the row it was pressed on, not the open message', async () => {
+		await archiveMessage('m2', 'INBOX');
+
+		expect(moveMessageMock).toHaveBeenCalledExactlyOnceWith('m2', { folderRef: 'Archive' });
+	});
+
+	it('takes the folder the row names over the open detail', async () => {
+		selectedStore.set(openMessage('m2', { folderName: 'INBOX' }));
+
+		await archiveMessage('m2', 'Archive');
+
+		expect(moveMessageMock).not.toHaveBeenCalled();
+		expect(pushToastMock).toHaveBeenCalledWith('messages.alreadyArchived', { tone: 'info' });
 	});
 });

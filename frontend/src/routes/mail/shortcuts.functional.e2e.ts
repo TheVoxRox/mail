@@ -51,6 +51,48 @@ test('Delete s focusem uvnitř těla zprávy smaže otevřenou zprávu', async (
 	expect(deleteRequests).toHaveLength(1);
 });
 
+test('Backspace s focusem uvnitř těla zprávy přesune otevřenou zprávu do archivu', async ({
+	page
+}) => {
+	const moves: unknown[] = [];
+	page.on('request', (r) => {
+		if (r.method() === 'POST' && /\/api\/v1\/messages\/msg-01\/move$/.test(r.url())) {
+			moves.push(r.postDataJSON());
+		}
+	});
+
+	// As with Delete above: the precondition is the reading cursor in the frame,
+	// which the frame relays out with nothing to cancel there first.
+	await openHtmlMessage(page);
+
+	await page.keyboard.press('Backspace');
+
+	await page.waitForURL('**/mail/1/INBOX', { timeout: 5000 });
+	expect(moves).toEqual([{ folderRef: 'ARCHIVE' }]);
+	await expect(page.locator('[role="row"][data-stable-id="msg-01"]')).toHaveCount(0);
+});
+
+test('Backspace na fokusovaném řádku seznamu přesune tu zprávu do archivu', async ({ page }) => {
+	const moved: string[] = [];
+	page.on('request', (r) => {
+		const match = /\/api\/v1\/messages\/(msg-\d+)\/move$/.exec(r.url());
+		if (r.method() === 'POST' && match && r.postDataJSON()?.folderRef === 'ARCHIVE') {
+			moved.push(match[1]);
+		}
+	});
+
+	await openApp(page, '/mail/1/INBOX');
+
+	// Focus the row without opening it, as the Delete test below does: no
+	// message is open, so only the grid row handler can archive it.
+	const row = page.locator('[role="row"][data-stable-id="msg-02"]');
+	await expect(row).toBeVisible();
+	await row.press('Backspace');
+
+	await expect(row).toHaveCount(0);
+	expect(moved).toEqual(['msg-02']);
+});
+
 test('tělo zprávy: CSP zablokuje jiný než hash-připnutý skript', async ({ page }) => {
 	await openHtmlMessage(page);
 

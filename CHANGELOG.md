@@ -230,6 +230,15 @@ Entries before 2026-09-17 predate that split and are left as written.
   "Go to Inbox" does, from anywhere in the app and also with the cursor in a
   text field or in the body of an open message. Settings › Shortcuts lists it,
   and the command palette shows it next to the Inbox folder (#804).
+- **Backspace** moves mail to the account's **Archiv**, as in Outlook: the
+  open message, also with the reading cursor in its body, or the row focused
+  in the message list. In the grouped view a conversation row takes the
+  conversation's messages in the folder in view, as its row menu does. The
+  target is the folder the server marks as the archive, whatever it is called.
+  An account without one, or mail already archived, is told so instead of the
+  key doing nothing audible, and a held key archives once rather than walking
+  down the folder. Settings › Shortcuts lists both, and the command palette
+  shows it next to the move to the Archive folder (#805).
 
 ### Tauri / Release
 

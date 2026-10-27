@@ -34,6 +34,8 @@ export interface GlobalShortcutHandlers {
 	 */
 	setSeen: (seen: boolean) => void;
 	deleteMessage: () => void;
+	/** Moves the open message to the account's Archive folder, or says why it cannot. */
+	archiveMessage: () => void;
 	/** Prints the open message, or says why it cannot yet. */
 	printOpenMessage: () => void;
 	/** Ctrl+P with no message open and nothing ticked: say so instead of printing the screen. */
@@ -227,16 +229,26 @@ function handleWorkspaceShortcut(event: KeyboardEvent, handlers: GlobalShortcutH
  * key, so the webview never reacts.
  */
 function handleMessageShortcut(event: KeyboardEvent, handlers: GlobalShortcutHandlers): boolean {
+	const unmodified = !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey;
+
 	// Delete (no modifiers) → delete the open message.
-	if (
-		event.key === 'Delete' &&
-		!event.ctrlKey &&
-		!event.metaKey &&
-		!event.altKey &&
-		!event.shiftKey
-	) {
+	if (event.key === 'Delete' && unmodified) {
 		event.preventDefault();
 		handlers.deleteMessage();
+		return true;
+	}
+
+	/*
+	 * Backspace (no modifiers) → archive, Outlook's binding. Text fields keep it
+	 * because the editable bail ran first, and the body frame is never editable,
+	 * so its relay can hand the key over unprevented: Backspace has no default
+	 * there to cancel (Chromium dropped Backspace-for-Back long ago). An
+	 * auto-repeat is claimed and dropped, as on a list row (MessageList.svelte):
+	 * one held key archives one message, not whichever comes next.
+	 */
+	if (event.key === 'Backspace' && unmodified) {
+		event.preventDefault();
+		if (!event.repeat) handlers.archiveMessage();
 		return true;
 	}
 
