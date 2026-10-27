@@ -14,6 +14,8 @@ type ComposePrefillValues = {
 	references: string | null;
 	replacesDraftId: string | null;
 	attachments: ComposeAttachment[];
+	fromNewestSave: boolean;
+	accountId: number | null;
 };
 
 type ComposeShortcutHandlers = {
@@ -37,7 +39,9 @@ export function mapComposePrefill(prefill: ComposePrefill): ComposePrefillValues
 		inReplyTo: prefill.inReplyTo ?? null,
 		references: prefill.references ?? null,
 		replacesDraftId: prefill.replacesDraftId,
-		attachments: prefill.attachments
+		attachments: prefill.attachments,
+		fromNewestSave: prefill.fromNewestSave,
+		accountId: prefill.accountId
 	};
 }
 

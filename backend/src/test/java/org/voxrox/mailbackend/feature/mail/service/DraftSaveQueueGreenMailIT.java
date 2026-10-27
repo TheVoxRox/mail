@@ -47,7 +47,8 @@ import com.icegreen.greenmail.util.ServerSetup;
  * content, attachments included, and to append a copy of the draft that the
  * next save could not see to delete. Here the lane is held the way a sync holds
  * it while the saves are accepted and dispatched exactly as
- * {@code DraftController} does, then released.
+ * {@code DraftController} does, then released. The same queue with a draft
+ * reopened from an older revision lost the newer save's edits (B1-26).
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "mail.client.sync.initial-delay=PT1H", "mail.test-context=DraftSaveQueueGreenMailIT"})
@@ -57,8 +58,6 @@ class DraftSaveQueueGreenMailIT {
     private static final Path DATA_DIR = Path.of("target", "test-tmp", "DraftSaveQueueGreenMailIT").toAbsolutePath()
             .normalize();
 
-    private static final String EMAIL = "queue-it@greenmail.local";
-    private static final String LOGIN = "queue-user";
     private static final String PASSWORD = "queue-password";
     private static final String DRAFTS = "Drafts";
     /** Saves accepted while the lane is held: fewer than the user-mail permits. */
@@ -108,27 +107,14 @@ class DraftSaveQueueGreenMailIT {
     @Test
     @DisplayName("Autosaves queued behind a held lane keep only the newest one's content and leave only it on the server")
     void queuedSavesKeepOnlyTheNewest() throws Exception {
-        Long accountId = createAccount();
+        String login = "queue-user";
+        Long accountId = createAccount(login);
         String stored = save(accountId, revision(0), null);
         await(() -> messageService.getByStableId(stored).isPresent());
 
-        CountDownLatch held = new CountDownLatch(1);
-        CountDownLatch release = new CountDownLatch(1);
-        Thread holder = Thread.ofVirtual().start(
-                () -> imapConnectionManager.executeWithLock(accountId, ImapConnectionManager.Lane.BACKGROUND, store -> {
-                    held.countDown();
-                    try {
-                        release.await();
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                    }
-                    return null;
-                }));
-        held.await();
-
         List<WeakReference<DraftRequest>> contents = new ArrayList<>();
         String replaces = stored;
-        try {
+        try (LaneHold _ = holdLane(accountId)) {
             for (int i = 1; i <= QUEUED_SAVES; i++) {
                 DraftRequest request = revision(i);
                 contents.add(new WeakReference<>(request));
@@ -139,9 +125,6 @@ class DraftSaveQueueGreenMailIT {
             List<WeakReference<DraftRequest>> followed = contents.subList(0, QUEUED_SAVES - 1);
             awaitCollected(followed);
             assertThat(contents.getLast().get()).as("the newest save's content, still to append").isNotNull();
-        } finally {
-            release.countDown();
-            holder.join();
         }
 
         String newest = replaces;
@@ -149,9 +132,58 @@ class DraftSaveQueueGreenMailIT {
         // Until 1.79 each queued save appended a copy of the draft and looked up the
         // revisions to delete before the previous one had a row, so four copies were
         // left after a queue of twelve until the next stored save (B1-25, measured).
-        await(() -> serverDraftSubjects().equals(List.of("Revision " + QUEUED_SAVES)));
+        awaitServerDrafts(login, List.of("Revision " + QUEUED_SAVES));
         AccountEntity account = accountRepository.findById(accountId).orElseThrow();
         assertThat(account.getLastErrorCode()).as("no save is reported failed").isNull();
+    }
+
+    /**
+     * The user leaves the composer while its save waits for the lane, and the
+     * Drafts list, which gets the newer revision's row only once it is stored,
+     * still shows the revision before it; the user opens that one again and edits
+     * it. Until 1.82 the reopened save joined the draft's chain as its newest, so
+     * the save it does not descend from was skipped and its edits were lost
+     * (IMAP/SMTP audit B1-26, measured at 1.80).
+     */
+    @Test
+    @DisplayName("A save of a reopened older revision keeps the newer save still waiting for the lane, as a draft of its own")
+    void aReopenedRevisionKeepsTheWaitingSave() throws Exception {
+        String login = "reopen-waiting";
+        Long accountId = createAccount(login);
+        String stored = save(accountId, draft("Stored"), null);
+        await(() -> messageService.getByStableId(stored).isPresent());
+
+        try (LaneHold _ = holdLane(accountId)) {
+            save(accountId, draft("Left in the composer"), stored);
+            save(accountId, draft("Reopened"), stored);
+        }
+
+        awaitServerDrafts(login, List.of("Left in the composer", "Reopened"));
+        AccountEntity account = accountRepository.findById(accountId).orElseThrow();
+        assertThat(account.getLastErrorCode()).as("no save is reported failed").isNull();
+    }
+
+    /**
+     * The same reopening once the newer save is stored, from a list read before its
+     * row appeared. Until 1.82 the reopened save, stored, deleted every earlier
+     * revision of the chain it had joined, the newer one with them (IMAP/SMTP audit
+     * B1-26).
+     */
+    @Test
+    @DisplayName("A stored save of a reopened older revision leaves the newer revision it does not descend from on the server")
+    void aReopenedRevisionLeavesTheNewerOneStored() throws Exception {
+        String login = "reopen-stored";
+        Long accountId = createAccount(login);
+        String stored = save(accountId, draft("Stored"), null);
+        await(() -> messageService.getByStableId(stored).isPresent());
+        String newer = save(accountId, draft("Saved later"), stored);
+        await(() -> messageService.getByStableId(newer).isPresent());
+
+        String reopened = save(accountId, draft("Reopened"), stored);
+        await(() -> messageService.getByStableId(reopened).isPresent());
+
+        awaitServerDrafts(login, List.of("Reopened", "Saved later"));
+        assertThat(messageService.getByStableId(newer)).as("the newer revision's row").isPresent();
     }
 
     /** One save the way {@code DraftController} dispatches it; its stableId. */
@@ -171,9 +203,63 @@ class DraftSaveQueueGreenMailIT {
                 List.of(attachment), null, null);
     }
 
-    private Long createAccount() throws Exception {
-        greenMail.setUser(EMAIL, LOGIN, PASSWORD);
-        withStore(store -> {
+    private static DraftRequest draft(String subject) {
+        return new DraftRequest("to@greenmail.local", null, null, subject, "Body of " + subject, null, null, null);
+    }
+
+    /**
+     * Waits until the account's Drafts folder holds exactly {@code subjects}, in
+     * any order, and fails with what it held last.
+     */
+    private void awaitServerDrafts(String login, List<String> subjects) throws InterruptedException {
+        List<String> expected = subjects.stream().sorted().toList();
+        long deadline = System.nanoTime() + AWAIT_TIMEOUT.toNanos();
+        while (true) {
+            List<String> held = serverDraftSubjects(login).stream().sorted().toList();
+            if (held.equals(expected)) {
+                return;
+            }
+            if (System.nanoTime() > deadline) {
+                throw new AssertionError("Drafts holds " + held + " after " + AWAIT_TIMEOUT + ", not " + expected);
+            }
+            Thread.sleep(100);
+        }
+    }
+
+    /** The account's background lane, held the way a sync holds it until closed. */
+    private LaneHold holdLane(Long accountId) throws InterruptedException {
+        CountDownLatch held = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        Thread holder = Thread.ofVirtual().start(
+                () -> imapConnectionManager.executeWithLock(accountId, ImapConnectionManager.Lane.BACKGROUND, store -> {
+                    held.countDown();
+                    try {
+                        release.await();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                    return null;
+                }));
+        held.await();
+        return new LaneHold(release, holder);
+    }
+
+    private record LaneHold(CountDownLatch release, Thread holder) implements AutoCloseable {
+        @Override
+        public void close() throws InterruptedException {
+            release.countDown();
+            holder.join();
+        }
+    }
+
+    /**
+     * An account on its own GreenMail user, so each test has a Drafts folder of its
+     * own.
+     */
+    private Long createAccount(String login) throws Exception {
+        String email = login + "@greenmail.local";
+        greenMail.setUser(email, login, PASSWORD);
+        withStore(login, store -> {
             Folder drafts = store.getFolder(DRAFTS);
             if (!drafts.exists()) {
                 drafts.create(Folder.HOLDS_MESSAGES);
@@ -182,13 +268,13 @@ class DraftSaveQueueGreenMailIT {
         });
         MailServerSettings server = new MailServerSettings("127.0.0.1", greenMail.getImaps().getPort(), true);
         accountService.createAccount(
-                new AccountCreateRequest("Queue IT", null, EMAIL, null, server, server, LOGIN, PASSWORD));
-        return accountRepository.findByEmail(EMAIL).orElseThrow().getId();
+                new AccountCreateRequest("Queue IT", null, email, null, server, server, login, PASSWORD));
+        return accountRepository.findByEmail(email).orElseThrow().getId();
     }
 
-    private List<String> serverDraftSubjects() {
+    private List<String> serverDraftSubjects(String login) {
         try {
-            return withStore(store -> {
+            return withStore(login, store -> {
                 Folder drafts = store.getFolder(DRAFTS);
                 drafts.open(Folder.READ_ONLY);
                 try {
@@ -212,12 +298,12 @@ class DraftSaveQueueGreenMailIT {
     }
 
     /** A fresh session beside the backend's pooled one, as a second client. */
-    private <R> R withStore(StoreAction<R> action) throws Exception {
+    private <R> R withStore(String login, StoreAction<R> action) throws Exception {
         Properties props = new Properties();
         props.put("mail.store.protocol", "imaps");
         Session session = Session.getInstance(props);
         try (Store store = session.getStore("imaps")) {
-            store.connect("127.0.0.1", greenMail.getImaps().getPort(), LOGIN, PASSWORD);
+            store.connect("127.0.0.1", greenMail.getImaps().getPort(), login, PASSWORD);
             return action.apply(store);
         }
     }

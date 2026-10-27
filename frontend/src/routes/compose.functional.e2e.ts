@@ -250,6 +250,89 @@ test.describe('Compose', () => {
 		expect(new URL(draftPosts[0]).searchParams.get('replaces')).toBe('draft-42');
 	});
 
+	/**
+	 * Opens draft-42, saves an edit and goes back to it, as a user does who opens
+	 * the revision again from a Drafts list that shows the newer save's row only
+	 * once the backend has stored it (IMAP/SMTP audit B1-26). The mock stores at
+	 * once and drops draft-42, so only the compose session can open what was saved.
+	 * With `fromAccount`, the save goes from that account.
+	 */
+	async function saveEditAndReopen(
+		page: Page,
+		fromAccount?: string
+	): Promise<{ newest: string; posts: URL[] }> {
+		const posts: URL[] = [];
+		const draftSave = /\/api\/v1\/accounts\/\d+\/drafts(\?|$)/;
+		page.on('request', (request) => {
+			if (request.method() !== 'POST') return;
+			if (draftSave.test(request.url()) || request.url().includes('/send')) {
+				posts.push(new URL(request.url()));
+			}
+		});
+		await openApp(page, '/compose?draft=draft-42');
+		await expect(page.locator('#compose-body')).toHaveValue('HTML obsah pro Rozepsaný koncept.');
+
+		if (fromAccount) await page.locator('#compose-from').selectOption(fromAccount);
+		await page.locator('#compose-body').fill('Naposledy uložený text.');
+		const saved = page.waitForResponse(
+			(response) => response.request().method() === 'POST' && draftSave.test(response.url())
+		);
+		await page.getByRole('button', { name: 'Uložit koncept' }).click();
+		const { stableId } = (await (await saved).json()) as { stableId: string };
+		await page.waitForURL('**/mail/**');
+
+		await page.goBack();
+		await page.waitForURL('**/compose?draft=draft-42');
+		return { newest: stableId, posts };
+	}
+
+	test('znovu otevřená revize, kterou uložení nahradilo, ukáže naposledy uložený text a naváže na něj', async ({
+		page
+	}) => {
+		const { newest, posts } = await saveEditAndReopen(page);
+
+		await expect(page.locator('#compose-body')).toHaveValue('Naposledy uložený text.');
+		await expect(page.locator('#compose-subject')).toHaveValue('Rozepsaný koncept');
+		await page.locator('#compose-body').fill('Pokračování po znovuotevření.');
+		await page.getByRole('button', { name: 'Uložit koncept' }).click();
+		await page.waitForURL('**/mail/1/INBOX');
+
+		expect(posts).toHaveLength(2);
+		expect(posts[1].searchParams.get('replaces')).toBe(newest);
+	});
+
+	test('znovu otevřená revize se neodešle jako koncept na serveru, ale z polí', async ({
+		page
+	}) => {
+		const { newest, posts } = await saveEditAndReopen(page);
+		await expect(page.locator('#compose-body')).toHaveValue('Naposledy uložený text.');
+
+		// The newest save may still be waiting for the server, so an untouched send
+		// rebuilds the message from the fields instead of sending a draft as-is.
+		await page.getByRole('button', { name: 'Odeslat' }).click();
+		await page.waitForURL('**/mail/1/INBOX');
+
+		const send = posts.at(-1);
+		expect(send?.pathname).toBe('/api/v1/messages/account/1/send');
+		expect(send?.searchParams.get('supersedesDraftId')).toBe(newest);
+	});
+
+	test('znovu otevřená revize se uloží z účtu, ze kterého šlo poslední uložení', async ({
+		page
+	}) => {
+		const { newest, posts } = await saveEditAndReopen(page, '2');
+
+		await expect(page.locator('#compose-from')).toHaveValue('2');
+		await page.locator('#compose-body').fill('Pokračování z druhého účtu.');
+		await page.getByRole('button', { name: 'Uložit koncept' }).click();
+		await page.waitForURL('**/mail/**');
+
+		expect(posts).toHaveLength(2);
+		expect(posts[0].pathname).toBe('/api/v1/accounts/2/drafts');
+		expect(posts[1].pathname).toBe('/api/v1/accounts/2/drafts');
+		expect(posts[1].searchParams.get('replaces')).toBe(newest);
+	});
+
 	test('odešle novou zprávu přes MSW API a vrátí se do inboxu', async ({ page }) => {
 		await openApp(page, '/compose');
 

@@ -144,7 +144,9 @@ public class DraftPersistenceService {
      * the content of the draft's earlier saves still waiting there is dropped:
      * their tasks will find a later save of the draft accepted and append nothing
      * ({@link #saveDraftAsync}), so holding their attachments until then bought
-     * nothing but the heap they filled (B1-25).
+     * nothing but the heap they filled (B1-25). A save that starts a draft of its
+     * own, including one that names a revision a later save already follows
+     * ({@link #chainOf}), drops nothing.
      *
      * @throws RuntimeException
      *             when the chain cannot be looked up or the entry cannot be
@@ -196,13 +198,14 @@ public class DraftPersistenceService {
      * <p>
      * The content to append is taken from {@link WaitingDraftSaves} only once the
      * lane is held, and only while no later save of the same draft has been
-     * accepted: that save carries everything this one does and replaces it as soon
-     * as it is stored, so appending this one too would upload the whole message to
-     * be deleted again. Until 1.79 the task held its content from the 202 on, a
-     * lane held by a sync or a slow upload queued every autosave with its
-     * attachments, and the packaged heap ran out at the fifth with 25 MB attached
-     * (B1-25, measured). A save that finds its draft moved on appends nothing and
-     * records no failure; its entry stays accepted as above.
+     * accepted: that save descends from this one ({@link #chainOf}), so it carries
+     * everything this one does and replaces it as soon as it is stored, and
+     * appending this one too would upload the whole message to be deleted again.
+     * Until 1.79 the task held its content from the 202 on, a lane held by a sync
+     * or a slow upload queued every autosave with its attachments, and the packaged
+     * heap ran out at the fifth with 25 MB attached (B1-25, measured). A save that
+     * finds its draft moved on appends nothing and records no failure; its entry
+     * stays accepted as above.
      *
      * <p>
      * After a successful append the draft's earlier revisions are hard-deleted
@@ -648,18 +651,48 @@ public class DraftPersistenceService {
 
     /**
      * The draft a save's typed recipients belong to: the chain of the revision the
-     * client names as the one it replaces, or a new chain, named by this save's own
-     * stableId, when it names none or one with no entry here — the first save of a
-     * compose, or the first save here of a draft composed elsewhere. Every stableId
-     * a save of this client returned has its entry by then, since
-     * {@link #acceptDraftSave} writes it before the 202. A failed lookup fails the
-     * save rather than starting a chain the draft's earlier revisions are not in.
+     * client names as the one it replaces, while that revision is the newest its
+     * chain has; otherwise a new chain, named by this save's own stableId. New when
+     * the save names none or one with no entry here — the first save of a compose,
+     * or the first save here of a draft composed elsewhere — and when a later save
+     * of the named revision's draft has been accepted: the user has opened that
+     * revision again, from a Drafts list that shows a newer save's row only once it
+     * is stored, while the newer save waited for the lane or before its row
+     * appeared. Joining made this save the newest of a chain whose newer save it
+     * does not descend from: the queue then skipped that save, or this one deleted
+     * it once stored, and its edits were lost (IMAP/SMTP audit B1-26, measured at
+     * 1.80). Both are kept instead, as two drafts, since nothing here can merge
+     * them.
+     *
+     * <p>
+     * So a chain is a line of descent: a save joins only as the newest, and by
+     * {@code saved_seq} a revision's earlier entries are its ancestors and its
+     * later ones its descendants. What the queue skips
+     * ({@link #takeUnlessFollowed}) and drops, and what a stored save or a send
+     * deletes, reads the chain in that order. The client serializes a draft's
+     * saves, each naming the stableId the one before returned, so no two saves name
+     * the same revision at once. Every stableId a save of this client returned has
+     * its entry by then, since {@link #acceptDraftSave} writes it before the 202. A
+     * failed lookup fails the save rather than starting a chain the draft's earlier
+     * revisions are not in.
      */
     private String chainOf(Long accountId, @Nullable String replacesStableId, String stableId) {
         if (replacesStableId == null || replacesStableId.isBlank()) {
             return stableId;
         }
-        return draftRecipientsRepository.findChainId(accountId, replacesStableId).orElse(stableId);
+        Optional<String> chain = draftRecipientsRepository.findChainId(accountId, replacesStableId);
+        if (chain.isEmpty()) {
+            return stableId;
+        }
+        Optional<String> later = draftRecipientsRepository.findLaterRevision(accountId, replacesStableId);
+        if (later.isPresent()) {
+            log.info(
+                    "{} Draft save {} of account {} names revision {}, which save {} of its draft follows; "
+                            + "it starts a draft of its own.",
+                    LogCategory.SMTP, stableId, accountId, replacesStableId, later.get());
+            return stableId;
+        }
+        return chain.get();
     }
 
     /**

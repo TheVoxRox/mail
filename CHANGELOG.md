@@ -77,6 +77,13 @@ Entries before 2026-09-17 predate that split and are left as written.
   3.1.7 and 2.21.7 boms, the versions `pom.xml` had pinned for their
   advisories, so the three pins are gone and the next Boot bump moves those
   libraries again instead of leaving them where the pins held them (#789).
+- Editing a draft opened again from **Rozepsané** no longer throws away what
+  was saved after the version opened. Right after leaving the composer, while
+  its save still waited for the account's connection, the list still showed
+  the draft as it was before that save; editing that version dropped the newer
+  save, or deleted it from the server once the edit was stored. Such an edit
+  now becomes a draft of its own, so both versions stay and nothing written is
+  lost (#802).
 
 ### Frontend
 
@@ -207,6 +214,12 @@ Entries before 2026-09-17 predate that split and are left as written.
   them and to their remove button, **Delete** removes the attachment of the
   row, and focus moves to the next one, or to **Přidat přílohu** once none is
   left (#798).
+- A draft opened again right after leaving the composer opens what was last
+  saved, not the older version **Rozepsané** still lists until the save
+  reaches the server, and from the account that save went from. The composer
+  remembers its newest save until another message is started, the draft is
+  sent or it is discarded, and carries on from that save, so the draft stays
+  one (#802).
 
 ### Tauri / Release
 
