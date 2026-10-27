@@ -237,6 +237,13 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The threat model (3.32) and the IMAP/SMTP audit (1.81, §4z) rate a denial of
+  service only an account's own mail server can cause Low, while what lasts is
+  that account's loss: the owner's rule of #669, applied now that the account
+  budget and the crash guard keep such a server to its own account. Six
+  findings move from Medium; eleven stay, because a sender can cause them or it
+  is not established that only the server can, honest use reaches them, or they
+  stop every account (#801).
 - Error Prone 2.51 and NullAway 0.14.3: the new `HashCodeInObjectsHash` check
   flagged `Objects.hash` over the single id in `RemoteImageSenderEntity`, now
   `Objects.hashCode`, and `docs/STATIC_ANALYSIS.md` stops naming either tool's
