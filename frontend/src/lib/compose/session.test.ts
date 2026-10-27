@@ -330,6 +330,156 @@ describe('composeSession', () => {
 		expect(saveDraftMock).toHaveBeenCalledTimes(1);
 	});
 
+	/*
+	 * IMAP/SMTP audit B1-26: the Drafts list shows a save's row only once the
+	 * backend has stored it, so a revision the composer's saves replaced can be
+	 * opened again in the meantime, and it showed the old text.
+	 */
+	describe('newestSaveOf, for a replaced revision opened again', () => {
+		function beginOpenedDraft(session = createComposeSession()) {
+			session.begin({
+				accountId: 1,
+				draft: makeDraft({ body: 'opened' }),
+				draftStableId: 'open-1'
+			});
+			return session;
+		}
+
+		it('hands over the newest save of the draft after the composer is gone', async () => {
+			saveDraftMock
+				.mockResolvedValueOnce({ stableId: 'd1' })
+				.mockResolvedValueOnce({ stableId: 'd2' });
+			const session = beginOpenedDraft();
+
+			session.noteChange(1, makeDraft({ body: 'first edit' }));
+			await vi.advanceTimersByTimeAsync(3000);
+			session.noteChange(1, makeDraft({ body: 'second edit' }));
+			await vi.advanceTimersByTimeAsync(3000);
+			session.detach();
+
+			const expected = {
+				draftStableId: 'd2',
+				accountId: 1,
+				draft: makeDraft({ body: 'second edit' })
+			};
+			await expect(session.newestSaveOf('open-1')).resolves.toEqual(expected);
+			await expect(session.newestSaveOf('d1')).resolves.toEqual(expected);
+			// The newest save is not replaced: its row opens it from the server.
+			await expect(session.newestSaveOf('d2')).resolves.toBeNull();
+			await expect(session.newestSaveOf('draft-of-another-compose')).resolves.toBeNull();
+		});
+
+		it('counts a save still in flight when the composer was left', async () => {
+			const inFlight = deferred<{ stableId: string }>();
+			saveDraftMock.mockReturnValueOnce(inFlight.promise);
+			const session = beginOpenedDraft();
+
+			session.noteChange(1, makeDraft({ body: 'edited' }));
+			await vi.advanceTimersByTimeAsync(3000);
+			session.detach();
+			const newest = session.newestSaveOf('open-1');
+			inFlight.resolve({ stableId: 'd1' });
+
+			await expect(newest).resolves.toEqual({
+				draftStableId: 'd1',
+				accountId: 1,
+				draft: makeDraft({ body: 'edited' })
+			});
+		});
+
+		it('hands over what the last successful save carried, not a failed save or later edits', async () => {
+			saveDraftMock
+				.mockResolvedValueOnce({ stableId: 'd1' })
+				.mockRejectedValueOnce(new Error('500'));
+			const session = beginOpenedDraft();
+
+			session.noteChange(1, makeDraft({ body: 'saved' }));
+			await vi.advanceTimersByTimeAsync(3000);
+			session.noteChange(1, makeDraft({ body: 'not saved' }));
+			await vi.advanceTimersByTimeAsync(3000);
+			session.noteChange(1, makeDraft({ body: 'left unsaved' }));
+			session.detach();
+
+			await expect(session.newestSaveOf('open-1')).resolves.toEqual({
+				draftStableId: 'd1',
+				accountId: 1,
+				draft: makeDraft({ body: 'saved' })
+			});
+		});
+
+		it('hands over the account the newest save went to, after a switch of the From account', async () => {
+			saveDraftMock.mockResolvedValue({ stableId: 'd1' });
+			const session = beginOpenedDraft();
+
+			session.noteChange(2, makeDraft({ body: 'sent from the other account' }));
+			await vi.advanceTimersByTimeAsync(3000);
+			session.detach();
+
+			expect(saveDraftMock).toHaveBeenLastCalledWith(2, expect.anything(), 'open-1');
+			await expect(session.newestSaveOf('open-1')).resolves.toMatchObject({
+				draftStableId: 'd1',
+				accountId: 2
+			});
+		});
+
+		it('forgets the draft once another compose begins, a send ends it or a discard deletes it', async () => {
+			saveDraftMock.mockResolvedValue({ stableId: 'd1' });
+			deleteMessageMock.mockResolvedValue(undefined);
+			type Session = ReturnType<typeof createComposeSession>;
+			const closes: ((session: Session) => Promise<unknown>)[] = [
+				async (session) => beginNewCompose(session),
+				async (session) => session.end(),
+				(session) => session.discard()
+			];
+			for (const close of closes) {
+				const session = beginOpenedDraft();
+				session.noteChange(1, makeDraft({ body: 'edited' }));
+				await vi.advanceTimersByTimeAsync(3000);
+
+				await close(session);
+
+				await expect(session.newestSaveOf('open-1')).resolves.toBeNull();
+			}
+		});
+
+		it('a compose continuing the newest save keeps the revisions it replaced', async () => {
+			saveDraftMock
+				.mockResolvedValueOnce({ stableId: 'd1' })
+				.mockResolvedValueOnce({ stableId: 'd2' });
+			const session = beginOpenedDraft();
+			session.noteChange(1, makeDraft({ body: 'first compose' }));
+			await vi.advanceTimersByTimeAsync(3000);
+			session.detach();
+
+			const reopened = await session.newestSaveOf('open-1');
+			if (!reopened) throw new Error('the first compose left no newest save');
+			session.begin({
+				accountId: 1,
+				draft: reopened.draft,
+				draftStableId: reopened.draftStableId,
+				continuesNewestSave: true
+			});
+			// Nothing new yet: the reopened draft is the saved state, as an opened one is.
+			await expect(session.newestSaveOf('open-1')).resolves.toEqual({
+				draftStableId: 'd1',
+				accountId: 1,
+				draft: makeDraft({ body: 'first compose' })
+			});
+			session.noteChange(1, makeDraft({ body: 'second compose' }));
+			await vi.advanceTimersByTimeAsync(3000);
+			expect(saveDraftMock).toHaveBeenLastCalledWith(1, expect.anything(), 'd1');
+			session.detach();
+
+			const expected = {
+				draftStableId: 'd2',
+				accountId: 1,
+				draft: makeDraft({ body: 'second compose' })
+			};
+			await expect(session.newestSaveOf('open-1')).resolves.toEqual(expected);
+			await expect(session.newestSaveOf('d1')).resolves.toEqual(expected);
+		});
+	});
+
 	it('end drops the result of a save still in flight', async () => {
 		const inFlight = deferred<{ stableId: string }>();
 		saveDraftMock.mockReturnValueOnce(inFlight.promise);

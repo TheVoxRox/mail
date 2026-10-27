@@ -163,7 +163,9 @@ public interface DraftRecipientsRepository extends JpaRepository<DraftRecipients
      * A stableId of the account's revisions of the same draft as {@code stableId}
      * written after it: a later save of the draft has been accepted, which carries
      * what this one does and replaces it once stored, so this one is not appended
-     * (IMAP/SMTP audit B1-25). Empty when there is none, or no entry for
+     * (IMAP/SMTP audit B1-25); and a save that names {@code stableId} then starts a
+     * draft of its own rather than join a chain whose newer revision it does not
+     * descend from (B1-26). Empty when there is none, or no entry for
      * {@code stableId}. After by {@code saved_seq}, as {@link #markStored} orders
      * the chain.
      */

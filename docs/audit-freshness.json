@@ -94,5 +94,17 @@
         "note": "The only change under frontend/src-tauri/src is redact.rs, the Save logs ZIP's redactor, which is the API surface audit's subject (A4, its 1.21): the mark walk that copied Java's \\b is gone, so a token right after a non-spacing mark is replaced, and the comments now describe the Java side's hand scan. No updater command, capability, endpoint, version pin, signature check or install step is touched, and redact.rs is not on the update path: it runs only when the user saves the logs. Verdict unchanged."
       }
     ]
+  },
+  "docs/IMAP_SMTP_AUDIT.md": {
+    "reviewedTrees": {
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "4ad46515c1e6bacdf7a0295397a885ddb68b0136",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/repository/DraftRecipientsRepository.java": "d8311889bbc191f2df89057b968c4ac55f91f0cc"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-10-27",
+        "note": "The fix of B1-26, recorded in the audit as 1.82 (section 4aa), its independent pass to come. DraftPersistenceService.chainOf joins a save to the chain of the revision it names only while findLaterRevision finds no later entry in that chain; a save naming a revision a later save already follows starts a chain of its own under its stableId, as the first save of a compose does, and is logged at INFO. Every chain so grows only at its end and is a line of descent, so findLaterRevision (the queue's skip), findEarlierRevisions (the drop at acceptance and the deletes of a stored save or a send) and markStored touch a save's own lineage only. No query, statement, bound or table changed: DraftRecipientsRepository changes in a javadoc only. The typed-recipient rules of B1-5 hold: the forked entry is written before the 202 by the same insertEntry, a fork is a new draft and runs deleteDraftsButNewest as a first save does, the original chain keeps its entries, and the untouched send reads the entry by Message-ID whatever its chain. The rest of the delta under the path is javadoc on acceptDraftSave and saveDraftAsync. The client half (the compose session opening its newest save) is under frontend/src/lib/compose, outside Code paths, and the content does not rest on it. Verdict stays PASS, two findings accepted."
+      }
+    ]
   }
 }

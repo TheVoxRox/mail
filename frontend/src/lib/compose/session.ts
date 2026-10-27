@@ -19,6 +19,14 @@
  * at save time by the backend, B1). Because the module — not the component —
  * owns the queue, an in-flight save finishes and keeps its identity even after
  * the composer unmounts.
+ *
+ * It also keeps what the newest save carried and which revisions the session's
+ * saves replaced, so a replaced revision opened again opens that content
+ * instead (`newestSaveOf`). The Drafts list gets a save's row only once the
+ * backend has stored it, which waits for the account's sync, so for a while
+ * after the user leaves the composer the list still shows the revision before;
+ * opening it showed the old text, and its save lost the newer one, or, since
+ * the backend keeps both, leaves two drafts (IMAP/SMTP audit B1-26).
  */
 
 import { writable, type Readable } from 'svelte/store';
@@ -51,6 +59,27 @@ export interface ComposeSessionBeginOptions {
 	draftStableId: string | null;
 	/** Debounced autosaves are deferred while true (an explicit flush is not). */
 	isSuspended?: () => boolean;
+	/**
+	 * The compose continues the draft this session saved last, reopened through
+	 * `newestSaveOf`: the revisions its saves replaced stay replaced, so opening
+	 * one of them again still finds this session's content.
+	 */
+	continuesNewestSave?: boolean;
+}
+
+/** What `newestSaveOf` hands a reopened compose. */
+export interface NewestDraftSave {
+	/** The newest save's stableId, which the reopened compose's first save replaces. */
+	draftStableId: string;
+	/**
+	 * The account that save went to, which the reopened compose saves under
+	 * again: under another, the backend finds no chain to continue and cannot
+	 * replace a draft of another account, so the save left a second draft. Null
+	 * only while the session has not learned it yet.
+	 */
+	accountId: number | null;
+	/** The content that save carried. */
+	draft: ComposeDraft;
 }
 
 const FIRST_SAVE_DEBOUNCE_MS = 1000;
@@ -101,6 +130,11 @@ function delay(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** A copy the composer's later edits cannot reach; attachment data is shared. */
+function copyDraft(draft: ComposeDraft): ComposeDraft {
+	return { ...draft, attachments: draft.attachments.map((attachment) => ({ ...attachment })) };
+}
+
 export interface ComposeSession extends Readable<ComposeSessionState> {
 	begin(options: ComposeSessionBeginOptions): void;
 	/** Mirror of the latest form state; schedules a debounced autosave when dirty. */
@@ -126,6 +160,13 @@ export interface ComposeSession extends Readable<ComposeSessionState> {
 	discard(): Promise<string | null>;
 	/** Ends the session (after a send 202): in-flight results are dropped. */
 	end(): void;
+	/**
+	 * The newest save of this session's draft, when `stableId` is a revision one
+	 * of its saves replaced; null otherwise. Waits for a save in flight first, so
+	 * a composer left a moment ago counts its last save. Kept until the next
+	 * compose begins, a send ends the session or a discard deletes the draft.
+	 */
+	newestSaveOf(stableId: string): Promise<NewestDraftSave | null>;
 	/** Component unmount: stop future autosaves but let an in-flight save finish. */
 	detach(): void;
 }
@@ -157,6 +198,10 @@ export function createComposeSession(): ComposeSession {
 	let savedAt: Date | null = null;
 	let saveError: string | null = null;
 	let saving = false;
+	/** The content of `draftStableId`'s save, or of the draft the compose opened. */
+	let savedDraft: ComposeDraft | null = null;
+	/** Revisions of this draft that its saves have replaced. */
+	let replacedStableIds = new Set<string>();
 
 	let latest: DraftSnapshot | null = null;
 	let attachmentReading = false;
@@ -265,9 +310,13 @@ export function createComposeSession(): ComposeSession {
 		publish();
 		try {
 			const request = buildDraftRequest(snapshot.draft);
-			const response = await apiSaveDraft(snapshot.accountId, request, draftStableId ?? undefined);
+			const sent = copyDraft(snapshot.draft);
+			const replaces = draftStableId;
+			const response = await apiSaveDraft(snapshot.accountId, request, replaces ?? undefined);
 			if (gen !== generation) return 'skipped';
 			draftStableId = response.stableId ?? draftStableId;
+			if (replaces != null && replaces !== draftStableId) replacedStableIds.add(replaces);
+			savedDraft = sent;
 			savedAccountId = snapshot.accountId;
 			savedDraftFp = draftFingerprint(snapshot.draft);
 			savedAt = new Date();
@@ -298,6 +347,8 @@ export function createComposeSession(): ComposeSession {
 		savedAt = null;
 		saveError = null;
 		saving = false;
+		savedDraft = null;
+		replacedStableIds = new Set();
 		latest = null;
 		lastSaveStartedAt = null;
 		attachmentReading = false;
@@ -310,6 +361,7 @@ export function createComposeSession(): ComposeSession {
 		subscribe: store.subscribe,
 
 		begin(options) {
+			const replaced = options.continuesNewestSave ? replacedStableIds : new Set<string>();
 			reset();
 			isSuspended = options.isSuspended ?? (() => false);
 			draftStableId = options.draftStableId;
@@ -319,6 +371,8 @@ export function createComposeSession(): ComposeSession {
 				// An opened draft is already persisted: its baseline IS the saved state.
 				savedAccountId = options.accountId;
 				savedDraftFp = baselineDraftFp;
+				savedDraft = copyDraft(options.draft);
+				replacedStableIds = replaced;
 			}
 			publish();
 		},
@@ -398,6 +452,14 @@ export function createComposeSession(): ComposeSession {
 
 		end() {
 			reset();
+		},
+
+		async newestSaveOf(stableId) {
+			await tail.catch(() => undefined);
+			if (draftStableId == null || savedDraft == null || !replacedStableIds.has(stableId)) {
+				return null;
+			}
+			return { draftStableId, accountId: savedAccountId, draft: copyDraft(savedDraft) };
 		},
 
 		detach() {

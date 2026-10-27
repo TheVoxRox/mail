@@ -394,6 +394,37 @@ class DraftPersistenceServiceTest {
                     DraftPersistenceService.KEPT_REVISIONS_PER_DRAFT - 1);
         }
 
+        /**
+         * B1-26, measured at 1.80: a save naming a revision that a later save of its
+         * draft already followed joined the chain as its newest, so the queue skipped
+         * the later save and a stored save deleted it, edits and all. It is the user
+         * opening an older revision again, and its save starts a draft of its own.
+         */
+        @Test
+        @DisplayName("A save naming a revision a later save of its draft follows starts a draft of its own and drops no waiting save (B1-26)")
+        void aSaveOfAFollowedRevisionStartsADraftOfItsOwn() {
+            acceptsSaves();
+            when(draftRecipientsRepository.findChainId(ACCOUNT_ID, "stable-reopened-revision"))
+                    .thenReturn(Optional.of("stable-first-revision"));
+            when(draftRecipientsRepository.findLaterRevision(ACCOUNT_ID, "stable-reopened-revision"))
+                    .thenReturn(Optional.of("stable-waiting-revision"));
+            DraftRequest waiting = new DraftRequest("to@example.com", null, null, "subj", "left", null, null, null);
+            waitingSaves.hold("stable-waiting-revision", waiting);
+
+            DraftPersistenceService.DraftIdentity identity = service.acceptDraftSave(ACCOUNT_ID,
+                    new DraftRequest("to@example.com", null, null, "subj", "reopened", null, null, null),
+                    "stable-reopened-revision");
+
+            verify(draftRecipientsRepository).insertEntry(eq(ACCOUNT_ID), eq(identity.messageId()),
+                    eq(identity.stableId()), eq(identity.stableId()), any(), any(), any(), any(LocalDateTime.class));
+            // A new draft, so the account's drafts are bounded as for any first save.
+            verify(draftRecipientsRepository).deleteDraftsButNewest(ACCOUNT_ID, identity.stableId(),
+                    DraftPersistenceService.KEPT_DRAFTS - 1);
+            verify(draftRecipientsRepository, never()).findEarlierRevisions(anyLong(), anyString());
+            assertThat(waitingSaves.take("stable-waiting-revision")).as("the newer save's waiting content")
+                    .isSameAs(waiting);
+        }
+
         @Test
         @DisplayName("A save that replaces nothing starts a chain of its own")
         void aFirstSaveStartsItsOwnChain() {
