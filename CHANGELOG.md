@@ -225,11 +225,11 @@ Entries before 2026-09-17 predate that split and are left as written.
   back to an account no longer drops the user in **Doručené** and makes them
   find their folder again. The app remembers one folder per account for the
   session, so it still starts on the Inbox, and a folder deleted or renamed in
-  the meantime falls back to the Inbox too.
+  the meantime falls back to the Inbox too (#804).
 - **Ctrl+Shift+I** goes to the active account's **Doručené**, as Outlook's
   "Go to Inbox" does, from anywhere in the app and also with the cursor in a
   text field or in the body of an open message. Settings › Shortcuts lists it,
-  and the command palette shows it next to the Inbox folder.
+  and the command palette shows it next to the Inbox folder (#804).
 
 ### Tauri / Release
 
