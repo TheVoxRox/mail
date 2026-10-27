@@ -238,7 +238,7 @@ Entries before 2026-09-17 predate that split and are left as written.
   An account without one, or mail already archived, is told so instead of the
   key doing nothing audible, and a held key archives once rather than walking
   down the folder. Settings › Shortcuts lists both, and the command palette
-  shows it next to the move to the Archive folder.
+  shows it next to the move to the Archive folder (#805).
 
 ### Tauri / Release
 
