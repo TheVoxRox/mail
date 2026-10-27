@@ -12,6 +12,7 @@ function makeHandlers(overrides: Partial<GlobalShortcutHandlers> = {}): GlobalSh
 		isPaletteOpen: () => false,
 		goToPrimaryNewAction: vi.fn(),
 		goToWorkspace: vi.fn(),
+		goToInbox: vi.fn(),
 		goToPane: vi.fn(),
 		// No open message by default — message-action tests opt in via overrides.
 		isMessageOpen: () => false,
@@ -168,7 +169,12 @@ describe('handleGlobalKeydown', () => {
 			init: { key: 'n', ctrlKey: true, code: 'KeyN' },
 			handler: 'goToPrimaryNewAction'
 		},
-		{ name: 'Ctrl+1', init: { key: '1', ctrlKey: true, code: 'Digit1' }, handler: 'goToWorkspace' }
+		{ name: 'Ctrl+1', init: { key: '1', ctrlKey: true, code: 'Digit1' }, handler: 'goToWorkspace' },
+		{
+			name: 'Ctrl+Shift+I',
+			init: { key: 'I', ctrlKey: true, shiftKey: true },
+			handler: 'goToInbox'
+		}
 	] as const)(
 		'$name defers to a closer handler that already claimed the key',
 		({ init, handler }) => {
@@ -180,6 +186,37 @@ describe('handleGlobalKeydown', () => {
 			expect(h[handler]).not.toHaveBeenCalled();
 		}
 	);
+
+	it('Ctrl+Shift+I goes to the Inbox and consumes the key', () => {
+		const h = makeHandlers();
+		// Shift makes the key the capital letter.
+		const ev = makeEvent({ key: 'I', ctrlKey: true, shiftKey: true, code: 'KeyI' });
+		handleGlobalKeydown(ev, h);
+		expect(h.goToInbox).toHaveBeenCalledOnce();
+		expect(ev.defaultPrevented).toBe(true);
+	});
+
+	it('editable target: Ctrl+Shift+I still goes to the Inbox', () => {
+		const h = makeHandlers();
+		const input = document.createElement('input');
+		document.body.appendChild(input);
+		const ev = makeEvent({ key: 'I', ctrlKey: true, shiftKey: true, code: 'KeyI' });
+		Object.defineProperty(ev, 'target', { value: input });
+		handleGlobalKeydown(ev, h);
+		document.body.removeChild(input);
+		expect(h.goToInbox).toHaveBeenCalledOnce();
+	});
+
+	it.each([
+		{ name: 'Ctrl+I', init: { key: 'i', ctrlKey: true, code: 'KeyI' } },
+		{ name: 'Ctrl+Alt+Shift+I', init: { key: 'I', ctrlKey: true, altKey: true, shiftKey: true } }
+	])('$name is not the Inbox shortcut', ({ init }) => {
+		const h = makeHandlers();
+		const ev = makeEvent(init);
+		handleGlobalKeydown(ev, h);
+		expect(h.goToInbox).not.toHaveBeenCalled();
+		expect(ev.defaultPrevented).toBe(false);
+	});
 
 	it('Ctrl+Y goes to the workspace pane and consumes the key', () => {
 		const h = makeHandlers();

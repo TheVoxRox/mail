@@ -299,6 +299,11 @@ describe('MAIL_FRAME_SCRIPT keyboard forwarding', () => {
 		expect(press({ key: 'R', code: 'KeyR', ctrlKey: true, shiftKey: true })).toBe(true);
 	});
 
+	// Outlook's "go to Inbox"; in a browser the same chord opens devtools.
+	it('cancels Ctrl+Shift+I, which the app claims as go to the Inbox', () => {
+		expect(press({ key: 'I', code: 'KeyI', ctrlKey: true, shiftKey: true })).toBe(true);
+	});
+
 	/*
 	 * The other half of that rule. handleGlobalKeydown matches Ctrl+K, Ctrl+F,
 	 * Ctrl+Q, Ctrl+U and the code-matched Ctrl+N / Ctrl+1-3 under

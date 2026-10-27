@@ -46,6 +46,11 @@
 					scopeKey: 'settings.shortcuts.scopes.globalIncludingInputs'
 				},
 				{
+					shortcut: SHORTCUT_LABELS.goToInbox,
+					actionKey: 'settings.shortcuts.actions.inbox',
+					scopeKey: 'settings.shortcuts.scopes.globalIncludingInputs'
+				},
+				{
 					shortcut: SHORTCUT_LABELS.workspacePane,
 					actionKey: 'settings.shortcuts.actions.pane',
 					scopeKey: 'settings.shortcuts.scopes.outsideTextFields'

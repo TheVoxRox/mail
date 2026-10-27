@@ -18,6 +18,7 @@
 	import { messageGrouping, readingPane } from '#lib/stores/uiLayout.js';
 	import { _ } from '#lib/i18n/index.js';
 	import { folderLabel as toFolderLabel } from '#lib/mail/folderLabel.js';
+	import { rememberFolder } from '#lib/mail/entryFolder.js';
 	import { messagesPageInfo } from '#lib/mail/pageInfoAnnouncement.js';
 	import {
 		MESSAGE_HEADING_CONTEXT_KEY,
@@ -53,6 +54,8 @@
 		}
 
 		setActiveAccount(accountId);
+		// So Ctrl+1, Esc out of the composer and the account switch come back here.
+		rememberFolder(accountId, folderName);
 
 		/*
 		 * Switching folder/account (or the grouping mode) keeps focus on the

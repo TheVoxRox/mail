@@ -705,9 +705,10 @@
 				"listNavCombo": "Šipky, Home / End, Ctrl+Home / Ctrl+End, Page Up / Down"
 			},
 			"actions": {
-				"mail": "Přejít na Poštu",
+				"mail": "Přejít na Poštu, do naposledy otevřené složky",
 				"contacts": "Přejít na Kontakty",
 				"settings": "Přejít na Nastavení",
+				"inbox": "Přejít do složky Doručené",
 				"pane": "Přejít do postranního podokna; v úzkém okně ho vysune",
 				"newMessage": "Nová zpráva",
 				"reply": "Odpovědět",

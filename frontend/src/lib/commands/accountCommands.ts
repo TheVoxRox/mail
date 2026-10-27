@@ -2,10 +2,12 @@ import type { AppLocale } from '#lib/i18n/index.js';
 import { goToAccounts, goToFolder, switchToAccount } from '#lib/mail/actions.js';
 import type { AccountsState } from '#lib/stores/accounts.js';
 import { localeKeywords, type Command } from '#lib/commands/shared.js';
+import { SHORTCUT_LABELS } from '#lib/shortcuts/shortcutLabels.js';
 
 type FolderCommandSource = {
 	displayName: string;
 	folderRef: string;
+	role?: string | null;
 };
 
 export function createAccountCommands(state: AccountsState, locale: AppLocale | null): Command[] {
@@ -67,6 +69,8 @@ export function createFolderCommands(
 			folder.folderRef,
 			...localeKeywords(locale, ['slozka', 'prejit na slozku'], ['folder', 'go to folder'])
 		],
+		// Ctrl+Shift+I goes to the active account's Inbox, which is this list's.
+		shortcut: folder.role === 'INBOX' ? SHORTCUT_LABELS.goToInbox : undefined,
 		icon: 'folder',
 		contexts: ['mail'],
 		routePrefixes: ['/mail/', '/search/'],
