@@ -58,6 +58,17 @@
       }
     ]
   },
+  "docs/CONTENT_RENDERING_AUDIT.md": {
+    "reviewedTrees": {
+      "frontend/src/lib/mail/mailFrame.ts": "875223ca3f842040b69aa178afd2060dcc89cc5e"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-10-27",
+        "note": "The forwarder's Shift branch of the preventDefault predicate grows from /^[rg]$/i to /^[rgi]$/i, so Ctrl+Shift+I (the app's new go-to-Inbox shortcut in globalShortcuts.ts) is cancelled in the frame as Ctrl+Shift+R and Ctrl+Shift+G are; the rest of the script is byte-identical, and the comment above it names the new key. MAIL_FRAME_SCRIPT_SHA256 was recomputed independently (SHA-256 of the string literal, base64: yOywlma3ATltbXiySWrZF0tBX1RtZ0aZRF07BflnLk0=) and matches the constant and mailFrame.test.ts. Section 1 holds: the frame is still sandbox=allow-scripts without allow-same-origin, the CSP still admits exactly that one hash-pinned script, the forwarder still relays only isTrusted keystrokes and anchor clicks and posts the same fields; cancelling one more chord adds no capability and no data to what it sends. The styles, the sanitizer and the other Code paths are untouched. Verdict unchanged."
+      }
+    ]
+  },
   "docs/OAUTH_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java": "69fc4c0197c480dc39ba3c38dece6874faec8d17",

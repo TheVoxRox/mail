@@ -8,7 +8,7 @@
 		setActiveAccount
 	} from '#lib/stores/accounts.js';
 	import { loadFolders } from '#lib/stores/folders.js';
-	import { folderHref, pickEntryFolder } from '#lib/mail/entryFolder.js';
+	import { folderHref, lastFolderRef, pickEntryFolder } from '#lib/mail/entryFolder.js';
 	import { toErrorMessage } from '#lib/api/errors.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { Surface } from '#lib/components/ui/surface/index.js';
@@ -60,7 +60,7 @@
 			loadError = toErrorMessage(err);
 			return [];
 		});
-		const entry = pickEntryFolder(folders);
+		const entry = pickEntryFolder(folders, lastFolderRef(accountId));
 		if (!entry) {
 			// A failed load is not an empty mailbox; the alert already says what
 			// went wrong.

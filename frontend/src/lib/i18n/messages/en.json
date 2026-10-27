@@ -705,9 +705,10 @@
 				"listNavCombo": "Arrows, Home / End, Ctrl+Home / Ctrl+End, Page Up / Down"
 			},
 			"actions": {
-				"mail": "Go to Mail",
+				"mail": "Go to Mail, back to the folder last open",
 				"contacts": "Go to Contacts",
 				"settings": "Go to Settings",
+				"inbox": "Go to the Inbox",
 				"pane": "Go to the side pane; in a narrow window, slide it out",
 				"newMessage": "New message",
 				"reply": "Reply",

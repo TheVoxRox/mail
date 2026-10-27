@@ -48,7 +48,7 @@
 		printOpenMessage,
 		type PrintJob
 	} from '#lib/mail/printMessages.js';
-	import { forwardMessage, replyToMessage } from '#lib/mail/actions.js';
+	import { forwardMessage, goToInbox, replyToMessage } from '#lib/mail/actions.js';
 	import { deleteMessages, markMessagesSeen, toggleMessageFlag } from '#lib/mail/mailbox.js';
 	import { loadSidebar } from '#lib/components/sidebar/loader.js';
 	// Straight from the module, never the sidebar-shell barrel: the barrel
@@ -480,6 +480,7 @@
 			isPaletteOpen: () => $paletteOpen,
 			goToPrimaryNewAction,
 			goToWorkspace,
+			goToInbox,
 			goToPane,
 			isMessageOpen: () =>
 				Boolean($selectedMessage?.stableId) && isOpenMessageRoute(page.url.pathname),
