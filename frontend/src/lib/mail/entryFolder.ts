@@ -34,11 +34,6 @@ export function lastFolderRef(accountId: number): string | undefined {
 	return lastFolderByAccount.get(accountId);
 }
 
-/** Forgets every remembered folder; for tests. */
-export function resetRememberedFoldersForTests(): void {
-	lastFolderByAccount.clear();
-}
-
 /**
  * The folder Mail opens on: `remembered` while the account still lists it,
  * then the INBOX, then the first folder. A remembered folder that has since

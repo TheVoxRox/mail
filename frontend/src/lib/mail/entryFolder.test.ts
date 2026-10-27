@@ -1,11 +1,6 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { FolderResponse, FolderRole } from '#lib/types.js';
-import {
-	lastFolderRef,
-	pickEntryFolder,
-	rememberFolder,
-	resetRememberedFoldersForTests
-} from './entryFolder.js';
+import { lastFolderRef, pickEntryFolder, rememberFolder } from './entryFolder.js';
 
 vi.mock('$app/paths', () => ({
 	resolve: vi.fn((path: string) => path)
@@ -16,10 +11,6 @@ function folder(folderRef: string, role: FolderRole = 'USER'): FolderResponse {
 }
 
 const LIST = [folder('Archive'), folder('INBOX', 'INBOX'), folder('SENT', 'SENT')];
-
-afterEach(() => {
-	resetRememberedFoldersForTests();
-});
 
 describe('pickEntryFolder', () => {
 	it('opens the Inbox when nothing is remembered', () => {
