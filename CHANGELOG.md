@@ -250,6 +250,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The IMAP/SMTP audit is 1.83, the independent pass over #802: B1-26's fix is
+  confirmed and the audit is re-verified against `5612842`, clearing its ledger
+  entry. Corrected: a restart between leaving the composer and reopening the
+  older revision still splits the draft's chain, though it leaves one draft.
+  Recorded and not chased: a fork leaves an earlier copy of the draft it left
+  when that draft's newer save is never stored (#803).
 - The threat model (3.32) and the IMAP/SMTP audit (1.81, §4z) rate a denial of
   service only an account's own mail server can cause Low, while what lasts is
   that account's loss: the owner's rule of #669, applied now that the account
