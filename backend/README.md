@@ -52,6 +52,12 @@ mvn -Paot package                             # fat jar with Spring AOT
 > sources them from `.env`; pass `-AllowPlaceholderOAuth` to package a local build
 > without a working OAuth login.
 
+Packaging also needs `node` on the PATH: before the build it records the digest
+of `src/main` and `pom.xml` inside the image, which `npm run tauri:dev` compares
+with the checked-out backend. Only packaging rebuilds the image:
+`mvn -Paot package` stops at the jar, and `npm run sidecar:sync:windows` copies
+the image as it is.
+
 ## Documentation
 
 - [`OPERATIONS.md`](OPERATIONS.md) — runbook (data dir, logs, health, recovery, JVM tuning, AOT cache)

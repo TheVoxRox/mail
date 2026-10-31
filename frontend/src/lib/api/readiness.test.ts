@@ -83,7 +83,22 @@ describe('parseReadiness', () => {
 
 	it('gives helpful diagnostic when appName is missing (stale sidecar)', () => {
 		const broken = { ...baseReadiness, appName: '' };
-		expect(() => parseReadiness(broken)).toThrow(/old sidecar version|sidecar/i);
+		expect(() => parseReadiness(broken)).toThrow(/old sidecar version/i);
+
+		const message = (() => {
+			try {
+				parseReadiness(broken);
+				return '';
+			} catch (error) {
+				return (error as Error).message;
+			}
+		})();
+		// The way out has to be one that rebuilds what the app launches. `mvn
+		// package` builds only the jar, so following it left the old image in
+		// place.
+		expect(message).toContain('backend/package-sidecar-dev-windows.ps1 -SkipTests');
+		expect(message).toContain('npm run sidecar:sync:windows');
+		expect(message).not.toContain('mvn package');
 	});
 
 	it('rejects empty required string fields', () => {

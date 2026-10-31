@@ -117,6 +117,13 @@ directories into `src-tauri/binaries/`. Those generated artifacts are ignored by
 Git; keep only `src-tauri/binaries/.gitkeep`. You can pass custom source and
 destination paths to `scripts/sync-backend-sidecar-windows.mjs` if needed.
 
+Packaging records the digest of the backend sources it built from beside the
+jar, in `app/packaged-backend-source.sha256`, and the sync carries it along
+unchanged. `npm run tauri:dev` compares it with the checked-out backend and
+refuses a sidecar packaged from other sources, so after a backend change it is
+packaging that has to run again: a sync alone copies the old image, digest and
+all.
+
 The Java backend is distributed as a Windows sidecar produced by `jpackage`:
 `voxrox-mail-backend-x86_64-pc-windows-msvc.exe` plus the generated `app/` and
 `runtime/` directories; the installer carries it as `voxrox-mail-backend.exe`

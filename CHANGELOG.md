@@ -298,6 +298,13 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- `npm run tauri:dev` no longer calls an old sidecar fresh after a sync: the
+  digest of the backend sources is taken by the packaging script before the
+  build and travels inside the image, where the sync used to take it at sync
+  time and so vouched for whatever image `backend/target/sidecar` held, however
+  old. A sidecar packaged before this reads as unknown until it is packaged
+  again, and the boot error for a sidecar without `appName` names the packaging
+  script instead of `mvn package`, which never rebuilt the image (#811).
 - The swagger-ui webjar is pinned to 5.34.1 again, the first release carrying
   DOMPurify 3.4.17: the nightly vulnerability scan failed on five DOMPurify
   advisories against the 5.32.14 springdoc manages (#806). Only Swagger UI in
