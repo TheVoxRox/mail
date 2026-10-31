@@ -101,7 +101,7 @@ Entries before 2026-09-17 predate that split and are left as written.
   own, **Import a export**. Two headings over three buttons split the pane's
   actions in two and gave a screen reader moving by headings one more stop.
   While a new contact is being written the group keeps only **Spravovat
-  štítky**, as before.
+  štítky**, as before (#807).
 - The button at the top of the left rail that shows and hides the side pane
   now draws a window with a side pane instead of a hamburger, and a rule sets
   it apart from **Pošta**, **Kontakty** and **Nastavení** below it. Testers
