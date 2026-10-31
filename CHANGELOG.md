@@ -96,6 +96,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 - A folder with no messages now says **Tato složka je prázdná.** ("This
   folder is empty.") instead of "Žádné zprávy v této složce." — a plainer
   statement of the same fact (#765).
+- The contacts pane lists **Importovat vCard** and **Exportovat vCard** under
+  **Akce**, next to **Spravovat štítky**, instead of under a heading of their
+  own, **Import a export**. Two headings over three buttons split the pane's
+  actions in two and gave a screen reader moving by headings one more stop.
+  While a new contact is being written the group keeps only **Spravovat
+  štítky**, as before.
 - The button at the top of the left rail that shows and hides the side pane
   now draws a window with a side pane instead of a hamburger, and a rule sets
   it apart from **Pošta**, **Kontakty** and **Nastavení** below it. Testers
