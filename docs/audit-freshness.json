@@ -41,6 +41,28 @@
     "Both clocks reset the same way: re-verify the audit, bump `Audited commit`,",
     "and delete the entry from this file."
   ],
+  "docs/API_SURFACE_AUDIT.md": {
+    "reviewedTrees": {
+      "backend/src/main/resources/application.properties": "6f4dcc647382dd679f0ff713b79931a3b92c2d48"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-10-31",
+        "note": "One key added, springdoc.swagger-ui.version=@swagger-ui.version@, Maven-filtered from the new swagger-ui.version property in backend/pom.xml, which pins the org.webjars:swagger-ui webjar to 5.34.1 (DOMPurify 3.4.17) ahead of the 5.32.14 springdoc manages; the nightly OWASP scan failed on five DOMPurify advisories against the older bundle (#806). The key only names the versioned webjar directory springdoc serves /swagger-ui/** from, so the UI resolves when it is switched on. Section 1's springdoc claim holds: springdoc.api-docs.enabled and springdoc.swagger-ui.enabled still default to false, the PUBLIC_ENDPOINTS list is untouched, and repackage and process-aot still exclude both org.springdoc and the swagger-ui webjar (check:repackage-excludes agrees on the same 9 artifacts), so the sidecar serves nothing new and carries no new code. No other key changed. Verdict unchanged."
+      }
+    ]
+  },
+  "docs/IMAP_SMTP_AUDIT.md": {
+    "reviewedTrees": {
+      "backend/src/main/resources/application.properties": "6f4dcc647382dd679f0ff713b79931a3b92c2d48"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-10-31",
+        "note": "One key added, springdoc.swagger-ui.version=@swagger-ui.version@, Maven-filtered from the swagger-ui webjar pin in backend/pom.xml (5.34.1, DOMPurify 3.4.17, for the five DOMPurify advisories that failed the nightly scan, #806). It only names the webjar directory springdoc serves Swagger UI from in dev; this audit makes no claim about springdoc, and no mail.client.*, spring.mail.*, IMAP, SMTP, timeout, sync or connection key moved. Verdict unchanged."
+      }
+    ]
+  },
   "docs/CRYPTO_STORAGE_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/core/init": "6b860914def198938000e51a328137049fffac81",

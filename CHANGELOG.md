@@ -298,6 +298,13 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The swagger-ui webjar is pinned to 5.34.1 again, the first release carrying
+  DOMPurify 3.4.17: the nightly vulnerability scan failed on five DOMPurify
+  advisories against the 5.32.14 springdoc manages (#806). Only Swagger UI in
+  dev ever loads the bundle; the release sidecar carries neither springdoc nor
+  the webjar. The version key it needs in `application.properties` is
+  acknowledged in the ledgers of the API surface and IMAP/SMTP audits, each at
+  1 of 8 (#810).
 - The remote-image banner's new wording sits under the content rendering
   audit's `Code paths` and is acknowledged in its ledger, now at 2 of 8; the
   opt-in and the frame are unchanged (#809).

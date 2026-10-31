@@ -20,6 +20,12 @@
 		<jsoup.version>1.23.2</jsoup.version>
 		<commonmark.version>0.31.0</commonmark.version>
 		<springdoc.version>3.1.1</springdoc.version>
+		<!--
+			Single source of truth for the swagger-ui webjar: the dependency pin below
+			and springdoc.swagger-ui.version in application.properties (Maven-filtered)
+			must agree, or the UI 404s. See the dependency comment for why.
+		-->
+		<swagger-ui.version>5.34.1</swagger-ui.version>
 		<wiremock.version>3.13.2</wiremock.version>
 		<error-prone.version>2.51.0</error-prone.version>
 		<nullaway.version>0.14.3</nullaway.version>
@@ -125,6 +131,41 @@
 			<groupId>org.springdoc</groupId>
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
 			<version>${springdoc.version}</version>
+		</dependency>
+		<dependency>
+			<!--
+				Explicit pin of the swagger-ui webjar springdoc pulls in — the
+				springdoc-recommended way to move it ahead of the starter. springdoc
+				3.1.1 manages 5.32.14, whose bundle carries DOMPurify 3.4.13, and the
+				nightly OWASP scan reports five DOMPurify advisories against it. Two
+				are fixed in 3.4.16 (CVE-2026-109344, CVE-2026-109345); the other
+				three, published 2026-10-22, only in 3.4.17 (CVE-2026-116802,
+				CVE-2026-116803, CVE-2026-116804 - the last two at CVSS 10, which is
+				what trips failBuildOnCVSS). Verified in the artifact rather than the
+				changelog: the bundle inside the 5.34.0 webjar carries 3.4.16 and the
+				one inside 5.34.1 carries 3.4.17, so 5.34.1 is the first past all five.
+
+				Drop this once springdoc's own managed swagger-ui is at or past
+				5.34.1 — and take springdoc.swagger-ui.version in
+				application.properties with it. springdoc 3.2.0 manages 5.34.0, which
+				is not enough.
+
+				Moving the webjar ahead of springdoc takes TWO settings, not one: the
+				resource handler serves /swagger-ui/** out of the versioned webjar
+				directory, and the version in that path comes from springdoc's own
+				default, not from the classpath. With the pin alone,
+				/swagger-ui/index.html is a 404 (OpenApiEndpointEnabledTest catches
+				it). Hence springdoc.swagger-ui.version in application.properties,
+				filtered from ${swagger-ui.version} so the two cannot drift apart.
+
+				Not exploitable here either way: nothing in the app loads the bundle,
+				both springdoc.api-docs.enabled and springdoc.swagger-ui.enabled default
+				to false, and the production fat jar carries neither springdoc nor this
+				webjar (both excluded on repackage and process-aot below).
+			-->
+			<groupId>org.webjars</groupId>
+			<artifactId>swagger-ui</artifactId>
+			<version>${swagger-ui.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
