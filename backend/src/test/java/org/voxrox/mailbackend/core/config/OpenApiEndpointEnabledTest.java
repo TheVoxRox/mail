@@ -28,15 +28,12 @@ import org.voxrox.mailbackend.core.init.StorageContextInitializer;
  * default webjar version rather than from what is on the classpath, so the two
  * can disagree and the UI answers 404 while everything else keeps working,
  * {@code /v3/api-docs} included — which is why the OpenAPI snapshot test would
- * not notice. That is not hypothetical: the repo carried an explicit webjar pin
- * for two DOMPurify advisories, and holding the path resolvable took a matching
- * {@code springdoc.swagger-ui.version} alongside it. The pin is gone now that
- * springdoc manages a webjar new enough to carry both fixes, so the two
- * versions agree by construction again — but the next security pin puts them
- * back out of step, and this is the test that catches it. Measured when the pin
- * was dropped rather than inherited from when it was added: re-adding a pin one
- * patch behind what springdoc manages, with no version property beside it,
- * turns the index assertion below red on a 404.
+ * not notice. That is not hypothetical: the repo pins the swagger-ui webjar
+ * ahead of springdoc for DOMPurify advisories (the second such pin; the first
+ * was dropped once springdoc caught up), and holding the path resolvable takes
+ * a matching {@code springdoc.swagger-ui.version} alongside it. This is the
+ * test that catches the two out of step: with the pin in place and the property
+ * left out, the index assertion below fails on a 404.
  *
  * <p>
  * Only dev is affected (both flags default to false and the production fat jar
