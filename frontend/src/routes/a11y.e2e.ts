@@ -367,7 +367,9 @@ test.describe('Přístupnost', () => {
 		await expect(contactsNav).toBeVisible();
 		await expect(contactsNav.getByRole('link', { name: /^Všechny kontakty/ })).toBeVisible();
 		await expect(contactsNav.getByRole('button')).toHaveCount(0);
-		await expect(contactsPane.getByRole('button', { name: 'Importovat vCard' })).toBeVisible();
+		await expect(
+			contactsPane.getByRole('button', { name: 'Importovat kontakty (.vcf)' })
+		).toBeVisible();
 	});
 
 	test('podokno nastavení je region bez vnořené navigace', async ({ page }) => {
@@ -385,7 +387,7 @@ test.describe('Přístupnost', () => {
 		await openApp(page, `/contacts`);
 
 		const sidebar = page.getByRole('region', { name: 'Podokno kontaktů' });
-		const exportButton = sidebar.getByRole('button', { name: 'Exportovat vCard' });
+		const exportButton = sidebar.getByRole('button', { name: 'Exportovat kontakty (.vcf)' });
 		await expect(exportButton).toBeAttached();
 		await expect(exportButton).toHaveAttribute('type', 'button');
 		await expect(exportButton).toBeEnabled();
@@ -400,7 +402,7 @@ test.describe('Přístupnost', () => {
 		await openApp(page, `/contacts`);
 
 		const sidebar = page.getByRole('region', { name: 'Podokno kontaktů' });
-		const importButton = sidebar.getByRole('button', { name: 'Importovat vCard' });
+		const importButton = sidebar.getByRole('button', { name: 'Importovat kontakty (.vcf)' });
 		await expect(importButton).toBeAttached();
 		await expect(importButton).toHaveAttribute('type', 'button');
 		await expect(importButton).toBeEnabled();
@@ -611,7 +613,7 @@ test.describe('Přístupnost', () => {
 			window.__MAIL_MSW__?.setVCardExportDelayMs(1000);
 		});
 
-		const exportButton = page.getByRole('button', { name: 'Exportovat vCard' });
+		const exportButton = page.getByRole('button', { name: 'Exportovat kontakty (.vcf)' });
 		const downloadPromise = page.waitForEvent('download');
 		await exportButton.click();
 

@@ -102,6 +102,14 @@ Entries before 2026-09-17 predate that split and are left as written.
   actions in two and gave a screen reader moving by headings one more stop.
   While a new contact is being written the group keeps only **Spravovat
   štítky**, as before (#807).
+- The contacts pane's buttons read **Importovat kontakty (.vcf)** and
+  **Exportovat kontakty (.vcf)** instead of **Importovat vCard** and
+  **Exportovat vCard**. "vCard" names the format, which a user does not see
+  anywhere else: the files on disk end in `.vcf`, and the old name did not say
+  that the whole address book goes in or out. The import messages say "soubor
+  .vcf" too, where they mixed "vCard soubor", ".vcf soubor" and "z vCard";
+  only the wrong-file message keeps "vCard (.vcf)", to say what was expected
+  (#808).
 - The button at the top of the left rail that shows and hides the side pane
   now draws a window with a side pane instead of a hamburger, and a rule sets
   it apart from **Pošta**, **Kontakty** and **Nastavení** below it. Testers

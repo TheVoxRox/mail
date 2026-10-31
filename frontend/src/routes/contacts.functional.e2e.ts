@@ -110,8 +110,8 @@ test.describe('Contacts', () => {
 		});
 		await expect(actions.getByRole('button')).toHaveText([
 			'Spravovat štítky',
-			'Importovat vCard',
-			'Exportovat vCard'
+			'Importovat kontakty (.vcf)',
+			'Exportovat kontakty (.vcf)'
 		]);
 	});
 
@@ -166,8 +166,8 @@ test.describe('Contacts', () => {
 				'Vyberte účet v postranním panelu, hledejte kontakty nebo otevřete vytvoření nového kontaktu.'
 			)
 		).toHaveCount(0);
-		await expect(page.getByRole('button', { name: 'Exportovat vCard' })).toHaveCount(0);
-		await expect(page.getByRole('button', { name: 'Importovat vCard' })).toHaveCount(0);
+		await expect(page.getByRole('button', { name: 'Exportovat kontakty (.vcf)' })).toHaveCount(0);
+		await expect(page.getByRole('button', { name: 'Importovat kontakty (.vcf)' })).toHaveCount(0);
 		// Spravovat štítky naopak zůstává: formulář na něj sám odkazuje, když
 		// účet ještě žádné štítky nemá, takže skrýt ho tady by z té nápovědy
 		// udělalo slepou uličku.
@@ -704,7 +704,7 @@ test.describe('Contacts', () => {
 		await expect(page.getByText('Jana Novak')).toBeVisible();
 
 		const sidebar = page.getByRole('region', { name: 'Podokno kontaktů' });
-		await expect(sidebar.getByRole('button', { name: 'Importovat vCard' })).toBeVisible();
+		await expect(sidebar.getByRole('button', { name: 'Importovat kontakty (.vcf)' })).toBeVisible();
 
 		const vcardText =
 			'BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Petra Picker\r\nN:Picker;Petra;;;\r\nEMAIL;TYPE=HOME:petra.picker@example.com\r\nEND:VCARD\r\n';
@@ -750,9 +750,9 @@ test.describe('Contacts', () => {
 		await openApp(page, '/contacts');
 
 		const sidebar = page.getByRole('region', { name: 'Podokno kontaktů' });
-		await expect(sidebar.getByRole('button', { name: 'Exportovat vCard' })).toBeVisible();
+		await expect(sidebar.getByRole('button', { name: 'Exportovat kontakty (.vcf)' })).toBeVisible();
 		const downloadPromise = page.waitForEvent('download');
-		await sidebar.getByRole('button', { name: 'Exportovat vCard' }).click();
+		await sidebar.getByRole('button', { name: 'Exportovat kontakty (.vcf)' }).click();
 		const download = await downloadPromise;
 
 		expect(download.suggestedFilename()).toBe('contacts.vcf');
