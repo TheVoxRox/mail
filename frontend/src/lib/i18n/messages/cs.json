@@ -222,13 +222,13 @@
 		"pageTitleWithSubject": "Pošta – {subject}",
 		"folderPageTitle": "Pošta – {folder}",
 		"remoteImages": {
-			"blocked": "Vzdálené obrázky blokovány ({count})",
+			"blocked": "{count, plural, one {Zpráva obsahuje {count} obrázek z internetu, který jsme nenačetli.} few {Zpráva obsahuje {count} obrázky z internetu, které jsme nenačetli.} other {Zpráva obsahuje {count} obrázků z internetu, které jsme nenačetli.}} Načtení obrázků z internetu může odesílateli prozradit, že jste zprávu otevřeli.",
 			"load": "Načíst obrázky",
-			"alwaysAllow": "Vždy od tohoto odesílatele",
+			"alwaysAllow": "Vždy načítat obrázky od tohoto odesílatele",
 			"allowError": "Odesílatele se nepodařilo přidat mezi důvěryhodné. Zkuste to znovu.",
-			"regionLabel": "Blokované vzdálené obrázky",
-			"loadedAnnouncement": "Vzdálené obrázky načteny.",
-			"senderAllowedAnnouncement": "Odesílatel přidán mezi důvěryhodné, vzdálené obrázky načteny."
+			"regionLabel": "Blokované obrázky z internetu",
+			"loadedAnnouncement": "Obrázky z internetu načteny.",
+			"senderAllowedAnnouncement": "Obrázky od tohoto odesílatele se budou načítat vždy, obrázky v této zprávě jsou načtené."
 		}
 	},
 	"compose": {

@@ -16,8 +16,15 @@
 </script>
 
 {#if attachments.length > 0}
+	<!--
+		The caption is for the eye; the list's own name is what a screen reader
+		hears, so the caption stays out of the tree. With both exposed, reading
+		down the header gave "Attachments:" and then "Attachments, list" straight
+		after it. The name stays on the list rather than on the caption because
+		the list key (L) jumps to the list and reads only the list.
+	-->
 	<div class="border-b border-border px-4 py-2">
-		<p class="text-xs font-medium text-muted-foreground">
+		<p class="text-xs font-medium text-muted-foreground" aria-hidden="true">
 			{$_('detail.attachmentsHeading')}
 		</p>
 		<ul

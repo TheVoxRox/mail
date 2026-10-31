@@ -219,18 +219,23 @@
 					opened from instead of dropping the user on <main>. The href
 					stays real (semantics, SSR, middle-click safety) — the handler
 					only takes over the in-app case.
+
+					Outlined and in the foreground colour, with the whole phrase on
+					screen: as a muted ghost button reading only the folder name,
+					testers did not see it as the way back.
 				-->
 				<a
 					href={folderHref}
 					onclick={handleBackToFolder}
 					class={cn(
-						buttonVariants({ variant: 'ghost', size: 'sm' }),
-						'min-w-0 truncate text-muted-foreground'
+						buttonVariants({ variant: 'outline', size: 'sm' }),
+						'min-w-0 truncate font-medium text-foreground'
 					)}
-					aria-label={$_('detail.backToFolder', { values: { folder: folderLabel } })}
 				>
 					<span aria-hidden="true">←</span>
-					<span class="truncate">{folderLabel}</span>
+					<span class="truncate">
+						{$_('detail.backToFolder', { values: { folder: folderLabel } })}
+					</span>
 				</a>
 			{:else}
 				<!--
