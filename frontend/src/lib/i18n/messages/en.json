@@ -590,8 +590,7 @@
 		"formLabelsLegend": "Labels",
 		"formLabelsEmpty": "No labels yet. Create them from the sidebar, via Manage labels.",
 		"vcardImportLabelsFailed": "The vCard labels could not be created; the contacts are imported without them.",
-		"assignPartialCount": "{carriers} of {total} selected",
-		"sidebarImportExport": "Import and export"
+		"assignPartialCount": "{carriers} of {total} selected"
 	},
 	"settings": {
 		"nav": {

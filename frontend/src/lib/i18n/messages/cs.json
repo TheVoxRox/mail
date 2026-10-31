@@ -590,8 +590,7 @@
 		"formLabelsLegend": "Štítky",
 		"formLabelsEmpty": "Zatím žádné štítky. Vytvoříte je v postranním panelu, akcí Spravovat štítky.",
 		"vcardImportLabelsFailed": "Štítky z vCard se nepodařilo vytvořit, kontakty se importují bez nich.",
-		"assignPartialCount": "{carriers} z {total} vybraných",
-		"sidebarImportExport": "Import a export"
+		"assignPartialCount": "{carriers} z {total} vybraných"
 	},
 	"settings": {
 		"nav": {
