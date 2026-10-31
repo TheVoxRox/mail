@@ -117,8 +117,15 @@ Invoke-Step "Building Spring Boot jar" {
     # process-aot goal. The output is a jar with generated AOT classes; at
     # runtime they are activated by the -Dspring.aot.enabled=true JVM option
     # (see the jpackage invocation below).
+    #
+    # clean first. An incremental build keeps what earlier builds left in
+    # target\: a file deleted from src\main\resources stays in target\classes
+    # and ships in the jar (measured), while the digest above already says it
+    # is gone. `mvn clean` leaves target\sidecar alone (see the clean plugin in
+    # pom.xml), so the previous image stays until this script replaces it.
     $mavenArgs = @(
         "-Paot",
+        "clean",
         "package"
     )
 

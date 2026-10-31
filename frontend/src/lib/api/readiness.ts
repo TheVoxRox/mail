@@ -166,12 +166,12 @@ export function parseReadiness(value: unknown): SystemReadinessResponse {
 		 * a concrete action instead of an unhelpful "missing field" message
 		 * so they know to rebuild the backend.
 		 *
-		 * The action names the packaging script, not `mvn package`: that builds
-		 * the jar, while the app launches the jpackage image, which only the
-		 * script rebuilds. Following the old advice left the image as it was.
+		 * The action is the rebuild command, not `mvn package`: that builds the
+		 * jar, while the app launches the jpackage image, which only packaging
+		 * rebuilds. Following the old advice left the image as it was.
 		 */
 		throw new BackendReadinessError(
-			'Backend returned readiness without an `appName` field. Probably an old sidecar version. Repackage the sidecar (backend/package-sidecar-dev-windows.ps1 -SkipTests), sync it (npm run sidecar:sync:windows), and restart the application.'
+			'Backend returned readiness without an `appName` field. Probably an old sidecar version. Rebuild it (npm run sidecar:rebuild:windows, from frontend/) and restart the application.'
 		);
 	}
 	if (typeof appVersion !== 'string' || appVersion.length === 0) {

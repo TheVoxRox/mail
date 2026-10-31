@@ -96,8 +96,7 @@ describe('parseReadiness', () => {
 		// The way out has to be one that rebuilds what the app launches. `mvn
 		// package` builds only the jar, so following it left the old image in
 		// place.
-		expect(message).toContain('backend/package-sidecar-dev-windows.ps1 -SkipTests');
-		expect(message).toContain('npm run sidecar:sync:windows');
+		expect(message).toContain('npm run sidecar:rebuild:windows');
 		expect(message).not.toContain('mvn package');
 	});
 

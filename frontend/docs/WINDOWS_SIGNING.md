@@ -55,7 +55,7 @@ optionally set `WINDOWS_DIGEST_ALGORITHM`, `WINDOWS_TIMESTAMP_URL`, and
 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, then:
 
 ```powershell
-npm run sidecar:sync:windows
+npm run sidecar:rebuild:windows
 npm run tauri:release-config:windows
 .\scripts\sign-windows-file.ps1 -Path .\src-tauri\binaries\voxrox-mail-backend-x86_64-pc-windows-msvc.exe
 npm run tauri:build -- --config src-tauri/tauri.release.conf.json

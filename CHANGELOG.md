@@ -298,6 +298,13 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- `npm run sidecar:rebuild:windows` rebuilds the dev sidecar in one command. It
+  refuses while anything runs out of `frontend/src-tauri`, packages, syncs,
+  checks that the jar in `binaries/` is byte for byte the one just built and
+  that `tauri:dev` will call it fresh, and runs the sidecar smoke unless told
+  `--skip-smoke`. The freshness check, the boot error and the READMEs name it as
+  the way to rebuild, and the packaging script now cleans before it builds,
+  since a file deleted from `src/main/resources` stayed in the jar (#811).
 - `npm run tauri:dev` no longer calls an old sidecar fresh after a sync: the
   digest of the backend sources is taken by the packaging script before the
   build and travels inside the image, where the sync used to take it at sync

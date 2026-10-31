@@ -20,12 +20,13 @@ Repo-wide overview and the full doc map live in the monorepo root
 
 ```bash
 cd backend
-cp .env.example .env                          # fill in OAuth values; leave MAIL_CRYPTO_* empty
-./package-sidecar-dev-windows.ps1 -SkipTests  # sidecar image with the OAuth client ids from .env
+cp .env.example .env   # fill in OAuth values; leave MAIL_CRYPTO_* empty
 ```
 
-Then `npm run sidecar:sync:windows` and `npm run tauri:dev` from `frontend/`:
-Tauri starts the sidecar itself and hands it the values from `.env`.
+Then `npm run sidecar:rebuild:windows` and `npm run tauri:dev` from `frontend/`.
+The first packages the sidecar image with the OAuth client ids from `.env` and
+puts it where Tauri looks for it; Tauri then starts the sidecar itself and hands
+it the values from `.env`.
 
 The backend listens on a random port and writes `session.json` + `.ready` to
 the data directory Tauri passes in `APP_DATA_DIR` — `%LOCALAPPDATA%\VoxRox\Mail`,
@@ -54,9 +55,11 @@ mvn -Paot package                             # fat jar with Spring AOT
 
 Packaging also needs `node` on the PATH: before the build it records the digest
 of `src/main` and `pom.xml` inside the image, which `npm run tauri:dev` compares
-with the checked-out backend. Only packaging rebuilds the image:
-`mvn -Paot package` stops at the jar, and `npm run sidecar:sync:windows` copies
-the image as it is.
+with the checked-out backend. It runs `mvn -Paot clean package` itself, so a
+file deleted from the sources does not ship from an earlier build. Only
+packaging rebuilds the image, and `npm run sidecar:rebuild:windows` runs it
+together with the copy into the Tauri bundle input; `mvn -Paot package` stops at
+the jar.
 
 ## Documentation
 

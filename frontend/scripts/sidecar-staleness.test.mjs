@@ -82,8 +82,9 @@ describe('sidecar freshness', () => {
 		const report = describeStaleness(result);
 		expect(report.fatal).toBe(false);
 		// Only packaging records the digest, so a way out that is only a sync
-		// leaves the warning where it was.
-		expect(report.text).toContain('package-sidecar-dev-windows.ps1');
+		// leaves the warning where it was. The rebuild packages first.
+		expect(report.text).toContain('npm run sidecar:rebuild:windows');
+		expect(report.text).not.toContain('npm run sidecar:sync:windows');
 	});
 
 	it('does not honour the digest the sync used to take at sync time', async () => {
@@ -118,8 +119,7 @@ describe('sidecar freshness', () => {
 		const report = describeStaleness(result);
 		expect(report.fatal).toBe(true);
 		// The report has to carry the way out, not just the verdict.
-		expect(report.text).toContain('package-sidecar-dev-windows.ps1');
-		expect(report.text).toContain('sidecar:sync:windows');
+		expect(report.text).toContain('npm run sidecar:rebuild:windows');
 		expect(report.text).toContain('MAIL_ALLOW_STALE_SIDECAR=1');
 	});
 
@@ -135,7 +135,7 @@ describe('sidecar freshness', () => {
 		expect(report.fatal).toBe(true);
 		expect(report.text).toContain('voxrox-mail-backend-<target triple>');
 		expect(report.text).toContain('mail-x86_64-pc-windows-msvc.exe');
-		expect(report.text).toContain('sidecar:sync:windows');
+		expect(report.text).toContain('npm run sidecar:rebuild:windows');
 	});
 
 	it('flags binaries/ holding the app image but no launcher at all', async () => {

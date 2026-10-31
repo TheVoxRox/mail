@@ -187,10 +187,11 @@ export async function checkSidecarFreshness(repoRoot) {
 	return { status: 'ok', jar, expected: hash, recorded };
 }
 
-const REBUILD = [
-	'  cd backend; .\\package-sidecar-dev-windows.ps1 -SkipTests   (pwsh 7)',
-	'  npm run sidecar:sync:windows                                (from frontend/)'
-].join('\n');
+/*
+ * One command: packaging and the sync as two steps were what let an old image
+ * through, the second taken without the first (see scripts/lib/sidecar-rebuild.mjs).
+ */
+const REBUILD = '  npm run sidecar:rebuild:windows   (from frontend/)';
 
 /**
  * Human-readable report, plus whether it should stop the run. `unknown` warns
@@ -214,7 +215,7 @@ export function describeStaleness(result) {
 				optOut: false,
 				text: [
 					'No packaged sidecar found in frontend/src-tauri/binaries/app.',
-					'The app has no backend to start. Build and sync it first:',
+					'The app has no backend to start. Build it first:',
 					REBUILD
 				].join('\n')
 			};
@@ -228,7 +229,7 @@ export function describeStaleness(result) {
 					`  found: ${result.foundLaunchers.length > 0 ? result.foundLaunchers.join(', ') : 'no launcher at all'}`,
 					'',
 					'The launcher was renamed after this sidecar was packaged — the backend sources can',
-					'still match, so the content check alone would call it fresh. Rebuild and sync:',
+					'still match, so the content check alone would call it fresh. Rebuild it:',
 					REBUILD
 				].join('\n')
 			};
@@ -239,8 +240,8 @@ export function describeStaleness(result) {
 				text: [
 					'This sidecar was packaged before packaging recorded which backend sources went',
 					`into it (no ${HASH_FILE_NAME} beside the jar), so whether it matches the`,
-					'checked-out backend cannot be told. Syncing again does not change that; package',
-					'and sync once to switch the check on:',
+					'checked-out backend cannot be told. Syncing again does not change that; rebuild',
+					'it once to switch the check on:',
 					REBUILD
 				].join('\n')
 			};
@@ -255,7 +256,7 @@ export function describeStaleness(result) {
 					`  checked out: ${result.expected.slice(0, 12)}…`,
 					'',
 					'vite always serves the current frontend, so this pair disagrees about the API —',
-					'which surfaces as data that never arrives, not as an error. Rebuild and sync:',
+					'which surfaces as data that never arrives, not as an error. Rebuild it:',
 					REBUILD,
 					'',
 					'To run the mismatched pair anyway: MAIL_ALLOW_STALE_SIDECAR=1'

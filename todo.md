@@ -430,17 +430,15 @@ cd C:\dev\java\mail\frontend
 npm run tauri:dev
 ```
 
-Po zmene backendu (prebalit + zkopirovat sidecar):
+Po zmene backendu (nejdriv zastavit `tauri:dev`; jeden prikaz sidecar prebali, zkopiruje, overi a jednou spusti naprazdno):
 
 ```powershell
-cd C:\dev\java\mail\backend
-.\package-sidecar-dev-windows.ps1 -SkipTests
 cd C:\dev\java\mail\frontend
-npm run sidecar:sync:windows
+npm run sidecar:rebuild:windows
 npm run tauri:dev
 ```
 
-`package-sidecar-dev-windows.ps1` je dev wrapper: nacte OAuth hodnoty z `backend/.env` a zavola `scripts/package-sidecar-windows.ps1`, takze lokalni build ma funkcni OAuth login. Cisty `scripts/package-sidecar-windows.ps1` cte jen prostredi (pro CI, kde secrets jdou z env) — bez nastavenych promennych **skonci chybou**, placeholder zabali jen kdyz mu das `-AllowPlaceholderOAuth` (fail-closed, aby se nedal omylem vydat build s nefunkcnim OAuth loginem).
+Bali se pres `package-sidecar-dev-windows.ps1`, dev wrapper: nacte OAuth hodnoty z `backend/.env` a zavola `scripts/package-sidecar-windows.ps1`, takze lokalni build ma funkcni OAuth login. Cisty `scripts/package-sidecar-windows.ps1` cte jen prostredi (pro CI, kde secrets jdou z env) — bez nastavenych promennych **skonci chybou**, placeholder zabali jen s `-AllowPlaceholderOAuth`, pres rebuild `npm run sidecar:rebuild:windows -- --allow-placeholder-oauth` (fail-closed, aby se nedal omylem vydat build s nefunkcnim OAuth loginem).
 
 ---
 
