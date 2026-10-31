@@ -253,6 +253,21 @@ Entries before 2026-09-17 predate that split and are left as written.
   key doing nothing audible, and a held key archives once rather than walking
   down the folder. Settings › Shortcuts lists both, and the command palette
   shows it next to the move to the Archive folder (#805).
+- The banner over a message with blocked images now says why they are held
+  back: "Zpráva obsahuje 1 obrázek z internetu, který jsme nenačetli. Načtení
+  obrázků z internetu může odesílateli prozradit, že jste zprávu otevřeli."
+  It used to say only "Vzdálené obrázky blokovány (1)", and testers could not
+  tell what the area was for. The second button reads **Vždy načítat obrázky
+  od tohoto odesílatele** instead of **Vždy od tohoto odesílatele**, which a
+  tester tabbing to it could not place, and the banner and its announcements
+  say "obrázky z internetu" instead of "vzdálené obrázky" (#809).
+- An open message's attachments are named once. The visible "Přílohy:"
+  caption stayed in the tree above a list named "Přílohy", so a screen reader
+  reading down the header said the word twice in a row; the caption is now for
+  the eye only, and the list keeps its name for the list key (#809).
+- With the reading pane off, the way back from an open message is an outlined
+  button reading **← Zpět do složky Doručené** in full, instead of a muted
+  **← Doručené** that testers did not see as the way back (#809).
 
 ### Tauri / Release
 

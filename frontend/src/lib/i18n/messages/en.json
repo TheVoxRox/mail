@@ -222,13 +222,13 @@
 		"pageTitleWithSubject": "Mail – {subject}",
 		"folderPageTitle": "Mail – {folder}",
 		"remoteImages": {
-			"blocked": "Remote images blocked ({count})",
+			"blocked": "{count, plural, one {This message contains {count} image from the internet that we did not load.} other {This message contains {count} images from the internet that we did not load.}} Loading images from the internet can tell the sender that you opened the message.",
 			"load": "Load images",
-			"alwaysAllow": "Always from this sender",
+			"alwaysAllow": "Always load images from this sender",
 			"allowError": "Could not add the sender to your trusted list. Please try again.",
-			"regionLabel": "Blocked remote images",
-			"loadedAnnouncement": "Remote images loaded.",
-			"senderAllowedAnnouncement": "Sender added to your trusted list, remote images loaded."
+			"regionLabel": "Blocked images from the internet",
+			"loadedAnnouncement": "Images from the internet loaded.",
+			"senderAllowedAnnouncement": "Images from this sender will always load, and the images in this message are loaded."
 		}
 	},
 	"compose": {

@@ -1194,6 +1194,22 @@ test.describe('Přístupnost', () => {
 		expect(tree.match(/Přidat přílohu/g)).toHaveLength(1);
 	});
 
+	test('seznam příloh v otevřené zprávě se pojmenuje jednou, bez popisku před sebou', async ({
+		page
+	}) => {
+		// The visible "Přílohy:" caption sat in the tree right above a list named
+		// "Přílohy", so reading down the header said the word twice in a row.
+		await openApp(
+			page,
+			`/mail/${mailFixture.accountId}/${mailFixture.folderName}/${mailFixture.stableId}`
+		);
+		const list = page.getByRole('list', { name: 'Přílohy' });
+		await expect(list.getByRole('button', { name: /brief\.pdf/ })).toBeVisible();
+		const tree = await list.locator('..').ariaSnapshot();
+		expect(tree).toContain('- list "Přílohy"');
+		expect(tree.match(/Přílohy/g)).toHaveLength(1);
+	});
+
 	test('Esc na detailu zprávy zavře detail a vrátí fokus do seznamu', async ({ page }) => {
 		const folderHref = `/mail/${mailFixture.accountId}/${encodeURIComponent(mailFixture.folderName)}`;
 		const detailHref = `${folderHref}/${encodeURIComponent(mailFixture.stableId)}`;
