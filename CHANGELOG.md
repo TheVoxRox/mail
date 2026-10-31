@@ -298,6 +298,9 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The remote-image banner's new wording sits under the content rendering
+  audit's `Code paths` and is acknowledged in its ledger, now at 2 of 8; the
+  opt-in and the frame are unchanged (#809).
 - The IMAP/SMTP audit is 1.83, the independent pass over #802: B1-26's fix is
   confirmed and the audit is re-verified against `5612842`, clearing its ledger
   entry. Corrected: a restart between leaving the composer and reopening the
