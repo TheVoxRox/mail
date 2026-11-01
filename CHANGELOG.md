@@ -349,9 +349,19 @@ Entries before 2026-09-17 predate that split and are left as written.
   CLI, which this does not move. The shell's license list also catches up with
   `rustls-webpki` 0.103.16 and `webpki-roots` 1.0.10, which #763 took without
   it (#788).
+- The installer is built with Tauri CLI 2.12.4. It renames the misspelled NSIS
+  string `choowHowToInstall` to `chooseHowToInstall` in its own language files,
+  and the installer template here is a copy of Tauri's that kept the old name,
+  so the page shown when installing over an older version would have lost its
+  English subheading. The template and the Czech language file take the new
+  name with the bump (#813).
 
 ### Repo
 
+- Development tools move up a patch or a minor: Svelte 5.57.3, Vite 8.3.5,
+  knip 6.43.0 and typescript-eslint 8.72.1. Their fixes are to reactivity edge
+  cases, hydration and the dev server, none of which the app is known to have
+  hit; the license list follows the tree (#813).
 - An end-to-end test that fails in CI now leaves a Playwright trace, the page
   at every step, in the uploaded test results. The palette test that failed
   only in CI left a snapshot of the search field alone, which could not say
