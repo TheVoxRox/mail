@@ -4,7 +4,7 @@ LangString alreadyInstalledLong ${LANG_CZECH} "${PRODUCTNAME} ${VERSION} je již
 LangString appRunning ${LANG_CZECH} "Aplikace {{product_name}} běží! Nejprve ji prosím zavřete a zkuste to znovu."
 LangString appRunningOkKill ${LANG_CZECH} "Aplikace {{product_name}} běží!$\nKliknutím na OK ji ukončíte"
 LangString chooseMaintenanceOption ${LANG_CZECH} "Zvolte požadovanou akci údržby."
-LangString choowHowToInstall ${LANG_CZECH} "Zvolte, jak chcete ${PRODUCTNAME} nainstalovat."
+LangString chooseHowToInstall ${LANG_CZECH} "Zvolte, jak chcete ${PRODUCTNAME} nainstalovat."
 LangString createDesktop ${LANG_CZECH} "Vytvořit zástupce na ploše"
 LangString dontUninstall ${LANG_CZECH} "Neodinstalovávat"
 LangString dontUninstallDowngrade ${LANG_CZECH} "Neodinstalovávat (instalace starší verze bez odinstalace je u tohoto instalátoru zakázána)"
