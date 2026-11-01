@@ -89,10 +89,11 @@ are re-taken.
 cd frontend ; npm run bump:version <X.Y.Z>
 ```
 
-One command, five files (`frontend/package.json`,
+One command, seven files (`frontend/package.json`,
 `frontend/src-tauri/tauri.conf.json`, `frontend/src/lib/version.ts`,
-`frontend/src-tauri/Cargo.toml`, `backend/pom.xml`). Editing any of them by
-hand splits the rest; `npm run check:versions` catches the split, but only
+`frontend/src-tauri/Cargo.toml`, `backend/pom.xml`, and the project's own
+version in `frontend/package-lock.json` and `frontend/src-tauri/Cargo.lock`).
+Editing any of them by hand splits the rest; `npm run check:versions` catches the split, but only
 after it exists. Details and the argument grammar: RELEASE_CHECKLIST §0.
 
 The bump is its own commit, and it carries the changelog cut from step 2. The tag

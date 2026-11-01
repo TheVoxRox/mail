@@ -363,6 +363,11 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- `npm run bump:version` also writes the project's own version into
+  `frontend/package-lock.json` and `frontend/src-tauri/Cargo.lock`, and
+  `npm run check:versions` compares both, seven files in all. The bump to
+  `0.2.0-beta.1` left both lockfiles on `0.1.0` with nothing to report it, and
+  the cut set them by hand (#818).
 - Development tools move up a patch or a minor: Svelte 5.57.3, Vite 8.3.5,
   knip 6.43.0 and typescript-eslint 8.72.1. Their fixes are to reactivity edge
   cases, hydration and the dev server, none of which the app is known to have

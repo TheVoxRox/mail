@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
+import { cargoLockEntry, cargoPackageName } from './lib/cargo-lock.mjs';
 
 const rootDir = process.cwd();
 
@@ -39,19 +40,51 @@ function extractClientVersion(source) {
 	return match[1];
 }
 
-const [packageJson, tauriConfig, versionSource, cargoSource, pomSource] = await Promise.all([
+function extractPackageLockRootVersion(lock) {
+	const version = lock.packages?.['']?.version;
+	if (typeof version !== 'string') {
+		throw new Error('package-lock.json has no packages[""].version');
+	}
+	return version;
+}
+
+function extractCargoLockVersion(source, name) {
+	const match = cargoLockEntry(name).exec(source);
+	if (!match) {
+		throw new Error(`src-tauri/Cargo.lock has no [[package]] entry for "${name}"`);
+	}
+	return match[2];
+}
+
+const [
+	packageJson,
+	packageLock,
+	tauriConfig,
+	versionSource,
+	cargoSource,
+	cargoLockSource,
+	pomSource
+] = await Promise.all([
 	readJson('package.json'),
+	readJson('package-lock.json'),
 	readJson('src-tauri/tauri.conf.json'),
 	readText('src/lib/version.ts'),
 	readText('src-tauri/Cargo.toml'),
+	readText('src-tauri/Cargo.lock'),
 	readText('../backend/pom.xml')
 ]);
 
 const versions = {
 	'frontend/package.json': packageJson.version,
+	'frontend/package-lock.json': packageLock.version,
+	'frontend/package-lock.json packages[""]': extractPackageLockRootVersion(packageLock),
 	'frontend/src-tauri/tauri.conf.json': tauriConfig.version,
 	'frontend/src/lib/version.ts': extractClientVersion(versionSource),
 	'frontend/src-tauri/Cargo.toml': extractCargoVersion(cargoSource),
+	'frontend/src-tauri/Cargo.lock': extractCargoLockVersion(
+		cargoLockSource,
+		cargoPackageName(cargoSource)
+	),
 	'backend/pom.xml': extractPomVersion(pomSource)
 };
 
