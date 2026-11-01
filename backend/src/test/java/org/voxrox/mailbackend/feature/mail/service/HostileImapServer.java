@@ -10,8 +10,11 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -22,7 +25,10 @@ import java.util.concurrent.Executors;
  * for the backend to log in, list INBOX and open it, and it answers the open
  * with whatever lines the test hands it. Those are the responses no real server
  * sends and GreenMail cannot be made to — a message count or a UID range sized
- * to exhaust the client's heap (IMAP/SMTP audit B1-3).
+ * to exhaust the client's heap (IMAP/SMTP audit B1-3) — and one a real server
+ * does send that GreenMail cannot either, since it writes every structure
+ * itself: Seznam's, with an empty parameter list
+ * ({@code EmptyParameterListIT}).
  * <p>
  * It listens over TLS with {@link TestTls}'s certificate, because the backend
  * connects to nothing else (audit B1-4). The mailbox it describes is always
@@ -43,6 +49,7 @@ final class HostileImapServer implements AutoCloseable {
     private volatile List<String> uidListingPadding = List.of();
     private volatile List<String> authenticateResponse = List.of();
     private volatile List<String> fetchResponse = List.of();
+    private volatile Map<String, List<String>> fetchResponseOf = Map.of();
 
     HostileImapServer() throws IOException {
         this.server = TestTls.serverSocketFactory().createServerSocket(0, 50, InetAddress.getLoopbackAddress());
@@ -110,6 +117,23 @@ final class HostileImapServer implements AutoCloseable {
      */
     void answerFetchWith(String... lines) {
         fetchResponse = List.of(lines);
+    }
+
+    /**
+     * Untagged lines a later {@code FETCH} by sequence number is answered with when
+     * what it asks for names {@code item}, in place of {@link #answerFetchWith}'s —
+     * a structure for {@code BODYSTRUCTURE}, a body section for {@code [1]} — so
+     * each read a message takes can get an answer of its own. Called with no lines,
+     * it stops answering that item apart.
+     */
+    void answerFetchOf(String item, String... lines) {
+        Map<String, List<String>> answers = new LinkedHashMap<>(fetchResponseOf);
+        if (lines.length == 0) {
+            answers.remove(item);
+        } else {
+            answers.put(item, List.of(lines));
+        }
+        fetchResponseOf = Collections.unmodifiableMap(answers);
     }
 
     private String capabilities() {
@@ -195,13 +219,23 @@ final class HostileImapServer implements AutoCloseable {
             case "UID" ->
                 arguments.toUpperCase(Locale.ROOT).startsWith("FETCH") ? uidListing(tag) : List.of(tag + " OK done");
             case "FETCH" -> {
-                List<String> lines = new ArrayList<>(fetchResponse);
+                List<String> lines = new ArrayList<>(fetchAnswer(arguments));
                 lines.add(tag + " OK done");
                 yield lines;
             }
             case "LOGOUT" -> List.of("* BYE logging out", tag + " OK done");
             default -> List.of(tag + " OK done");
         };
+    }
+
+    private List<String> fetchAnswer(String arguments) {
+        String asked = arguments.toUpperCase(Locale.ROOT);
+        for (Map.Entry<String, List<String>> answer : fetchResponseOf.entrySet()) {
+            if (asked.contains(answer.getKey().toUpperCase(Locale.ROOT))) {
+                return answer.getValue();
+            }
+        }
+        return fetchResponse;
     }
 
     private List<String> uidListing(String tag) {

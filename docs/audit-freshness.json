@@ -54,12 +54,17 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/resources/application.properties": "6f4dcc647382dd679f0ff713b79931a3b92c2d48"
+      "backend/src/main/resources/application.properties": "6f4dcc647382dd679f0ff713b79931a3b92c2d48",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "63e7648cdbd6b9a5bb8fb93b7bbc3acaab2462a1"
     },
     "acknowledgements": [
       {
         "date": "2026-10-31",
         "note": "One key added, springdoc.swagger-ui.version=@swagger-ui.version@, Maven-filtered from the swagger-ui webjar pin in backend/pom.xml (5.34.1, DOMPurify 3.4.17, for the five DOMPurify advisories that failed the nightly scan, #806). It only names the webjar directory springdoc serves Swagger UI from in dev; this audit makes no claim about springdoc, and no mail.client.*, spring.mail.*, IMAP, SMTP, timeout, sync or connection key moved. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-01",
+        "note": "#812, recorded in the audit as 1.84 (§5) and waiting for its independent pass. BoundedImapProtocol.parseBounded reads a FETCH that Angus rejected once more with each empty list in its structure written NIL (EmptyListsAsNil, new), for the (\"inline\" ()) disposition Seznam writes. Only after the rejection, at most 1 MiB, and only a () inside a BODYSTRUCTURE or BODY value after a string or an atom; what it hands back goes through the same DepthBoundedFetchResponse and type check, so no bound moves, and the copy it makes is at most 1.5 MiB. A FETCH it does not rescue is now logged with Angus's reason, cut to 200 characters, before the skip it always had. Verdict unchanged."
       }
     ]
   },
