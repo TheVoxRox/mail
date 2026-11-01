@@ -21,6 +21,14 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Backend
 
+- Folders come in a fixed order: Inbox and its subfolders, then Newsletters,
+  Drafts, Sent, Trash, Archive and Spam, then the user's own folders
+  alphabetically, each subfolder right below its parent. The list used to keep
+  the order the mail server listed the folders in, which differs from provider
+  to provider, so the inbox did not have to be on top, and a subfolder of the
+  inbox, common with Outlook, stood among the user's folders under "I". The
+  alphabet is the app's language: in Czech, "ch" comes after "h". The sidebar
+  and the Move to menus both show this order (#814).
 - A message from Seznam that could not be opened opens. Seznam's server writes
   a part's disposition that has no parameters as an empty list, which IMAP does
   not allow, and the mail library rejected the message's whole structure for

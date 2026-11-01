@@ -247,15 +247,16 @@ class MailFacadeTest {
     class GetFolders {
 
         @Test
-        @DisplayName("Delegates to imapFolderService and returns the result")
-        void shouldDelegateToImapFolderService() {
-            List<FolderResponse> folders = List.of(new FolderResponse("Inbox", "INBOX", 5, FolderRole.INBOX),
-                    new FolderResponse("Sent", "Sent", 0, FolderRole.SENT));
-            when(imapFolderService.getFolders(ACCOUNT_ID)).thenReturn(folders);
+        @DisplayName("Returns imapFolderService's folders in display order")
+        void shouldReturnFoldersInDisplayOrder() {
+            FolderResponse inbox = new FolderResponse("Inbox", "INBOX", 5, FolderRole.INBOX);
+            FolderResponse sent = new FolderResponse("Sent", "Sent", 0, FolderRole.SENT);
+            FolderResponse projects = new FolderResponse("Projects", "Projects", 0, FolderRole.USER);
+            when(imapFolderService.getFolders(ACCOUNT_ID)).thenReturn(List.of(projects, sent, inbox));
 
             List<FolderResponse> result = mailFacade.getFolders(ACCOUNT_ID);
 
-            assertThat(result).isEqualTo(folders);
+            assertThat(result).containsExactly(inbox, sent, projects);
             verify(imapFolderService).getFolders(ACCOUNT_ID);
         }
     }

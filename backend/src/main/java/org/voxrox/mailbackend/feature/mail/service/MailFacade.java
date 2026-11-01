@@ -4,6 +4,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -111,8 +112,13 @@ public class MailFacade {
         return mailDraftService.createForwardDraft(original, content);
     }
 
+    /**
+     * The account's folders in the order the client shows them, see
+     * {@link FolderDisplayOrder}. Only this listing is sorted: the internal callers
+     * of {@link ImapFolderService#getFolders} keep the server's order.
+     */
     public List<FolderResponse> getFolders(Long accountId) {
-        return imapFolderService.getFolders(accountId);
+        return FolderDisplayOrder.sort(imapFolderService.getFolders(accountId), LocaleContextHolder.getLocale());
     }
 
     /**
