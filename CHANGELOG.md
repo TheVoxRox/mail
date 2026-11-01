@@ -19,6 +19,15 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Repo
+
+- The release decision for `v0.2.0-beta.1`: §3 to §8 of the 2026-11-01 sheet
+  recorded on its signed build, the machine half from Release Candidate Smoke
+  and the rest per the maintainer, and §9 approved with no open blocker; the
+  updater itself is taken on the beta channel right after publishing. The
+  release notes in `docs/release-notes/` carry the same known issues, which the
+  changelog now marks as reconciled (#821).
+
 ## [0.2.0-beta.1] - 2026-11-01
 
 ### Backend
@@ -380,8 +389,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Known issues
 
-Provisional until §9 of the 2026-11-01 candidate sheet, per
-[RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) step 2.
+Reconciled with §9 of the 2026-11-01 candidate sheet, per
+[RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) step 6.
 
 - **A transient IMAP hiccup, `failed to create new store connection`, appears
   in the log a couple of times a day.** Unchanged since 0.1.0: a bounded retry
