@@ -19,6 +19,14 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Repo
+
+- `npm run bump:version` also writes the project's own version into
+  `frontend/package-lock.json` and `frontend/src-tauri/Cargo.lock`, and
+  `npm run check:versions` compares both, seven files in all. The bump to
+  `0.2.0-beta.1` left both lockfiles on `0.1.0` with nothing to report it, and
+  the cut (#817) set them by hand (#818).
+
 ## [0.2.0-beta.1] - 2026-11-01
 
 ### Backend

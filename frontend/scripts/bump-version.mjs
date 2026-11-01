@@ -1,6 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
+import { cargoLockEntry, cargoPackageName } from './lib/cargo-lock.mjs';
 import { SEMVER_RE } from './lib/semver.mjs';
 
 const rootDir = process.cwd();
@@ -15,6 +16,10 @@ if (!SEMVER_RE.test(newVersion)) {
 	console.error(`Not a valid semver: "${newVersion}"`);
 	process.exit(1);
 }
+
+const cargoName = cargoPackageName(
+	await readFile(path.join(rootDir, 'src-tauri/Cargo.toml'), 'utf8')
+);
 
 const targets = [
 	{
@@ -59,8 +64,50 @@ const targets = [
 				`$1${newVersion}$2`,
 				'project <version> after </parent>'
 			)
+	},
+	// npm and cargo rewrite their lockfile's own version only on their next
+	// resolve, which a release build does on the runner; written here, the
+	// commit that gets tagged agrees with itself.
+	{
+		label: 'frontend/package-lock.json',
+		file: 'package-lock.json',
+		update: (src) => replacePackageLockVersions(src, newVersion)
+	},
+	{
+		label: 'frontend/src-tauri/Cargo.lock',
+		file: 'src-tauri/Cargo.lock',
+		update: (src) =>
+			replaceGroup(src, cargoLockEntry(cargoName), newVersion, `[[package]] ${cargoName} version`)
 	}
 ];
+
+/*
+ * The first "version" key is the lockfile's own and the root entry of
+ * "packages" carries the second. Both are read back after the edit, so a
+ * lockfile laid out differently fails here instead of having some other
+ * version rewritten.
+ */
+function replacePackageLockVersions(source, value) {
+	const updated = replaceGroup(
+		replaceJsonField(source, 'version', value),
+		/("packages"\s*:\s*\{\s*""\s*:\s*\{[^{}]*?"version"\s*:\s*")([^"]+)(")/,
+		value,
+		'packages[""].version'
+	);
+	const lock = JSON.parse(updated);
+	if (lock.version !== value || lock.packages?.['']?.version !== value) {
+		throw new Error('the root version fields did not take the new value');
+	}
+	return updated;
+}
+
+/** Replaces the second group of `pattern`, the value between its first and third. */
+function replaceGroup(source, pattern, value, label) {
+	if (!pattern.test(source)) {
+		throw new Error(`Pattern not found: ${label}`);
+	}
+	return source.replace(pattern, (_match, before, _old, after) => `${before}${value}${after}`);
+}
 
 function replaceJsonField(source, field, value) {
 	const pattern = new RegExp(`("${field}"\\s*:\\s*")[^"]+(")`);
