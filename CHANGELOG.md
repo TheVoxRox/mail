@@ -39,7 +39,9 @@ Entries before 2026-09-17 predate that split and are left as written.
   the image done, the installed-app smokes fail on any warning or error the
   JVM writes rather than only on an AOT one, and `npm run sidecar:rebuild:windows`
   compares every jar of the image with `binaries/`, since the application jar
-  there is no longer the executable jar Maven builds (#819).
+  there is no longer the executable jar Maven builds. The release workflow and
+  a javadoc under `core/init` lie under the updater and crypto/storage audits
+  and are acknowledged in their ledgers, now at 3 and 4 of 8 (#819).
 - `npm run bump:version` also writes the project's own version into
   `frontend/package-lock.json` and `frontend/src-tauri/Cargo.lock`, and
   `npm run check:versions` compares both, seven files in all. The bump to
