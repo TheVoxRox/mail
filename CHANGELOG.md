@@ -19,6 +19,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Repo
+
+- Release notes for `v0.2.0-beta.1` in `docs/release-notes/`, drafted before
+  §9 of the 2026-11-01 sheet; their known issues are reconciled with §9 before
+  the draft body is set from them (#821).
+
 ## [0.2.0-beta.1] - 2026-11-01
 
 ### Backend
