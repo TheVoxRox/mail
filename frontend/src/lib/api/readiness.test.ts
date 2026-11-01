@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { CLIENT_VERSION } from '#lib/version.js';
 import {
 	assertCompatible,
 	assertSessionMatchesReadiness,
@@ -132,8 +133,10 @@ describe('assertCompatible', () => {
 	});
 
 	it('rejects client older than minClientVersion', () => {
-		// CLIENT_VERSION is 0.1.0 — require 0.2.0 should fail
-		expect(() => assertCompatible({ ...baseReadiness, minClientVersion: '0.2.0' })).toThrow(
+		// One minor past the client's own version, so a version bump cannot meet it
+		const client = parseSemver(CLIENT_VERSION, 'clientVersion');
+		const newer = `${client.major}.${client.minor + 1}.0`;
+		expect(() => assertCompatible({ ...baseReadiness, minClientVersion: newer })).toThrow(
 			BackendCompatibilityError
 		);
 	});

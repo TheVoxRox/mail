@@ -3,7 +3,7 @@
 # the installer's running-app check matches by name alone — so it has to be
 # specific to this product, never a template default like "app".
 name = "voxrox-mail"
-version = "0.1.0"
+version = "0.2.0-beta.1"
 description = "VoxRox Mail desktop application"
 authors = ["VoxRox"]
 license-file = "../../LICENSE"

@@ -19,6 +19,16 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Repo
+
+- `npm run bump:version` also writes the project's own version into
+  `frontend/package-lock.json` and `frontend/src-tauri/Cargo.lock`, and
+  `npm run check:versions` compares both, seven files in all. The bump to
+  `0.2.0-beta.1` left both lockfiles on `0.1.0` with nothing to report it, and
+  the cut (#817) set them by hand (#818).
+
+## [0.2.0-beta.1] - 2026-11-01
+
 ### Backend
 
 - The `app_started` record in `audit.log` names the version an update came
@@ -361,13 +371,54 @@ Entries before 2026-09-17 predate that split and are left as written.
   English subheading. The template and the Czech language file take the new
   name with the bump (#813).
 
+### Migrations
+
+- None. `V1__init.sql` is as 0.1.0 shipped it. The first start of this version
+  still writes `db/mail.db.backup-pre-v0.2.0-beta.1` before Flyway runs.
+
+### Security / OAuth
+
+- No change to the OAuth clients or to the scopes they ask for.
+
+### Known issues
+
+Provisional until §9 of the 2026-11-01 candidate sheet, per
+[RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) step 2.
+
+- **A transient IMAP hiccup, `failed to create new store connection`, appears
+  in the log a couple of times a day.** Unchanged since 0.1.0: a bounded retry
+  with backoff recovers it on the next attempt.
+- **Google sign-in works only for accounts on the test list.** The OAuth
+  consent screen stays in `Testing`, as for 0.1.0.
+- **A hostile mail server can still run the mail service out of memory when
+  two such accounts sync at once.** What one account keeps is now bounded by an
+  account budget, so a single hostile server costs only its own account; the
+  sets the sync's UID listing builds lie outside that budget (IMAP/SMTP audit
+  1.78). Three restarts in a row still pause that account's sync.
+
+### Manual steps
+
+- **For the user:** an installation of 0.1.0 switched to the Beta channel in
+  Settings → About is offered this build and updates in place, keeping its
+  data. The stable channel stays on 0.1.0 until this build is promoted, and a
+  downgrade is blocked.
+- **For the operator:** before announcing the beta, take the update on the beta
+  channel from an installation of 0.1.0 (RELEASE_CHECKLIST §3a), and check that
+  `beta/latest.json` names this version after publishing.
+
 ### Repo
 
-- `npm run bump:version` also writes the project's own version into
-  `frontend/package-lock.json` and `frontend/src-tauri/Cargo.lock`, and
-  `npm run check:versions` compares both, seven files in all. The bump to
-  `0.2.0-beta.1` left both lockfiles on `0.1.0` with nothing to report it, and
-  the cut set them by hand (#818).
+- The `0.2.0-beta.1` cut: the version in the five files `bump:version` writes
+  and in both lockfiles, which it does not write; the license lists and the
+  bundled `NOTICE.txt`, which last caught up on 2026-10-18 and miss Spring Boot
+  4.1.2 (#789), bits-ui 2.20.2 and the shell's crates; and the 2026-11-01
+  candidate sheet with §0 to §2. The version field of `tauri.conf.json` lies
+  under the updater audit's code paths and is acknowledged in its ledger, now
+  at 2 of 8. A readiness unit test assumed the client was 0.1.0 and asked for
+  0.2.0, which `0.2.0-beta.1` meets, since the check ignores a prerelease
+  suffix; it now asks for one minor past `CLIENT_VERSION`. The About page's
+  end-to-end test looked for the text `0.1.0` and now reads `CLIENT_VERSION`
+  too (#817).
 - Development tools move up a patch or a minor: Svelte 5.57.3, Vite 8.3.5,
   knip 6.43.0 and typescript-eslint 8.72.1. Their fixes are to reactivity edge
   cases, hydration and the dev server, none of which the app is known to have
