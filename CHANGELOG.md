@@ -408,7 +408,7 @@ Provisional until §9 of the 2026-11-01 candidate sheet, per
   under the updater audit's code paths and is acknowledged in its ledger, now
   at 2 of 8. A readiness unit test assumed the client was 0.1.0 and asked for
   0.2.0, which `0.2.0-beta.1` meets, since the check ignores a prerelease
-  suffix; it now asks for one minor past `CLIENT_VERSION` (#816).
+  suffix; it now asks for one minor past `CLIENT_VERSION` (#817).
 - Development tools move up a patch or a minor: Svelte 5.57.3, Vite 8.3.5,
   knip 6.43.0 and typescript-eslint 8.72.1. Their fixes are to reactivity edge
   cases, hydration and the dev server, none of which the app is known to have

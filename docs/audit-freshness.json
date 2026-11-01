@@ -157,7 +157,7 @@
       },
       {
         "date": "2026-11-01",
-        "note": "#816, the v0.2.0-beta.1 cut. The one change in tauri.conf.json is the top-level version, 0.1.0 to 0.2.0-beta.1, written by bump:version. plugins.updater (endpoints, pubkey) and bundle (the NSIS template, installMode) are untouched. No claim of the audit rests on the value: the version pin compares the manifest with the version the prompt named, the build gate compares the tag with this field, and a prerelease orders after 0.1.0 and before 0.2.0 under semver, which is the order the beta channel and the later promotion need. Verdict unchanged."
+        "note": "#817, the v0.2.0-beta.1 cut. The one change in tauri.conf.json is the top-level version, 0.1.0 to 0.2.0-beta.1, written by bump:version. plugins.updater (endpoints, pubkey) and bundle (the NSIS template, installMode) are untouched. No claim of the audit rests on the value: the version pin compares the manifest with the version the prompt named, the build gate compares the tag with this field, and a prerelease orders after 0.1.0 and before 0.2.0 under semver, which is the order the beta channel and the later promotion need. Verdict unchanged."
       }
     ]
   }
