@@ -22,9 +22,12 @@ import org.voxrox.mailbackend.util.LogCategory;
  * launches the JVM with {@code -XX:AOTCacheOutput=<file>} (JEP 514, Java 25+)
  * and this env variable. The JVM starts the Spring context up to
  * {@link ApplicationReadyEvent}, this class gracefully closes it, and on exit
- * the JVM writes out the AOT cache. In subsequent production runs the cache is
- * wired in via {@code -XX:AOTCache=app/mail.aot} in jpackage java-options and
- * the JVM loads classes/metadata from it instead of from the jar.
+ * the JVM writes out the AOT cache. Release builds stopped shipping that cache
+ * on 2026-11-01: on JDK 25 a cache trained on the build machine breaks the
+ * start everywhere else (JDK-8376576, see
+ * {@code backend/scripts/package-sidecar-windows.ps1}). The training script
+ * stays for measurement and for when the cache returns, and packaging's start
+ * check sets the same variable to end its run once the application is ready.
  *
  * <p>
  * Order {@code LOWEST_PRECEDENCE} guarantees that all other

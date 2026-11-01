@@ -19,7 +19,7 @@ import { checkSidecarFreshness, describeStaleness } from './sidecar-staleness.mj
  * an old image as for a new one.
  *
  * The release workflow keeps its own steps: its OAuth client ids come from
- * secrets, not from backend/.env, and it packages with the AOT cache.
+ * secrets, not from backend/.env.
  */
 
 const FLAGS = {
@@ -79,42 +79,53 @@ export function runningFromCheckout(repoRoot) {
 		});
 }
 
-async function onlyJar(dir, pattern, what) {
+/** The jars under `dir`, by their path relative to it; none when it does not exist. */
+async function jarsUnder(dir) {
 	let names = [];
 	try {
-		names = (await readdir(dir)).filter((name) => pattern.test(name));
+		names = await readdir(dir, { recursive: true });
 	} catch {
-		// No directory: reported below as no jar.
+		// No directory: no jars.
 	}
-	if (names.length !== 1) {
-		throw new Error(
-			names.length === 0
-				? `No ${what} in ${dir}.`
-				: `More than one ${what} in ${dir}: ${names.join(', ')}.`
-		);
-	}
-	return path.join(dir, names[0]);
+	return names.filter((name) => name.endsWith('.jar')).sort();
 }
 
 /**
- * That binaries/ now holds the jar packaging just built, byte for byte, and
- * that the freshness check `tauri:dev` runs says `ok` about it.
+ * That binaries/ now holds the image packaging just published, byte for byte
+ * in every jar under app/ -- the application jar and lib/ -- and that the
+ * freshness check `tauri:dev` runs says `ok` about it.
+ *
+ * The comparison is with the published image rather than with the executable
+ * jar in backend/target, because the image carries that jar extracted
+ * (package-sidecar-windows.ps1). An image packaging failed to replace is still
+ * caught: the digest the freshness check reads was taken before the build it
+ * describes.
  */
 export async function verifySyncedSidecar(repoRoot) {
-	// `.jar` at the end leaves out the `.jar.original` Spring Boot's repackage keeps.
-	const built = await onlyJar(
-		path.join(repoRoot, 'backend', 'target'),
-		/^mail-backend-.*\.jar$/,
-		'built mail-backend jar'
+	const published = path.join(
+		repoRoot,
+		'backend',
+		'target',
+		'sidecar',
+		'x86_64-pc-windows-msvc',
+		'app'
 	);
-	const synced = await onlyJar(
-		path.join(repoRoot, 'frontend', 'src-tauri', 'binaries', 'app'),
-		/\.jar$/,
-		'jar'
+	const synced = path.join(repoRoot, 'frontend', 'src-tauri', 'binaries', 'app');
+	const built = await jarsUnder(published);
+	if (built.length === 0) throw new Error(`No jar in ${published}: packaging published no image.`);
+	const copied = new Set(await jarsUnder(synced));
+	const differing = built.filter(
+		(name) =>
+			!copied.has(name) || sha256(path.join(published, name)) !== sha256(path.join(synced, name))
 	);
-	if (sha256(built) !== sha256(synced)) {
+	const extra = [...copied].filter((name) => !built.includes(name));
+	if (differing.length > 0 || extra.length > 0) {
 		throw new Error(
-			`The jar in binaries/ is not the one packaging just built:\n  built:  ${built}\n  synced: ${synced}`
+			[
+				`The jars in binaries/ are not the ones packaging just built (${published}):`,
+				...differing.map((name) => `  differs or missing: ${name}`),
+				...extra.map((name) => `  not in the image:   ${name}`)
+			].join('\n')
 		);
 	}
 	const freshness = await checkSidecarFreshness(repoRoot);

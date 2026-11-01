@@ -22,9 +22,9 @@
  *     widen to "*";
  *   - the boot endpoints the client actually calls (client-config, accounts)
  *     answer 2xx with JSON through the webview origin. These exercise the
- *     AOT-compiled controller + JPA + Jackson paths that only the packaged,
- *     AOT-cached sidecar runs (dev uses the plain JIT jar) and that a
- *     readiness-only probe never touches;
+ *     AOT-compiled controller + JPA + Jackson paths that only the packaged
+ *     sidecar runs (dev uses the plain JIT jar) and that a readiness-only
+ *     probe never touches;
  *   - an account can be created and mapped. This is the half the boot probes
  *     cannot reach: over the empty table of a fresh install they map no row, so
  *     everything AccountMapper pulls in stays unloaded. #393 shipped straight
@@ -188,7 +188,7 @@ async function assertCorsContract(session) {
 /*
  * Endpoints the desktop client fetches during boot (see frontend bootstrap.ts:
  * loadClientConfig + loadAccounts). Probing them through the real webview
- * origin proves the packaged, AOT-cached sidecar can actually serve data — not
+ * origin proves the packaged sidecar can actually serve data — not
  * just answer the static readiness probe.
  *
  * On the fresh isolated DB these are the first-run shape: client-config is

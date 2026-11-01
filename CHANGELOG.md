@@ -19,8 +19,29 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Tauri / Release
+
+- The backend ships extracted and without the AOT class cache. The first
+  `0.2.0-beta.1` candidate's backend did not start on any machine but the one
+  that built it: on JDK 25 a class loaded from an AOT cache takes its code
+  source from the directory the cache was trained in, which exists only there
+  (JDK-8376576, fixed in JDK 28), and Spring Boot's launcher stops on it.
+  Release Candidate Smoke caught it before anything was published. The jar now
+  ships as Spring Boot recommends for production, the application's own
+  classes in one jar and every library as a jar of its own in `app\lib`, and
+  starts faster than the executable jar did with its cache, about 2.7 s against
+  3.0 s on the desktop. The cache comes back once the runtime has the fix
+  (#819).
+
 ### Repo
 
+- Packaging starts a copy of the image outside the build tree before it calls
+  the image done, the installed-app smokes fail on any warning or error the
+  JVM writes rather than only on an AOT one, and `npm run sidecar:rebuild:windows`
+  compares every jar of the image with `binaries/`, since the application jar
+  there is no longer the executable jar Maven builds. The release workflow and
+  a javadoc under `core/init` lie under the updater and crypto/storage audits
+  and are acknowledged in their ledgers, now at 3 and 4 of 8 (#819).
 - `npm run bump:version` also writes the project's own version into
   `frontend/package-lock.json` and `frontend/src-tauri/Cargo.lock`, and
   `npm run check:versions` compares both, seven files in all. The bump to

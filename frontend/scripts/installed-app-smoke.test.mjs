@@ -5,9 +5,9 @@ import { describe, expect, it } from 'vitest';
 import {
 	DUMP_ENTRIES,
 	INSTALL_ENTRIES,
-	aotCacheProblems,
 	formatReport,
 	installerVersion,
+	jvmLogProblems,
 	missingEntries,
 	samePath,
 	sessionProblems,
@@ -96,7 +96,7 @@ describe('sessionProblems', () => {
 	});
 });
 
-describe('aotCacheProblems', () => {
+describe('jvmLogProblems', () => {
 	// What 0.1.0's sidecar wrote on every installed start, as the Tauri log
 	// records it; only the user directory is renamed.
 	const sidecar = '[2026-10-20][07:46:38][voxrox_mail_lib::logs][WARN] Sidecar stderr: ';
@@ -111,25 +111,28 @@ describe('aotCacheProblems', () => {
 		'[2026-10-20][07:46:37][voxrox_mail_lib][INFO] Data root: C:\\Users\\a\\AppData\\Local\\VoxRox\\Mail'
 	];
 
-	it('returns every line of a refused cache and nothing around them', () => {
-		expect(aotCacheProblems([...started, ...refused, ''].join('\r\n'))).toEqual(refused);
+	it('returns every warning and error line and nothing around them', () => {
+		expect(jvmLogProblems([...started, ...refused, ''].join('\r\n'))).toEqual(refused);
 	});
 
-	it('finds nothing in the log of a start on the cache', () => {
-		expect(aotCacheProblems(started.join('\n'))).toEqual([]);
+	it('finds nothing in the log of a clean start', () => {
+		expect(jvmLogProblems(started.join('\n'))).toEqual([]);
 	});
 
-	it('reads the tag set, not the message', () => {
+	it('reads the level, whatever the tags or the message', () => {
 		expect(
-			aotCacheProblems(
+			jvmLogProblems(
 				[
 					`${sidecar}[0.1s][warning][cds,heap] Unable to map the archived heap`,
-					`${sidecar}[0.1s][warning][gc] the AOT cache is not involved here`,
-					`${sidecar}[0.1s][warning][aotx] not a tag the JVM writes`,
-					`${sidecar}[0.1s][info   ][aot] Using AOT-linked classes`
+					`${sidecar}[0.1s][warning][gc] Insufficient space for the heap`,
+					`${sidecar}[0.1s][info   ][aot] Using AOT-linked classes`,
+					`${sidecar}a message that only mentions [warning][gc]`
 				].join('\n')
 			)
-		).toEqual([`${sidecar}[0.1s][warning][cds,heap] Unable to map the archived heap`]);
+		).toEqual([
+			`${sidecar}[0.1s][warning][cds,heap] Unable to map the archived heap`,
+			`${sidecar}[0.1s][warning][gc] Insufficient space for the heap`
+		]);
 	});
 });
 

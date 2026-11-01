@@ -19,9 +19,9 @@ import {
 } from './lib/installed-app.mjs';
 import {
 	EXPECTED_INSTALL_SUBPATH,
-	aotCacheProblems,
 	formatReport,
 	installerVersion,
+	jvmLogProblems,
 	treeDifferences
 } from './lib/installed-app-smoke.mjs';
 import { waitForExit } from './lib/process-tree.mjs';
@@ -263,14 +263,14 @@ try {
 	running = null;
 
 	// Only the lines of the updated start: the previous release wrote its own,
-	// and 0.1.0's cache never mapped on an installation.
-	const aotProblems = existsSync(frontendLog)
-		? aotCacheProblems(readFileSync(frontendLog).subarray(logOffset).toString('utf8'))
+	// and 0.1.0 warned on every start about an AOT cache it could not map.
+	const jvmProblems = existsSync(frontendLog)
+		? jvmLogProblems(readFileSync(frontendLog).subarray(logOffset).toString('utf8'))
 		: null;
 	record(
-		'the updated sidecar starts on its AOT cache, with no aot warning in the Tauri log',
-		aotProblems?.length === 0,
-		aotProblems === null ? `${frontendLog} does not exist` : aotProblems.join('; ')
+		'the updated sidecar writes no JVM warning or error to the Tauri log',
+		jvmProblems?.length === 0,
+		jvmProblems === null ? `${frontendLog} does not exist` : jvmProblems.join('; ')
 	);
 
 	// §3a The downgrade block

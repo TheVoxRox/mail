@@ -453,6 +453,36 @@ than the −42.7 % of the 2026-09-08 `java -jar` section; that one ran on the
 laptop and without the launcher, so the two are not comparable — this section is
 the number for what ships.
 
+## Extracted layout without the AOT cache — measurement 2026-11-01
+
+**Machine: desktop PC** (AMD Ryzen 9 9900X, 12 cores / 24 threads, 4.4 GHz, 62 GB).
+
+Release builds stopped shipping the AOT cache on this date: on JDK 25 a cache
+trained on the build machine stops the start on every other one (JDK-8376576,
+OPERATIONS.md "JEP 483 AOT class cache"). They ship the executable jar
+extracted instead, as Spring Boot recommends for production. This measures what
+that costs against the cache.
+
+The launcher of each image copied to a scratch directory with its file times
+kept, renamed as the installer names it, and started with
+`MAIL_AOT_TRAINING_RUN=1` on a fresh `APP_DATA_DIR`; the number is the
+`process running for` of Spring's `Started MailBackendApplication` line. Both
+images from the same commit, `-AllowPlaceholderOAuth` aside packaged as the
+release workflow packages them. Fewer and less careful rounds than the
+2026-10-17 section: three of the extracted layout, one of each of the others.
+
+| Variant                                      |            Start |
+| -------------------------------------------- | ---------------: |
+| Executable jar, AOT cache (`-XX:AOTMode=on`) |          3009 ms |
+| Executable jar, no cache (`-XX:AOTMode=off`) |          4298 ms |
+| Extracted layout, no cache (what ships now)  | **2666–2713 ms** |
+
+The extracted layout without a cache starts faster than the executable jar did
+with one. The executable-jar numbers match the 2026-10-17 medians (3019 and
+4112 ms) closely enough that the comparison holds; the extracted layout's three
+starts sit within 50 ms of each other. Nothing here measures the extracted
+layout with a cache, which needs a JDK with the fix.
+
 ## Correspondent typeahead — measurement 2026-09-08 (synthetic)
 
 **Machine: desktop PC** (AMD Ryzen 9 9900X, 12 cores / 24 threads, 4.4 GHz, 62 GB,

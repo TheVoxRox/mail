@@ -125,7 +125,7 @@ npm run tauri:build
 
 `npm run tauri:build:with-sidecar` syncs and builds in one go, without
 packaging: it bundles whatever image `backend/target/sidecar/` holds, such as
-one packaged by hand with `-EnableAotCache`, which the rebuild does not pass.
+one packaged by hand with options the rebuild does not pass.
 
 The sync copies the sidecar executable plus its `app/` and `runtime/`
 directories into `src-tauri/binaries/`. Those generated artifacts are ignored by

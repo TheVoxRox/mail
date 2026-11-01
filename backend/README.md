@@ -14,7 +14,7 @@ Repo-wide overview and the full doc map live in the monorepo root
 - Spring Boot 4 (Web, Data JPA, Security/OAuth2 client, Actuator)
 - SQLite (via `org.xerial:sqlite-jdbc`) + Flyway migrations
 - JavaMail (`org.eclipse.angus:angus-mail`) for IMAP / SMTP
-- Spring AOT (opt-in via Maven `aot` profile) + optional JEP 483 AOT class cache
+- Spring AOT (opt-in via Maven `aot` profile); the packaged sidecar ships the jar extracted, without a JEP 483 AOT class cache (see `OPERATIONS.md`)
 
 ## Quick start (dev)
 

@@ -143,17 +143,18 @@ jobs:
       - name: Package backend sidecar
         working-directory: backend
         shell: pwsh
-        # AOT cache is always enabled for release builds. Measured saving:
-        # ~37 % cold start (PERFORMANCE_BASELINE.md 2026-05-19). Dev sidecar
-        # builds keep the default (OFF) to avoid the ~70 s training overhead
-        # on every iteration.
+        # Packaged the same way as the dev sidecar. Release builds trained a JEP
+        # 483 AOT cache here until 2026-11-01; on JDK 25 such a cache breaks the
+        # start on every machine but the build machine (JDK-8376576), so it is
+        # off until the runtime has the fix -- see the jpackage step of
+        # package-sidecar-windows.ps1.
         env:
           SKIP_BACKEND_TESTS: ${{ inputs['skip-backend-tests'] }}
         run: |
           # OAuth config is required by default (the script fails on a missing /
           # placeholder client-id); no flag needed. -AllowPlaceholderOAuth is the
           # local-only opt-out and must never appear here.
-          $args = @("-File", "scripts/package-sidecar-windows.ps1", "-EnableAotCache")
+          $args = @("-File", "scripts/package-sidecar-windows.ps1")
           if ($env:SKIP_BACKEND_TESTS -eq "true") {
             $args += "-SkipTests"
           }

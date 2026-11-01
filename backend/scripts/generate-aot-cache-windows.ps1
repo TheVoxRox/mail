@@ -26,10 +26,14 @@
 
       -LauncherPath  trains through a jpackage app image's own launcher, so the
                      cache matches the jlinked runtime, the jar and the JVM
-                     options that ship. This is what packaging uses. Until
-                     2026-10-17 packaging trained with the system `java -jar`
-                     instead, and every release build refused its cache
-                     ("runtime\lib\modules ... size has changed").
+                     options that ship. Packaging used this until 2026-11-01,
+                     when release builds stopped shipping a cache: on JDK 25 a
+                     cache trained on the build machine breaks the start on
+                     every other one (JDK-8376576; see the jpackage step of
+                     package-sidecar-windows.ps1). Before 2026-10-17 packaging
+                     trained with the system `java -jar` instead, and every
+                     release build refused its cache ("runtime\lib\modules ...
+                     size has changed").
       -JarPath       trains with the `java` on PATH and the given jar, for
                      measuring JVM flags against the system JDK
                      (measure-cold-start-windows.ps1). Such a cache does not fit
