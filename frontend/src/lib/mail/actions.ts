@@ -6,7 +6,7 @@ import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
 import { get } from 'svelte/store';
 import { triggerAccountSync } from '#lib/api/mailAction.js';
-import { refreshFolders } from '#lib/stores/folders.js';
+import { folders, loadFolders, refreshFolders } from '#lib/stores/folders.js';
 import { resolvedActiveAccountId, setActiveAccount } from '#lib/stores/accounts.js';
 import {
 	clearSelection,
@@ -19,6 +19,7 @@ import {
 	type WorkspaceMode
 } from '#lib/stores/workspaceMode.js';
 import { currentFolderHref } from '#lib/mail/currentListing.js';
+import { pickEntryFolder } from '#lib/mail/entryFolder.js';
 
 export async function goToWorkspaceMode(mode: WorkspaceMode): Promise<void> {
 	await goto(workspaceHref(mode));
@@ -46,6 +47,30 @@ export async function goToFolder(accountId: number, folderName: string): Promise
 			folderName: encodeURIComponent(folderName)
 		})
 	);
+}
+
+/**
+ * The active account's Inbox (Ctrl+Shift+I), whatever folder Mail would
+ * reopen on: `/` returns to the last folder shown (entryFolder.ts), so this
+ * picks the folder itself and leaves the memory out. An account without an
+ * Inbox opens on its first folder, as `/` would on a first visit. With no
+ * account, or no folder list to pick from, `/` shows the state that explains
+ * why.
+ */
+export async function goToInbox(): Promise<void> {
+	const accountId = get(resolvedActiveAccountId);
+	if (accountId == null) {
+		await goto(resolve('/'));
+		return;
+	}
+	const cached = get(folders);
+	const list = cached.length > 0 ? cached : await loadFolders(accountId).catch(() => []);
+	const inbox = pickEntryFolder(list);
+	if (!inbox) {
+		await goto(resolve('/'));
+		return;
+	}
+	await goToFolder(accountId, inbox.folderRef);
 }
 
 export async function switchToAccount(accountId: number): Promise<void> {

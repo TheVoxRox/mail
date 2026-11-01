@@ -59,6 +59,15 @@ export function buildDraftRequest(draft: ComposeDraft): DraftRequest {
 	};
 }
 
+/**
+ * What the compose session compares to tell an edit from no change, on every
+ * keystroke. An attachment counts by its `localId`, not its data: an
+ * attachment is never changed in place, and its id is minted together with its
+ * data wherever one is made (the picker, the prefill), so the id stands for
+ * the content. With the data in here, every keystroke serialized each
+ * attachment's whole base64 twice and every save left two copies of it alive,
+ * which with large attachments made typing visibly lag.
+ */
 export function draftFingerprint(draft: ComposeDraft): string {
 	return JSON.stringify({
 		to: draft.to,
@@ -68,10 +77,10 @@ export function draftFingerprint(draft: ComposeDraft): string {
 		body: draft.body,
 		inReplyTo: draft.inReplyTo,
 		references: draft.references,
-		attachments: draft.attachments.map(({ fileName, contentType, base64Data, size }) => ({
+		attachments: draft.attachments.map(({ localId, fileName, contentType, size }) => ({
+			localId,
 			fileName,
 			contentType,
-			base64Data,
 			size
 		}))
 	});

@@ -23,6 +23,9 @@
 		"scripts/installed-app-update-smoke.mjs",
 		// And release-channel-check.yml runs this one.
 		"scripts/verify-channel-manifest.mjs",
+		// The .ps1 case above: backend/scripts/package-sidecar-windows.ps1 runs
+		// this one to record the backend source digest in the sidecar image.
+		"scripts/print-backend-source-digest.mjs",
 		"playwright.existing-server.config.ts"
 	],
 	"project": [

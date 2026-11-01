@@ -28,7 +28,7 @@ import { redirect } from '@sveltejs/kit';
 import { get } from 'svelte/store';
 import { accountsState, resolvedActiveAccountId, setActiveAccount } from '#lib/stores/accounts.js';
 import { folders } from '#lib/stores/folders.js';
-import { folderHref, pickEntryFolder } from '#lib/mail/entryFolder.js';
+import { folderHref, lastFolderRef, pickEntryFolder } from '#lib/mail/entryFolder.js';
 import type { PageLoad } from './$types.js';
 
 export const load: PageLoad = () => {
@@ -42,7 +42,7 @@ export const load: PageLoad = () => {
 	// the rest of the app agrees on which mailbox this is.
 	setActiveAccount(accountId);
 
-	const entry = pickEntryFolder(get(folders));
+	const entry = pickEntryFolder(get(folders), lastFolderRef(accountId));
 	if (!entry) return {};
 
 	throw redirect(307, folderHref(accountId, entry));

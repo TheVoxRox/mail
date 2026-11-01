@@ -12,6 +12,7 @@ function makeHandlers(overrides: Partial<GlobalShortcutHandlers> = {}): GlobalSh
 		isPaletteOpen: () => false,
 		goToPrimaryNewAction: vi.fn(),
 		goToWorkspace: vi.fn(),
+		goToInbox: vi.fn(),
 		goToPane: vi.fn(),
 		// No open message by default — message-action tests opt in via overrides.
 		isMessageOpen: () => false,
@@ -21,6 +22,7 @@ function makeHandlers(overrides: Partial<GlobalShortcutHandlers> = {}): GlobalSh
 		toggleFlag: vi.fn(),
 		setSeen: vi.fn(),
 		deleteMessage: vi.fn(),
+		archiveMessage: vi.fn(),
 		printOpenMessage: vi.fn(),
 		announceNothingToPrint: vi.fn(),
 		isFocusInOpenMessage: () => false,
@@ -168,7 +170,12 @@ describe('handleGlobalKeydown', () => {
 			init: { key: 'n', ctrlKey: true, code: 'KeyN' },
 			handler: 'goToPrimaryNewAction'
 		},
-		{ name: 'Ctrl+1', init: { key: '1', ctrlKey: true, code: 'Digit1' }, handler: 'goToWorkspace' }
+		{ name: 'Ctrl+1', init: { key: '1', ctrlKey: true, code: 'Digit1' }, handler: 'goToWorkspace' },
+		{
+			name: 'Ctrl+Shift+I',
+			init: { key: 'I', ctrlKey: true, shiftKey: true },
+			handler: 'goToInbox'
+		}
 	] as const)(
 		'$name defers to a closer handler that already claimed the key',
 		({ init, handler }) => {
@@ -180,6 +187,37 @@ describe('handleGlobalKeydown', () => {
 			expect(h[handler]).not.toHaveBeenCalled();
 		}
 	);
+
+	it('Ctrl+Shift+I goes to the Inbox and consumes the key', () => {
+		const h = makeHandlers();
+		// Shift makes the key the capital letter.
+		const ev = makeEvent({ key: 'I', ctrlKey: true, shiftKey: true, code: 'KeyI' });
+		handleGlobalKeydown(ev, h);
+		expect(h.goToInbox).toHaveBeenCalledOnce();
+		expect(ev.defaultPrevented).toBe(true);
+	});
+
+	it('editable target: Ctrl+Shift+I still goes to the Inbox', () => {
+		const h = makeHandlers();
+		const input = document.createElement('input');
+		document.body.appendChild(input);
+		const ev = makeEvent({ key: 'I', ctrlKey: true, shiftKey: true, code: 'KeyI' });
+		Object.defineProperty(ev, 'target', { value: input });
+		handleGlobalKeydown(ev, h);
+		document.body.removeChild(input);
+		expect(h.goToInbox).toHaveBeenCalledOnce();
+	});
+
+	it.each([
+		{ name: 'Ctrl+I', init: { key: 'i', ctrlKey: true, code: 'KeyI' } },
+		{ name: 'Ctrl+Alt+Shift+I', init: { key: 'I', ctrlKey: true, altKey: true, shiftKey: true } }
+	])('$name is not the Inbox shortcut', ({ init }) => {
+		const h = makeHandlers();
+		const ev = makeEvent(init);
+		handleGlobalKeydown(ev, h);
+		expect(h.goToInbox).not.toHaveBeenCalled();
+		expect(ev.defaultPrevented).toBe(false);
+	});
 
 	it('Ctrl+Y goes to the workspace pane and consumes the key', () => {
 		const h = makeHandlers();
@@ -352,12 +390,58 @@ describe('handleGlobalKeydown — message actions', () => {
 		expect(h.deleteMessage).toHaveBeenCalledOnce();
 	});
 
+	it('Backspace archives the open message and consumes the key', () => {
+		const h = openMessageHandlers();
+		const ev = makeEvent({ key: 'Backspace' });
+		handleGlobalKeydown(ev, h);
+		expect(h.archiveMessage).toHaveBeenCalledOnce();
+		expect(h.deleteMessage).not.toHaveBeenCalled();
+		expect(ev.defaultPrevented).toBe(true);
+	});
+
+	it.each([
+		{ name: 'Shift+Backspace', init: { key: 'Backspace', shiftKey: true } },
+		{ name: 'Ctrl+Backspace', init: { key: 'Backspace', ctrlKey: true } },
+		{ name: 'Alt+Backspace', init: { key: 'Backspace', altKey: true } }
+	])('$name does not archive', ({ init }) => {
+		const h = openMessageHandlers();
+		const ev = makeEvent(init);
+		handleGlobalKeydown(ev, h);
+		expect(h.archiveMessage).not.toHaveBeenCalled();
+		expect(ev.defaultPrevented).toBe(false);
+	});
+
+	it('a held Backspace archives once and swallows the repeats', () => {
+		// The neighbour opens after the first archive; a repeat must not take it too.
+		const h = openMessageHandlers();
+		handleGlobalKeydown(makeEvent({ key: 'Backspace' }), h);
+		const repeat = makeEvent({ key: 'Backspace', repeat: true });
+		handleGlobalKeydown(repeat, h);
+		expect(h.archiveMessage).toHaveBeenCalledOnce();
+		expect(repeat.defaultPrevented).toBe(true);
+	});
+
+	it('Backspace in a text field deletes a character, not the message', () => {
+		// The search box stays focusable while a message is open.
+		const h = openMessageHandlers();
+		const input = document.createElement('input');
+		document.body.appendChild(input);
+		const ev = makeEvent({ key: 'Backspace' });
+		Object.defineProperty(ev, 'target', { value: input });
+		handleGlobalKeydown(ev, h);
+		document.body.removeChild(input);
+		expect(h.archiveMessage).not.toHaveBeenCalled();
+		expect(ev.defaultPrevented).toBe(false);
+	});
+
 	it('does nothing when no message is open', () => {
 		const h = makeHandlers(); // getMessageShortcutContext → null
 		handleGlobalKeydown(makeEvent({ key: 'r', ctrlKey: true }), h);
 		handleGlobalKeydown(makeEvent({ key: 'Delete' }), h);
+		handleGlobalKeydown(makeEvent({ key: 'Backspace' }), h);
 		expect(h.reply).not.toHaveBeenCalled();
 		expect(h.deleteMessage).not.toHaveBeenCalled();
+		expect(h.archiveMessage).not.toHaveBeenCalled();
 	});
 
 	it('defers to a closer handler that already called preventDefault', () => {

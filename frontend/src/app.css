@@ -115,7 +115,8 @@
 	 * Semantic typography scale. Take font sizes ONLY from here:
 	 * text-caption (11px, list metadata, shortcut hints, badges) → text-xs (12px,
 	 * hints) → text-sm (14px, default body, section and group headings)
-	 * → text-base (16px, sidebar pane and dialog titles) → text-lg (18px,
+	 * → text-base (16px, sidebar pane and dialog titles, sidebar section
+	 * headings) → text-lg (18px,
 	 * page titles: every <h1>, the message subject included).
 	 * A page title outranks the sidebar's, so h1 stays the largest step.
 	 * No arbitrary `text-[…rem]` — see the check:typography lint. A size

@@ -97,6 +97,24 @@ test.describe('Contacts', () => {
 		await expect(page.getByRole('heading', { level: 1, name: 'Kontakty' })).toBeVisible();
 	});
 
+	test('akce podokna kontaktů stojí pod jedním nadpisem Akce', async ({ page }) => {
+		await openApp(page, '/contacts');
+
+		const sidebar = page.getByRole('region', { name: 'Podokno kontaktů' });
+		// Import a export dřív měly vlastní nadpis; odečítač pak mezi akcemi
+		// podokna narazil na zastávku navíc. Teď jsou jen dvě skupiny.
+		await expect(sidebar.getByRole('heading', { level: 3 })).toHaveText(['Štítky', 'Akce']);
+
+		const actions = sidebar.locator('section', {
+			has: page.getByRole('heading', { level: 3, name: 'Akce' })
+		});
+		await expect(actions.getByRole('button')).toHaveText([
+			'Spravovat štítky',
+			'Importovat kontakty (.vcf)',
+			'Exportovat kontakty (.vcf)'
+		]);
+	});
+
 	test('řazení je persistovaná preference a přežije klik v sidebaru', async ({ page }) => {
 		await openApp(page, '/contacts');
 
@@ -148,12 +166,18 @@ test.describe('Contacts', () => {
 				'Vyberte účet v postranním panelu, hledejte kontakty nebo otevřete vytvoření nového kontaktu.'
 			)
 		).toHaveCount(0);
-		await expect(page.getByRole('button', { name: 'Exportovat vCard' })).toHaveCount(0);
-		await expect(page.getByRole('button', { name: 'Importovat vCard' })).toHaveCount(0);
+		await expect(page.getByRole('button', { name: 'Exportovat kontakty (.vcf)' })).toHaveCount(0);
+		await expect(page.getByRole('button', { name: 'Importovat kontakty (.vcf)' })).toHaveCount(0);
 		// Spravovat štítky naopak zůstává: formulář na něj sám odkazuje, když
 		// účet ještě žádné štítky nemá, takže skrýt ho tady by z té nápovědy
 		// udělalo slepou uličku.
 		await expect(page.getByRole('button', { name: 'Spravovat štítky' })).toBeVisible();
+		// A s ní i skupina, ve které stojí: skryjí se jen import a export.
+		await expect(
+			page
+				.getByRole('region', { name: 'Podokno kontaktů' })
+				.getByRole('heading', { level: 3, name: 'Akce' })
+		).toBeVisible();
 		// Štítky ve formuláři jdou ze stejného storu jako odznaky v podokně, a
 		// ten plní až načtení seznamu — na tuhle URL se ale jde rovnou, seznam
 		// se nenačte a nabídka štítků byla proto prázdná.
@@ -680,7 +704,7 @@ test.describe('Contacts', () => {
 		await expect(page.getByText('Jana Novak')).toBeVisible();
 
 		const sidebar = page.getByRole('region', { name: 'Podokno kontaktů' });
-		await expect(sidebar.getByRole('button', { name: 'Importovat vCard' })).toBeVisible();
+		await expect(sidebar.getByRole('button', { name: 'Importovat kontakty (.vcf)' })).toBeVisible();
 
 		const vcardText =
 			'BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Petra Picker\r\nN:Picker;Petra;;;\r\nEMAIL;TYPE=HOME:petra.picker@example.com\r\nEND:VCARD\r\n';
@@ -726,9 +750,9 @@ test.describe('Contacts', () => {
 		await openApp(page, '/contacts');
 
 		const sidebar = page.getByRole('region', { name: 'Podokno kontaktů' });
-		await expect(sidebar.getByRole('button', { name: 'Exportovat vCard' })).toBeVisible();
+		await expect(sidebar.getByRole('button', { name: 'Exportovat kontakty (.vcf)' })).toBeVisible();
 		const downloadPromise = page.waitForEvent('download');
-		await sidebar.getByRole('button', { name: 'Exportovat vCard' }).click();
+		await sidebar.getByRole('button', { name: 'Exportovat kontakty (.vcf)' }).click();
 		const download = await downloadPromise;
 
 		expect(download.suggestedFilename()).toBe('contacts.vcf');

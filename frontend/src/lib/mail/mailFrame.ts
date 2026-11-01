@@ -60,7 +60,8 @@ import { REMOTE_IMAGE_ATTR, sanitizeMailHtml } from './content-sanitizer.js';
  * editable, and the app claims it for the workspace pane.
  *
  * Shift splits the set, because it splits it in the parent too. With Shift the
- * app claims only Ctrl+Shift+R (reply all) and Ctrl+Shift+G (flag); without it,
+ * app claims only Ctrl+Shift+R (reply all), Ctrl+Shift+G (flag) and
+ * Ctrl+Shift+I (go to the Inbox); without it,
  * Ctrl+K, Ctrl+P, Ctrl+R, Ctrl+F, Ctrl+Q, Ctrl+U, Ctrl+Y and the `code`-matched
  * Ctrl+N and Ctrl+1-3 — every one of which `handleGlobalKeydown` matches under
  * `!event.shiftKey`. One letter list for both cases therefore cancelled
@@ -73,10 +74,10 @@ import { REMOTE_IMAGE_ATTR, sanitizeMailHtml } from './content-sanitizer.js';
  * `handleWorkspaceShortcut` bails on `metaKey`.
  */
 export const MAIL_FRAME_SCRIPT =
-	'window.addEventListener("keydown",function(e){if(!e.isTrusted)return;if(!e.altKey&&(e.ctrlKey||e.metaKey)&&(e.shiftKey?/^[rg]$/i.test(e.key):/^[kprfquy]$/i.test(e.key)||e.ctrlKey&&!e.metaKey&&/^(KeyN|Digit[123]|Numpad[123])$/.test(e.code)))e.preventDefault();window.parent.postMessage({__voxroxMailFrameKey:true,key:e.key,code:e.code,ctrlKey:e.ctrlKey,metaKey:e.metaKey,altKey:e.altKey,shiftKey:e.shiftKey},"*");});window.addEventListener("click",function(e){if(!e.isTrusted)return;var a=e.target.closest?e.target.closest("a[href]"):null;if(!a)return;e.preventDefault();window.parent.postMessage({__voxroxMailFrameLink:true,href:a.href},"*");});var _h=0;function _r(){var n=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0);if(n===_h)return;_h=n;window.parent.postMessage({__voxroxMailFrameHeight:true,height:n},"*");}window.addEventListener("load",function(){_r();if(window.ResizeObserver)new ResizeObserver(_r).observe(document.documentElement);});';
+	'window.addEventListener("keydown",function(e){if(!e.isTrusted)return;if(!e.altKey&&(e.ctrlKey||e.metaKey)&&(e.shiftKey?/^[rgi]$/i.test(e.key):/^[kprfquy]$/i.test(e.key)||e.ctrlKey&&!e.metaKey&&/^(KeyN|Digit[123]|Numpad[123])$/.test(e.code)))e.preventDefault();window.parent.postMessage({__voxroxMailFrameKey:true,key:e.key,code:e.code,ctrlKey:e.ctrlKey,metaKey:e.metaKey,altKey:e.altKey,shiftKey:e.shiftKey},"*");});window.addEventListener("click",function(e){if(!e.isTrusted)return;var a=e.target.closest?e.target.closest("a[href]"):null;if(!a)return;e.preventDefault();window.parent.postMessage({__voxroxMailFrameLink:true,href:a.href},"*");});var _h=0;function _r(){var n=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0);if(n===_h)return;_h=n;window.parent.postMessage({__voxroxMailFrameHeight:true,height:n},"*");}window.addEventListener("load",function(){_r();if(window.ResizeObserver)new ResizeObserver(_r).observe(document.documentElement);});';
 
 /** Base64 SHA-256 of MAIL_FRAME_SCRIPT — asserted in mailFrame.test.ts. */
-export const MAIL_FRAME_SCRIPT_SHA256 = 'Gu9wwvoTQbcEF+y1VzPCV0Xxcvn8cz8RpBvn63xyn+Q=';
+export const MAIL_FRAME_SCRIPT_SHA256 = 'yOywlma3ATltbXiySWrZF0tBX1RtZ0aZRF07BflnLk0=';
 
 /**
  * Base stylesheet for the mail body, one per text-size step. The sanitizer

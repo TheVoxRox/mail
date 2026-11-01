@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 /**
@@ -20,6 +20,15 @@ import path from 'node:path';
  * git also means an uncommitted edit counts, which is exactly when a developer
  * is most likely to be running a stale pair.
  *
+ * The digest is taken where the image is built, not where it is copied.
+ * backend/scripts/package-sidecar-windows.ps1 takes it before Maven reads a
+ * source and writes it into the image beside the jar; the sync carries it into
+ * binaries/ with the rest of app/. The sync used to take it itself, from the
+ * tree as it stood at sync time — but what it copies is whatever image
+ * backend/target/sidecar holds, which only packaging rebuilds and `mvn clean`
+ * leaves alone, so a sync after a backend change stamped the old image with the
+ * new digest and this check then called the pair fresh.
+ *
  * The digest cannot see a renamed launcher, though. Renaming the sidecar (#495:
  * `mail` → `voxrox-mail-backend`) changes the packaging script and
  * `externalBin` in tauri.conf.json, not a byte under `backend/src/main`, so a
@@ -34,8 +43,15 @@ const SOURCE_PATHS = [path.join('backend', 'src', 'main'), path.join('backend', 
 
 const IGNORED_DIRS = new Set(['target', 'node_modules', '.git']);
 
-/** Written next to the jar by the sync script; never committed (binaries/ is ignored). */
-export const HASH_FILE_NAME = 'backend-source.sha256';
+/**
+ * Written beside the jar by backend/scripts/package-sidecar-windows.ps1, which
+ * spells the name out too, and carried into binaries/app by the sync; never
+ * committed (binaries/ is ignored). Renamed from backend-source.sha256, the
+ * name the sync wrote its own digest under: a digest taken at sync time says
+ * nothing about the image, so a binaries/ last synced that way has to read as
+ * `unknown` rather than keep a stamp that may certify an old image.
+ */
+export const HASH_FILE_NAME = 'packaged-backend-source.sha256';
 
 function appDir(repoRoot) {
 	return path.join(repoRoot, 'frontend', 'src-tauri', 'binaries', 'app');
@@ -83,13 +99,6 @@ export async function hashBackendSources(repoRoot) {
 		digest.update('\0');
 	}
 	return { hash: digest.digest('hex'), fileCount: relatives.length };
-}
-
-/** Records the digest of the sources the freshly synced sidecar was built from. */
-export async function recordBackendSourceHash(repoRoot) {
-	const { hash, fileCount } = await hashBackendSources(repoRoot);
-	await writeFile(path.join(appDir(repoRoot), HASH_FILE_NAME), `${hash}\n`, 'utf8');
-	return { hash, fileCount };
 }
 
 function binariesDir(repoRoot) {
@@ -167,8 +176,9 @@ export async function checkSidecarFreshness(repoRoot) {
 	try {
 		recorded = (await readFile(path.join(appDir(repoRoot), HASH_FILE_NAME), 'utf8')).trim();
 	} catch {
-		// A sidecar synced before this check existed. Not evidence of staleness,
-		// so it must not fail the run — just say what is missing and how to get it.
+		// An image packaged before packaging recorded a digest. Not evidence of
+		// staleness, so it must not fail the run — just say what is missing and
+		// how to get it.
 		return { status: 'unknown', jar };
 	}
 
@@ -177,10 +187,11 @@ export async function checkSidecarFreshness(repoRoot) {
 	return { status: 'ok', jar, expected: hash, recorded };
 }
 
-const REBUILD = [
-	'  cd backend; .\\package-sidecar-dev-windows.ps1 -SkipTests   (pwsh 7)',
-	'  npm run sidecar:sync:windows                                (from frontend/)'
-].join('\n');
+/*
+ * One command: packaging and the sync as two steps were what let an old image
+ * through, the second taken without the first (see scripts/lib/sidecar-rebuild.mjs).
+ */
+const REBUILD = '  npm run sidecar:rebuild:windows   (from frontend/)';
 
 /**
  * Human-readable report, plus whether it should stop the run. `unknown` warns
@@ -204,7 +215,7 @@ export function describeStaleness(result) {
 				optOut: false,
 				text: [
 					'No packaged sidecar found in frontend/src-tauri/binaries/app.',
-					'The app has no backend to start. Build and sync it first:',
+					'The app has no backend to start. Build it first:',
 					REBUILD
 				].join('\n')
 			};
@@ -218,7 +229,7 @@ export function describeStaleness(result) {
 					`  found: ${result.foundLaunchers.length > 0 ? result.foundLaunchers.join(', ') : 'no launcher at all'}`,
 					'',
 					'The launcher was renamed after this sidecar was packaged — the backend sources can',
-					'still match, so the content check alone would call it fresh. Rebuild and sync:',
+					'still match, so the content check alone would call it fresh. Rebuild it:',
 					REBUILD
 				].join('\n')
 			};
@@ -227,9 +238,10 @@ export function describeStaleness(result) {
 				fatal: false,
 				optOut: false,
 				text: [
-					`This sidecar predates the freshness check (no ${HASH_FILE_NAME} beside the jar),`,
-					'so whether it matches the checked-out backend cannot be told. Re-sync once to',
-					'switch the check on:',
+					'This sidecar was packaged before packaging recorded which backend sources went',
+					`into it (no ${HASH_FILE_NAME} beside the jar), so whether it matches the`,
+					'checked-out backend cannot be told. Syncing again does not change that; rebuild',
+					'it once to switch the check on:',
 					REBUILD
 				].join('\n')
 			};
@@ -244,7 +256,7 @@ export function describeStaleness(result) {
 					`  checked out: ${result.expected.slice(0, 12)}…`,
 					'',
 					'vite always serves the current frontend, so this pair disagrees about the API —',
-					'which surfaces as data that never arrives, not as an error. Rebuild and sync:',
+					'which surfaces as data that never arrives, not as an error. Rebuild it:',
 					REBUILD,
 					'',
 					'To run the mismatched pair anyway: MAIL_ALLOW_STALE_SIDECAR=1'

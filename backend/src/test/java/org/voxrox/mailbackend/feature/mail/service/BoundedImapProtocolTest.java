@@ -16,6 +16,7 @@ import java.util.Properties;
 import jakarta.mail.internet.ContentType;
 import jakarta.mail.internet.InternetHeaders;
 
+import org.eclipse.angus.mail.iap.ParsingException;
 import org.eclipse.angus.mail.iap.Protocol;
 import org.eclipse.angus.mail.imap.protocol.BODYSTRUCTURE;
 import org.eclipse.angus.mail.imap.protocol.FetchResponse;
@@ -505,6 +506,75 @@ class BoundedImapProtocolTest {
             assertThat(BoundedImapProtocol.typeChars(part))
                     .as("%s", parameters.length() > 80 ? parameters.substring(0, 80) : parameters)
                     .isGreaterThanOrEqualTo(rendered.length());
+        }
+    }
+
+    /**
+     * Seznam's server writes a disposition that has no parameters as an empty list,
+     * which IMAP does not allow and Angus rejects the whole response for, leaving
+     * the message without its structure. The shape is the one seen 2026-10-31 on a
+     * message no read of the body or the attachment could open.
+     */
+    @Nested
+    @DisplayName("Empty lists")
+    class EmptyLists {
+
+        private static final String SEZNAM = "* 93 FETCH (BODYSTRUCTURE ((\"text\" \"html\" (\"charset\" \"utf-8\")"
+                + " NIL NIL \"quoted-printable\" 15484 1 NIL (\"inline\" ()) NIL NIL)(\"application\" \"pdf\""
+                + " (\"name\" \"invoice.pdf\") NIL \"Invoice\" \"base64\" 444200 NIL (\"attachment\" (\"filename\""
+                + " \"invoice.pdf\")) NIL NIL) \"mixed\" (\"boundary\" \"b1\") NIL NIL NIL))";
+
+        private static FetchResponse parse(String line) throws Exception {
+            return BoundedImapProtocol.parseFetch(new IMAPResponse(line), null, mock(Protocol.class), "test");
+        }
+
+        /**
+         * Pins the reason for the re-read: an Angus that accepts the empty list fails
+         * this, and the re-read can go.
+         */
+        @Test
+        @DisplayName("Angus itself rejects Seznam's structure")
+        void angusRejectsTheEmptyList() {
+            assertThatThrownBy(() -> new BoundedImapProtocol.DepthBoundedFetchResponse(new IMAPResponse(SEZNAM), null,
+                    mock(Protocol.class))).isInstanceOf(ParsingException.class)
+                    .hasMessageContaining("null name in parameter list");
+        }
+
+        @Test
+        @DisplayName("Seznam's structure parses, the empty disposition parameters read as none")
+        void seznamsStructureParses() throws Exception {
+            BODYSTRUCTURE structure = parse(SEZNAM).getItem(BODYSTRUCTURE.class);
+
+            assertThat(structure.bodies).hasSize(2);
+            assertThat(structure.bodies[0].type).isEqualToIgnoringCase("text");
+            assertThat(structure.bodies[0].subtype).isEqualToIgnoringCase("html");
+            assertThat(structure.bodies[0].disposition).isEqualToIgnoringCase("inline");
+            assertThat(structure.bodies[0].dParams).isNull();
+            assertThat(structure.bodies[1].dParams.get("filename")).isEqualTo("invoice.pdf");
+        }
+
+        @Test
+        @DisplayName("A structure rejected for another reason as well is still rejected")
+        void anotherFaultIsStillRejected() {
+            assertThatThrownBy(() -> parse("* 1 FETCH (BODYSTRUCTURE (\"text\" \"plain\" () NIL NIL \"7bit\" NIL 1))"))
+                    .isInstanceOf(ParsingException.class).hasMessageContaining("size");
+        }
+
+        /**
+         * What comes back from the re-read is parsed by the same bounded parse: here
+         * the empty list comes first, so the first parse stops on it, and the re-read
+         * then meets the nesting bound.
+         */
+        @Test
+        @DisplayName("The re-read is held to the nesting bound like any parse")
+        void theRereadIsBounded() {
+            int levels = BoundedImapProtocol.MAX_NESTING + 1;
+            String deep = "(".repeat(levels) + "(\"text\" \"plain\" NIL NIL NIL \"7bit\" 1 1)"
+                    + " \"mixed\")".repeat(levels);
+            String line = "* 1 FETCH (BODYSTRUCTURE ((\"text\" \"plain\" () NIL NIL \"7bit\" 1 1)" + deep
+                    + " \"mixed\"))";
+
+            assertThatThrownBy(() -> parse(line)).isInstanceOf(BoundedImapProtocol.NestedTooDeepException.class);
         }
     }
 

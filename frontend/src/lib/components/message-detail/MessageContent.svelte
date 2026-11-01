@@ -321,6 +321,12 @@
 				Opt-in banner for blocked remote images; the two buttons are the only
 				way remote content ever loads.
 
+				The text says why the images are held back, not only that they are:
+				testers who heard "remote images blocked (1)" could not tell what the
+				region was for. Each button name stands on its own for the same
+				reason — tabbing reaches the buttons without passing the text, and
+				"Always from this sender" did not say what would happen always.
+
 				A named region, deliberately NOT a live region. It used to be
 				`aria-live="polite"` so that opening a message would mention the
 				blocked images without stealing focus from the auto-focused body.
@@ -340,9 +346,9 @@
 				role="region"
 				aria-label={$_('detail.remoteImages.regionLabel')}
 			>
-				<span class="text-muted-foreground">
+				<p class="min-w-0 flex-1 basis-64 text-foreground">
 					{$_('detail.remoteImages.blocked', { values: { count: remoteImageCount } })}
-				</span>
+				</p>
 				<div class="ml-auto flex gap-2">
 					<Button
 						variant="outline"

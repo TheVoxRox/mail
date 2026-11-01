@@ -59,3 +59,21 @@ describe('createMailCommands — printing', () => {
 		expect(ids).toContain('mail.printSelection');
 	});
 });
+
+describe('createMailCommands — moving', () => {
+	it('labels the move to the Archive folder with Backspace, and no other move', () => {
+		const moves = commands({
+			pathname: '/mail/1/INBOX/msg-01',
+			stableId: 'msg-01',
+			folders: [
+				{ displayName: 'Inbox', folderRef: 'INBOX', unreadCount: 0, role: 'INBOX' },
+				{ displayName: 'Archiv', folderRef: 'Archive', unreadCount: 0, role: 'ARCHIVE' },
+				{ displayName: 'Projekty', folderRef: 'Projects', unreadCount: 0, role: 'USER' }
+			]
+		}).filter((command) => command.id.startsWith('mail.move.'));
+		expect(moves.map((command) => [command.id, command.shortcut])).toEqual([
+			['mail.move.Archive', 'Backspace'],
+			['mail.move.Projects', undefined]
+		]);
+	});
+});

@@ -2,7 +2,8 @@
 	import Icon from '#lib/components/Icon.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { chipVariants } from '#lib/components/ui/chip/index.js';
-	import { focusRingWithin } from '#lib/components/ui/focus-ring/index.js';
+	import { focusRingInset, focusRingWithin } from '#lib/components/ui/focus-ring/index.js';
+	import { createRovingGrid } from '#lib/components/grid/rovingGrid.svelte.js';
 	import { cn } from '#lib/utils.js';
 	import { formatSize } from '#lib/formatters.js';
 	import { dragHasFiles, filesFromDataTransfer, filesFromFileSystem } from '#lib/dragPayload.js';
@@ -12,6 +13,7 @@
 	import { _, appLocale } from '#lib/i18n/index.js';
 	import { toErrorMessage } from '#lib/api/errors.js';
 	import { MAX_ATTACHMENTS, type ComposeAttachment } from '#lib/compose/request.js';
+	import { duplicateKey, splitDuplicates } from '#lib/compose/attachmentDuplicates.js';
 	import { onDestroy, onMount } from 'svelte';
 
 	interface Props {
@@ -48,6 +50,25 @@
 	let readingFileName = $state('');
 	let dragActive = $state(false);
 	let fileInput = $state<HTMLInputElement | null>(null);
+	let gridElement = $state<HTMLElement | null>(null);
+
+	/*
+	 * The attachments are a grid with a roving tabindex, one Tab stop for the
+	 * whole strip: as a list of buttons, Tab from the subject to the body
+	 * stopped on every remove button. The arrows move between attachments and
+	 * to the remove button, and Delete removes the attachment of the row.
+	 */
+	const COL_FILE = 0;
+	const COL_REMOVE = 1;
+	const grid = createRovingGrid({
+		element: () => gridElement,
+		initialCol: COL_FILE,
+		maxCol: COL_REMOVE
+	});
+
+	$effect(() => {
+		grid.clampRow(attachments.length);
+	});
 	// addFiles can overlap (file dialog, drop and document-level paste are all
 	// live during a read), so `reading` must clear only when the LAST batch
 	// settles — a plain boolean would be cleared by whichever finishes first.
@@ -58,6 +79,7 @@
 	// each fit pass together over the limit.
 	let pendingCount = 0;
 	let pendingBytes = 0;
+	let pendingKeys: string[] = [];
 
 	function attachmentTotalSize(list: ComposeAttachment[]): number {
 		return list.reduce((total, item) => total + item.size, 0);
@@ -158,9 +180,21 @@
 		);
 	}
 
-	async function addFiles(files: File[], options: { clipboard?: boolean } = {}) {
-		if (disabled || files.length === 0) return;
+	async function addFiles(selected: File[], options: { clipboard?: boolean } = {}) {
+		if (disabled || selected.length === 0) return;
 		onSelectStart?.();
+		const { fresh: files, duplicates } = splitDuplicates(selected, [
+			...attachments.map((attachment) => duplicateKey(attachment.fileName, attachment.size)),
+			...pendingKeys
+		]);
+		if (duplicates.length > 0) {
+			onError?.(
+				$_('compose.attachmentDuplicate', {
+					values: { count: duplicates.length, name: duplicates[0]?.name ?? '' }
+				})
+			);
+		}
+		if (files.length === 0) return;
 		const validationError = validateFiles(files);
 		if (validationError) {
 			onError?.(validationError);
@@ -171,8 +205,10 @@
 		readingBatches += 1;
 		reading = true;
 		const batchBytes = fileTotalSize(files);
+		const batchKeys = files.map((file) => duplicateKey(file.name, file.size));
 		pendingCount += files.length;
 		pendingBytes += batchBytes;
+		pendingKeys = [...pendingKeys, ...batchKeys];
 		try {
 			if (!(await confirmLargeFiles(files))) return;
 			const added: ComposeAttachment[] = [];
@@ -194,6 +230,7 @@
 		} finally {
 			pendingCount -= files.length;
 			pendingBytes -= batchBytes;
+			pendingKeys = pendingKeys.filter((key) => !batchKeys.includes(key));
 			readingBatches -= 1;
 			if (readingBatches === 0) {
 				reading = false;
@@ -286,21 +323,39 @@
 	}
 
 	/*
-	 * The chip leaves with the focused button inside it, which dropped focus
-	 * on <body> and left a screen reader nowhere. Focus lands on the add
-	 * button, the one control the strip always has, as removing a recipient
-	 * lands in the address field. It moves there before the chip goes, not
-	 * after: moved a tick later, focus did reach the button, but JAWS rebuilt
-	 * its view of the strip in between and kept its cursor where the chip had
-	 * been, on the end of the group.
+	 * The row leaves with the focused cell inside it, which dropped focus on
+	 * <body> and left a screen reader nowhere. Focus moves to the same cell of
+	 * the next attachment, or of the previous one after the last, and to the
+	 * add button once none is left, as removing a recipient lands in the
+	 * address field. It moves before the row goes, not after: moved a tick
+	 * later, focus did reach the button, but JAWS rebuilt its view of the strip
+	 * in between and kept its cursor where the chip had been, on the end of the
+	 * group.
 	 */
 	function removeAttachment(localId: string) {
 		if (disabled) return;
-		const removed = attachments.find((a) => a.localId === localId);
+		const rowIndex = attachments.findIndex((a) => a.localId === localId);
+		const removed = attachments[rowIndex];
 		if (!removed) return;
-		fileInput?.focus();
+		const col = grid.col;
+		const neighbour = rowIndex + 1 < attachments.length ? rowIndex + 1 : rowIndex - 1;
+		if (neighbour < 0 || !grid.focusNow(neighbour, col)) {
+			fileInput?.focus();
+			grid.track(0, COL_FILE);
+		}
 		attachments = attachments.filter((a) => a.localId !== localId);
+		// The next row moves up into the removed one's index.
+		if (neighbour > rowIndex) grid.track(rowIndex, col);
 		announcePolite($_('compose.attachmentRemoved', { values: { name: removed.fileName } }));
+	}
+
+	function handleRowKeydown(event: KeyboardEvent, attachment: ComposeAttachment, rowIndex: number) {
+		if (event.key === 'Delete' || event.key === 'Backspace') {
+			event.preventDefault();
+			removeAttachment(attachment.localId);
+			return;
+		}
+		grid.navigate(event, rowIndex, attachments.length);
 	}
 
 	onMount(() => {
@@ -341,37 +396,78 @@
 		<span aria-hidden="true">{$_('compose.addAttachment')}</span>
 		<input
 			bind:this={fileInput}
+			id="compose-attachment-input"
 			type="file"
 			multiple
 			{disabled}
 			class="sr-only"
 			onchange={handleAttachmentSelect}
 			aria-label={$_('compose.addAttachment')}
+			aria-keyshortcuts="Control+Shift+A"
 		/>
 	</label>
-	<p class="text-xs text-muted-foreground">
-		{dragActive ? $_('compose.dropAttachmentsActive') : $_('compose.dropAttachmentsHint')}
-	</p>
+	<!--
+		Shown while nothing is attached yet and during a drag, and kept from the
+		screen reader: it was read on every pass through the strip, though files
+		are not dragged with a reader, and Ctrl+V is on the shortcuts page.
+	-->
+	{#if dragActive || attachments.length === 0}
+		<p class="text-xs text-muted-foreground" aria-hidden="true">
+			{dragActive ? $_('compose.dropAttachmentsActive') : $_('compose.dropAttachmentsHint')}
+		</p>
+	{/if}
 	{#if attachments.length > 0}
-		<ul class="flex flex-wrap gap-2" aria-label={$_('compose.attachmentsLabel')}>
-			{#each attachments as att (att.localId)}
-				<li class={chipVariants()}>
-					<span>{att.fileName}</span>
-					<span class="text-muted-foreground">({formatSize(att.size, $appLocale)})</span>
-					<Button
-						type="button"
-						variant="ghost"
-						size="icon-xs"
-						onclick={() => removeAttachment(att.localId)}
-						{disabled}
-						class="ml-0.5 text-muted-foreground hover:text-destructive-foreground"
-						aria-label={$_('compose.removeAttachment', { values: { name: att.fileName } })}
+		<div
+			bind:this={gridElement}
+			role="grid"
+			aria-label={$_('compose.attachmentsLabel')}
+			class="flex flex-wrap gap-2"
+		>
+			<div role="row" class="sr-only">
+				<span role="columnheader">{$_('compose.attachmentColumnFile')}</span>
+				<span role="columnheader">{$_('compose.attachmentColumnActions')}</span>
+			</div>
+			{#each attachments as att, rowIndex (att.localId)}
+				<div
+					role="row"
+					tabindex="-1"
+					data-row-index={rowIndex}
+					class={chipVariants()}
+					onkeydown={(event: KeyboardEvent) => handleRowKeydown(event, att, rowIndex)}
+				>
+					<span
+						role="rowheader"
+						{...grid.cell(rowIndex, COL_FILE)}
+						class={cn('-mx-1 rounded-sm px-1', focusRingInset)}
 					>
-						<Icon name="trash" size={12} />
-					</Button>
-				</li>
+						{att.fileName}
+						<span class="text-muted-foreground">({formatSize(att.size, $appLocale)})</span>
+					</span>
+					<span role="gridcell">
+						<Button
+							type="button"
+							variant="ghost"
+							size="icon-xs"
+							{...grid.cell(rowIndex, COL_REMOVE)}
+							onclick={() => removeAttachment(att.localId)}
+							{disabled}
+							class="ml-0.5 text-muted-foreground hover:text-destructive-foreground"
+							aria-label={$_('compose.removeAttachment', { values: { name: att.fileName } })}
+						>
+							<Icon name="trash" size={12} />
+						</Button>
+					</span>
+				</div>
 			{/each}
-		</ul>
+		</div>
+		<p class="text-xs text-muted-foreground">
+			{$_('compose.attachmentsTotal', {
+				values: {
+					total: formatSize(attachmentTotalSize(attachments), $appLocale),
+					limit: formatSize($clientConfig.attachmentTotalMaxBytes, $appLocale)
+				}
+			})}
+		</p>
 	{/if}
 	{#if reading && readingFileName}
 		<p class="text-xs text-muted-foreground" role="status">

@@ -223,6 +223,35 @@ test.describe('MSW bootstrap', () => {
 		await expect(landingHeading(page, 'Pošta – Kontakty')).toBeFocused();
 	});
 
+	test('Ctrl+Shift+I přejde do Doručených i s kurzorem v hledacím poli', async ({ page }) => {
+		await openApp(page, '/mail/1/SENT');
+		await expect(page.getByRole('region', { name: 'Podokno pošty' })).toBeVisible();
+
+		// Outlook's "go to Inbox" works wherever the cursor is, like Ctrl+1-3.
+		await page.getByRole('searchbox').first().press('Control+Shift+I');
+		await page.waitForURL('**/mail/1/INBOX');
+		await expect(landingHeading(page, 'Pošta – Doručené')).toBeFocused();
+	});
+
+	test('Ctrl+1 se vrátí do naposledy otevřené složky, Ctrl+Shift+I do Doručených', async ({
+		page
+	}) => {
+		await openApp(page, '/mail/1/SENT');
+		await expect(landingHeading(page, 'Pošta – Odeslané')).toBeFocused();
+
+		await page.keyboard.press('Control+3');
+		await page.waitForURL('**/settings/appearance');
+
+		// As in Outlook, Mail reopens on the folder it was showing, not the Inbox.
+		await page.keyboard.press('Control+1');
+		await page.waitForURL('**/mail/1/SENT');
+		await expect(landingHeading(page, 'Pošta – Odeslané')).toBeFocused();
+
+		await page.keyboard.press('Control+Shift+I');
+		await page.waitForURL('**/mail/1/INBOX');
+		await expect(landingHeading(page, 'Pošta – Doručené')).toBeFocused();
+	});
+
 	test('nastartuje aplikaci bez backendu a přesměruje na aktivní inbox', async ({ page }) => {
 		await openApp(page, '/');
 		await page.waitForURL('**/mail/1/INBOX');

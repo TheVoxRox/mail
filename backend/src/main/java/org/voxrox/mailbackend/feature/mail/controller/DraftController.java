@@ -77,7 +77,7 @@ public class DraftController {
                 replaces);
         log.info("{} Saving draft for account {} (replaces={}, stableId={})", LogCategory.API, accountId, replaces,
                 identity.stableId());
-        draftPersistenceService.saveDraftAsync(accountId, request, replaces, identity);
+        draftPersistenceService.saveDraftAsync(accountId, replaces, identity);
         return ResponseEntity.accepted().body(new DraftSaveAcceptedResponse(identity.stableId()));
     }
 

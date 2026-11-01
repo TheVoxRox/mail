@@ -21,6 +21,9 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -39,18 +42,17 @@ import java.util.zip.ZipInputStream;
 import jakarta.mail.Flags;
 import jakarta.mail.Folder;
 import jakarta.mail.Message;
+import jakarta.mail.MessagingException;
 import jakarta.mail.Session;
 import jakarta.mail.Store;
 import jakarta.mail.UIDFolder;
+import jakarta.mail.internet.InternetAddress;
+import jakarta.mail.internet.MimeMessage;
 
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-
-import com.icegreen.greenmail.user.GreenMailUser;
-import com.icegreen.greenmail.util.GreenMail;
-import com.icegreen.greenmail.util.GreenMailUtil;
-import com.icegreen.greenmail.util.ServerSetup;
+import org.testcontainers.containers.GenericContainer;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -63,12 +65,28 @@ import tools.jackson.databind.ObjectMapper;
  * <p>
  * The backend is a separate process started from the jar {@code mvn package}
  * built, because two of the faults need a process: a hard kill in the middle of
- * the work, and (on Linux) a pause with {@code SIGSTOP}. It syncs a GreenMail
- * mailbox through {@link TcpFaultProxy} with every interval shortened, while
- * this test keeps delivering, flagging and deleting mail, and on a timeline
- * drops the connections, pauses the process, makes the server unreachable,
- * kills and restarts the backend, and — when {@code soak.small-disk} names a
- * small filesystem the data directory lives on — fills the disk.
+ * the work, and (on Linux) a pause with {@code SIGSTOP}. It syncs a Dovecot
+ * mailbox ({@link DovecotTestServer}) through {@link TcpFaultProxy} with every
+ * interval shortened, while this test, as another mail client, keeps
+ * delivering, flagging and deleting mail, and on a timeline drops the
+ * connections, pauses the process, makes the server unreachable, kills and
+ * restarts the backend, and — when {@code soak.small-disk} names a small
+ * filesystem the data directory lives on — fills the disk.
+ * <p>
+ * <b>Dovecot, not GreenMail.</b> The other client expunges while the backend
+ * has the inbox selected, and GreenMail numbers that wrongly: it renumbers the
+ * backend's session as soon as the other one expunges, serves the backend's
+ * next {@code FETCH} by the new numbers and sends the {@code EXPUNGE} only
+ * after the responses of its next UID command that already use them. RFC 3501
+ * §7.4.1 asks a server to keep a session's numbering until it has reported the
+ * expunge. A client applies responses in order, so it paired a UID with its
+ * neighbour's envelope, and the soak of 2026-10-24 failed on a Message-ID
+ * stored twice (#770) with nothing wrong in the sync. Measured against
+ * GreenMail 2.1.14 and 2.1.15; against a scripted server that keeps the
+ * numbering, either way the RFC allows, the same pass pairs every UID with its
+ * own envelope. Dovecot also advertises CONDSTORE and QRESYNC, so the soak runs
+ * the resynchronizing path a user's own Dovecot runs rather than the fallback
+ * that fetches every flag. It needs Docker, which the runner has.
  * <p>
  * What has to hold at the end: the database passes {@code quick_check}; the
  * local mirror of the inbox has no message the server does not have and no hole
@@ -92,7 +110,7 @@ class SyncSoakIT {
 
     private static final Duration SYNC_INTERVAL = Duration.ofSeconds(10);
     private static final Duration SAMPLE_INTERVAL = Duration.ofSeconds(30);
-    private static final String EMAIL = "soak@greenmail.local";
+    private static final String EMAIL = "soak@dovecot.test";
     private static final String LOGIN = "soak-user";
     private static final String PASSWORD = "soak-password";
     private static final String INBOX = "INBOX";
@@ -112,25 +130,23 @@ class SyncSoakIT {
         Files.createDirectories(WORK);
         Files.createDirectories(dataDir);
 
-        // The backend reaches a mail server over TLS only (audit B1-4): GreenMail
-        // serves IMAPS with the shared test certificate, which this JVM trusts and
-        // the backend process is told to trust below.
+        // The backend reaches a mail server over TLS only (audit B1-4): Dovecot
+        // requires STARTTLS with the shared test certificate, which this JVM trusts
+        // and the backend process is told to trust below.
         TestTls.install();
-        GreenMail greenMail = new GreenMail(new ServerSetup(0, "127.0.0.1", ServerSetup.PROTOCOL_IMAPS));
-        greenMail.start();
-        GreenMailUser user = greenMail.setUser(EMAIL, LOGIN, PASSWORD);
-        int imapPort = greenMail.getImaps().getPort();
+        GenericContainer<?> dovecot = DovecotTestServer.container(PASSWORD);
+        dovecot.start();
         AtomicBoolean generating = new AtomicBoolean(true);
         AtomicInteger delivered = new AtomicInteger();
         Thread generator = null;
         final Backend[] current = {null};
-        try (TcpFaultProxy proxy = new TcpFaultProxy("127.0.0.1", imapPort)) {
+        try (TcpFaultProxy proxy = new TcpFaultProxy(dovecot.getHost(),
+                dovecot.getMappedPort(DovecotTestServer.IMAP_PORT))) {
             current[0] = Backend.start(dataDir, WORK, 1);
             createAccount(current[0], proxy.port());
             event("backend up, account created");
 
-            generator = Thread.ofPlatform().name("soak-mail")
-                    .start(() -> generateMail(user, imapPort, generating, delivered));
+            generator = Thread.ofPlatform().name("soak-mail").start(() -> generateMail(dovecot, generating, delivered));
 
             Instant end = started.plus(DURATION);
             List<Fault> timeline = new ArrayList<>(List.of(new Fault(0.20, "drop connections", proxy::dropConnections),
@@ -154,8 +170,8 @@ class SyncSoakIT {
                 current[0] = Backend.start(dataDir, WORK, 2);
             }));
             if (SMALL_DISK != null) {
-                timeline.add(
-                        new Fault(0.80, "disk full for 60 s", () -> fillDisk(Path.of(SMALL_DISK), user, current[0])));
+                timeline.add(new Fault(0.80, "disk full for 60 s",
+                        () -> fillDisk(Path.of(SMALL_DISK), dovecot, current[0])));
             }
             timeline.sort(Comparator.comparingDouble(Fault::at));
 
@@ -188,29 +204,33 @@ class SyncSoakIT {
             current[0] = null;
             event("backend stopped");
 
-            verifyMirror(dataDir, imapPort);
+            verifyMirror(dataDir, dovecot);
             verifyResources();
         } finally {
             generating.set(false);
             if (current[0] != null) {
                 current[0].kill();
             }
-            greenMail.stop();
+            dovecot.close();
             writeReport(delivered.get());
         }
     }
 
     // --- The work the backend is put through ---------------------------------
 
-    private void generateMail(GreenMailUser user, int imapPort, AtomicBoolean generating, AtomicInteger delivered) {
+    private void generateMail(GenericContainer<?> dovecot, AtomicBoolean generating, AtomicInteger delivered) {
         int round = 0;
         while (generating.get()) {
-            int n = delivered.incrementAndGet();
-            user.deliver(GreenMailUtil.createTextEmail(EMAIL, "sender@example.com", "Soak message " + n,
-                    "Body of soak message " + n, new ServerSetup(imapPort, "127.0.0.1", "imap")));
-            if (++round % 10 == 0) {
+            int n = ++round;
+            try {
+                deliver(dovecot, "Soak message " + n, "Body of soak message " + n);
+                delivered.incrementAndGet();
+            } catch (MessagingException e) {
+                event("generator delivery failed: " + e);
+            }
+            if (round % 10 == 0) {
                 try {
-                    mutateInbox(imapPort, round);
+                    mutateInbox(dovecot, round);
                 } catch (Exception e) {
                     event("generator mutation failed: " + e);
                 }
@@ -219,9 +239,26 @@ class SyncSoakIT {
         }
     }
 
+    /**
+     * Mail arriving: appended by a session of its own, so the backend learns of it
+     * the way it learns of a delivery, from the server.
+     */
+    private static void deliver(GenericContainer<?> dovecot, String subject, String body) throws MessagingException {
+        MimeMessage message = new MimeMessage(Session.getInstance(new Properties()));
+        message.setFrom(new InternetAddress("sender@example.com"));
+        message.setRecipient(Message.RecipientType.TO, new InternetAddress(EMAIL));
+        message.setSubject(subject);
+        message.setText(body);
+        message.setHeader("Date", DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now(ZoneOffset.UTC)));
+        message.saveChanges();
+        try (Store store = DovecotTestServer.connect(dovecot, LOGIN, PASSWORD)) {
+            store.getFolder(INBOX).appendMessages(new Message[]{message});
+        }
+    }
+
     /** What another client does meanwhile: reads, stars and deletes. */
-    private static void mutateInbox(int imapPort, int round) throws Exception {
-        try (Store store = imapStore(imapPort)) {
+    private static void mutateInbox(GenericContainer<?> dovecot, int round) throws Exception {
+        try (Store store = DovecotTestServer.connect(dovecot, LOGIN, PASSWORD)) {
             Folder inbox = store.getFolder(INBOX);
             inbox.open(Folder.READ_WRITE);
             int count = inbox.getMessageCount();
@@ -236,7 +273,7 @@ class SyncSoakIT {
         }
     }
 
-    private void fillDisk(Path disk, GreenMailUser user, Backend backend) {
+    private void fillDisk(Path disk, GenericContainer<?> dovecot, Backend backend) {
         Path filler = disk.resolve("filler.bin");
         long written = 0;
         try (FileChannel channel = FileChannel.open(filler, StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
@@ -249,9 +286,12 @@ class SyncSoakIT {
             event("disk filled after " + written / (1024 * 1024) + " MiB: " + full.getMessage());
         }
         String big = "x".repeat(512 * 1024);
-        for (int i = 0; i < 5; i++) {
-            user.deliver(GreenMailUtil.createTextEmail(EMAIL, "sender@example.com", "Soak large " + i, big,
-                    new ServerSetup(0, "127.0.0.1", "imap")));
+        try {
+            for (int i = 0; i < 5; i++) {
+                deliver(dovecot, "Soak large " + i, big);
+            }
+        } catch (MessagingException e) {
+            throw new IllegalStateException("Could not deliver the large messages", e);
         }
         sleep(Duration.ofSeconds(60));
         assertThat(backend.process.isAlive()).as("backend alive while the disk is full").isTrue();
@@ -276,7 +316,10 @@ class SyncSoakIT {
     }
 
     private static void createAccount(Backend backend, int port) throws Exception {
-        Map<String, Object> server = Map.of("host", "127.0.0.1", "port", port, "useSsl", true);
+        // SSL off: Dovecot serves IMAP with required STARTTLS, which the backend
+        // requires as well (audit B1-4). The soak sends nothing, so SMTP only has
+        // to pass validation.
+        Map<String, Object> server = Map.of("host", "127.0.0.1", "port", port, "useSsl", false);
         Map<String, Object> body = Map.of("accountName", "Soak", "email", EMAIL, "username", LOGIN, "password",
                 PASSWORD, "imap", server, "smtp", server);
         HttpResponse<String> response = backend.send(HttpRequest.newBuilder(backend.uri("/v1/accounts"))
@@ -303,9 +346,9 @@ class SyncSoakIT {
         samples.add(sample);
     }
 
-    private void verifyMirror(Path dataDir, int imapPort) throws Exception {
+    private void verifyMirror(Path dataDir, GenericContainer<?> dovecot) throws Exception {
         Map<Long, Flags> server = new HashMap<>();
-        try (Store store = imapStore(imapPort)) {
+        try (Store store = DovecotTestServer.connect(dovecot, LOGIN, PASSWORD)) {
             Folder inbox = store.getFolder(INBOX);
             inbox.open(Folder.READ_ONLY);
             UIDFolder uids = (UIDFolder) inbox;
@@ -417,12 +460,6 @@ class SyncSoakIT {
 
     private static Duration fraction(double at) {
         return Duration.ofMillis((long) (DURATION.toMillis() * at));
-    }
-
-    private static Store imapStore(int port) throws Exception {
-        Store store = Session.getInstance(new Properties()).getStore("imaps");
-        store.connect("127.0.0.1", port, LOGIN, PASSWORD);
-        return store;
     }
 
     private static long sizeOf(Path file) {

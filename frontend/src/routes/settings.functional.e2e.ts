@@ -132,4 +132,26 @@ test.describe('Settings – shortcuts', () => {
 			await typeface(row.getByText('Nová zpráva', { exact: true }))
 		);
 	});
+
+	test('vložení souboru ze schránky jako přílohy je mezi zkratkami psaní zprávy', async ({
+		page
+	}) => {
+		// The compose strip no longer reads its drop hint to a screen reader, so
+		// this page is where Ctrl+V as an attachment is told.
+		await openApp(page, '/settings/shortcuts');
+
+		const row = page
+			.getByRole('listitem')
+			.filter({ hasText: 'Přiložit soubor zkopírovaný v Průzkumníkovi' });
+		await expect(row.locator('kbd')).toHaveText('Ctrl+V');
+		await expect(row).toContainText('Funguje při psaní nové zprávy.');
+	});
+
+	test('přidání přílohy zkratkou je mezi zkratkami psaní zprávy', async ({ page }) => {
+		await openApp(page, '/settings/shortcuts');
+
+		const row = page.getByRole('listitem').filter({ hasText: 'Přidat přílohu' });
+		await expect(row.locator('kbd')).toHaveText('Ctrl+Shift+A');
+		await expect(row).toContainText('Funguje při psaní nové zprávy.');
+	});
 });

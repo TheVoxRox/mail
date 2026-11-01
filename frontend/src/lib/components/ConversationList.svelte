@@ -37,6 +37,7 @@
 		moveConversationMembers,
 		type ConversationBulkContext
 	} from '#lib/mail/conversationBulk.js';
+	import { archiveTargetFor } from '#lib/mail/mailbox.js';
 	import {
 		printableSelection,
 		printInProgress,
@@ -1038,6 +1039,25 @@
 		};
 	}
 
+	/**
+	 * Backspace on a row, Outlook's archive. It takes what the row menu's move
+	 * takes — the whole conversation in this folder, or the one member — and
+	 * claims the key from the open-message handler, which would archive only the
+	 * open message. A member from another folder has no menu, but archiving it
+	 * reaches nothing outside that one message, so it goes too; its unread badge
+	 * adjustment then belongs to its own folder, not the one in view. The usual
+	 * such member is an archived reply, which archiveTargetFor refuses aloud.
+	 * Auto-repeat is dropped by the caller, as in the flat list.
+	 */
+	function archiveRow(row: VisibleRow): void {
+		const sourceFolder = row.kind === 'conversation' ? currentFolderName : row.message.folderName;
+		const target = archiveTargetFor(sourceFolder);
+		if (!target) return;
+		void runRowAction(row, (ids, ctx) =>
+			moveConversationMembers(ids, target, { ...ctx, folderName: sourceFolder })
+		);
+	}
+
 	/** The message a row stands for — its own folder included, see openMessage. */
 	function rowMessage(row: VisibleRow): MailSummaryResponse {
 		return row.kind === 'conversation' ? row.conversation.latest : row.message;
@@ -1068,6 +1088,17 @@
 			if (grid.col === COL_SELECT || grid.col === COL_EXPAND || grid.col === COL_ACTIONS) return;
 			event.preventDefault();
 			openRow(row);
+			return;
+		}
+		if (
+			event.key === 'Backspace' &&
+			!event.ctrlKey &&
+			!event.metaKey &&
+			!event.altKey &&
+			!event.shiftKey
+		) {
+			event.preventDefault();
+			if (!event.repeat) archiveRow(row);
 			return;
 		}
 		if ($conversationsState.status !== 'ready') return;

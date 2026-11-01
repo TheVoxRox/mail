@@ -22,8 +22,12 @@ test('vzdálené obrázky jsou blokované, dokud je uživatel nenačte', async (
 
 	// Default: banner shown, and the srcdoc keeps the image inert — no live src,
 	// CSP img-src blocks everything but data:.
-	const banner = page.getByRole('region', { name: 'Blokované vzdálené obrázky' });
+	const banner = page.getByRole('region', { name: 'Blokované obrázky z internetu' });
 	await expect(banner).toBeVisible();
+	// The banner says why, not only that: testers could not tell what it was for.
+	await expect(banner).toContainText(
+		'Zpráva obsahuje 1 obrázek z internetu, který jsme nenačetli. Načtení obrázků z internetu může odesílateli prozradit, že jste zprávu otevřeli.'
+	);
 
 	const before = (await iframe.getAttribute('srcdoc')) ?? '';
 	expect(before).toContain('data-voxrox-remote-src="https://cdn.example.test/logo.png"');
@@ -45,7 +49,7 @@ test('vzdálené obrázky jsou blokované, dokud je uživatel nenačte', async (
 test('baner blokovaných obrázků se nečte sám', async ({ page }) => {
 	await openApp(page, '/mail/1/INBOX/msg-02');
 
-	const banner = page.getByRole('region', { name: 'Blokované vzdálené obrázky' });
+	const banner = page.getByRole('region', { name: 'Blokované obrázky z internetu' });
 	await expect(banner).toBeVisible();
 
 	/*
@@ -78,7 +82,7 @@ test('obě tlačítka baneru jsou dosažitelná Tabem mezi řádkem a tělem', a
 	 * fail for reasons that have nothing to do with the banner.
 	 */
 	await openApp(page, '/mail/1/INBOX/msg-02');
-	await expect(page.getByRole('region', { name: 'Blokované vzdálené obrázky' })).toBeVisible();
+	await expect(page.getByRole('region', { name: 'Blokované obrázky z internetu' })).toBeVisible();
 
 	const row = page.locator('[role="row"][data-stable-id="msg-02"] [data-col="2"]');
 	await expect(row).toBeVisible();
@@ -106,11 +110,13 @@ test('obě tlačítka baneru jsou dosažitelná Tabem mezi řádkem a tělem', a
 
 	expect(walk).toContain('Obsah zprávy');
 	expect(walk).toContain('Načíst obrázky');
-	expect(walk).toContain('Vždy od tohoto odesílatele');
+	expect(walk).toContain('Vždy načítat obrázky od tohoto odesílatele');
 	// Order matters as much as presence: past the frame the offer is not "on the
 	// way to the body" any more, it is behind it.
 	expect(walk.indexOf('Načíst obrázky')).toBeLessThan(walk.indexOf('Obsah zprávy'));
-	expect(walk.indexOf('Vždy od tohoto odesílatele')).toBeLessThan(walk.indexOf('Obsah zprávy'));
+	expect(walk.indexOf('Vždy načítat obrázky od tohoto odesílatele')).toBeLessThan(
+		walk.indexOf('Obsah zprávy')
+	);
 });
 
 test('načtení obrázků nenechá fokus spadnout na body a řekne, co se stalo', async ({ page }) => {
@@ -124,13 +130,13 @@ test('načtení obrázků nenechá fokus spadnout na body a řekne, co se stalo'
 	 */
 	await openApp(page, '/mail/1/INBOX/msg-02');
 
-	const banner = page.getByRole('region', { name: 'Blokované vzdálené obrázky' });
+	const banner = page.getByRole('region', { name: 'Blokované obrázky z internetu' });
 	await expect(banner).toBeVisible();
 
 	await page.getByRole('button', { name: 'Načíst obrázky' }).click();
 	await expect(banner).toBeHidden();
 
-	await expect(page.locator('#live-region')).toContainText('Vzdálené obrázky načteny.');
+	await expect(page.locator('#live-region')).toContainText('Obrázky z internetu načteny.');
 	await waitForFocus(bodyFrame(page));
 });
 
@@ -139,14 +145,14 @@ test('důvěra odesílateli se ohlásí jako trvalá, ne jen jako načtení', as
 	// they must not report the same outcome.
 	await openApp(page, '/mail/1/INBOX/msg-02');
 
-	const banner = page.getByRole('region', { name: 'Blokované vzdálené obrázky' });
+	const banner = page.getByRole('region', { name: 'Blokované obrázky z internetu' });
 	await expect(banner).toBeVisible();
 
-	await page.getByRole('button', { name: 'Vždy od tohoto odesílatele' }).click();
+	await page.getByRole('button', { name: 'Vždy načítat obrázky od tohoto odesílatele' }).click();
 	await expect(banner).toBeHidden();
 
 	await expect(page.locator('#live-region')).toContainText(
-		'Odesílatel přidán mezi důvěryhodné, vzdálené obrázky načteny.'
+		'Obrázky od tohoto odesílatele se budou načítat vždy, obrázky v této zprávě jsou načtené.'
 	);
 	await waitForFocus(bodyFrame(page));
 });

@@ -72,6 +72,11 @@
 	// Set when the composer was opened on an existing draft (?draft=). Lets us send
 	// the original MIME (attachments + threading) as-is while it stays untouched.
 	let openedDraftId = $state<string | null>(null);
+	// The draft this compose's saves replace: the opened one, or, when it opened
+	// the session's newest save of it, that save — which may still be waiting for
+	// the server, so it is never the as-is draft above.
+	let continuedDraftId: string | null = null;
+	let continuesNewestSave = false;
 	// Unsaved work worth guarding = edits that differ from BOTH the regenerable
 	// prefill baseline and whatever was last persisted. An untouched reply
 	// (== baseline) or content already autosaved (== saved) is safe to leave.
@@ -153,7 +158,18 @@
 		attachments = values.attachments;
 		inReplyTo = values.inReplyTo;
 		references = values.references;
-		openedDraftId = values.replacesDraftId;
+		continuedDraftId = values.replacesDraftId;
+		continuesNewestSave = values.fromNewestSave;
+		openedDraftId = values.fromNewestSave ? null : values.replacesDraftId;
+		// The newest save's account, unless it is gone; with accounts not loaded
+		// yet, the account list keeps it once it arrives (resolveComposeFromAccount).
+		const accountId = values.accountId;
+		if (
+			accountId != null &&
+			(availableAccounts.length === 0 || availableAccounts.some((a) => a.id === accountId))
+		) {
+			fromAccountId = accountId;
+		}
 	}
 
 	onMount(async () => {
@@ -180,8 +196,9 @@
 			composeSession.begin({
 				accountId: fromAccountId,
 				draft: currentDraft(),
-				draftStableId: openedDraftId,
-				isSuspended: () => busy
+				draftStableId: continuedDraftId,
+				isSuspended: () => busy,
+				continuesNewestSave
 			});
 			prefillDone = true;
 			if (focusBodyAfterPrefill) {
@@ -482,7 +499,10 @@
 			onSave: () => void handleSaveDraft(),
 			onDiscard: handleDiscard,
 			onFocusField: (fieldId) =>
-				formElement?.querySelector<HTMLInputElement>(`#${fieldId}`)?.focus()
+				formElement?.querySelector<HTMLInputElement>(`#${fieldId}`)?.focus(),
+			// A disabled input opens no file dialog, so a busy form ignores the key.
+			onAddAttachment: () =>
+				formElement?.querySelector<HTMLInputElement>('#compose-attachment-input')?.click()
 		});
 	}
 

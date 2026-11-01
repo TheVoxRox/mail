@@ -540,6 +540,49 @@ export async function moveMessages(
 	});
 }
 
+/**
+ * Where Backspace archives mail living in `sourceFolder`: the folder whose role
+ * is ARCHIVE. Null when there is nowhere to go — the account has no such
+ * folder, or the mail is already in it — after saying so: the key would
+ * otherwise do nothing audible, and a screen-reader user could not tell a
+ * refused press from one that never arrived. Shared by the open message and
+ * both lists, so the three refuse alike.
+ */
+export function archiveTargetFor(sourceFolder: string | undefined): string | null {
+	const t = get(_);
+	const archive = get(folderList).find((folder) => folder.role === 'ARCHIVE');
+	if (!archive) {
+		pushToast(t('messages.noArchiveFolder'), { tone: 'info' });
+		return null;
+	}
+	if (sourceFolder === archive.folderRef) {
+		pushToast(t('messages.alreadyArchived'), { tone: 'info' });
+		return null;
+	}
+	return archive.folderRef;
+}
+
+/**
+ * Moves one message to the account's Archive folder — Outlook's Backspace.
+ *
+ * A caller that knows the message's folder passes it; the list does, from the
+ * row. Otherwise it comes from the open detail first, since a conversation can
+ * surface an archived member in the Inbox, and falls back to the folder being
+ * listed while the detail is still loading.
+ */
+export async function archiveMessage(
+	stableId: string,
+	sourceFolder?: string
+): Promise<BulkResult | undefined> {
+	const selected = get(selectedMessage);
+	const detailFolder = selected?.stableId === stableId ? selected.detail?.folderName : undefined;
+	const target = archiveTargetFor(
+		sourceFolder ?? detailFolder ?? currentListingContext()?.folderName
+	);
+	if (!target) return undefined;
+	return moveMessages([stableId], target);
+}
+
 export async function toggleMessageSeen(stableId: string): Promise<void> {
 	const detail = await ensureMessageDetail(stableId);
 	await markMessagesSeen([stableId], !detail.seen);
