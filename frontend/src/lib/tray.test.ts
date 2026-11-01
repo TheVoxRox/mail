@@ -114,8 +114,12 @@ describe('startTray', () => {
 		await flush();
 		expect(calls('configure_tray')).toHaveLength(1);
 
-		foldersStore.set([{ role: 'INBOX', unreadCount: 3, displayName: 'x', folderRef: 'INBOX' }]);
-		foldersStore.set([{ role: 'INBOX', unreadCount: 5, displayName: 'x', folderRef: 'INBOX' }]);
+		foldersStore.set([
+			{ role: 'INBOX', unreadCount: 3, displayName: 'x', folderRef: 'INBOX', parentRef: null }
+		]);
+		foldersStore.set([
+			{ role: 'INBOX', unreadCount: 5, displayName: 'x', folderRef: 'INBOX', parentRef: null }
+		]);
 		await flush();
 
 		// The labels never changed, so the native menu is built exactly once —
@@ -126,8 +130,8 @@ describe('startTray', () => {
 
 	it('counts unread from the Inbox only, ignoring other folders', async () => {
 		foldersStore.set([
-			{ role: 'JUNK', unreadCount: 40, displayName: 'x', folderRef: 'Junk' },
-			{ role: 'INBOX', unreadCount: 2, displayName: 'x', folderRef: 'INBOX' }
+			{ role: 'JUNK', unreadCount: 40, displayName: 'x', folderRef: 'Junk', parentRef: null },
+			{ role: 'INBOX', unreadCount: 2, displayName: 'x', folderRef: 'INBOX', parentRef: null }
 		]);
 		const tray = await freshModule();
 
@@ -140,7 +144,9 @@ describe('startTray', () => {
 	});
 
 	it('leaves the tooltip countless when the Inbox is fully read', async () => {
-		foldersStore.set([{ role: 'INBOX', unreadCount: 0, displayName: 'x', folderRef: 'INBOX' }]);
+		foldersStore.set([
+			{ role: 'INBOX', unreadCount: 0, displayName: 'x', folderRef: 'INBOX', parentRef: null }
+		]);
 		const tray = await freshModule();
 
 		tray.startTray();
@@ -172,7 +178,9 @@ describe('startTray', () => {
 		await flush();
 		expect(calls('configure_tray')).toHaveLength(1);
 
-		foldersStore.set([{ role: 'INBOX', unreadCount: 1, displayName: 'x', folderRef: 'INBOX' }]);
+		foldersStore.set([
+			{ role: 'INBOX', unreadCount: 1, displayName: 'x', folderRef: 'INBOX', parentRef: null }
+		]);
 		await flush();
 
 		// The menu was never actually installed, so the next change has to try

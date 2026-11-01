@@ -309,6 +309,25 @@ test.describe('Přístupnost', () => {
 		await expectNoFindings(page, results);
 	});
 
+	test('nabídka Přesunout se skupinou podsložek nemá a11y porušení', async ({ page }) => {
+		// The page scan covers the sidebar's nested list; the menu exists only
+		// while it is open, and its role="group" is the one place a menu here
+		// holds something other than menuitems.
+		await openApp(page, `/mail/${mailFixture.accountId}/${mailFixture.folderName}`);
+		await rowsOf(messageGrid(page)).first().click();
+		await waitForFocus(bodyFrame(page));
+		await page
+			.getByRole('toolbar', { name: 'Akce se zprávami' })
+			.getByRole('button', { name: 'Přesunout', exact: true })
+			.click();
+		await expect(
+			page.getByRole('menu').getByRole('group', { name: 'Projekty' }).getByRole('menuitem')
+		).toBeVisible();
+
+		const results = await wcagScan(page).analyze();
+		await expectNoFindings(page, results);
+	});
+
 	test('indikátor selhané synchronizace nemá a11y porušení', async ({ page }) => {
 		// The per-route sweep never reaches this state: the indicator only exists
 		// after a sync_failed notification, so without this case the axe scan

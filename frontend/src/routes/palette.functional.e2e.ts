@@ -98,6 +98,111 @@ test.describe('Command palette', () => {
 		await expect(options.nth(1)).toHaveAccessibleName(/^Podokno čtení/);
 	});
 
+	test('výběr přejde na první výsledek, i když složky dorazí až po dotazu', async ({ page }) => {
+		/*
+		 * The folder commands come from the folder list, which the app loads on
+		 * its own schedule; a user can type before it arrives. Here it is held
+		 * back until "od" is in the field, so "Podokno čtení vpravo" is the first
+		 * result and takes the selection, then "Přejít do složky Odeslané" ranks
+		 * above it. The selection belongs on the first result, where Enter runs
+		 * it. bits-ui gets it there on its own too, selecting its first item again
+		 * as the new options register; this holds the palette's own rule to it.
+		 */
+		await page.addInitScript(() => {
+			let release: () => void = () => {};
+			const held = new Promise<void>((resolve) => (release = resolve));
+			(window as unknown as { __releaseFolders: () => void }).__releaseFolders = release;
+			const origFetch = window.fetch;
+			window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+				const url =
+					typeof input === 'string' ? input : input instanceof Request ? input.url : String(input);
+				if (/\/api\/v1\/accounts\/\d+\/folders$/.test(url)) await held;
+				return origFetch(input, init);
+			};
+		});
+		await openApp(page, `/mail/${fixture.accountId}/${fixture.folderName}`);
+
+		await openPalette(page);
+		const input = page.locator('#command-palette-input');
+		await input.fill('od');
+		const options = page.getByRole('listbox', { name: 'Výsledky příkazů' }).getByRole('option');
+		await expect(options.first()).toHaveAccessibleName(/^Podokno čtení/);
+		await expect(input).toHaveAttribute(
+			'aria-activedescendant',
+			'palette-option-view-reading-right'
+		);
+
+		await page.evaluate(() =>
+			(window as unknown as { __releaseFolders: () => void }).__releaseFolders()
+		);
+
+		await expect(options.first()).toHaveAccessibleName('Přejít do složky Odeslané');
+		await expect(input).toHaveAttribute('aria-activedescendant', 'palette-option-folder-SENT');
+	});
+
+	test('přeřazené výsledky: výběr sleduje první, dokud ho uživatel neposune, pak drží jeho volbu', async ({
+		page
+	}) => {
+		/*
+		 * "Odpad" and "Odeslané" score the same on "od", so the folder list's own
+		 * order decides between them, and each list refreshed after a sync here
+		 * comes in the other order. Nothing is added, taken out or renamed.
+		 *
+		 * Until the user moves the selection, it is the first result, where Enter
+		 * runs it. Once they arrow to an option, a refresh must not take it away:
+		 * bits-ui selects its first item again whenever the options re-register,
+		 * which they do on every refresh, and the user who had arrowed down to
+		 * "Podokno čtení vpravo" found the selection back on top.
+		 */
+		await page.addInitScript(() => {
+			let listings = 0;
+			const origFetch = window.fetch;
+			window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+				const url =
+					typeof input === 'string' ? input : input instanceof Request ? input.url : String(input);
+				const response = await origFetch(input, init);
+				if (!/\/api\/v1\/accounts\/1\/folders$/.test(url)) return response;
+				const folders = (await response.json()) as unknown[];
+				const bin = { displayName: 'Odpad', folderRef: 'Bin', unreadCount: 0, role: 'USER' };
+				const reordered = listings++ % 2 === 0 ? [...folders, bin] : [bin, ...folders];
+				return new Response(JSON.stringify(reordered), {
+					status: response.status,
+					headers: response.headers
+				});
+			};
+		});
+		await openApp(page, `/mail/${fixture.accountId}/${fixture.folderName}`);
+		await page.waitForFunction(() => window.__MAIL_MSW__?.syncStreamConnected() === true);
+
+		await openPalette(page);
+		const input = page.locator('#command-palette-input');
+		await input.fill('od');
+		const options = page.getByRole('listbox', { name: 'Výsledky příkazů' }).getByRole('option');
+		await expect(options.first()).toHaveAccessibleName('Přejít do složky Odeslané');
+		await expect(input).toHaveAttribute('aria-activedescendant', 'palette-option-folder-SENT');
+
+		await page.evaluate(() => window.__MAIL_MSW__?.pushSyncCycleCompleted(1));
+
+		await expect(options.first()).toHaveAccessibleName('Přejít do složky Odpad');
+		await expect(input).toHaveAttribute('aria-activedescendant', 'palette-option-folder-Bin');
+
+		await input.press('ArrowDown');
+		await expect(input).toHaveAttribute('aria-activedescendant', 'palette-option-folder-SENT');
+		await input.press('ArrowDown');
+		await expect(input).toHaveAttribute(
+			'aria-activedescendant',
+			'palette-option-view-reading-right'
+		);
+
+		await page.evaluate(() => window.__MAIL_MSW__?.pushSyncCycleCompleted(1));
+
+		await expect(options.first()).toHaveAccessibleName('Přejít do složky Odeslané');
+		await expect(input).toHaveAttribute(
+			'aria-activedescendant',
+			'palette-option-view-reading-right'
+		);
+	});
+
 	test('ve výchozím pořadí řadí přepnutí workspace před jednorázové view akce', async ({
 		page
 	}) => {

@@ -21,6 +21,22 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Backend
 
+- The folder list says which folder each one is shown under, so the app can
+  show the hierarchy without reading the server's folder names (#815). A
+  subfolder of Sent, Trash, Archive or another system folder now follows it,
+  where it used to stand among the user's own folders; a system folder kept
+  under a user folder still has its fixed place. A folder under one that cannot
+  hold messages, such as Gmail's `[Gmail]`, is top-level, and where every
+  folder lives under the inbox (Courier, older Dovecot) none is shown under it.
+  Folders under one parent are ordered by the name they show.
+- Folders come in a fixed order: Inbox and its subfolders, then Newsletters,
+  Drafts, Sent, Trash, Archive and Spam, then the user's own folders
+  alphabetically, each subfolder right below its parent. The list used to keep
+  the order the mail server listed the folders in, which differs from provider
+  to provider, so the inbox did not have to be on top, and a subfolder of the
+  inbox, common with Outlook, stood among the user's folders under "I". The
+  alphabet is the app's language: in Czech, "ch" comes after "h". The sidebar
+  and the Move to menus both show this order (#814).
 - A message from Seznam that could not be opened opens. Seznam's server writes
   a part's disposition that has no parameters as an empty list, which IMAP does
   not allow, and the mail library rejected the message's whole structure for
@@ -97,6 +113,19 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- The mail sidebar shows which folder is a subfolder of which. A subfolder
+  showed only its own name among the top-level folders, so "Projekty/2024"
+  read as "2024" with nothing saying where it lived. It is now indented under
+  its parent, in a list nested in the parent's item, so a screen reader
+  announces entering it, and in browse mode the nesting level. The Move to
+  menus put a folder's subfolders in a group named after it, announced on
+  entering it, since a menu item has no nesting level of its own. Opening a
+  subfolder no longer marks its parent as the current folder too (#815).
+- In the command palette, the option selected with the arrow keys, Home, End
+  or the mouse stays selected when the results refresh, after a sync for
+  example; it used to jump back to the first result. Until an option is
+  chosen, the selection is the first result, where Enter runs it, also when
+  the results reorder (#815).
 - The account wizard offers **Přihlásit přes Microsoft** and **Přihlásit přes
   Google** under "Pracovní nebo školní účet?" for an address whose domain it
   does not know, next to the server settings. A work account's sign-in used to
@@ -312,9 +341,21 @@ Entries before 2026-09-17 predate that split and are left as written.
 - Save logs replaces a token right after an accent written as a combining
   mark, as the diagnostic dump now does, instead of keeping it as part of the
   word before (#780).
+- The shell takes Tauri 2.12.5, with `tauri-codegen` and `tauri-macros` 2.7.4,
+  `tauri-runtime-wry` 2.12.3 and `tauri-build` 2.7.4 for its build. Their fixes
+  are for Linux and for builds that recompiled with nothing changed, so nothing
+  in the Windows app is meant to change; `ico` 0.6 drops the older of the two
+  `png` versions from the tree. The installer fixes 2.12.5 lists come with the
+  CLI, which this does not move. The shell's license list also catches up with
+  `rustls-webpki` 0.103.16 and `webpki-roots` 1.0.10, which #763 took without
+  it (#788).
 
 ### Repo
 
+- An end-to-end test that fails in CI now leaves a Playwright trace, the page
+  at every step, in the uploaded test results. The palette test that failed
+  only in CI left a snapshot of the search field alone, which could not say
+  why (#815).
 - `npm run sidecar:rebuild:windows` rebuilds the dev sidecar in one command. It
   refuses while anything runs out of `frontend/src-tauri`, packages, syncs,
   checks that the jar in `binaries/` is byte for byte the one just built and

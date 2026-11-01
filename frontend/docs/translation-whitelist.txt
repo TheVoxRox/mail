@@ -39,7 +39,8 @@ frontend/src/routes/contacts.functional.e2e.ts -- Contact list / merge dialog as
 frontend/src/routes/current-page-link.functional.e2e.ts -- Focus assertions on the pane links of the open page, located by their Czech accessible names ("Podokno pošty", "Doručené", "Všechny kontakty") under mail.locale = 'cs'.
 frontend/src/routes/e2e-helpers.ts -- Shared Playwright helpers; holds the suite's grid locators, which name the lists by their Czech accessible names under mail.locale = 'cs'.
 frontend/src/routes/mail/detail-focus.functional.e2e.ts -- Message-body focus and landmark assertions against Czech UI ("Text zprávy", "Obsah zprávy") under mail.locale = 'cs'.
-frontend/src/routes/mail/grouping.functional.e2e.ts -- Conversation-grouping view assertions against Czech UI ("Seznam konverzací") under mail.locale = 'cs'.
+frontend/src/routes/mail/folder-hierarchy.functional.e2e.ts -- Folder hierarchy assertions locate the sidebar and the Move to menu by their Czech accessible names ("Podokno pošty", "Složky", "Přesunout") under mail.locale = 'cs'; Czech test titles match the sibling mail specs.
+frontend/src/routes/mail/grouping.functional.e2e.ts --Conversation-grouping view assertions against Czech UI ("Seznam konverzací") under mail.locale = 'cs'.
 frontend/src/routes/mail/links.functional.e2e.ts -- Mail-body iframe link-bridge assertions against the Czech UI ("Obsah zprávy") under mail.locale = 'cs'; Czech test title matches the sibling mail-body e2e specs.
 frontend/src/routes/mail/list-columns.functional.e2e.ts -- Column-alignment assertions locate the two flat grids by their Czech accessible names ("Seznam zpráv", "Výsledky") under mail.locale = 'cs'.
 frontend/src/routes/mail/list-navigation.functional.e2e.ts -- Off-mode list keyboard model and focus-restore assertions against Czech UI ("Seznam zpráv", live-region texts) under mail.locale = 'cs'.

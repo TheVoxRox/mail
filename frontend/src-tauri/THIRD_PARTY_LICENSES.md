@@ -4,9 +4,9 @@ The Tauri runtime that ships with VoxRox Mail compiles in the following Rust cra
 
 Dual-licensed crates (e.g. `MIT OR Apache-2.0`) are listed under their canonical license expression — pick either license when redistributing.
 
-Counts: 295 crates total. 146 MIT OR Apache-2.0, 58 MIT, 29 Apache-2.0 OR MIT, 18 Unicode-3.0, 5 MIT/Apache-2.0, 5 MPL-2.0, 4 Unlicense OR MIT, 3 BSD-3-Clause, 3 MIT OR Apache-2.0 OR Zlib, 2 Apache-2.0, 2 Apache-2.0 OR ISC OR MIT, 2 ISC, 2 MIT OR Zlib OR Apache-2.0, 2 Unlicense/MIT, 2 Zlib, 1 (Apache-2.0 OR MIT) AND BSD-3-Clause, 1 (MIT OR Apache-2.0) AND Unicode-3.0, 1 0BSD OR MIT OR Apache-2.0, 1 Apache-2.0 / MIT, 1 Apache-2.0 AND ISC, 1 Apache-2.0 AND MIT, 1 Apache-2.0 OR BSL-1.0, 1 BSD-3-Clause AND MIT, 1 BSD-3-Clause/MIT, 1 CC0-1.0 OR MIT-0 OR Apache-2.0, 1 CDLA-Permissive-2.0, 1 Zlib OR Apache-2.0 OR MIT.
+Counts: 293 crates total. 145 MIT OR Apache-2.0, 58 MIT, 29 Apache-2.0 OR MIT, 18 Unicode-3.0, 5 MPL-2.0, 4 MIT/Apache-2.0, 4 Unlicense OR MIT, 3 BSD-3-Clause, 3 MIT OR Apache-2.0 OR Zlib, 2 Apache-2.0, 2 Apache-2.0 OR ISC OR MIT, 2 ISC, 2 MIT OR Zlib OR Apache-2.0, 2 Unlicense/MIT, 2 Zlib, 1 (Apache-2.0 OR MIT) AND BSD-3-Clause, 1 (MIT OR Apache-2.0) AND Unicode-3.0, 1 0BSD OR MIT OR Apache-2.0, 1 Apache-2.0 / MIT, 1 Apache-2.0 AND ISC, 1 Apache-2.0 AND MIT, 1 Apache-2.0 OR BSL-1.0, 1 BSD-3-Clause AND MIT, 1 BSD-3-Clause/MIT, 1 CC0-1.0 OR MIT-0 OR Apache-2.0, 1 CDLA-Permissive-2.0, 1 Zlib OR Apache-2.0 OR MIT.
 
-## MIT OR Apache-2.0 (146)
+## MIT OR Apache-2.0 (145)
 
 - **anyhow** 1.0.104 — [https://github.com/dtolnay/anyhow](https://github.com/dtolnay/anyhow)
 - **base64** 0.22.1 — [https://github.com/marshallpierce/rust-base64](https://github.com/marshallpierce/rust-base64)
@@ -74,7 +74,6 @@ Counts: 295 crates total. 146 MIT OR Apache-2.0, 58 MIT, 29 Apache-2.0 OR MIT, 1
 - **parking_lot_core** 0.9.12 — [https://github.com/Amanieu/parking_lot](https://github.com/Amanieu/parking_lot)
 - **percent-encoding** 2.3.2 — [https://github.com/servo/rust-url/](https://github.com/servo/rust-url/)
 - **png** 0.18.1 — [https://github.com/image-rs/image-png](https://github.com/image-rs/image-png)
-- **png** 0.17.16 — [https://github.com/image-rs/image-png](https://github.com/image-rs/image-png)
 - **powerfmt** 0.2.0 — [https://github.com/jhpratt/powerfmt](https://github.com/jhpratt/powerfmt)
 - **proc-macro2** 1.0.106 — [https://github.com/dtolnay/proc-macro2](https://github.com/dtolnay/proc-macro2)
 - **quinn** 0.11.9 — [https://github.com/quinn-rs/quinn](https://github.com/quinn-rs/quinn)
@@ -173,7 +172,7 @@ Counts: 295 crates total. 146 MIT OR Apache-2.0, 58 MIT, 29 Apache-2.0 OR MIT, 1
 - **http-body-util** 0.1.3 — [https://github.com/hyperium/http-body](https://github.com/hyperium/http-body)
 - **hyper** 1.9.0 — [https://github.com/hyperium/hyper](https://github.com/hyperium/hyper)
 - **hyper-util** 0.1.20 — [https://github.com/hyperium/hyper-util](https://github.com/hyperium/hyper-util)
-- **ico** 0.5.0 — [https://github.com/mdsteele/rust-ico](https://github.com/mdsteele/rust-ico)
+- **ico** 0.6.0 — [https://github.com/mdsteele/rust-ico](https://github.com/mdsteele/rust-ico)
 - **infer** 0.22.0 — [https://github.com/bojand/infer](https://github.com/bojand/infer)
 - **minisign-verify** 0.3.0 — [https://github.com/jedisct1/rust-minisign-verify](https://github.com/jedisct1/rust-minisign-verify)
 - **mio** 1.2.0 — [https://github.com/tokio-rs/mio](https://github.com/tokio-rs/mio)
@@ -230,9 +229,9 @@ Counts: 295 crates total. 146 MIT OR Apache-2.0, 58 MIT, 29 Apache-2.0 OR MIT, 1
 - **muda** 0.20.0 — [https://github.com/tauri-apps/muda](https://github.com/tauri-apps/muda)
 - **pin-project-lite** 0.2.17 — [https://github.com/taiki-e/pin-project-lite](https://github.com/taiki-e/pin-project-lite)
 - **rustc-hash** 2.1.2 — [https://github.com/rust-lang/rustc-hash](https://github.com/rust-lang/rustc-hash)
-- **tauri** 2.12.4 — [https://github.com/tauri-apps/tauri](https://github.com/tauri-apps/tauri)
-- **tauri-codegen** 2.7.3 — [https://github.com/tauri-apps/tauri](https://github.com/tauri-apps/tauri)
-- **tauri-macros** 2.7.3 — [https://github.com/tauri-apps/tauri](https://github.com/tauri-apps/tauri)
+- **tauri** 2.12.5 — [https://github.com/tauri-apps/tauri](https://github.com/tauri-apps/tauri)
+- **tauri-codegen** 2.7.4 — [https://github.com/tauri-apps/tauri](https://github.com/tauri-apps/tauri)
+- **tauri-macros** 2.7.4 — [https://github.com/tauri-apps/tauri](https://github.com/tauri-apps/tauri)
 - **tauri-plugin-fs** 2.7.1 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
 - **tauri-plugin-http** 2.8.3 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
 - **tauri-plugin-log** 2.10.1 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
@@ -240,7 +239,7 @@ Counts: 295 crates total. 146 MIT OR Apache-2.0, 58 MIT, 29 Apache-2.0 OR MIT, 1
 - **tauri-plugin-single-instance** 2.5.4 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
 - **tauri-plugin-updater** 2.14.0 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
 - **tauri-runtime** 2.12.2 — [https://github.com/tauri-apps/tauri](https://github.com/tauri-apps/tauri)
-- **tauri-runtime-wry** 2.12.2 — [https://github.com/tauri-apps/tauri](https://github.com/tauri-apps/tauri)
+- **tauri-runtime-wry** 2.12.3 — [https://github.com/tauri-apps/tauri](https://github.com/tauri-apps/tauri)
 - **tauri-utils** 2.10.2 — [https://github.com/tauri-apps/tauri](https://github.com/tauri-apps/tauri)
 - **utf8_iter** 1.0.4 — [https://github.com/hsivonen/utf8_iter](https://github.com/hsivonen/utf8_iter)
 - **uuid** 1.23.0 — [https://github.com/uuid-rs/uuid](https://github.com/uuid-rs/uuid)
@@ -269,14 +268,6 @@ Counts: 295 crates total. 146 MIT OR Apache-2.0, 58 MIT, 29 Apache-2.0 OR MIT, 1
 - **zerovec** 0.11.6 — [https://github.com/unicode-org/icu4x](https://github.com/unicode-org/icu4x)
 - **zerovec-derive** 0.11.3 — [https://github.com/unicode-org/icu4x](https://github.com/unicode-org/icu4x)
 
-## MIT/Apache-2.0 (5)
-
-- **bitflags** 1.3.2 — [https://github.com/bitflags/bitflags](https://github.com/bitflags/bitflags)
-- **ident_case** 1.0.1 — [https://github.com/TedDriggs/ident_case](https://github.com/TedDriggs/ident_case)
-- **json-patch** 4.2.0 — [https://github.com/idubrov/json-patch](https://github.com/idubrov/json-patch)
-- **serde_urlencoded** 0.7.1 — [https://github.com/nox/serde_urlencoded](https://github.com/nox/serde_urlencoded)
-- **siphasher** 1.0.2 — [https://github.com/jedisct1/rust-siphash](https://github.com/jedisct1/rust-siphash)
-
 ## MPL-2.0 (5)
 
 - **cssparser** 0.37.0 — [https://github.com/servo/rust-cssparser](https://github.com/servo/rust-cssparser)
@@ -284,6 +275,13 @@ Counts: 295 crates total. 146 MIT OR Apache-2.0, 58 MIT, 29 Apache-2.0 OR MIT, 1
 - **dtoa-short** 0.3.5 — [https://github.com/upsuper/dtoa-short](https://github.com/upsuper/dtoa-short)
 - **option-ext** 0.2.0 — [https://github.com/soc/option-ext.git](https://github.com/soc/option-ext.git)
 - **selectors** 0.38.0 — [https://github.com/servo/stylo](https://github.com/servo/stylo)
+
+## MIT/Apache-2.0 (4)
+
+- **ident_case** 1.0.1 — [https://github.com/TedDriggs/ident_case](https://github.com/TedDriggs/ident_case)
+- **json-patch** 4.2.0 — [https://github.com/idubrov/json-patch](https://github.com/idubrov/json-patch)
+- **serde_urlencoded** 0.7.1 — [https://github.com/nox/serde_urlencoded](https://github.com/nox/serde_urlencoded)
+- **siphasher** 1.0.2 — [https://github.com/jedisct1/rust-siphash](https://github.com/jedisct1/rust-siphash)
 
 ## Unlicense OR MIT (4)
 
@@ -316,7 +314,7 @@ Counts: 295 crates total. 146 MIT OR Apache-2.0, 58 MIT, 29 Apache-2.0 OR MIT, 1
 
 ## ISC (2)
 
-- **rustls-webpki** 0.103.15 — [https://github.com/rustls/webpki](https://github.com/rustls/webpki)
+- **rustls-webpki** 0.103.16 — [https://github.com/rustls/webpki](https://github.com/rustls/webpki)
 - **untrusted** 0.9.0 — [https://github.com/briansmith/untrusted](https://github.com/briansmith/untrusted)
 
 ## MIT OR Zlib OR Apache-2.0 (2)
@@ -376,7 +374,7 @@ Counts: 295 crates total. 146 MIT OR Apache-2.0, 58 MIT, 29 Apache-2.0 OR MIT, 1
 
 ## CDLA-Permissive-2.0 (1)
 
-- **webpki-roots** 1.0.7 — [https://github.com/rustls/webpki-roots](https://github.com/rustls/webpki-roots)
+- **webpki-roots** 1.0.10 — [https://github.com/rustls/webpki-roots](https://github.com/rustls/webpki-roots)
 
 ## Zlib OR Apache-2.0 OR MIT (1)
 

@@ -31,6 +31,12 @@
 
 	let query = $state('');
 	let selectedCommandId = $state('');
+	/*
+	 * The option the user moved the selection to since the query last changed —
+	 * with the arrow keys, Home/End or the pointer — or null. See the effect
+	 * that keeps the selection.
+	 */
+	let chosenCommandId = $state<string | null>(null);
 	let inputElement = $state<HTMLInputElement | null>(null);
 	let executionError = $state('');
 
@@ -96,6 +102,7 @@
 		if (!$paletteOpen) {
 			query = '';
 			selectedCommandId = '';
+			chosenCommandId = null;
 			executionError = '';
 			return;
 		}
@@ -103,21 +110,35 @@
 		void tick().then(() => inputElement?.focus());
 	});
 
+	/*
+	 * The selection is the first result, where Enter runs it, until the user
+	 * moves it; then it is their option for as long as the results hold it. It
+	 * used to be kept on whatever option it was on while that option still
+	 * matched, and bits-ui, which also selects its first item on its own after a
+	 * tick, was left to move it. In CI the selection came to rest on the
+	 * right-hand reading pane command with the Sent folder's command above it,
+	 * which never happened locally (#815). This effect reads the selection too,
+	 * so whatever else sets it, it ends on the option this rule names; and a
+	 * refreshed list, after which bits-ui selects its first item again, no
+	 * longer drops the option the user arrowed to.
+	 */
 	$effect(() => {
 		if (!$paletteOpen) return;
-		const hasSelectedCommand = filteredCommands.some(
-			(entry) => entry.command.id === selectedCommandId
-		);
-		if (!hasSelectedCommand) {
-			selectedCommandId = filteredCommands[0]?.command.id ?? '';
-		}
+		const wanted =
+			chosenCommandId !== null &&
+			filteredCommands.some((entry) => entry.command.id === chosenCommandId)
+				? chosenCommandId
+				: (filteredCommands[0]?.command.id ?? '');
+		if (selectedCommandId !== wanted) selectedCommandId = wanted;
 	});
 
+	function choose(commandId: string): void {
+		chosenCommandId = commandId;
+		selectedCommandId = commandId;
+	}
+
 	function moveSelection(delta: number): void {
-		if (filteredCommands.length === 0) {
-			selectedCommandId = '';
-			return;
-		}
+		if (filteredCommands.length === 0) return;
 		const currentIndex = filteredCommands.findIndex(
 			(entry) => entry.command.id === selectedCommandId
 		);
@@ -127,14 +148,30 @@
 					? 0
 					: filteredCommands.length - 1
 				: (currentIndex + delta + filteredCommands.length) % filteredCommands.length;
-		selectedCommandId = filteredCommands[nextIndex].command.id;
+		choose(filteredCommands[nextIndex].command.id);
 	}
 
+	/*
+	 * Home and End too, which bits-ui would otherwise handle on the root without
+	 * this component knowing the user moved the selection.
+	 */
 	function handleInputKeydown(event: KeyboardEvent): void {
+		if (filteredCommands.length > 0 && (event.key === 'Home' || event.key === 'End')) {
+			event.preventDefault();
+			event.stopPropagation();
+			choose(filteredCommands[event.key === 'Home' ? 0 : filteredCommands.length - 1].command.id);
+			return;
+		}
 		if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
 		event.preventDefault();
 		event.stopPropagation();
 		moveSelection(event.key === 'ArrowDown' ? 1 : -1);
+	}
+
+	function handleQueryInput(): void {
+		executionError = '';
+		// A new query is a new search: the selection goes back to its first result.
+		chosenCommandId = null;
 	}
 
 	/*
@@ -226,7 +263,7 @@
 				id="command-palette-input"
 				bind:ref={inputElement}
 				bind:value={query}
-				oninput={() => (executionError = '')}
+				oninput={handleQueryInput}
 				onkeydown={handleInputKeydown}
 				aria-describedby="palette-hint"
 				autofocus
@@ -267,6 +304,7 @@
 										keywords={entry.command.keywords ?? []}
 										aria-posinset={entry.position}
 										aria-setsize={filteredCommands.length}
+										onpointermove={() => (chosenCommandId = entry.command.id)}
 										onSelect={() => void execute(entry.command)}
 										class={cn(
 											menuItemVariants(),
