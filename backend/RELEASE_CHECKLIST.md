@@ -400,17 +400,17 @@ Tester:    machine half automated; §3–§9 are the maintainer's
 
 | path                         | object id      |
 | ---------------------------- | -------------- |
-| `backend/src`                | `933b6fb7f4a3` |
+| `backend/src`                | `e7f162b1f756` |
 | `backend/pom.xml`            | `b9f41b12f13b` |
-| `backend/scripts`            | `e8a157ab4cf1` |
+| `backend/scripts`            | `8a0fe4f8bdc1` |
 | `frontend/src`               | `1dbaab55e06e` |
 | `frontend/src-tauri`         | `5b426e68f08b` |
 | `frontend/package.json`      | `8cb96b3e0d5f` |
 | `frontend/package-lock.json` | `dba15649aabf` |
 
-- [x] **§0 Version** — `npm run bump:version 0.2.0-beta.1`, and `npm run check:versions` OK on all five files. The script writes neither lockfile, so both took the version by hand (`npm install --package-lock-only`, `cargo update -w`), which moved nothing else in either.
-- [x] **§1 Backend build** — `clean verify` on this cut's tree, `main` at `5d26bc2` (#816) with the bump: 0 failures and 0 errors on surefire and failsafe; the one skip is `MailSyncQresyncDovecotIT` without Docker, which CI runs. SpotBugs reports no bug instance. `mail-backend-0.2.0-beta.1.jar` produced. Taken first on `ce9003f` before the bump, green the same way, and again once #816 moved `backend/src`. Sidecar packaged with `-EnableAotCache` and the OAuth values from `backend/.env`, as the signed build packages it: "Google client-id baked into the launcher; no placeholder", all 10 JVM options present in the launcher, "The JVM mapped app\mail.aot from outside the image directory and started on it", and 14 of 14 modules declared for the runtime. `regen:licenses:all` after `npm ci` and the packaging caught the backend list and `NOTICE.txt` up with what merged since 2026-10-18 (Spring Boot 4.1.2, bits-ui 2.20.2, the shell's crates); this cut carries the result. The run without a system JDK is taken on the installed candidate.
-- [x] **§2 Frontend automation** — on `main` at `ce9003f`: `generate:api` (no drift in `schema.d.ts`), `check:i18n`, `build`, and `test:e2e`, the functional project and then the a11y suite, all passed with no flake and no re-run. Taken before the bump, that run could not see two tests that held the version as `0.1.0`, `readiness.test.ts` and the About page in `boot.functional.e2e.ts`, which CI and the pre-push gate failed after it (see the changelog). Both now read `CLIENT_VERSION`, and `test:e2e` passed again on this cut's tree with the bump, both suites with no flake and no re-run.
+- [x] **§0 Version** — `npm run bump:version 0.2.0-beta.1`, and `npm run check:versions` OK on all five files. The script writes neither lockfile, so both took the version by hand (`npm install --package-lock-only`, `cargo update -w`), which moved nothing else in either. Unchanged by the re-cut, which keeps the version.
+- [x] **§1 Backend build** — `clean verify` on `main` at `f9e0f93` (#819), the tree this re-cut tags: 0 failures and 0 errors on surefire and failsafe; the one skip is `MailSyncQresyncDovecotIT` without Docker, which CI runs. SpotBugs reports no bug instance. `mail-backend-0.2.0-beta.1.jar` produced. Sidecar packaged as the signed build now packages it, extracted and without an AOT cache (#819), with the OAuth values from `backend/.env`: the application jar and 107 libraries in `lib\`, "Google client-id baked into the launcher; no placeholder", all 10 JVM options present in the launcher, "A copy of the image outside target\ started to ready and exited", and 14 of 14 modules declared for the runtime. `regen:licenses:all` after `npm ci` and the packaging changed nothing; the first cut had caught the backend list and `NOTICE.txt` up with what merged since 2026-10-18. The run without a system JDK is taken on the installed candidate.
+- [x] **§2 Frontend automation** — on `main` at `f9e0f93`, the version already bumped: `generate:api` (no drift in `schema.d.ts`), `check:i18n`, `build`, `test:unit`, and `test:e2e`, the functional project and then the a11y suite, all passed with no flake and no re-run. The first cut took §2 before the bump, which could not see two tests that held the version as `0.1.0`, `readiness.test.ts` and the About page in `boot.functional.e2e.ts`; CI and the pre-push gate found them, and both now read `CLIENT_VERSION`.
 - [ ] **§3 Fresh install** —
 - [ ] **§3a Installer behaviour** —
 - [ ] **§4 Account flows** —
@@ -422,10 +422,11 @@ Tester:    machine half automated; §3–§9 are the maintainer's
 
 Findings:
 
+- **Blocker of the first cut, fixed: the installed backend did not start off the build machine (#819).** Release Candidate Smoke [41341411496](https://github.com/TheVoxRox/mail/actions/runs/41341411496) failed both jobs on the tag at `e3283f7`, a fresh install and the update from `v0.1.0`: the sidecar stopped in Spring Boot's `JarLauncher` on a null `CodeSource` location, because on JDK 25 a class loaded from an AOT cache takes its code source from the directory the cache was trained in (JDK-8376576, fixed in JDK 28). Reproduced locally by moving the image and renaming the training directory. The tag and its draft were deleted unpublished; the backend now ships extracted and without a cache, and packaging starts a copy of the image outside the build tree. Release Candidate Smoke on this cut's build is the evidence that it starts installed.
 - **The first release that updates from a predecessor.** The §3a update smoke vN-1 → vN, accepted in §9 of `v0.1.0` for want of a previous version, is taken on this candidate: Release Candidate Smoke's update job from `v0.1.0`, and the updater itself on the beta channel from an installation of `v0.1.0` before the beta is announced.
 - **Found and fixed while cutting: `previousAppVersion` in the `app_started` audit record would have named the new version after the first update (#816).** The backup a version takes before migrating is the newest file when the record is written; the record now skips it. §3a's update smoke on the beta channel can read the record as the evidence of the version updated from.
 - **§0–§2 taken before the bump cannot see a test that holds the version.** Two did (§2), found by the pre-push gate and by CI on the cut's pull request rather than by §2. Until no test hard-codes it, the next cut runs `test:unit` and `test:e2e` once more after `bump:version`.
-- **This cut takes everything merged since `v0.1.0`:** the pull requests #752 to #816, among them the first new features (#797, #804, #805, #814, #815). Each fix that merges from here adds its number to the next item.
+- **This cut takes everything merged since `v0.1.0`:** the pull requests #752 to #819, among them the first new features (#797, #804, #805, #814, #815). Each fix that merges from here adds its number to the next item.
 - **Waiting for the next cut:** none.
 
 ### Candidate 2026-10-19 — tag `v0.1.0` (see the object ids below)

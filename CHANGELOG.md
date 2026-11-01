@@ -19,35 +19,6 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
-### Tauri / Release
-
-- The backend ships extracted and without the AOT class cache. The first
-  `0.2.0-beta.1` candidate's backend did not start on any machine but the one
-  that built it: on JDK 25 a class loaded from an AOT cache takes its code
-  source from the directory the cache was trained in, which exists only there
-  (JDK-8376576, fixed in JDK 28), and Spring Boot's launcher stops on it.
-  Release Candidate Smoke caught it before anything was published. The jar now
-  ships as Spring Boot recommends for production, the application's own
-  classes in one jar and every library as a jar of its own in `app\lib`, and
-  starts faster than the executable jar did with its cache, about 2.7 s against
-  3.0 s on the desktop. The cache comes back once the runtime has the fix
-  (#819).
-
-### Repo
-
-- Packaging starts a copy of the image outside the build tree before it calls
-  the image done, the installed-app smokes fail on any warning or error the
-  JVM writes rather than only on an AOT one, and `npm run sidecar:rebuild:windows`
-  compares every jar of the image with `binaries/`, since the application jar
-  there is no longer the executable jar Maven builds. The release workflow and
-  a javadoc under `core/init` lie under the updater and crypto/storage audits
-  and are acknowledged in their ledgers, now at 3 and 4 of 8 (#819).
-- `npm run bump:version` also writes the project's own version into
-  `frontend/package-lock.json` and `frontend/src-tauri/Cargo.lock`, and
-  `npm run check:versions` compares both, seven files in all. The bump to
-  `0.2.0-beta.1` left both lockfiles on `0.1.0` with nothing to report it, and
-  the cut (#817) set them by hand (#818).
-
 ## [0.2.0-beta.1] - 2026-11-01
 
 ### Backend
@@ -357,13 +328,19 @@ Entries before 2026-09-17 predate that split and are left as written.
   `rustls-webpki` 0.103.16 and `webpki-roots` / `webpki-root-certs` 1.0.10
   (RUSTSEC-2026-0381, -0382, -0383, published 2026-10-19 and 2026-10-20). Only
   the lockfile moves (#763).
-- The installed backend starts on the AOT class cache that release builds
-  carry since #719, which 0.1.0 shipped and never used. The NSIS installer keeps
-  a file's time only to 2 seconds, rounding down, and the JVM refuses a cache
-  once the jar's time has moved, so a jar written on an odd second lost its
-  cache on every installation while the packaging check, which runs before
-  NSIS, still passed. Packaging now rounds the image's file times before
-  training, and that check fails on a time the installer would change (#756).
+- The backend starts faster, and no longer carries an AOT class cache. 0.1.0
+  shipped one that its installations refused on every start, because the
+  installer rounds the file times the cache records; #756 made it map. Mapped,
+  it stopped the start on every machine but the one that built it: on JDK 25 a
+  class loaded from such a cache takes its code source from the directory the
+  cache was trained in (JDK-8376576, fixed in JDK 28), and Spring Boot's
+  launcher stops on it. Release Candidate Smoke caught that on the first
+  candidate of this release, before anything was published. The backend now
+  ships as Spring Boot recommends for production, its own classes in one jar
+  and every library as a jar of its own in `app\lib`, and reaches ready in
+  about 2.7 s on the desktop, where the executable jar took about 4.3 s without
+  a usable cache and 3.0 s with one. The cache comes back once the runtime has
+  the fix (#756, #819).
 - An update no longer leaves the previous version's backend behind in the
   installation folder. The installer wrote the new files over the old ones in
   place, and the backend jar carries its version in its name, so each update
@@ -440,6 +417,23 @@ Provisional until §9 of the 2026-11-01 candidate sheet, per
   suffix; it now asks for one minor past `CLIENT_VERSION`. The About page's
   end-to-end test looked for the text `0.1.0` and now reads `CLIENT_VERSION`
   too (#817).
+- The second cut of `0.2.0-beta.1`. The first tag, on `e3283f7`, was deleted
+  unpublished with its draft once Release Candidate Smoke found the installed
+  backend could not start (#819); this cut takes #818 and #819 and re-takes §1
+  and §2 on `f9e0f93` (#820).
+- Packaging starts a copy of the image outside the build tree before it calls
+  the image done; the installed-app smokes, which since #756 failed on the
+  JVM's `aot` warnings in `mail-frontend.log`, fail on any warning or error the
+  JVM writes there; and `npm run sidecar:rebuild:windows` compares every jar of
+  the image with `binaries/`, since the application jar there is no longer the
+  executable jar Maven builds. The release workflow and a javadoc under
+  `core/init` lie under the updater and crypto/storage audits and are
+  acknowledged in their ledgers, now at 3 and 4 of 8 (#756, #819).
+- `npm run bump:version` also writes the project's own version into
+  `frontend/package-lock.json` and `frontend/src-tauri/Cargo.lock`, and
+  `npm run check:versions` compares both, seven files in all. The bump to
+  `0.2.0-beta.1` left both lockfiles on `0.1.0` with nothing to report it, and
+  the cut (#817) set them by hand (#818).
 - Development tools move up a patch or a minor: Svelte 5.57.3, Vite 8.3.5,
   knip 6.43.0 and typescript-eslint 8.72.1. Their fixes are to reactivity edge
   cases, hydration and the dev server, none of which the app is known to have
@@ -597,10 +591,6 @@ Provisional until §9 of the 2026-11-01 candidate sheet, per
   never affected, but checking a published installer against the repository's
   own config reported a key mismatch on a sound release; the new key verifies
   v0.1.0's installer against its `latest.json` (#755).
-- Release Candidate Smoke fails when the installed sidecar starts without its
-  AOT cache, read from the JVM's `aot` warnings in `mail-frontend.log`. Only an
-  installation shows that chain end to end, and the JVM only warns, so no other
-  check noticed 0.1.0's cache going unused (#756).
 - `todo.md` closes the release items that publishing v0.1.0 settled and moves
   their original text to `todo-archive.md`. The update smoke vN-1 → vN, accepted
   for the first ship, stays open as the item before 0.2.0, which now carries
