@@ -1,7 +1,7 @@
-import { access, cp, mkdir, rm } from 'node:fs/promises';
+import { access, cp, mkdir, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { recordBackendSourceHash } from './lib/sidecar-staleness.mjs';
+import { HASH_FILE_NAME } from './lib/sidecar-staleness.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const defaultSource = path.resolve(
@@ -57,14 +57,39 @@ try {
 }
 
 /*
- * Record what this binary was built from, so `tauri:dev` can refuse to run a
- * sidecar that no longer matches the checked-out backend (see
- * lib/sidecar-staleness.mjs). Written here rather than in the PowerShell
- * packaging step because this is the point where the binary becomes the one
- * the app will launch.
+ * What this image was built from came with it: packaging wrote the digest of
+ * the backend sources into app/ (see lib/sidecar-staleness.mjs), and the copy
+ * of app/ above brought it along, for `tauri:dev` to compare with the
+ * checked-out backend. Nothing is hashed here. This script copies whatever
+ * image backend/target/sidecar holds, which only packaging rebuilds and
+ * `mvn clean` leaves alone, so a digest of the working tree taken at sync time
+ * described the tree rather than the image — a sync after a backend change
+ * stamped the old image as fresh.
+ *
+ * Carried rather than checked, although the image's digest and the tree could
+ * be compared here and the copy refused. A verdict at sync time is the wrong
+ * moment: the tree moves on after a sync, so `tauri:dev` has to compare at
+ * launch regardless, and a second verdict here would need a way past it of
+ * its own for the run MAIL_ALLOW_STALE_SIDECAR exists for, an older backend on
+ * purpose. Carrying also leaves the copy a function of its source and
+ * destination alone: the release workflow passes both, and the digest goes
+ * wherever the image goes, where the one taken here always went to this
+ * checkout's binaries/.
  */
-const repoRoot = path.resolve(scriptDir, '..', '..');
-const { hash, fileCount } = await recordBackendSourceHash(repoRoot);
+let packagedFrom = null;
+try {
+	packagedFrom = (await readFile(path.join(destination, 'app', HASH_FILE_NAME), 'utf8')).trim();
+} catch {
+	// An image packaged before packaging recorded the digest; reported below.
+}
 
 console.log(`Copied backend sidecar to ${destination}`);
-console.log(`Backend sources at sync: ${hash.slice(0, 12)}… (${fileCount} files)`);
+if (packagedFrom) {
+	console.log(`Backend sources at packaging: ${packagedFrom.slice(0, 12)}…`);
+} else {
+	console.warn(
+		`The image carries no ${HASH_FILE_NAME}: it was packaged before packaging recorded one, ` +
+			'so tauri:dev cannot tell whether it matches the checked-out backend. Package it again ' +
+			'to switch the check on.'
+	);
+}

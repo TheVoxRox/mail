@@ -1,14 +1,15 @@
-import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
 	checkSidecarFreshness,
 	describeStaleness,
 	hashBackendSources,
-	HASH_FILE_NAME,
-	recordBackendSourceHash
+	HASH_FILE_NAME
 } from './lib/sidecar-staleness.mjs';
+import { createGateRepo } from './test-support/gate-repo.mjs';
 
 /*
  * The fixture is a directory tree, not a git repo: the check deliberately hashes
@@ -38,12 +39,16 @@ function packagedSidecar(launcher = LAUNCHER, externalBin = 'binaries/voxrox-mai
 	write(JAR);
 }
 
-/** A repo whose sidecar was synced from the sources currently on disk. */
+/**
+ * A repo whose sidecar was packaged from the sources currently on disk and then
+ * synced: the digest packaging recorded sits beside the jar.
+ */
 async function syncedFixture(launcher = LAUNCHER, externalBin) {
 	write('backend/src/main/java/org/voxrox/Service.java', 'class Service {}');
 	write('backend/pom.xml', '<project/>');
 	packagedSidecar(launcher, externalBin);
-	await recordBackendSourceHash(root);
+	const { hash } = await hashBackendSources(root);
+	write(`frontend/src-tauri/binaries/app/${HASH_FILE_NAME}`, `${hash}\n`);
 }
 
 beforeEach(() => {
@@ -72,12 +77,30 @@ describe('sidecar freshness', () => {
 		const result = await checkSidecarFreshness(root);
 
 		// No recorded hash is missing bookkeeping, not proof of staleness — a hard
-		// stop here would block every dev run until an unrelated re-sync.
+		// stop here would block every dev run until an unrelated repackage.
 		expect(result.status).toBe('unknown');
-		expect(describeStaleness(result).fatal).toBe(false);
+		const report = describeStaleness(result);
+		expect(report.fatal).toBe(false);
+		// Only packaging records the digest, so a way out that is only a sync
+		// leaves the warning where it was. The rebuild packages first.
+		expect(report.text).toContain('npm run sidecar:rebuild:windows');
+		expect(report.text).not.toContain('npm run sidecar:sync:windows');
 	});
 
-	it('accepts a sidecar synced from the sources on disk', async () => {
+	it('does not honour the digest the sync used to take at sync time', async () => {
+		// What binaries/ holds after a sync from before packaging recorded the
+		// digest: the tree as it stood at that sync, under the old name. It says
+		// nothing about the image, which may be days older than the tree.
+		write('backend/src/main/java/org/voxrox/Service.java', 'class Service {}');
+		write('backend/pom.xml', '<project/>');
+		packagedSidecar();
+		const { hash } = await hashBackendSources(root);
+		write('frontend/src-tauri/binaries/app/backend-source.sha256', `${hash}\n`);
+
+		expect((await checkSidecarFreshness(root)).status).toBe('unknown');
+	});
+
+	it('accepts a sidecar packaged from the sources on disk', async () => {
 		await syncedFixture();
 
 		const result = await checkSidecarFreshness(root);
@@ -96,8 +119,7 @@ describe('sidecar freshness', () => {
 		const report = describeStaleness(result);
 		expect(report.fatal).toBe(true);
 		// The report has to carry the way out, not just the verdict.
-		expect(report.text).toContain('package-sidecar-dev-windows.ps1');
-		expect(report.text).toContain('sidecar:sync:windows');
+		expect(report.text).toContain('npm run sidecar:rebuild:windows');
 		expect(report.text).toContain('MAIL_ALLOW_STALE_SIDECAR=1');
 	});
 
@@ -113,7 +135,7 @@ describe('sidecar freshness', () => {
 		expect(report.fatal).toBe(true);
 		expect(report.text).toContain('voxrox-mail-backend-<target triple>');
 		expect(report.text).toContain('mail-x86_64-pc-windows-msvc.exe');
-		expect(report.text).toContain('sidecar:sync:windows');
+		expect(report.text).toContain('npm run sidecar:rebuild:windows');
 	});
 
 	it('flags binaries/ holding the app image but no launcher at all', async () => {
@@ -225,17 +247,122 @@ describe('sidecar freshness', () => {
 
 		expect((await hashBackendSources(root)).hash).not.toBe(before.hash);
 	});
+});
 
-	it('writes the digest next to the jar under the documented name', async () => {
-		await syncedFixture();
+/*
+ * The digest describes an image, so it is taken where the image is built and
+ * travels with it. These run the real sync script (and the digest script
+ * packaging calls) as processes inside a throwaway repo, the way gate suites
+ * do: both find the repo from their own location, so only a copy inside the
+ * fixture keeps them off the real one. Packaging itself — Maven, jpackage — is
+ * out of reach of a test; what it leaves is laid out by hand below.
+ */
+describe('the digest travels with the image', () => {
+	const IMAGE = 'backend/target/sidecar/x86_64-pc-windows-msvc';
+	const SERVICE = 'backend/src/main/java/org/voxrox/Service.java';
 
-		const recorded = await hashBackendSources(root);
-		const written = (
-			await import('node:fs/promises').then((fs) =>
-				fs.readFile(path.join(root, 'frontend/src-tauri/binaries/app', HASH_FILE_NAME), 'utf8')
-			)
-		).trim();
+	let repo;
 
-		expect(written).toBe(recorded.hash);
+	beforeEach(() => {
+		repo = createGateRepo();
+		repo.write(SERVICE, 'class Service {}');
+		repo.write('backend/pom.xml', '<project/>');
+		repo.write(
+			'frontend/src-tauri/tauri.conf.json',
+			JSON.stringify({ bundle: { externalBin: ['binaries/voxrox-mail-backend'] } })
+		);
+	});
+
+	afterEach(() => {
+		repo.cleanup();
+	});
+
+	/**
+	 * What backend/scripts/package-sidecar-windows.ps1 leaves in target/sidecar:
+	 * the launcher, app/ and runtime/, and — once packaging records it — the
+	 * digest of the sources as they stood before the build, beside the jar.
+	 */
+	async function packageImage({ recordDigest = true } = {}) {
+		repo.write(`${IMAGE}/voxrox-mail-backend-x86_64-pc-windows-msvc.exe`, 'launcher');
+		repo.write(`${IMAGE}/app/mail-backend-0.1.0.jar`, 'jar');
+		repo.write(`${IMAGE}/app/voxrox-mail-backend-x86_64-pc-windows-msvc.cfg`, '[Application]');
+		repo.write(`${IMAGE}/runtime/release`, 'JAVA_VERSION="25"');
+		if (!recordDigest) return null;
+		const { hash } = await hashBackendSources(repo.root);
+		repo.write(`${IMAGE}/app/${HASH_FILE_NAME}`, `${hash}\n`);
+		return hash;
+	}
+
+	function sync(args = []) {
+		const result = repo.run('sync-backend-sidecar-windows.mjs', args);
+		expect(result.status, result.output).toBe(0);
+		return result;
+	}
+
+	it('keeps an image packaged before a backend change stale through a sync', async () => {
+		// target/sidecar outlives `mvn clean`, and the sync copies whatever it
+		// holds. Seen 2026-10-31: it still held the image of 2026-10-27 after
+		// #810 changed backend/pom.xml, and a sync would have called it fresh.
+		const packagedFrom = await packageImage();
+		repo.write(SERVICE, 'class Service { void added() {} }');
+
+		sync();
+
+		const result = await checkSidecarFreshness(repo.root);
+		expect(result.status).toBe('stale');
+		expect(result.recorded).toBe(packagedFrom);
+	});
+
+	it('accepts what the release workflow does: package, then sync with explicit paths', async () => {
+		// windows-signed-release.yml, from frontend/ right after its own
+		// packaging step.
+		await packageImage();
+
+		sync([
+			path.join('..', 'backend', 'target', 'sidecar', 'x86_64-pc-windows-msvc'),
+			path.join('src-tauri', 'binaries')
+		]);
+
+		expect((await checkSidecarFreshness(repo.root)).status).toBe('ok');
+	});
+
+	it('leaves an image packaged before the digest was recorded unknown, never ok', async () => {
+		await packageImage({ recordDigest: false });
+
+		const synced = sync();
+
+		expect((await checkSidecarFreshness(repo.root)).status).toBe('unknown');
+		// Said at the sync too, where the old image is being put in place.
+		expect(synced.output).toContain(HASH_FILE_NAME);
+	});
+
+	it('is printed for packaging over the backend the script sits beside', async () => {
+		const printed = repo.run('print-backend-source-digest.mjs');
+
+		expect(printed.status, printed.output).toBe(0);
+		expect(printed.stdout.trim()).toBe((await hashBackendSources(repo.root)).hash);
+	});
+
+	it('is taken by packaging before Maven runs and written under the name the check reads', () => {
+		const script = readFileSync(
+			path.resolve(
+				path.dirname(fileURLToPath(import.meta.url)),
+				'..',
+				'..',
+				'backend',
+				'scripts',
+				'package-sidecar-windows.ps1'
+			),
+			'utf8'
+		);
+		const digestAt = script.search(/&\s*node\b[^\n]*print-backend-source-digest\.mjs/);
+		const mavenAt = script.search(/&\s*\$MavenCommand\b/);
+
+		expect(digestAt).toBeGreaterThan(-1);
+		expect(mavenAt).toBeGreaterThan(-1);
+		// Taken after the build, the digest would vouch for an edit made while
+		// Maven ran, which the image does not contain.
+		expect(digestAt).toBeLessThan(mavenAt);
+		expect(script).toContain(`"app\\${HASH_FILE_NAME}"`);
 	});
 });

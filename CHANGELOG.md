@@ -308,6 +308,20 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- `npm run sidecar:rebuild:windows` rebuilds the dev sidecar in one command. It
+  refuses while anything runs out of `frontend/src-tauri`, packages, syncs,
+  checks that the jar in `binaries/` is byte for byte the one just built and
+  that `tauri:dev` will call it fresh, and runs the sidecar smoke unless told
+  `--skip-smoke`. The freshness check, the boot error and the READMEs name it as
+  the way to rebuild, and the packaging script now cleans before it builds,
+  since a file deleted from `src/main/resources` stayed in the jar (#811).
+- `npm run tauri:dev` no longer calls an old sidecar fresh after a sync: the
+  digest of the backend sources is taken by the packaging script before the
+  build and travels inside the image, where the sync used to take it at sync
+  time and so vouched for whatever image `backend/target/sidecar` held, however
+  old. A sidecar packaged before this reads as unknown until it is packaged
+  again, and the boot error for a sidecar without `appName` names the packaging
+  script instead of `mvn package`, which never rebuilt the image (#811).
 - The IMAP/SMTP audit is 1.84 (§5, the empty-list re-read), the threat model
   3.35 and the release check 3.11; the drift under the audit's code paths is
   acknowledged in its ledger until the change's independent pass.
