@@ -262,18 +262,48 @@ A standalone `mvn spring-boot:run` keeps springdoc on the classpath, but serves
 and `MAIL_SWAGGER_UI_ENABLED=true`; both default to `false` in
 `application.properties`.
 
-### JEP 483 AOT class cache (experimental, default OFF)
+### JEP 483 AOT class cache (off until the runtime has JDK-8376576)
 
-Java 25+ supports "ahead-of-time class loading & linking" — on exit the JVM
-writes a binary cache of class loading + linking metadata, which is attached on
-the next start instead of being rebuilt from the jar. Combined with Spring AOT
-this can shorten the cold start by a further ~20-40 % beyond the other JVM
-optimisations.
+Java 25+ supports "ahead-of-time class loading & linking": a training run
+writes a binary cache of class loading and linking metadata, which a later
+start maps instead of rebuilding it from the jars. Release builds shipped such
+a cache, trained on the build machine, from 0.1.0 to the first `0.2.0-beta.1`
+candidate. **Since 2026-11-01 they do not.**
 
-**The default is OFF** in `package-sidecar-windows.ps1` (parameter
-`-EnableAotCache`). The cache is enabled explicitly because of its size (~115 MB
-next to the jar) and its binding to the exact jar hash + Java version — it has to
-be regenerated on every jar rebuild.
+On JDK 25 a class the JVM loads from the cache takes its `CodeSource` from the
+path the cache was trained at. On any other machine that path does not exist
+and the location is `null`; Spring Boot's `JarLauncher` reads it first thing,
+so the backend stopped before it started ("`Cannot invoke
+"java.net.URL.toURI()" because the return value of
+"java.security.CodeSource.getLocation()" is null`"). The JDK fixed this in 28
+(JDK-8376576) with no JDK 25 update. 0.1.0 never hit it only because its cache
+never mapped on an installation (#756). The packaging check that started the
+image on its cache passed, because it ran on the build machine, where the
+training directory exists; Release Candidate Smoke caught it on the installed
+candidate, and moving the image elsewhere while renaming the training
+directory reproduces it.
+
+What ships instead is the layout Spring Boot recommends for production: the
+executable jar extracted (`java -Djarmode=tools -jar … extract`) into an
+application jar, whose manifest names the main class and a `Class-Path` into
+`lib\`, and the dependencies as plain jars in `lib\`. Measured on one machine,
+three starts of each: the extracted layout without a cache reaches ready in
+about 2.7 s, against 3.0 s for the executable jar with its cache and 4.3 s
+without (PERFORMANCE_BASELINE.md, 2026-11-01).
+
+Bringing the cache back takes all of:
+
+- a runtime with the JDK-8376576 fix;
+- training on the extracted layout, not the executable jar: Spring Boot
+  documents a cache used with the executable jar as having no effect, since
+  every class past the launcher comes through a class loader of its own;
+- the file times rounded to the installer's 2 seconds before training (NSIS
+  rounds them down on install, and the JVM compares the jar's time in whole
+  seconds; the rounding step went with the cache, see git history of
+  `package-sidecar-windows.ps1` before 2026-11-01);
+- a packaging check that starts the image with the training directory gone,
+  and an installed-app smoke that checks the cache maps rather than only that
+  the JVM did not warn.
 
 > Historical note: an older version of the codebase had `@Lazy <Self> self`
 > injection in `ContactService` and `MailContentService`, which failed under
@@ -286,48 +316,9 @@ be regenerated on every jar rebuild.
 > equivalent CGLib lazy proxy, test the startup from a `mvn -Paot package` jar,
 > not only from `spring-boot:run`.
 
-Workflow (when enabled):
-
-1. `package-sidecar-windows.ps1 -EnableAotCache` runs `generate-aot-cache-windows.ps1`
-   after the jpackage app-image step, **through the image's own launcher**, with
-   the training options in `JAVA_TOOL_OPTIONS`:
-   - phase 1 (record): `-XX:AOTMode=record -XX:AOTConfiguration=<file>`, and the
-     env `MAIL_AOT_TRAINING_RUN=1` activates `AotTrainingExitListener`, which
-     calls `System.exit(0)` after `ApplicationReadyEvent`. The JVM writes the
-     config file.
-   - phase 2 (create): `-XX:AOTMode=create -XX:AOTConfiguration=<file>
--XX:AOTCache=<file>` reads the config and builds the binary cache (~100-200 MB).
-   - the cache is moved to `app\mail.aot` in the image.
-2. Only then does the script add `java-options=-XX:AOTCache=$APPDIR\mail.aot` to
-   the launcher's `.cfg`: a `.cfg` that already names a cache stops the record
-   phase. The launcher expands `$APPDIR`, so the cache is found from any working
-   directory.
-3. A packaging step starts the published launcher from another directory with
-   `-XX:AOTMode=on` and fails the build if the JVM does not map the cache.
-
-The cache fits only the runtime it was trained on: the JVM compares the runtime
-image's `lib\modules` and the jar with what it saw while training and, on a
-mismatch, warns and starts without the cache. Training with the system `java`
-therefore yields a cache the app image refuses — which is what every release
-build did until 2026-10-17 ("`runtime\lib\modules` ... size has changed").
-
-The jar's modification time is part of that comparison, in whole seconds, and
-**the NSIS installer keeps file times only to 2 seconds**, rounding down
-(`18:36:01.4` installs as `18:36:00`). A jar written on an odd second therefore
-mapped in the packaging check, which runs before NSIS, and was refused on every
-installation ("`mail-backend-0.1.0.jar`, timestamp has changed"), 0.1.0
-included. Packaging now rounds every file time in the image down to 2 seconds
-before training, and the packaging check fails on a jar or `lib\modules` off
-that grid. Only an installation shows the whole chain, so
-`installed-app-smoke.mjs` also fails on an `aot` warning in
-`mail-frontend.log`. A local build may not reproduce the problem: where
-`project.build.outputTimestamp` resolves to 1980-02-01 (it does with Maven
-3.10.0), the jar carries that date, which is on the grid, while the 0.1.0
-release build's jar carried the time it was built.
-
-Manually, against a `mvn package` jar and the system JDK (what
-`measure-cold-start-windows.ps1` does for itself; such a cache does not fit the
-app image):
+The training script stays, for measurement against a `mvn package` jar and the
+system JDK (what `measure-cold-start-windows.ps1` does for itself; such a cache
+does not fit the app image):
 
 ```powershell
 .\scripts\generate-aot-cache-windows.ps1 `

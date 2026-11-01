@@ -33,22 +33,27 @@ function write(relative, contents) {
 }
 
 /**
- * The repo as packaging and the sync leave it when both worked: the jar built
- * in backend/target, the same jar in binaries/app, and beside it the digest of
- * the sources on disk. The runner below only records the commands, so this is
- * what they would have left behind.
+ * The repo as packaging and the sync leave it when both worked: the image
+ * published under backend/target/sidecar, the application jar extracted with
+ * its libraries in lib/, the same jars in binaries/app, and beside them the
+ * digest of the sources on disk. The runner below only records the commands,
+ * so this is what they would have left behind.
  */
-async function rebuiltFixture({ syncedJar = 'jar bytes' } = {}) {
+async function rebuiltFixture({ syncedJar = 'jar bytes', syncedLib = 'lib bytes' } = {}) {
+	const image = 'backend/target/sidecar/x86_64-pc-windows-msvc/app';
 	write('backend/src/main/java/org/voxrox/Service.java', 'class Service {}');
 	write('backend/pom.xml', '<project/>');
-	write('backend/target/mail-backend-0.1.0.jar', 'jar bytes');
-	write('backend/target/mail-backend-0.1.0.jar.original', 'the jar before repackaging');
+	write('backend/target/mail-backend-0.1.0.jar', 'the executable jar the image was extracted from');
+	write(`${image}/mail-backend-0.1.0.jar`, 'jar bytes');
+	write(`${image}/lib/dependency-1.0.jar`, 'lib bytes');
 	write(
 		'frontend/src-tauri/tauri.conf.json',
 		JSON.stringify({ bundle: { externalBin: ['binaries/voxrox-mail-backend'] } })
 	);
 	write('frontend/src-tauri/binaries/voxrox-mail-backend-x86_64-pc-windows-msvc.exe', 'launcher');
 	write('frontend/src-tauri/binaries/app/mail-backend-0.1.0.jar', syncedJar);
+	if (syncedLib !== null)
+		write('frontend/src-tauri/binaries/app/lib/dependency-1.0.jar', syncedLib);
 	const { hash } = await hashBackendSources(root);
 	write(`frontend/src-tauri/binaries/app/${HASH_FILE_NAME}`, `${hash}\n`);
 }
@@ -126,9 +131,18 @@ describe('sidecar rebuild', () => {
 		const { ran, deps } = recorder();
 
 		await expect(rebuildSidecar(root, parseRebuildArgs([]), deps)).rejects.toThrow(
-			/not the one packaging just built/
+			/not the ones packaging just built[\s\S]*differs or missing: mail-backend-0\.1\.0\.jar/
 		);
 		expect(ran).toEqual(['package', 'sync']);
+	});
+
+	it('fails when a library of the image did not reach binaries/', async () => {
+		await rebuiltFixture({ syncedLib: null });
+		const { deps } = recorder();
+
+		await expect(rebuildSidecar(root, parseRebuildArgs([]), deps)).rejects.toThrow(
+			/differs or missing: lib[\\/]dependency-1\.0\.jar/
+		);
 	});
 
 	it('fails when the freshness check tauri:dev runs would not say ok', async () => {

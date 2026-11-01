@@ -70,18 +70,19 @@ export function sessionProblems(session) {
 }
 
 /**
- * Lines of the Tauri log in which the sidecar's JVM refused its AOT cache or
- * failed to map it. The JVM warns and starts without the cache, so nothing
- * else notices: every check still passes and only the cold start is slower.
- * 0.1.0 shipped like that. The sidecar's stderr reaches mail-frontend.log line
- * by line, in the `[uptime][level][tags]` decoration the launcher's .cfg asks
- * for. The JVM tags these lines `aot`; `cds` is matched as well, being the tag
- * the same checks logged under before JDK 25.
+ * Lines of the Tauri log in which the sidecar's JVM wrote a warning or an
+ * error. The JVM says these and carries on, so nothing else notices: every
+ * check still passes. 0.1.0 shipped like that, with an AOT cache the JVM
+ * refused on every installed start and only a slower start to show for it.
+ * The sidecar's stderr reaches mail-frontend.log line by line, in the
+ * `[uptime][level][tags]` decoration the launcher's .cfg asks for, and the
+ * level is what is read: any tag set, and only in that decoration, so a
+ * message quoting one does not count.
  */
-export function aotCacheProblems(log) {
+export function jvmLogProblems(log) {
 	return log
 		.split(/\r?\n/)
-		.filter((line) => /\[(?:warning|error) *\]\[(?:[^\]]*,)?(?:aot|cds)[,\]]/.test(line))
+		.filter((line) => /\[\d+(?:\.\d+)?s\]\[(?:warning|error) *\]\[[^\]\s]+\]/.test(line))
 		.map((line) => line.trim());
 }
 

@@ -7,19 +7,12 @@ param(
     [string] $TargetTriple = "x86_64-pc-windows-msvc",
     [string] $OutputRoot = "target\sidecar",
     [switch] $SkipTests,
-    # JEP 483/514 AOT class cache (experimental, default OFF). The cache is tied
-    # to the exact jar hash + Java version — it must be regenerated whenever
-    # the jar is rebuilt, and ~115 MB lands next to the jar. Before enabling,
-    # read the OPERATIONS.md section "JEP 483 AOT class cache" and verify that
-    # the runtime startup does not throw exceptions from Spring AOT proxy
-    # generation.
-    [switch] $EnableAotCache,
     # OAuth is required by default: the build fails if any OAuth client identifier
     # is missing or still the non-working "mail-local-*" placeholder. Shipping such
     # a build leaves OAuth login silently broken only in production — the
     # placeholder is sent to Google/Microsoft as the client_id and rejected with
     # invalid_client / "OAuth client was not found". Pass -AllowPlaceholderOAuth for
-    # a local build that does not need a working OAuth login (packaging / AOT /
+    # a local build that does not need a working OAuth login (packaging /
     # sidecar-lifecycle testing); it warns and ships the placeholder instead of
     # failing. Release packaging (windows-signed-release.yml) must never pass it.
     [switch] $AllowPlaceholderOAuth
@@ -169,10 +162,35 @@ Invoke-Step "Preparing output directory" {
     Remove-ItemWithRetry -Path $jpackageInputDir
     Remove-ItemWithRetry -Path $jpackageWorkDir
     Remove-ItemWithRetry -Path $sidecarDir
-    New-Item -ItemType Directory -Force -Path $jpackageInputDir | Out-Null
     New-Item -ItemType Directory -Force -Path $jpackageWorkDir | Out-Null
     New-Item -ItemType Directory -Force -Path $sidecarDir | Out-Null
-    Copy-Item -LiteralPath $jar.FullName -Destination $jpackageInputDir -Force
+}
+
+Invoke-Step "Extracting the application from the executable jar" {
+    # The image ships the jar extracted, as Spring Boot recommends for
+    # production: an application jar of the project's own classes whose
+    # manifest names the main class and a Class-Path into lib\, where every
+    # dependency sits as a plain jar. The executable jar it replaces started
+    # through Spring Boot's JarLauncher, which reads nested jars through a class
+    # loader of its own. Every class past the launcher came from that loader,
+    # which the JVM's class-data sharing does not serve, and the launcher reads
+    # its own location from its CodeSource, which an AOT cache moved from the
+    # build machine leaves null on JDK 25 (JDK-8376576, below).
+    #
+    # The java beside jpackage, so the extraction runs on the JDK that builds
+    # the image rather than whichever java PATH reaches first.
+    $javaExe = Join-Path (Split-Path -Parent (Get-Command jpackage).Source) "java.exe"
+    & $javaExe "-Djarmode=tools" -jar $jar.FullName extract --destination $jpackageInputDir
+    if ($LASTEXITCODE -ne 0) {
+        throw "Extracting $($jar.Name) failed with exit code $LASTEXITCODE."
+    }
+    $appJar = Join-Path $jpackageInputDir $jar.Name
+    $libDir = Join-Path $jpackageInputDir "lib"
+    if (-not (Test-Path -LiteralPath $appJar) -or -not (Test-Path -LiteralPath $libDir)) {
+        throw "Extracting $($jar.Name) did not leave $($jar.Name) and lib\ in $jpackageInputDir."
+    }
+    $libCount = @(Get-ChildItem -LiteralPath $libDir -Filter "*.jar").Count
+    Write-Host "  $($jar.Name) and $libCount libraries in lib\."
 }
 
 Invoke-Step "Resolving OAuth client configuration" {
@@ -334,11 +352,16 @@ Invoke-Step "Creating Windows app-image sidecar with jpackage" {
         $jvmOptionArgs += $option
     }
 
-    # The AOT cache option (-EnableAotCache) is not passed here: the cache is
-    # trained through this image's own launcher, and a .cfg that already names
-    # a cache stops the record phase ("AOTCache must not be specified when using
-    # -XX:AOTMode=record"). The "Generating AOT class cache" step below adds it
-    # to the .cfg once the cache exists.
+    # No -XX:AOTCache. The JEP 483 class cache shipped from 0.1.0 on, trained
+    # on the build machine, and #756 made it map on an installed build -- where
+    # it broke the start: on JDK 25 a class the cache loads takes its CodeSource
+    # from the path the cache was trained at, and on any other machine that path
+    # does not exist, so the location is null (JDK-8376576, fixed in JDK 28, no
+    # 25 update). The cache comes back once the runtime has that fix, trained
+    # on this extracted layout, and with a packaging check that starts the
+    # image while the training directory is gone: a check on the build machine
+    # passes either way, which is how this reached a release candidate.
+    # backend/scripts/generate-aot-cache-windows.ps1 keeps the training.
 
     # jlink options. --include-locales is the reason jdk.localedata can stay:
     # the module costs 10 MB whole and nothing once cut to the two locales this
@@ -386,64 +409,6 @@ Invoke-Step "Creating Windows app-image sidecar with jpackage" {
 $imageDir = Join-Path $jpackageWorkDir $productName
 if (-not (Test-Path $imageDir)) {
     throw "jpackage output image was not created: $imageDir"
-}
-
-# The option that wires the cache in. $APPDIR is expanded by the launcher, so the
-# cache is found from whatever working directory the app was started in; the
-# relative app\mail.aot this replaced resolved against the working directory,
-# which is the install dir only when a shortcut sets it.
-$aotCacheOption = '-XX:AOTCache=$APPDIR\mail.aot'
-
-if ($EnableAotCache) {
-    Invoke-Step "Rounding image file times down to what the installer keeps" {
-        # The JVM refuses a cache when the jar's modification time, in whole
-        # seconds, differs from what training saw ("timestamp has changed"),
-        # and NSIS keeps a file's time only to the 2 seconds of a DOS timestamp,
-        # rounding down: 18:36:01.4 installs as 18:36:00. A jar written on an
-        # odd second therefore lost its cache on every installation, 0.1.0's
-        # included, while the check after publishing passed, because it runs
-        # before NSIS. Rounding before training makes the installed time exact.
-        # Every file, not only the jar, so that nothing the JVM checks depends
-        # on the second it was built in.
-        $twoSeconds = 2 * [TimeSpan]::TicksPerSecond
-        foreach ($file in Get-ChildItem -LiteralPath $imageDir -Recurse -File) {
-            $utc = $file.LastWriteTimeUtc
-            $file.LastWriteTimeUtc = $utc.AddTicks(-($utc.Ticks % $twoSeconds))
-        }
-    }
-
-    Invoke-Step "Generating AOT class cache (JEP 483)" {
-        $cachePath = Join-Path $imageDir "app\mail.aot"
-        # Trained through the image's launcher: the cache then matches the
-        # jlinked runtime, the jar and the JVM options that ship, and nothing
-        # else -- see generate-aot-cache-windows.ps1 for what the JVM checks.
-        & (Join-Path $PSScriptRoot "generate-aot-cache-windows.ps1") `
-            -LauncherPath (Join-Path $imageDir "$productName.exe") `
-            -CachePath $cachePath
-
-        if (-not (Test-Path -LiteralPath $cachePath)) {
-            throw "AOT cache was not generated: $cachePath"
-        }
-
-        # Appended after the last java-options line rather than passed to
-        # jpackage, for the reason given at the jpackage step. The .cfg is an INI
-        # file the launcher reads line by line; its own line ending is kept.
-        $cfgPath = Join-Path $imageDir "app\$productName.cfg"
-        $cfgText = [System.IO.File]::ReadAllText($cfgPath)
-        $newline = if ($cfgText.Contains("`r`n")) { "`r`n" } else { "`n" }
-        $lines = [System.Collections.Generic.List[string]]::new([string[]]($cfgText -split '\r?\n'))
-        $lastOption = -1
-        for ($i = 0; $i -lt $lines.Count; $i++) {
-            if ($lines[$i].StartsWith('java-options=')) {
-                $lastOption = $i
-            }
-        }
-        if ($lastOption -lt 0) {
-            throw "Launcher config $cfgPath has no java-options line to add the AOT cache option after."
-        }
-        $lines.Insert($lastOption + 1, "java-options=$aotCacheOption")
-        [System.IO.File]::WriteAllText($cfgPath, ($lines -join $newline), [System.Text.UTF8Encoding]::new($false))
-    }
 }
 
 Invoke-Step "Publishing sidecar image" {
@@ -539,60 +504,48 @@ Invoke-Step "Verifying JVM options in launcher" {
     Write-Host "  All $($script:jvmOptions.Count) JVM options present in the launcher."
 }
 
-if ($EnableAotCache) {
-    Invoke-Step "Verifying the AOT cache maps in the published image" {
-        # A cache the JVM refuses costs nothing visible: the JVM warns and starts
-        # without it. Every release build until 2026-10-17 shipped one like that,
-        # so this asks the JVM itself rather than checking that a file exists.
-        # -XX:AOTMode=on turns a refused cache into a failed start, and
-        # MAIL_AOT_TRAINING_RUN=1 ends the run once the application is ready.
-        # The working directory is not the image's, which is the case the
-        # relative path this replaced got wrong.
-        $cfgPath = Join-Path $sidecarDir "app\$sidecarName.cfg"
-        if (@(Get-Content -LiteralPath $cfgPath) -notcontains "java-options=$aotCacheOption") {
-            throw "Launcher $cfgPath does not carry java-options=$aotCacheOption."
-        }
-        # The start below happens before NSIS, so it cannot see the installer
-        # changing a time; this can. A time off the 2-second grid would map
-        # here and be refused once installed (see the rounding step).
-        foreach ($checked in @("app\$($jar.Name)", "runtime\lib\modules")) {
-            $time = (Get-Item -LiteralPath (Join-Path $sidecarDir $checked)).LastWriteTimeUtc
-            if ($time.Ticks % (2 * [TimeSpan]::TicksPerSecond) -ne 0) {
-                throw "$checked in $sidecarDir is dated $($time.ToString('o')), which the installer rounds down to 2 seconds; the JVM would refuse the AOT cache once installed."
-            }
-        }
+Invoke-Step "Verifying the published image starts outside the build tree" {
+    # From a copy in a directory of its own, the way an installation is one:
+    # whatever the image reads at start has to travel with it, and nothing may
+    # point back into target\. The AOT cache this replaced did exactly that (see
+    # the jpackage step) and passed a check that started the image where it was
+    # built. MAIL_AOT_TRAINING_RUN=1 ends the run once the application is ready,
+    # whatever the name says; a launcher that never gets there is stopped after
+    # two minutes rather than left to hang the build. The launcher hosts the JVM
+    # in its own process, so stopping it stops the backend.
+    $checkRoot = Join-Path ([System.IO.Path]::GetTempPath()) "voxrox-sidecar-start-check-$PID"
+    $checkImage = Join-Path $checkRoot "image"
+    $checkDataDir = Join-Path $checkRoot "data"
+    $checkLogs = Join-Path $checkRoot "logs"
+    Remove-ItemWithRetry -Path $checkRoot
+    New-Item -ItemType Directory -Force -Path $checkDataDir, $checkLogs | Out-Null
+    Copy-Item -LiteralPath $sidecarDir -Destination $checkImage -Recurse
+    $stdout = Join-Path $checkLogs "stdout.log"
+    $stderr = Join-Path $checkLogs "stderr.log"
 
-        $checkDataDir = Join-Path $outputRootPath "aot-check-data"
-        $checkLogs = Join-Path $outputRootPath "aot-check"
-        Remove-ItemWithRetry -Path $checkDataDir
-        Remove-ItemWithRetry -Path $checkLogs
-        New-Item -ItemType Directory -Force -Path $checkDataDir | Out-Null
-        New-Item -ItemType Directory -Force -Path $checkLogs | Out-Null
-        $stdout = Join-Path $checkLogs "stdout.log"
-        $stderr = Join-Path $checkLogs "stderr.log"
-
-        $env:JAVA_TOOL_OPTIONS = "-XX:AOTMode=on"
-        $env:MAIL_AOT_TRAINING_RUN = "1"
-        $env:APP_DATA_DIR = $checkDataDir
-        try {
-            $process = Start-Process -FilePath $exePath -WorkingDirectory $checkLogs `
-                -RedirectStandardOutput $stdout -RedirectStandardError $stderr `
-                -NoNewWindow -Wait -PassThru
-            $exitCode = $process.ExitCode
-        } finally {
-            Remove-Item Env:JAVA_TOOL_OPTIONS -ErrorAction SilentlyContinue
-            Remove-Item Env:MAIL_AOT_TRAINING_RUN -ErrorAction SilentlyContinue
-            Remove-Item Env:APP_DATA_DIR -ErrorAction SilentlyContinue
+    $env:MAIL_AOT_TRAINING_RUN = "1"
+    $env:APP_DATA_DIR = $checkDataDir
+    try {
+        $process = Start-Process -FilePath (Join-Path $checkImage "$sidecarName.exe") -WorkingDirectory $checkLogs `
+            -RedirectStandardOutput $stdout -RedirectStandardError $stderr -NoNewWindow -PassThru
+        # Without a handle taken while it runs, ExitCode reads empty afterwards.
+        $null = $process.Handle
+        if ($process.WaitForExit(120000)) {
+            $result = "exit $($process.ExitCode)"
+        } else {
+            Stop-Process -Id $process.Id -Force
+            $result = "no ready within two minutes"
         }
-
-        if ($exitCode -ne 0) {
+        if ($result -ne "exit 0") {
             $tail = (@(Get-Content -LiteralPath $stderr -Tail 10) + @(Get-Content -LiteralPath $stdout -Tail 5)) -join "`n"
-            throw "The published launcher did not start on its AOT cache with -XX:AOTMode=on (exit $exitCode). Last output:`n$tail"
+            throw "A copy of the published image did not start to ready outside the build tree ($result). Last output:`n$tail"
         }
-        Remove-ItemWithRetry -Path $checkDataDir
-        Remove-ItemWithRetry -Path $checkLogs
-        Write-Host "  The JVM mapped app\mail.aot from outside the image directory and started on it."
+    } finally {
+        Remove-Item Env:MAIL_AOT_TRAINING_RUN -ErrorAction SilentlyContinue
+        Remove-Item Env:APP_DATA_DIR -ErrorAction SilentlyContinue
+        Remove-ItemWithRetry -Path $checkRoot
     }
+    Write-Host "  A copy of the image outside target\ started to ready and exited."
 }
 
 Invoke-Step "Verifying runtime module set" {
