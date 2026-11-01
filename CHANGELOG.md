@@ -305,6 +305,14 @@ Entries before 2026-09-17 predate that split and are left as written.
 - Save logs replaces a token right after an accent written as a combining
   mark, as the diagnostic dump now does, instead of keeping it as part of the
   word before (#780).
+- The shell takes Tauri 2.12.5, with `tauri-codegen` and `tauri-macros` 2.7.4,
+  `tauri-runtime-wry` 2.12.3 and `tauri-build` 2.7.4 for its build. Their fixes
+  are for Linux and for builds that recompiled with nothing changed, so nothing
+  in the Windows app is meant to change; `ico` 0.6 drops the older of the two
+  `png` versions from the tree. The installer fixes 2.12.5 lists come with the
+  CLI, which this does not move. The shell's license list also catches up with
+  `rustls-webpki` 0.103.16 and `webpki-roots` 1.0.10, which #763 took without
+  it (#788).
 
 ### Repo
 
