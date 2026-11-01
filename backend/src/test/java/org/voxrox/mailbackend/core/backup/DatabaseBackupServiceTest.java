@@ -147,6 +147,20 @@ class DatabaseBackupServiceTest {
     }
 
     @Test
+    @DisplayName("previousAppVersion skips the backup the current version took at this start")
+    void previousAppVersionSkipsCurrentVersionsBackup() throws Exception {
+        seedDatabase();
+        createBackup("0.1.0", 1_000L);
+
+        // Startup order: the backup is taken before Flyway, the audit record reads
+        // previousAppVersion after the application is ready.
+        DatabaseBackupService service = service("0.2.0-beta.1");
+        service.createPreMigrationBackup();
+
+        assertThat(service.previousAppVersion()).isEqualTo("0.1.0");
+    }
+
+    @Test
     @DisplayName("previousAppVersion is null when there are no backups")
     void previousAppVersionNullWithoutBackups() {
         assertThat(service("1.1.0").previousAppVersion()).isNull();
