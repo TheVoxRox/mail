@@ -21,6 +21,14 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Backend
 
+- The folder list says which folder each one is shown under, so the app can
+  show the hierarchy without reading the server's folder names (#815). A
+  subfolder of Sent, Trash, Archive or another system folder now follows it,
+  where it used to stand among the user's own folders; a system folder kept
+  under a user folder still has its fixed place. A folder under one that cannot
+  hold messages, such as Gmail's `[Gmail]`, is top-level, and where every
+  folder lives under the inbox (Courier, older Dovecot) none is shown under it.
+  Folders under one parent are ordered by the name they show.
 - Folders come in a fixed order: Inbox and its subfolders, then Newsletters,
   Drafts, Sent, Trash, Archive and Spam, then the user's own folders
   alphabetically, each subfolder right below its parent. The list used to keep
@@ -105,6 +113,14 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- The mail sidebar shows which folder is a subfolder of which. A subfolder
+  showed only its own name among the top-level folders, so "Projekty/2024"
+  read as "2024" with nothing saying where it lived. It is now indented under
+  its parent, in a list nested in the parent's item, so a screen reader
+  announces entering it, and in browse mode the nesting level. The Move to
+  menus put a folder's subfolders in a group named after it, announced on
+  entering it, since a menu item has no nesting level of its own. Opening a
+  subfolder no longer marks its parent as the current folder too (#815).
 - The account wizard offers **Přihlásit přes Microsoft** and **Přihlásit přes
   Google** under "Pracovní nebo školní účet?" for an address whose domain it
   does not know, next to the server settings. A work account's sign-in used to

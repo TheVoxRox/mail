@@ -1,21 +1,27 @@
 package org.voxrox.mailbackend.feature.mail.service;
 
-import org.voxrox.mailbackend.feature.mail.dto.FolderConstants;
+import org.jspecify.annotations.Nullable;
 import org.voxrox.mailbackend.feature.mail.dto.FolderResponse;
 import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 
 import module java.base;
 
 /**
- * The order the folder list is shown in: the inbox and its subfolders, the
- * other system folders in the fixed order of {@link #SYSTEM_ORDER}, then the
- * user's own folders. Subfolders are ordered alphabetically by path in the
- * language of the request, so each one follows its parent.
+ * The order and the hierarchy the folder list is shown in: the inbox and its
+ * subfolders, the other system folders in the fixed order of
+ * {@link #SYSTEM_ORDER}, then the user's own folders. Each folder is followed
+ * by its subfolders, and folders under one parent are ordered alphabetically by
+ * the name they show, in the language of the request.
  *
  * <p>
  * Before it the list kept the order of the server's LIST response, which IMAP
  * leaves to the server: the inbox was not necessarily on top, and the same
  * folders came in a different order from each provider.
+ *
+ * <p>
+ * The {@code parentRef} it returns is where the folder is shown, which is not
+ * always where the server keeps it, see {@link #shownUnder}. The client renders
+ * the hierarchy from it, so the order and the nesting cannot disagree.
  *
  * <p>
  * Folders that share a role keep the server's relative order, so "the first
@@ -34,8 +40,7 @@ final class FolderDisplayOrder {
             FolderRole.SENT, FolderRole.TRASH, FolderRole.ARCHIVE, FolderRole.JUNK);
 
     private static final int INBOX_GROUP = 0;
-    private static final int INBOX_SUBFOLDER_GROUP = 1;
-    private static final int FIRST_SYSTEM_GROUP = 2;
+    private static final int FIRST_SYSTEM_GROUP = 1;
     private static final int USER_GROUP = FIRST_SYSTEM_GROUP + SYSTEM_ORDER.size();
 
     private FolderDisplayOrder() {
@@ -43,82 +48,117 @@ final class FolderDisplayOrder {
 
     static List<FolderResponse> sort(List<FolderResponse> folders, Locale locale) {
         Collator collator = Collator.getInstance(locale);
-        boolean inboxIsParent = inboxIsParent(folders);
-        Comparator<FolderResponse> order = Comparator
-                .comparingInt((FolderResponse folder) -> group(folder, inboxIsParent))
-                .thenComparing((a, b) -> a.role() == FolderRole.USER ? comparePaths(path(a), path(b), collator) : 0);
-        // Stream.sorted is stable on a list, which is what keeps a role's folders in
-        // the server's order.
-        return folders.stream().sorted(order).toList();
+        Map<String, FolderResponse> byRef = HashMap.newHashMap(folders.size());
+        folders.forEach(folder -> byRef.putIfAbsent(folder.folderRef(), folder));
+        String inboxRef = folders.stream().filter(folder -> folder.role() == FolderRole.INBOX)
+                .map(FolderResponse::folderRef).findFirst().orElse(null);
+        boolean inboxIsParent = inboxIsParent(folders, byRef, inboxRef);
+
+        List<FolderResponse> roots = new ArrayList<>();
+        Map<String, List<FolderResponse>> children = new HashMap<>();
+        for (FolderResponse folder : folders) {
+            String parentRef = shownUnder(folder, byRef, inboxRef, inboxIsParent);
+            FolderResponse shown = Objects.equals(parentRef, folder.parentRef())
+                    ? folder
+                    : new FolderResponse(folder.displayName(), folder.folderRef(), folder.unreadCount(), folder.role(),
+                            parentRef);
+            if (parentRef == null) {
+                roots.add(shown);
+            } else {
+                children.computeIfAbsent(parentRef, ref -> new ArrayList<>()).add(shown);
+            }
+        }
+
+        Comparator<FolderResponse> byName = (a, b) -> collator.compare(a.displayName(), b.displayName());
+        // List.sort is stable, which is what keeps a role's folders in the server's
+        // order.
+        roots.sort(Comparator.comparingInt(FolderDisplayOrder::group)
+                .thenComparing((a, b) -> a.role() == FolderRole.USER ? byName.compare(a, b) : 0));
+        /*
+         * Each folder, then its subfolders, depth first. A stack of its own rather than
+         * recursion: the depth is the server's to choose, and a hierarchy a few
+         * thousand levels deep must not overflow the request thread's. Each list of
+         * subfolders is taken out of the map as it is placed, so a folder appears once
+         * even if the server listed its parent's name twice.
+         */
+        List<FolderResponse> sorted = new ArrayList<>(folders.size());
+        Deque<FolderResponse> pending = new ArrayDeque<>(roots);
+        while (!pending.isEmpty()) {
+            FolderResponse folder = pending.pop();
+            sorted.add(folder);
+            List<FolderResponse> subfolders = children.remove(folder.folderRef());
+            if (subfolders != null) {
+                subfolders.sort(byName);
+                subfolders.reversed().forEach(pending::push);
+            }
+        }
+        return List.copyOf(sorted);
     }
 
-    private static int group(FolderResponse folder, boolean inboxIsParent) {
+    private static int group(FolderResponse folder) {
         return switch (folder.role()) {
             case INBOX -> INBOX_GROUP;
-            case USER -> inboxIsParent && isUnderInbox(folder) ? INBOX_SUBFOLDER_GROUP : USER_GROUP;
+            case USER -> USER_GROUP;
             default -> FIRST_SYSTEM_GROUP + SYSTEM_ORDER.indexOf(folder.role());
         };
     }
 
     /**
-     * Whether the inbox's subfolders go right below it, as in Outlook, where people
-     * file mail into them. Not where INBOX is the namespace every folder lives in,
-     * as on Courier and older Dovecot ("INBOX.Sent", "INBOX.Trash"): there every
-     * folder is a subfolder of the inbox, and keeping them below it would put the
-     * user's own folders above Drafts and Sent. A system folder below INBOX is the
-     * sign of that layout.
-     */
-    private static boolean inboxIsParent(List<FolderResponse> folders) {
-        return folders.stream().noneMatch(folder -> folder.role() != FolderRole.USER
-                && folder.role() != FolderRole.INBOX && isUnderInbox(folder));
-    }
-
-    private static boolean isUnderInbox(FolderResponse folder) {
-        List<String> path = path(folder);
-        return path.size() > 1 && path.getFirst().equals(FolderConstants.INBOX);
-    }
-
-    /**
-     * The folder's path, split at the server's hierarchy delimiter. The response
-     * does not carry the delimiter and does not need to: {@code displayName} is
-     * {@code Folder.getName()}, the part of the full name after the last delimiter,
-     * so the character in front of it in {@code folderRef} is the delimiter. A
-     * folder whose name is the whole ref (top level, or a server without hierarchy)
-     * is a path of one.
+     * The folder this one is shown under, or {@code null} for the top level.
+     * Usually the parent the server keeps it under, with two exceptions.
      *
      * <p>
-     * INBOX is case-insensitive in IMAP, so a subfolder may spell it otherwise. The
-     * path spells it one way, or the collation would part "Inbox/Clients" from
-     * "INBOX/Bills" on the case of the inbox's name.
+     * A system folder is always top-level, wherever the server keeps it: its place
+     * is its slot in the fixed order. Its own subfolders still follow it.
+     *
+     * <p>
+     * Where INBOX is the namespace every folder lives in, as on Courier and older
+     * Dovecot ("INBOX.Sent", "INBOX.Trash"), the inbox's subfolders are shown at
+     * the top level. Nested below it they would put the user's own folders above
+     * Drafts and Sent and indent every folder of the account one level for nothing.
+     * Their own subfolders stay nested.
      */
-    private static List<String> path(FolderResponse folder) {
-        String ref = folder.folderRef();
-        String name = folder.displayName();
-        int delimiterAt = ref.length() - name.length() - 1;
-        if (delimiterAt < 0 || !ref.endsWith(name)) {
-            return List.of(ref);
+    private static @Nullable String shownUnder(FolderResponse folder, Map<String, FolderResponse> byRef,
+            @Nullable String inboxRef, boolean inboxIsParent) {
+        String parentRef = folder.parentRef();
+        if (folder.role() != FolderRole.USER || parentRef == null || !byRef.containsKey(parentRef)) {
+            return null;
         }
-        String[] segments = ref.split(Pattern.quote(String.valueOf(ref.charAt(delimiterAt))), -1);
-        if (segments[0].equalsIgnoreCase(FolderConstants.INBOX)) {
-            segments[0] = FolderConstants.INBOX;
-        }
-        return List.of(segments);
+        return inboxIsParent || !parentRef.equals(inboxRef) ? parentRef : null;
     }
 
     /**
-     * Segment by segment rather than the whole ref at once: compared whole,
-     * "Projects, old" falls between "Projects" and "Projects/2024", because the
-     * comma sorts before the delimiter, and the subfolder ends up away from its
-     * parent.
+     * Whether the inbox's subfolders are shown below it, as in Outlook, where
+     * people file mail into them. Not where INBOX is the namespace of every folder,
+     * see {@link #shownUnder}; a system folder somewhere below INBOX is the sign of
+     * that layout.
      */
-    private static int comparePaths(List<String> a, List<String> b, Collator collator) {
-        for (int i = 0; i < Math.min(a.size(), b.size()); i++) {
-            int bySegment = collator.compare(a.get(i), b.get(i));
-            if (bySegment != 0) {
-                return bySegment;
+    private static boolean inboxIsParent(List<FolderResponse> folders, Map<String, FolderResponse> byRef,
+            @Nullable String inboxRef) {
+        if (inboxRef == null) {
+            return true;
+        }
+        for (FolderResponse folder : folders) {
+            if (folder.role() != FolderRole.USER && folder.role() != FolderRole.INBOX
+                    && isBelow(folder, inboxRef, byRef)) {
+                return false;
             }
         }
-        // One path is the start of the other: the parent goes first.
-        return Integer.compare(a.size(), b.size());
+        return true;
+    }
+
+    /**
+     * Walks up the server's hierarchy. The walk ends: ImapFolderService names a
+     * listed ancestor as the parent, whose name is shorter than the folder's own.
+     */
+    private static boolean isBelow(FolderResponse folder, String ancestorRef, Map<String, FolderResponse> byRef) {
+        FolderResponse current = folder;
+        while (current != null && current.parentRef() != null) {
+            if (ancestorRef.equals(current.parentRef())) {
+                return true;
+            }
+            current = byRef.get(current.parentRef());
+        }
+        return false;
     }
 }

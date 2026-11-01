@@ -159,6 +159,11 @@ export interface FolderResponse {
 	folderRef: string;
 	unreadCount: number;
 	role: FolderRole;
+	/**
+	 * `folderRef` of the folder this one is shown under, `null` at the top level.
+	 * Always a folder earlier in the same list; see `mail/folderTree`.
+	 */
+	parentRef: string | null;
 }
 
 // ─── Messages: listing / detail / content ──────────────────────────────────

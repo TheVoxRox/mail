@@ -155,6 +155,11 @@ public class ImapFolderService {
             }
         }
 
+        Map<String, String> listedRefs = HashMap.newHashMap(folders.size());
+        for (Folder folder : folders) {
+            listedRefs.putIfAbsent(canonicalInbox(folder.getFullName()), folder.getFullName());
+        }
+
         List<FolderResponse> result = new ArrayList<>(folders.size());
         for (int i = 0; i < folders.size(); i++) {
             Folder folder = folders.get(i);
@@ -165,9 +170,48 @@ public class ImapFolderService {
                     role = byName;
                 }
             }
-            result.add(buildResponse(folder, accountId, role));
+            result.add(buildResponse(folder, accountId, role, parentRef(folder, listedRefs)));
         }
         return result;
+    }
+
+    /**
+     * The nearest ancestor that is in the listing, by the server's hierarchy
+     * delimiter. The direct parent is not always there: a \Noselect container was
+     * dropped above, so Gmail's "[Gmail]/Sent Mail" has no parent and is a
+     * top-level folder, and "A/B/C" under a dropped "A/B" hangs from "A".
+     *
+     * <p>
+     * A server without hierarchy reports no delimiter (NIL), which Angus returns as
+     * {@code '\0'}: no name contains it, so every folder is top-level.
+     */
+    private @Nullable String parentRef(Folder folder, Map<String, String> listedRefs) {
+        char delimiter;
+        try {
+            delimiter = folder.getSeparator();
+        } catch (MessagingException e) {
+            // Known from the LIST response, so this does not happen in practice; a
+            // folder shown at the top level beats a listing that fails.
+            log.trace("{} Could not determine the hierarchy delimiter of {}; showing it at the top level.",
+                    LogCategory.IMAP, folder.getFullName(), e);
+            return null;
+        }
+        String fullName = folder.getFullName();
+        for (int cut = fullName.lastIndexOf(delimiter); cut > 0; cut = fullName.lastIndexOf(delimiter, cut - 1)) {
+            String ancestor = listedRefs.get(canonicalInbox(fullName.substring(0, cut)));
+            if (ancestor != null) {
+                return ancestor;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * INBOX is case-insensitive in IMAP, so a subfolder may spell its parent
+     * "Inbox" while the listing says "INBOX". Both have to find the same folder.
+     */
+    private static String canonicalInbox(String fullName) {
+        return FolderConstants.INBOX.equalsIgnoreCase(fullName) ? FolderConstants.INBOX : fullName;
     }
 
     private boolean isSelectable(Folder folder) {
@@ -202,10 +246,10 @@ public class ImapFolderService {
         return detectRoleFromAttributes(folder);
     }
 
-    private FolderResponse buildResponse(Folder folder, Long accountId, FolderRole role) {
+    private FolderResponse buildResponse(Folder folder, Long accountId, FolderRole role, @Nullable String parentRef) {
         String fullName = folder.getFullName();
         int unreadCount = resolveUnreadCount(folder, accountId, fullName);
-        return new FolderResponse(folder.getName(), fullName, unreadCount, role);
+        return new FolderResponse(folder.getName(), fullName, unreadCount, role, parentRef);
     }
 
     /**

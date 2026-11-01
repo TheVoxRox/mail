@@ -3,6 +3,7 @@ package org.voxrox.mailbackend.feature.mail.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
@@ -253,6 +254,58 @@ class ImapFolderServiceTest {
         }
 
         @Test
+        @DisplayName("Each folder names its parent by the server's delimiter, whichever character that is")
+        void parentFollowsTheDelimiter() throws Exception {
+            mockFolderListing(nested("Projects", "Projects", '/'), nested("2024", "Projects/2024", '/'),
+                    nested("Q1", "Projects/2024/Q1", '/'), nested("Work", "Work", '.'),
+                    nested("Projects/2024", "Work.Projects/2024", '.'));
+
+            List<FolderResponse> result = service.getFolders(ACCOUNT_ID);
+
+            assertThat(result).extracting(FolderResponse::folderRef, FolderResponse::parentRef).containsExactly(
+                    tuple("Projects", null), tuple("Projects/2024", "Projects"),
+                    tuple("Projects/2024/Q1", "Projects/2024"), tuple("Work", null),
+                    tuple("Work.Projects/2024", "Work"));
+        }
+
+        @Test
+        @DisplayName("Under a \\Noselect container a folder names the nearest listed ancestor, or none (Gmail's '[Gmail]/Sent Mail')")
+        void parentSkipsNoselectContainers() throws Exception {
+            IMAPFolder gmailContainer = mock(IMAPFolder.class);
+            when(gmailContainer.getType()).thenReturn(Folder.HOLDS_FOLDERS);
+            IMAPFolder missingLevel = mock(IMAPFolder.class);
+            when(missingLevel.getType()).thenReturn(Folder.HOLDS_FOLDERS);
+
+            mockFolderListing(gmailContainer, nested("Sent Mail", "[Gmail]/Sent Mail", '/'),
+                    nested("Projects", "Projects", '/'), missingLevel, nested("Q1", "Projects/2024/Q1", '/'));
+
+            List<FolderResponse> result = service.getFolders(ACCOUNT_ID);
+
+            assertThat(result).extracting(FolderResponse::folderRef, FolderResponse::parentRef).containsExactly(
+                    tuple("[Gmail]/Sent Mail", null), tuple("Projects", null), tuple("Projects/2024/Q1", "Projects"));
+        }
+
+        @Test
+        @DisplayName("A subfolder that spells INBOX in another case names the listed INBOX as its parent")
+        void inboxParentIsCaseInsensitive() throws Exception {
+            mockFolderListing(nested("INBOX", "INBOX", '/'), nested("Clients", "Inbox/Clients", '/'));
+
+            List<FolderResponse> result = service.getFolders(ACCOUNT_ID);
+
+            assertThat(result).extracting(FolderResponse::parentRef).containsExactly(null, "INBOX");
+        }
+
+        @Test
+        @DisplayName("A server without hierarchy (NIL delimiter) lists every folder at the top level")
+        void noDelimiterMeansNoParent() throws Exception {
+            mockFolderListing(nested("Projects", "Projects", '\0'), nested("Projects/2024", "Projects/2024", '\0'));
+
+            List<FolderResponse> result = service.getFolders(ACCOUNT_ID);
+
+            assertThat(result).extracting(FolderResponse::parentRef).containsOnlyNulls();
+        }
+
+        @Test
         @DisplayName("Name-fallback still applies when no SPECIAL-USE sibling has claimed the role")
         void nameFallbackAppliesWhenRoleUnclaimed() throws Exception {
             // Provider that does not advertise SPECIAL-USE — name fallback must still work.
@@ -350,6 +403,12 @@ class ImapFolderServiceTest {
         when(folder.getFullName()).thenReturn(fullName);
         when(folder.getUnreadMessageCount()).thenReturn(unreadCount);
         when(folder.getType()).thenReturn(Folder.HOLDS_MESSAGES);
+        return folder;
+    }
+
+    private static Folder nested(String name, String fullName, char delimiter) throws MessagingException {
+        Folder folder = folder(name, fullName, 0);
+        when(folder.getSeparator()).thenReturn(delimiter);
         return folder;
     }
 }
