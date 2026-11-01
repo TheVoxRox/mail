@@ -278,6 +278,13 @@ Entries before 2026-09-17 predate that split and are left as written.
 - With the reading pane off, the way back from an open message is an outlined
   button reading **← Zpět do složky Doručené** in full, instead of a muted
   **← Doručené** that testers did not see as the way back (#809).
+- Menus, dialogs and the command palette run on bits-ui 2.20.2 instead of
+  2.19.5, with `@floating-ui` 1.8 and `tabbable` 6.5 under it. Of its fixes,
+  these reach what the app uses: the palette no longer mounts all its items
+  again on the first character typed, moving focus into a menu or a dialog and
+  back on close no longer scrolls the page, a click right after a dialog closes
+  is no longer lost, and a menu item pressed while the menu scrolls under a
+  still pointer is the one chosen (#786).
 
 ### Tauri / Release
 
