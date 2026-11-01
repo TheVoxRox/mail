@@ -7,7 +7,7 @@ vi.mock('$app/paths', () => ({
 }));
 
 function folder(folderRef: string, role: FolderRole = 'USER'): FolderResponse {
-	return { folderRef, displayName: folderRef, role, unreadCount: 0 };
+	return { folderRef, displayName: folderRef, role, unreadCount: 0, parentRef: null };
 }
 
 const LIST = [folder('Archive'), folder('INBOX', 'INBOX'), folder('SENT', 'SENT')];

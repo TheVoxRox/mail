@@ -20,6 +20,7 @@
 	import { Surface } from '#lib/components/ui/surface/index.js';
 	import { _ } from '#lib/i18n/index.js';
 	import { folderLabel } from '#lib/mail/folderLabel.js';
+	import { folderTree, type FolderNode } from '#lib/mail/folderTree.js';
 	import type { FolderResponse } from '#lib/types.js';
 
 	function folderHref(folder: FolderResponse): string {
@@ -31,16 +32,20 @@
 		});
 	}
 
+	/*
+	 * The folder's own segment, or a page below it (a message), and nothing
+	 * longer: a subfolder's encoded ref starts with its parent's ("Projekty" and
+	 * "Projekty%2F2024"), and a bare prefix test marked the parent current too.
+	 */
 	function isActive(folder: FolderResponse): boolean {
 		const acc = get(activeAccount);
 		if (!acc) return false;
 		const pathname = page.url.pathname;
-		return pathname.startsWith(
-			resolve('/mail/[accountId]/[folderName]', {
-				accountId: String(acc.id),
-				folderName: encodeURIComponent(folder.folderRef)
-			})
-		);
+		const folderPath = resolve('/mail/[accountId]/[folderName]', {
+			accountId: String(acc.id),
+			folderName: encodeURIComponent(folder.folderRef)
+		});
+		return pathname === folderPath || pathname.startsWith(`${folderPath}/`);
 	}
 
 	/*
@@ -83,7 +88,46 @@
 	}
 
 	const accountSettingsHref = resolve('settings/accounts');
+
+	const folderNodes = $derived(folderTree($folders));
 </script>
+
+<!--
+	A subfolder sits in a list nested in its parent's item. The nesting is the
+	hierarchy for a screen reader: entering the inner list is announced, and in
+	browse mode with its nesting level, while each folder stays a link in the
+	tab order as before. The indent is the same fact for the eye. Chosen with the
+	maintainer over a tree (one tab stop, arrow keys, and expand/collapse it
+	would call for) and over a flat list naming the parent in a description.
+-->
+{#snippet folderItems(nodes: FolderNode[])}
+	{#each nodes as { folder, subfolders } (folder.folderRef)}
+		{@const active = isActive(folder)}
+		<li>
+			<!-- Folders are navigation targets, so render real links (href),
+			     consistent with the app rail — not buttons inside a <nav>. -->
+			<SidebarNavItem href={folderHref(folder)} {active}>
+				{folderLabel(folder, $_)}
+
+				{#snippet badge()}
+					{#if folder.unreadCount > 0}
+						<span
+							class={sidebarNavBadge}
+							aria-label={$_('nav.unreadBadge', { values: { count: folder.unreadCount } })}
+						>
+							{folder.unreadCount}
+						</span>
+					{/if}
+				{/snippet}
+			</SidebarNavItem>
+			{#if subfolders.length > 0}
+				<ul role="list" class="mt-1 space-y-1 ps-4">
+					{@render folderItems(subfolders)}
+				</ul>
+			{/if}
+		</li>
+	{/each}
+{/snippet}
 
 {#snippet header()}
 	<h2 class="text-base font-semibold">{$_('workspace.mail')}</h2>
@@ -205,27 +249,7 @@
 						</Surface>
 					</li>
 				{:else}
-					{#each $folders as folder (folder.folderRef)}
-						{@const active = isActive(folder)}
-						<li>
-							<!-- Folders are navigation targets, so render real links (href),
-							     consistent with the app rail — not buttons inside a <nav>. -->
-							<SidebarNavItem href={folderHref(folder)} {active}>
-								{folderLabel(folder, $_)}
-
-								{#snippet badge()}
-									{#if folder.unreadCount > 0}
-										<span
-											class={sidebarNavBadge}
-											aria-label={$_('nav.unreadBadge', { values: { count: folder.unreadCount } })}
-										>
-											{folder.unreadCount}
-										</span>
-									{/if}
-								{/snippet}
-							</SidebarNavItem>
-						</li>
-					{/each}
+					{@render folderItems(folderNodes)}
 				{/if}
 			</ul>
 		{/if}

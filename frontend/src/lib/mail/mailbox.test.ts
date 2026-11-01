@@ -137,8 +137,8 @@ const TRASH_REF = 'Trash';
 
 function folderList() {
 	return [
-		{ displayName: 'Inbox', folderRef: 'INBOX', unreadCount: 0, role: 'INBOX' },
-		{ displayName: 'Trash', folderRef: TRASH_REF, unreadCount: 0, role: 'TRASH' }
+		{ displayName: 'Inbox', folderRef: 'INBOX', unreadCount: 0, role: 'INBOX', parentRef: null },
+		{ displayName: 'Trash', folderRef: TRASH_REF, unreadCount: 0, role: 'TRASH', parentRef: null }
 	];
 }
 
@@ -550,7 +550,13 @@ describe('archiveMessage - Backspace on the open message', () => {
 		foldersStore.set([
 			...folderList(),
 			// A server name that is not "Archive": the role picks the target, not the name.
-			{ displayName: 'Archives', folderRef: ARCHIVE_REF, unreadCount: 0, role: 'ARCHIVE' }
+			{
+				displayName: 'Archives',
+				folderRef: ARCHIVE_REF,
+				unreadCount: 0,
+				role: 'ARCHIVE',
+				parentRef: null
+			}
 		]);
 		messagesStore.set(readyMessages('INBOX', ['m1']));
 		searchStore.set({ status: 'idle' });
@@ -621,7 +627,13 @@ describe('archiveMessage - Backspace on a list row', () => {
 		vi.clearAllMocks();
 		foldersStore.set([
 			...folderList(),
-			{ displayName: 'Archive', folderRef: 'Archive', unreadCount: 0, role: 'ARCHIVE' }
+			{
+				displayName: 'Archive',
+				folderRef: 'Archive',
+				unreadCount: 0,
+				role: 'ARCHIVE',
+				parentRef: null
+			}
 		]);
 		messagesStore.set(readyMessages('INBOX', ['m1', 'm2']));
 		searchStore.set({ status: 'idle' });

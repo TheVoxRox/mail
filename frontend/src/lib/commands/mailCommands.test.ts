@@ -66,9 +66,27 @@ describe('createMailCommands — moving', () => {
 			pathname: '/mail/1/INBOX/msg-01',
 			stableId: 'msg-01',
 			folders: [
-				{ displayName: 'Inbox', folderRef: 'INBOX', unreadCount: 0, role: 'INBOX' },
-				{ displayName: 'Archiv', folderRef: 'Archive', unreadCount: 0, role: 'ARCHIVE' },
-				{ displayName: 'Projekty', folderRef: 'Projects', unreadCount: 0, role: 'USER' }
+				{
+					displayName: 'Inbox',
+					folderRef: 'INBOX',
+					unreadCount: 0,
+					role: 'INBOX',
+					parentRef: null
+				},
+				{
+					displayName: 'Archiv',
+					folderRef: 'Archive',
+					unreadCount: 0,
+					role: 'ARCHIVE',
+					parentRef: null
+				},
+				{
+					displayName: 'Projekty',
+					folderRef: 'Projects',
+					unreadCount: 0,
+					role: 'USER',
+					parentRef: null
+				}
 			]
 		}).filter((command) => command.id.startsWith('mail.move.'));
 		expect(moves.map((command) => [command.id, command.shortcut])).toEqual([

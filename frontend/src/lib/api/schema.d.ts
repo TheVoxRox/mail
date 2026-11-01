@@ -1275,6 +1275,8 @@ export interface components {
 			displayName?: string;
 			/** @description Opaque folder reference. The client does not parse it, only passes it back to other mail endpoints. */
 			folderRef?: string;
+			/** @description folderRef of the folder this one is shown under, always one in the same list. Null for a top-level folder, which includes a folder whose parent cannot hold messages and is not listed. */
+			parentRef?: string | null;
 			/** @enum {string} */
 			role?: 'INBOX' | 'SENT' | 'TRASH' | 'DRAFTS' | 'JUNK' | 'ARCHIVE' | 'NEWSLETTERS' | 'USER';
 			/** Format: int32 */

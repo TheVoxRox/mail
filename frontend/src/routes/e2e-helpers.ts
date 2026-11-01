@@ -398,6 +398,26 @@ const REVIEWED_INCOMPLETE: ReadonlyArray<{
 				: Promise.resolve(false)
 	},
 	{
+		rule: 'aria-valid-attr-value',
+		reason:
+			'The trigger of an open menu. axe does not resolve aria-controls on an element with ' +
+			'aria-haspopup, since the popup may not exist yet, and files every open menu trigger ' +
+			'undecided (controlsWithinPopup). Decided in the page instead (4.1.2): the trigger is ' +
+			'expanded and its aria-controls names an element with role="menu" that exists.',
+		covers: (page, node) =>
+			messageKeys(node).includes('controlsWithinPopup')
+				? page.evaluate((selector) => {
+						const el = typeof selector === 'string' ? document.querySelector(selector) : null;
+						const controls = el?.getAttribute('aria-controls');
+						return (
+							el?.getAttribute('aria-expanded') === 'true' &&
+							controls != null &&
+							document.getElementById(controls)?.getAttribute('role') === 'menu'
+						);
+					}, node.target[0])
+				: Promise.resolve(false)
+	},
+	{
 		rule: 'label-content-name-mismatch',
 		reason:
 			'The visible label holds no letter or digit (the × of a toast), and 2.5.3 concerns ' +

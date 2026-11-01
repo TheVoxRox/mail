@@ -43,19 +43,24 @@
   ],
   "docs/API_SURFACE_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/resources/application.properties": "6f4dcc647382dd679f0ff713b79931a3b92c2d48"
+      "backend/src/main/resources/application.properties": "6f4dcc647382dd679f0ff713b79931a3b92c2d48",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "0fdf83ac3b32d0a646493dd17faaf21b7c1d577a"
     },
     "acknowledgements": [
       {
         "date": "2026-10-31",
         "note": "One key added, springdoc.swagger-ui.version=@swagger-ui.version@, Maven-filtered from the new swagger-ui.version property in backend/pom.xml, which pins the org.webjars:swagger-ui webjar to 5.34.1 (DOMPurify 3.4.17) ahead of the 5.32.14 springdoc manages; the nightly OWASP scan failed on five DOMPurify advisories against the older bundle (#806). The key only names the versioned webjar directory springdoc serves /swagger-ui/** from, so the UI resolves when it is switched on. Section 1's springdoc claim holds: springdoc.api-docs.enabled and springdoc.swagger-ui.enabled still default to false, the PUBLIC_ENDPOINTS list is untouched, and repackage and process-aot still exclude both org.springdoc and the swagger-ui webjar (check:repackage-excludes agrees on the same 9 artifacts), so the sidecar serves nothing new and carries no new code. No other key changed. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-01",
+        "note": "#815. FolderResponse, the body of GET /api/v1/accounts/{accountId}/folders, gains a nullable parentRef: the folderRef of another folder in the same response, or null. It carries nothing the response did not hold: every value is a folderRef already in that list, and the folder names were in it already as folderRef and displayName. The compact constructor drops a blank parentRef or one equal to the folder's own ref; a four-argument constructor keeps the old shape with parentRef null. No endpoint, request body, validation, authentication or error path changed, and no other DTO in the package moved; the OpenAPI snapshot gains the one field. Verdict unchanged."
       }
     ]
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/resources/application.properties": "6f4dcc647382dd679f0ff713b79931a3b92c2d48",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "6930a827d26f8a0f9b1727cc01c30c1452af0376"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "b8582de9bfdea064114ab217f00d07025e44c7b3"
     },
     "acknowledgements": [
       {
@@ -69,6 +74,10 @@
       {
         "date": "2026-11-01",
         "note": "Folder display order. FolderDisplayOrder (new) sorts the list MailFacade.getFolders returns to GET /api/v1/accounts/{accountId}/folders: INBOX, its USER subfolders (unless a system folder also lives under INBOX, the Courier namespace layout), the other system roles in a fixed order, then USER folders by path in the request's collation. It is an in-memory sort of the FolderResponse list ImapFolderService already produced: no IMAP command, no folder opened, no bound moved, and nothing held beyond a copy of the list. The cached list and every internal caller of ImapFolderService.getFolders (the sync's folder listing, role resolution, the move target check) keep the server's order, and folders sharing a role keep their relative order in the sorted list too, so the folder a role resolves to does not move. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-01",
+        "note": "#815, folder hierarchy. ImapFolderService.listFolders gives each FolderResponse a parentRef: the nearest ancestor, by Folder.getSeparator(), that is in the same listing (an ancestor spelled Inbox finds INBOX), else null. The delimiter is the one Angus holds from the LIST response for every listed folder, so no IMAP command is added and no folder is opened; the walk cuts the folder's own name at each delimiter and looks the prefix up in a map of the listed names, so it is bounded by the name's length and holds nothing beyond the listing. A MessagingException from getSeparator is logged at TRACE and leaves the folder top-level instead of failing the listing. FolderDisplayOrder now orders from parentRef rather than from the delimiter read out of folderRef: roots in the fixed role order, each followed by its subfolders, walked with its own stack so a hierarchy as deep as the server makes it cannot overflow the request thread (FolderDisplayOrderTest places 100,000 levels; the recursive form overflows on it, run and seen). The parentRef it returns is the display one: a system folder is top-level, and on the Courier namespace layout INBOX's children are. Still an in-memory reorder of the list ImapFolderService produced, which the cache and the internal callers keep in the server's order and with the server's parentRef; folders sharing a role keep their relative order. Verdict unchanged."
       }
     ]
   },

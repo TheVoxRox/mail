@@ -1,7 +1,9 @@
 package org.voxrox.mailbackend.feature.mail.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -46,43 +48,91 @@ class FolderDisplayOrderTest {
     @Test
     @DisplayName("A subfolder follows its parent, also where a sibling's name would sort between them")
     void subfolderFollowsItsParent() {
-        List<FolderResponse> listed = List.of(nested("Projects, old", '/'), nested("Projects/2024", '/'),
-                nested("Projects", '/'), nested("Projects/2024/Q1", '/'), nested("Archive 2020", '/'));
+        List<FolderResponse> listed = List.of(folder("Projects, old", FolderRole.USER),
+                child("Projects/2024", "Projects"), folder("Projects", FolderRole.USER),
+                child("Projects/2024/Q1", "Projects/2024"), child("Projects/2023", "Projects"),
+                folder("Archive 2020", FolderRole.USER));
 
-        assertThat(FolderDisplayOrder.sort(listed, Locale.ENGLISH)).extracting(FolderResponse::folderRef)
-                .containsExactly("Archive 2020", "Projects", "Projects/2024", "Projects/2024/Q1", "Projects, old");
+        assertThat(FolderDisplayOrder.sort(listed, Locale.ENGLISH))
+                .extracting(FolderResponse::folderRef, FolderResponse::parentRef)
+                .containsExactly(tuple("Archive 2020", null), tuple("Projects", null),
+                        tuple("Projects/2023", "Projects"), tuple("Projects/2024", "Projects"),
+                        tuple("Projects/2024/Q1", "Projects/2024"), tuple("Projects, old", null));
     }
 
     @Test
-    @DisplayName("A dot delimiter splits the path the same way")
-    void dotDelimiterSplitsThePath() {
-        List<FolderResponse> listed = List.of(nested("Work.Projects, old", '.'), nested("Work.Projects.2024", '.'),
-                nested("Work.Projects", '.'));
-
-        assertThat(FolderDisplayOrder.sort(listed, Locale.ENGLISH)).extracting(FolderResponse::folderRef)
-                .containsExactly("Work.Projects", "Work.Projects.2024", "Work.Projects, old");
-    }
-
-    @Test
-    @DisplayName("The inbox's subfolders come right below it, ahead of the other system folders, whatever case spells INBOX")
+    @DisplayName("The inbox's subfolders come right below it, ahead of the other system folders")
     void inboxSubfoldersFollowTheInbox() {
-        List<FolderResponse> listed = List.of(folder("Alpha", FolderRole.USER), nested("Inbox/Zeta", '/'),
-                folder("Drafts", FolderRole.DRAFTS), nested("INBOX/Clients/2024", '/'),
-                folder("INBOX", FolderRole.INBOX), nested("INBOX/Clients", '/'));
+        List<FolderResponse> listed = List.of(folder("Alpha", FolderRole.USER), child("Inbox/Zeta", "INBOX"),
+                folder("Drafts", FolderRole.DRAFTS), child("INBOX/Clients/2024", "INBOX/Clients"),
+                folder("INBOX", FolderRole.INBOX), child("INBOX/Clients", "INBOX"));
 
-        assertThat(FolderDisplayOrder.sort(listed, Locale.ENGLISH)).extracting(FolderResponse::folderRef)
-                .containsExactly("INBOX", "INBOX/Clients", "INBOX/Clients/2024", "Inbox/Zeta", "Drafts", "Alpha");
+        assertThat(FolderDisplayOrder.sort(listed, Locale.ENGLISH))
+                .extracting(FolderResponse::folderRef, FolderResponse::parentRef).containsExactly(tuple("INBOX", null),
+                        tuple("INBOX/Clients", "INBOX"), tuple("INBOX/Clients/2024", "INBOX/Clients"),
+                        tuple("Inbox/Zeta", "INBOX"), tuple("Drafts", null), tuple("Alpha", null));
     }
 
     @Test
-    @DisplayName("Where every folder lives under INBOX, its subfolders are the user's own and come after the system ones")
+    @DisplayName("Where every folder lives under INBOX, its subfolders are top-level and the user's own come after the system ones")
     void inboxAsNamespaceKeepsUserFoldersLast() {
-        List<FolderResponse> listed = List.of(nested("INBOX.Projects", '.'), nested("INBOX.Sent", '.', FolderRole.SENT),
-                folder("INBOX", FolderRole.INBOX), nested("INBOX.Archive 2020", '.'),
-                nested("INBOX.Trash", '.', FolderRole.TRASH));
+        List<FolderResponse> listed = List.of(child("INBOX.Projects", "INBOX"),
+                child("INBOX.Sent", "INBOX", FolderRole.SENT), folder("INBOX", FolderRole.INBOX),
+                child("INBOX.Projects.2024", "INBOX.Projects"), child("INBOX.Archive 2020", "INBOX"),
+                child("INBOX.Trash", "INBOX", FolderRole.TRASH));
 
-        assertThat(FolderDisplayOrder.sort(listed, Locale.ENGLISH)).extracting(FolderResponse::folderRef)
-                .containsExactly("INBOX", "INBOX.Sent", "INBOX.Trash", "INBOX.Archive 2020", "INBOX.Projects");
+        assertThat(FolderDisplayOrder.sort(listed, Locale.ENGLISH))
+                .extracting(FolderResponse::folderRef, FolderResponse::parentRef).containsExactly(tuple("INBOX", null),
+                        tuple("INBOX.Sent", null), tuple("INBOX.Trash", null), tuple("INBOX.Archive 2020", null),
+                        tuple("INBOX.Projects", null), tuple("INBOX.Projects.2024", "INBOX.Projects"));
+    }
+
+    @Test
+    @DisplayName("A system folder's subfolders follow it, not the user's folders")
+    void systemFolderSubfoldersFollowIt() {
+        List<FolderResponse> listed = List.of(folder("Alpha", FolderRole.USER), child("Sent/2023", "Sent"),
+                folder("Zeta", FolderRole.USER), folder("Sent", FolderRole.SENT), folder("INBOX", FolderRole.INBOX));
+
+        assertThat(FolderDisplayOrder.sort(listed, Locale.ENGLISH))
+                .extracting(FolderResponse::folderRef, FolderResponse::parentRef).containsExactly(tuple("INBOX", null),
+                        tuple("Sent", null), tuple("Sent/2023", "Sent"), tuple("Alpha", null), tuple("Zeta", null));
+    }
+
+    @Test
+    @DisplayName("A system folder the server keeps under a user folder is shown at the top level, in its slot")
+    void systemFolderIsAlwaysTopLevel() {
+        List<FolderResponse> listed = List.of(child("Work/Junk", "Work", FolderRole.JUNK),
+                folder("Work", FolderRole.USER), folder("INBOX", FolderRole.INBOX));
+
+        assertThat(FolderDisplayOrder.sort(listed, Locale.ENGLISH))
+                .extracting(FolderResponse::folderRef, FolderResponse::parentRef)
+                .containsExactly(tuple("INBOX", null), tuple("Work/Junk", null), tuple("Work", null));
+    }
+
+    @Test
+    @DisplayName("A folder whose parent is not in the list is shown at the top level")
+    void folderWithUnlistedParentIsTopLevel() {
+        List<FolderResponse> listed = List.of(child("Gone/Kept", "Gone"), folder("Alpha", FolderRole.USER));
+
+        assertThat(FolderDisplayOrder.sort(listed, Locale.ENGLISH))
+                .extracting(FolderResponse::folderRef, FolderResponse::parentRef)
+                .containsExactly(tuple("Alpha", null), tuple("Gone/Kept", null));
+    }
+
+    @Test
+    @DisplayName("A hierarchy as deep as the server makes it is placed without running out of stack")
+    void deepHierarchyDoesNotOverflow() {
+        int depth = 100_000;
+        List<FolderResponse> listed = new ArrayList<>(depth);
+        listed.add(folder("f0", FolderRole.USER));
+        for (int i = 1; i < depth; i++) {
+            listed.add(new FolderResponse("f" + i, "f" + i, 0, FolderRole.USER, "f" + (i - 1)));
+        }
+
+        List<FolderResponse> sorted = FolderDisplayOrder.sort(listed.reversed(), Locale.ENGLISH);
+
+        assertThat(sorted).hasSize(depth);
+        assertThat(sorted.getLast().folderRef()).isEqualTo("f" + (depth - 1));
     }
 
     @Test
@@ -99,15 +149,15 @@ class FolderDisplayOrderTest {
         return new FolderResponse(ref, ref, 0, role);
     }
 
-    private static FolderResponse nested(String ref, char delimiter) {
-        return nested(ref, delimiter, FolderRole.USER);
+    private static FolderResponse child(String ref, String parentRef) {
+        return child(ref, parentRef, FolderRole.USER);
     }
 
     /**
      * A folder as ImapFolderService builds it: the display name is the part of the
-     * ref after the last delimiter.
+     * ref after its parent and the delimiter.
      */
-    private static FolderResponse nested(String ref, char delimiter, FolderRole role) {
-        return new FolderResponse(ref.substring(ref.lastIndexOf(delimiter) + 1), ref, 0, role);
+    private static FolderResponse child(String ref, String parentRef, FolderRole role) {
+        return new FolderResponse(ref.substring(parentRef.length() + 1), ref, 0, role, parentRef);
     }
 }

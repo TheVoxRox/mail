@@ -411,14 +411,63 @@ function createInitialState(): E2EFixtureState {
 		],
 		foldersByAccount: {
 			1: [
-				{ displayName: 'Doručené', folderRef: 'INBOX', unreadCount: 3, role: 'INBOX' },
-				{ displayName: 'Odeslané', folderRef: 'SENT', unreadCount: 0, role: 'SENT' },
-				{ displayName: 'Koncepty', folderRef: 'DRAFTS', unreadCount: 0, role: 'DRAFTS' },
-				{ displayName: 'Spam', folderRef: 'JUNK', unreadCount: 0, role: 'JUNK' },
-				{ displayName: 'Archiv', folderRef: 'ARCHIVE', unreadCount: 0, role: 'ARCHIVE' },
-				{ displayName: 'Koš', folderRef: 'TRASH', unreadCount: 0, role: 'TRASH' }
+				{
+					displayName: 'Doručené',
+					folderRef: 'INBOX',
+					unreadCount: 3,
+					role: 'INBOX',
+					parentRef: null
+				},
+				{
+					displayName: 'Odeslané',
+					folderRef: 'SENT',
+					unreadCount: 0,
+					role: 'SENT',
+					parentRef: null
+				},
+				{
+					displayName: 'Koncepty',
+					folderRef: 'DRAFTS',
+					unreadCount: 0,
+					role: 'DRAFTS',
+					parentRef: null
+				},
+				{ displayName: 'Spam', folderRef: 'JUNK', unreadCount: 0, role: 'JUNK', parentRef: null },
+				{
+					displayName: 'Archiv',
+					folderRef: 'ARCHIVE',
+					unreadCount: 0,
+					role: 'ARCHIVE',
+					parentRef: null
+				},
+				{ displayName: 'Koš', folderRef: 'TRASH', unreadCount: 0, role: 'TRASH', parentRef: null },
+				// A user folder with a subfolder, so the sidebar's nested list and the
+				// Move to menu's group are in every scan. The ref carries the server's
+				// delimiter as a real one would; the client never reads it.
+				{
+					displayName: 'Projekty',
+					folderRef: 'Projekty',
+					unreadCount: 0,
+					role: 'USER',
+					parentRef: null
+				},
+				{
+					displayName: '2024',
+					folderRef: 'Projekty/2024',
+					unreadCount: 0,
+					role: 'USER',
+					parentRef: 'Projekty'
+				}
 			],
-			2: [{ displayName: 'Doručené', folderRef: 'INBOX', unreadCount: 0, role: 'INBOX' }]
+			2: [
+				{
+					displayName: 'Doručené',
+					folderRef: 'INBOX',
+					unreadCount: 0,
+					role: 'INBOX',
+					parentRef: null
+				}
+			]
 		},
 		messagesByFolder: {
 			[folderKey(1, 'INBOX')]: inboxMessages.map((message) => ({ ...message })),
@@ -1008,7 +1057,13 @@ export function upsertAccount(
 	} else {
 		fixtureState.accounts.push(account);
 		fixtureState.foldersByAccount[id] = [
-			{ displayName: 'Doručené', folderRef: 'INBOX', unreadCount: 0, role: 'INBOX' }
+			{
+				displayName: 'Doručené',
+				folderRef: 'INBOX',
+				unreadCount: 0,
+				role: 'INBOX',
+				parentRef: null
+			}
 		];
 		fixtureState.messagesByFolder[folderKey(id, 'INBOX')] = [];
 		fixtureState.correspondentsByAccount[id] = [];
