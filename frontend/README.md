@@ -88,34 +88,50 @@ self-disable is what keeps production users from seeing secondary failures.
 
 ## Tauri Sidecar Build
 
-Build the backend sidecar image first, from `backend/`:
+One command packages the backend sidecar and puts it where Tauri looks for it:
 
 ```powershell
-.\package-sidecar-dev-windows.ps1 -SkipTests
+npm run sidecar:rebuild:windows
 ```
 
-It bakes the OAuth client ids from `backend/.env` into the launcher and then
-runs `scripts/package-sidecar-windows.ps1`, which on its own expects those ids
-in the environment, as CI provides them.
+It refuses while anything runs out of `src-tauri/binaries/` or `src-tauri/target/`
+(stop `npm run tauri:dev` first), and then:
 
-Then copy it into the Tauri bundle input and build the desktop app:
+1. packages the image with `backend/package-sidecar-dev-windows.ps1 -SkipTests`,
+   which bakes the OAuth client ids from `backend/.env` into the launcher and
+   runs `backend/scripts/package-sidecar-windows.ps1`: a clean Maven build,
+   then jpackage;
+2. copies it into `src-tauri/binaries/` with
+   `scripts/sync-backend-sidecar-windows.mjs`;
+3. checks that the jar there is byte for byte the one just built, and that the
+   check `npm run tauri:dev` runs calls the sidecar fresh;
+4. starts it once headless with `npm run tauri:smoke:sidecar`.
+
+`-- --skip-smoke` leaves out the last step. `-- --allow-placeholder-oauth`
+packages without the OAuth client ids, for a sidecar whose OAuth login will not
+work.
+
+Packaging records the digest of the backend sources it built from beside the
+jar, in `app/packaged-backend-source.sha256`, and the sync carries it along
+unchanged. `npm run tauri:dev` compares it with the checked-out backend and
+refuses a sidecar packaged from other sources, so after a backend change run the
+rebuild again: a sync alone copies the old image, digest and all.
+
+Then build the desktop app:
 
 ```powershell
-npm run sidecar:sync:windows
 npm run tauri:build
 ```
 
-The same two steps in one command (it syncs the sidecar, it does not package
-it):
+`npm run tauri:build:with-sidecar` syncs and builds in one go, without
+packaging: it bundles whatever image `backend/target/sidecar/` holds, such as
+one packaged by hand with `-EnableAotCache`, which the rebuild does not pass.
 
-```powershell
-npm run tauri:build:with-sidecar
-```
-
-The sync step copies the sidecar executable plus its `app/` and `runtime/`
+The sync copies the sidecar executable plus its `app/` and `runtime/`
 directories into `src-tauri/binaries/`. Those generated artifacts are ignored by
 Git; keep only `src-tauri/binaries/.gitkeep`. You can pass custom source and
-destination paths to `scripts/sync-backend-sidecar-windows.mjs` if needed.
+destination paths to `scripts/sync-backend-sidecar-windows.mjs`, as the release
+workflow does after packaging with the OAuth client ids from its secrets.
 
 The Java backend is distributed as a Windows sidecar produced by `jpackage`:
 `voxrox-mail-backend-x86_64-pc-windows-msvc.exe` plus the generated `app/` and

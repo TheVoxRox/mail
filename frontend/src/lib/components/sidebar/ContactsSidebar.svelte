@@ -147,8 +147,8 @@
 
 <!--
 	region root: the header hosts a search landmark, so the view links get their
-	own <nav> as its sibling (mail-pane pattern). The import/export actions stay
-	outside the nav — they are buttons, not navigation.
+	own <nav> as its sibling (mail-pane pattern). The actions group stays
+	outside the nav — its items are buttons, not navigation.
 -->
 <SidebarShell
 	label={$_('workspace.contactsSidebarLabel')}
@@ -229,16 +229,14 @@
 					{$_('contacts.manageLabels')}
 				</SidebarNavItem>
 			</li>
-		</ul>
-	</SidebarSection>
-
-	{#if !createActive}
-		<SidebarSection
-			id="contacts-sidebar-import-export"
-			label={$_('contacts.sidebarImportExport')}
-			class="mt-4"
-		>
-			<ul role="list" class="space-y-1">
+			<!--
+					Import and export share this group rather than heading one of their
+					own: a second heading over two items split the pane's actions in two
+					and cost a screen-reader user an extra stop on the way down. They
+					hide while the create form is open, so the group shrinks to the
+					labels action there instead of disappearing.
+				-->
+			{#if !createActive}
 				<li>
 					<SidebarNavItem
 						onclick={() => importInputEl?.click()}
@@ -275,9 +273,9 @@
 						{exporting ? $_('contacts.exporting') : $_('contacts.exportVCard')}
 					</SidebarNavItem>
 				</li>
-			</ul>
-		</SidebarSection>
-	{/if}
+			{/if}
+		</ul>
+	</SidebarSection>
 </SidebarShell>
 
 <ContactLabelsDialog

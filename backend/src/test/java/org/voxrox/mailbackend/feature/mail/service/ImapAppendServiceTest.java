@@ -2,6 +2,7 @@ package org.voxrox.mailbackend.feature.mail.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.AdditionalMatchers.aryEq;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -10,6 +11,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.Optional;
@@ -23,6 +25,8 @@ import jakarta.mail.Store;
 import jakarta.mail.UIDFolder;
 import jakarta.mail.internet.MimeMessage;
 
+import org.eclipse.angus.mail.imap.AppendUID;
+import org.eclipse.angus.mail.imap.IMAPFolder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -139,6 +143,57 @@ class ImapAppendServiceTest {
             assertThat(service.appendByRole(ACCOUNT_ID, FolderRole.SENT, message, true)).isFalse();
 
             verify(imapConnectionManager, never()).executeWithLock(any(), any(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("appendDraft — the draft is asked for under the lane (B1-25)")
+    class AppendDraft {
+
+        @Mock
+        private Store store;
+        @Mock
+        private IMAPFolder folder;
+        @Mock
+        private MimeMessage message;
+
+        private boolean laneHeld;
+
+        @BeforeEach
+        void wireExecuteWithLock() throws Exception {
+            when(imapConnectionManager.executeWithLock(eq(ACCOUNT_ID), eq(Lane.BACKGROUND), any())).thenAnswer(inv -> {
+                laneHeld = true;
+                try {
+                    ImapConnectionManager.StoreAction<?> action = inv.getArgument(2);
+                    return action.execute(store);
+                } finally {
+                    laneHeld = false;
+                }
+            });
+        }
+
+        @Test
+        @DisplayName("A source with nothing to append opens no folder, and the draft is not appended")
+        void aSourceWithNothingToAppendOpensNoFolder() {
+            assertThat(service.appendDraft(ACCOUNT_ID, "Drafts", () -> null).appended()).isFalse();
+
+            verifyNoInteractions(store);
+        }
+
+        @Test
+        @DisplayName("The draft the source hands out under the lane is appended, with its APPENDUID")
+        void theDraftIsAskedForUnderTheLaneAndAppended() throws Exception {
+            when(store.getFolder("Drafts")).thenReturn(folder);
+            when(folder.exists()).thenReturn(true);
+            when(folder.appendUIDMessages(any())).thenReturn(new AppendUID[]{new AppendUID(7L, 42L)});
+
+            ImapAppendService.DraftAppendOutcome outcome = service.appendDraft(ACCOUNT_ID, "Drafts", () -> {
+                assertThat(laneHeld).as("asked for under the lane").isTrue();
+                return message;
+            });
+
+            assertThat(outcome).isEqualTo(new ImapAppendService.DraftAppendOutcome(true, 42L, 7L));
+            verify(folder).appendUIDMessages(aryEq(new Message[]{message}));
         }
     }
 

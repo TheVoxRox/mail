@@ -2,7 +2,7 @@ import { get } from 'svelte/store';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import { composeSnapshotFingerprint, createComposeSession } from './session.js';
-import type { ComposeDraft } from './request.js';
+import type { ComposeAttachment, ComposeDraft } from './request.js';
 
 vi.mock('#lib/api/drafts.js', () => ({
 	saveDraft: vi.fn()
@@ -330,6 +330,156 @@ describe('composeSession', () => {
 		expect(saveDraftMock).toHaveBeenCalledTimes(1);
 	});
 
+	/*
+	 * IMAP/SMTP audit B1-26: the Drafts list shows a save's row only once the
+	 * backend has stored it, so a revision the composer's saves replaced can be
+	 * opened again in the meantime, and it showed the old text.
+	 */
+	describe('newestSaveOf, for a replaced revision opened again', () => {
+		function beginOpenedDraft(session = createComposeSession()) {
+			session.begin({
+				accountId: 1,
+				draft: makeDraft({ body: 'opened' }),
+				draftStableId: 'open-1'
+			});
+			return session;
+		}
+
+		it('hands over the newest save of the draft after the composer is gone', async () => {
+			saveDraftMock
+				.mockResolvedValueOnce({ stableId: 'd1' })
+				.mockResolvedValueOnce({ stableId: 'd2' });
+			const session = beginOpenedDraft();
+
+			session.noteChange(1, makeDraft({ body: 'first edit' }));
+			await vi.advanceTimersByTimeAsync(3000);
+			session.noteChange(1, makeDraft({ body: 'second edit' }));
+			await vi.advanceTimersByTimeAsync(3000);
+			session.detach();
+
+			const expected = {
+				draftStableId: 'd2',
+				accountId: 1,
+				draft: makeDraft({ body: 'second edit' })
+			};
+			await expect(session.newestSaveOf('open-1')).resolves.toEqual(expected);
+			await expect(session.newestSaveOf('d1')).resolves.toEqual(expected);
+			// The newest save is not replaced: its row opens it from the server.
+			await expect(session.newestSaveOf('d2')).resolves.toBeNull();
+			await expect(session.newestSaveOf('draft-of-another-compose')).resolves.toBeNull();
+		});
+
+		it('counts a save still in flight when the composer was left', async () => {
+			const inFlight = deferred<{ stableId: string }>();
+			saveDraftMock.mockReturnValueOnce(inFlight.promise);
+			const session = beginOpenedDraft();
+
+			session.noteChange(1, makeDraft({ body: 'edited' }));
+			await vi.advanceTimersByTimeAsync(3000);
+			session.detach();
+			const newest = session.newestSaveOf('open-1');
+			inFlight.resolve({ stableId: 'd1' });
+
+			await expect(newest).resolves.toEqual({
+				draftStableId: 'd1',
+				accountId: 1,
+				draft: makeDraft({ body: 'edited' })
+			});
+		});
+
+		it('hands over what the last successful save carried, not a failed save or later edits', async () => {
+			saveDraftMock
+				.mockResolvedValueOnce({ stableId: 'd1' })
+				.mockRejectedValueOnce(new Error('500'));
+			const session = beginOpenedDraft();
+
+			session.noteChange(1, makeDraft({ body: 'saved' }));
+			await vi.advanceTimersByTimeAsync(3000);
+			session.noteChange(1, makeDraft({ body: 'not saved' }));
+			await vi.advanceTimersByTimeAsync(3000);
+			session.noteChange(1, makeDraft({ body: 'left unsaved' }));
+			session.detach();
+
+			await expect(session.newestSaveOf('open-1')).resolves.toEqual({
+				draftStableId: 'd1',
+				accountId: 1,
+				draft: makeDraft({ body: 'saved' })
+			});
+		});
+
+		it('hands over the account the newest save went to, after a switch of the From account', async () => {
+			saveDraftMock.mockResolvedValue({ stableId: 'd1' });
+			const session = beginOpenedDraft();
+
+			session.noteChange(2, makeDraft({ body: 'sent from the other account' }));
+			await vi.advanceTimersByTimeAsync(3000);
+			session.detach();
+
+			expect(saveDraftMock).toHaveBeenLastCalledWith(2, expect.anything(), 'open-1');
+			await expect(session.newestSaveOf('open-1')).resolves.toMatchObject({
+				draftStableId: 'd1',
+				accountId: 2
+			});
+		});
+
+		it('forgets the draft once another compose begins, a send ends it or a discard deletes it', async () => {
+			saveDraftMock.mockResolvedValue({ stableId: 'd1' });
+			deleteMessageMock.mockResolvedValue(undefined);
+			type Session = ReturnType<typeof createComposeSession>;
+			const closes: ((session: Session) => Promise<unknown>)[] = [
+				async (session) => beginNewCompose(session),
+				async (session) => session.end(),
+				(session) => session.discard()
+			];
+			for (const close of closes) {
+				const session = beginOpenedDraft();
+				session.noteChange(1, makeDraft({ body: 'edited' }));
+				await vi.advanceTimersByTimeAsync(3000);
+
+				await close(session);
+
+				await expect(session.newestSaveOf('open-1')).resolves.toBeNull();
+			}
+		});
+
+		it('a compose continuing the newest save keeps the revisions it replaced', async () => {
+			saveDraftMock
+				.mockResolvedValueOnce({ stableId: 'd1' })
+				.mockResolvedValueOnce({ stableId: 'd2' });
+			const session = beginOpenedDraft();
+			session.noteChange(1, makeDraft({ body: 'first compose' }));
+			await vi.advanceTimersByTimeAsync(3000);
+			session.detach();
+
+			const reopened = await session.newestSaveOf('open-1');
+			if (!reopened) throw new Error('the first compose left no newest save');
+			session.begin({
+				accountId: 1,
+				draft: reopened.draft,
+				draftStableId: reopened.draftStableId,
+				continuesNewestSave: true
+			});
+			// Nothing new yet: the reopened draft is the saved state, as an opened one is.
+			await expect(session.newestSaveOf('open-1')).resolves.toEqual({
+				draftStableId: 'd1',
+				accountId: 1,
+				draft: makeDraft({ body: 'first compose' })
+			});
+			session.noteChange(1, makeDraft({ body: 'second compose' }));
+			await vi.advanceTimersByTimeAsync(3000);
+			expect(saveDraftMock).toHaveBeenLastCalledWith(1, expect.anything(), 'd1');
+			session.detach();
+
+			const expected = {
+				draftStableId: 'd2',
+				accountId: 1,
+				draft: makeDraft({ body: 'second compose' })
+			};
+			await expect(session.newestSaveOf('open-1')).resolves.toEqual(expected);
+			await expect(session.newestSaveOf('d1')).resolves.toEqual(expected);
+		});
+	});
+
 	it('end drops the result of a save still in flight', async () => {
 		const inFlight = deferred<{ stableId: string }>();
 		saveDraftMock.mockReturnValueOnce(inFlight.promise);
@@ -342,5 +492,76 @@ describe('composeSession', () => {
 		await flushMicrotasks();
 		expect(get(session).draftStableId).toBeNull();
 		expect(get(session).saving).toBe(false);
+	});
+	/*
+	 * IMAP/SMTP audit B1-25: every stored revision uploads the whole message and
+	 * holds the account's sync lane while it does, so a draft with large
+	 * attachments saves at most once a minute once it has been saved.
+	 */
+	describe('a draft with large attachments', () => {
+		const MB = 1024 * 1024;
+
+		function attachment(localId: string, size: number): ComposeAttachment {
+			return {
+				localId,
+				fileName: `${localId}.bin`,
+				contentType: 'application/octet-stream',
+				base64Data: 'QUJD',
+				size
+			};
+		}
+
+		function largeDraft(body: string): ComposeDraft {
+			return makeDraft({ body, attachments: [attachment('a1', 6 * MB)] });
+		}
+
+		it('saves at most once a minute while it is edited, and edits do not push the save back', async () => {
+			saveDraftMock.mockResolvedValue({ stableId: 'd1' });
+			const session = beginNewCompose();
+
+			session.noteChange(1, largeDraft('v0'));
+			await vi.advanceTimersByTimeAsync(1000);
+			expect(saveDraftMock).toHaveBeenCalledTimes(1);
+			const firstSaveAt = Date.now();
+
+			// An edit every 2 s for 70 s, never the 3 s pause the steady debounce waits
+			// for, so only the interval brings the next save, and none after it.
+			let secondSaveAt: number | null = null;
+			for (let edit = 1; edit <= 35; edit++) {
+				session.noteChange(1, largeDraft(`v${edit}`));
+				await vi.advanceTimersByTimeAsync(2000);
+				if (secondSaveAt == null && saveDraftMock.mock.calls.length === 2)
+					secondSaveAt = Date.now();
+			}
+
+			expect(secondSaveAt).toBe(firstSaveAt + 60_000);
+			expect(saveDraftMock).toHaveBeenCalledTimes(2);
+			expect(saveDraftMock.mock.calls[1][1]).toMatchObject({ body: 'v30' });
+		});
+
+		it('saves 3 s after a pause again once its attachments fall below the large size', async () => {
+			saveDraftMock.mockResolvedValue({ stableId: 'd1' });
+			const session = beginNewCompose();
+
+			session.noteChange(1, largeDraft('v0'));
+			await vi.advanceTimersByTimeAsync(1000);
+			expect(saveDraftMock).toHaveBeenCalledTimes(1);
+
+			session.noteChange(1, makeDraft({ body: 'v1', attachments: [attachment('a2', MB)] }));
+			await vi.advanceTimersByTimeAsync(3000);
+			expect(saveDraftMock).toHaveBeenCalledTimes(2);
+		});
+
+		it('saves at once when flushed, whatever the interval', async () => {
+			saveDraftMock.mockResolvedValue({ stableId: 'd1' });
+			const session = beginNewCompose();
+
+			session.noteChange(1, largeDraft('v0'));
+			await vi.advanceTimersByTimeAsync(1000);
+			session.noteChange(1, largeDraft('v1'));
+
+			await expect(session.flush()).resolves.toBe('saved');
+			expect(saveDraftMock).toHaveBeenCalledTimes(2);
+		});
 	});
 });

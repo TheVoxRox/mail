@@ -41,6 +41,33 @@
     "Both clocks reset the same way: re-verify the audit, bump `Audited commit`,",
     "and delete the entry from this file."
   ],
+  "docs/API_SURFACE_AUDIT.md": {
+    "reviewedTrees": {
+      "backend/src/main/resources/application.properties": "6f4dcc647382dd679f0ff713b79931a3b92c2d48"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-10-31",
+        "note": "One key added, springdoc.swagger-ui.version=@swagger-ui.version@, Maven-filtered from the new swagger-ui.version property in backend/pom.xml, which pins the org.webjars:swagger-ui webjar to 5.34.1 (DOMPurify 3.4.17) ahead of the 5.32.14 springdoc manages; the nightly OWASP scan failed on five DOMPurify advisories against the older bundle (#806). The key only names the versioned webjar directory springdoc serves /swagger-ui/** from, so the UI resolves when it is switched on. Section 1's springdoc claim holds: springdoc.api-docs.enabled and springdoc.swagger-ui.enabled still default to false, the PUBLIC_ENDPOINTS list is untouched, and repackage and process-aot still exclude both org.springdoc and the swagger-ui webjar (check:repackage-excludes agrees on the same 9 artifacts), so the sidecar serves nothing new and carries no new code. No other key changed. Verdict unchanged."
+      }
+    ]
+  },
+  "docs/IMAP_SMTP_AUDIT.md": {
+    "reviewedTrees": {
+      "backend/src/main/resources/application.properties": "6f4dcc647382dd679f0ff713b79931a3b92c2d48",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "63e7648cdbd6b9a5bb8fb93b7bbc3acaab2462a1"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-10-31",
+        "note": "One key added, springdoc.swagger-ui.version=@swagger-ui.version@, Maven-filtered from the swagger-ui webjar pin in backend/pom.xml (5.34.1, DOMPurify 3.4.17, for the five DOMPurify advisories that failed the nightly scan, #806). It only names the webjar directory springdoc serves Swagger UI from in dev; this audit makes no claim about springdoc, and no mail.client.*, spring.mail.*, IMAP, SMTP, timeout, sync or connection key moved. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-01",
+        "note": "#812, recorded in the audit as 1.84 (§5) and waiting for its independent pass. BoundedImapProtocol.parseBounded reads a FETCH that Angus rejected once more with each empty list in its structure written NIL (EmptyListsAsNil, new), for the (\"inline\" ()) disposition Seznam writes. Only after the rejection, at most 1 MiB, and only a () inside a BODYSTRUCTURE or BODY value after a string or an atom; what it hands back goes through the same DepthBoundedFetchResponse and type check, so no bound moves, and the copy it makes is at most 1.5 MiB. A FETCH it does not rescue is now logged with Angus's reason, cut to 200 characters, before the skip it always had. Verdict unchanged."
+      }
+    ]
+  },
   "docs/CRYPTO_STORAGE_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/core/init": "6b860914def198938000e51a328137049fffac81",
@@ -55,6 +82,22 @@
       {
         "date": "2026-10-11",
         "note": "Recorded in the audit itself as v1.2: the PBKDF2 iteration count moves from CryptoProperties (mail.crypto.pbkdf2-iterations, @Min 1000, default 600000) to a private constant PBKDF2_ITERATIONS = 600_000 in CryptoService, and CryptoProperties.java joins Code paths with this entry, so a format value cannot come back as a property unseen. The bean constructor is now @Autowired and passes the constant to a package-private constructor that takes the count, which CryptoServiceTest uses with 1000; getOrDeriveKey reads the field where it read the property. Section 2 holds with the same values: AES/GCM, 12-byte IV, 128-bit tag, PBKDF2WithHmacSHA256 at 600,000 over global salt || accountId to 256 bits, accountId as AAD, the self-test, the LRU and the shutdown hygiene are byte-identical, and a ciphertext pinned in CryptoServiceTest from the production constructor decrypts (changing the constant to 700_000 fails it, run and seen). Section 1 is untouched: core/init and core/security/secret did not change. Verdict stays PASS."
+      }
+    ]
+  },
+  "docs/CONTENT_RENDERING_AUDIT.md": {
+    "reviewedTrees": {
+      "frontend/src/lib/mail/mailFrame.ts": "875223ca3f842040b69aa178afd2060dcc89cc5e",
+      "frontend/src/lib/components/message-detail": "38f3d909c5ab9d3a45c01b9683818bac010326e9"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-10-27",
+        "note": "The forwarder's Shift branch of the preventDefault predicate grows from /^[rg]$/i to /^[rgi]$/i, so Ctrl+Shift+I (the app's new go-to-Inbox shortcut in globalShortcuts.ts) is cancelled in the frame as Ctrl+Shift+R and Ctrl+Shift+G are; the rest of the script is byte-identical, and the comment above it names the new key. MAIL_FRAME_SCRIPT_SHA256 was recomputed independently (SHA-256 of the string literal, base64: yOywlma3ATltbXiySWrZF0tBX1RtZ0aZRF07BflnLk0=) and matches the constant and mailFrame.test.ts. Section 1 holds: the frame is still sandbox=allow-scripts without allow-same-origin, the CSP still admits exactly that one hash-pinned script, the forwarder still relays only isTrusted keystrokes and anchor clicks and posts the same fields; cancelling one more chord adds no capability and no data to what it sends. The styles, the sanitizer and the other Code paths are untouched. Verdict unchanged."
+      },
+      {
+        "date": "2026-10-31",
+        "note": "The only change under message-detail is the remote-image banner in MessageContent.svelte, for testers who could not tell what it was for: its text moves from a muted span to a paragraph that says why the images are held back (the message holds images from the internet that were not loaded, and loading them can tell the sender it was opened), and the i18n strings behind it, the region name and both announcements say 'images from the internet' instead of 'remote images'; the second button is now named 'Always load images from this sender'. The banner is still shown only while renderAsHtml, the count is non-zero and loadRemoteImages is false; the two buttons call the same revealRemoteImages and trustSender, which still send the same allow-list PUT; loadRemoteImages is still seeded per stableId from remoteImagesAllowedForSender; the iframe's sandbox, srcdoc, CSP and the mailFrame message handling are byte-identical. Section 1's tracking-pixel claim holds: no path loads a remote image without one of the two presses. The 2026-07-08 finding record still quotes the button's old English label, which is that date's record and not a claim about the current text. Verdict unchanged."
       }
     ]
   },

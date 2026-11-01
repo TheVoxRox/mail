@@ -12,6 +12,7 @@ export const SHORTCUT_LABELS = {
 	workspaceContacts: 'Ctrl+2',
 	workspaceSettings: 'Ctrl+3',
 	workspacePane: 'Ctrl+Y',
+	goToInbox: 'Ctrl+Shift+I',
 	reply: 'Ctrl+R',
 	replyAll: 'Ctrl+Shift+R',
 	forward: 'Ctrl+F',
@@ -19,5 +20,6 @@ export const SHORTCUT_LABELS = {
 	markRead: 'Ctrl+Q',
 	markUnread: 'Ctrl+U',
 	printMessage: 'Ctrl+P',
-	deleteMessage: 'Delete'
+	deleteMessage: 'Delete',
+	archiveMessage: 'Backspace'
 } as const;

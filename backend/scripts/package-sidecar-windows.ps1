@@ -89,13 +89,43 @@ Invoke-Step "Checking jpackage" {
     $null = Get-Command jpackage -ErrorAction Stop
 }
 
+Invoke-Step "Taking the backend source digest" {
+    # What `npm run tauri:dev` compares with the checked-out backend to tell a
+    # stale sidecar (frontend/scripts/lib/sidecar-staleness.mjs). It is taken
+    # here, before Maven reads a single source, and written into the image when
+    # it is published: an edit made while the build runs then reads as stale,
+    # where a digest taken after the build would vouch for sources the build
+    # never saw. The sync used to take it instead, which stamped whatever image
+    # target\sidecar held with the tree of the moment -- and `mvn clean` keeps
+    # that directory, so the image could be days old.
+    #
+    # node computes it, so that packaging and tauri:dev share one
+    # implementation of the digest rather than two that must agree byte for byte.
+    $output = @(& node (Join-Path $repoRoot "..\frontend\scripts\print-backend-source-digest.mjs"))
+    if ($LASTEXITCODE -ne 0) {
+        throw "Taking the backend source digest failed with exit code $LASTEXITCODE."
+    }
+    $script:sourceDigest = "$($output | Select-Object -Last 1)".Trim()
+    if ($script:sourceDigest -notmatch '^[0-9a-f]{64}$') {
+        throw "The backend source digest is not a SHA-256 in hex: '$($script:sourceDigest)'."
+    }
+    Write-Host "  $($script:sourceDigest.Substring(0, 12)) over backend/src/main and backend/pom.xml."
+}
+
 Invoke-Step "Building Spring Boot jar" {
     # -Paot enables the pom.xml profile that adds the spring-boot-maven-plugin
     # process-aot goal. The output is a jar with generated AOT classes; at
     # runtime they are activated by the -Dspring.aot.enabled=true JVM option
     # (see the jpackage invocation below).
+    #
+    # clean first. An incremental build keeps what earlier builds left in
+    # target\: a file deleted from src\main\resources stays in target\classes
+    # and ships in the jar (measured), while the digest above already says it
+    # is gone. `mvn clean` leaves target\sidecar alone (see the clean plugin in
+    # pom.xml), so the previous image stays until this script replaces it.
     $mavenArgs = @(
         "-Paot",
+        "clean",
         "package"
     )
 
@@ -426,6 +456,13 @@ Invoke-Step "Publishing sidecar image" {
         -Destination (Join-Path $sidecarDir "$sidecarName.exe") -Force
     Move-Item -LiteralPath (Join-Path $sidecarDir "app\$productName.cfg") `
         -Destination (Join-Path $sidecarDir "app\$sidecarName.cfg") -Force
+    # Beside the jar, so the digest goes wherever the image goes: the sync
+    # copies app\ whole and computes nothing. The name is HASH_FILE_NAME in
+    # sidecar-staleness.mjs, which reads it.
+    [System.IO.File]::WriteAllText(
+        (Join-Path $sidecarDir "app\packaged-backend-source.sha256"),
+        "$($script:sourceDigest)`n",
+        [System.Text.UTF8Encoding]::new($false))
 }
 
 $exePath = Join-Path $sidecarDir "$sidecarName.exe"

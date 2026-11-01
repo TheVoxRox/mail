@@ -1177,3 +1177,46 @@ test.describe('Otevřená zpráva v seskupeném režimu', () => {
 		await expect(archiveRow(page, 'arch-03')).toBeVisible();
 	});
 });
+
+test.describe('Backspace v seskupeném režimu', () => {
+	test('Backspace na řádku konverzace ji přesune do archivu, jen členy v aktuální složce', async ({
+		page
+	}) => {
+		const moves: { stableId: string; body: unknown }[] = [];
+		page.on('request', (r) => {
+			const match = /\/api\/v1\/messages\/([^/]+)\/move$/.exec(r.url());
+			if (r.method() === 'POST' && match) {
+				moves.push({ stableId: match[1], body: r.postDataJSON() });
+			}
+		});
+		// The inbox copy belongs to the ARCHIVE "Plán vydání" thread: only it may
+		// move, not its archived siblings the conversation also holds.
+		await setMockFlags(page, { inboxThreadMember: true });
+		await openApp(page, `/mail/${accountId}/INBOX`);
+
+		const row = conversationGrid(page).locator('[role="row"][data-stable-id="inbox-plan-01"]');
+		await expect(row).toBeVisible();
+		await row.press('Backspace');
+
+		await expect(row).toHaveCount(0);
+		expect(moves).toEqual([{ stableId: 'inbox-plan-01', body: { folderRef: 'ARCHIVE' } }]);
+	});
+
+	test('Backspace na konverzaci v archivu nic nepřesune a řekne proč', async ({ page }) => {
+		const moves: string[] = [];
+		page.on('request', (r) => {
+			if (r.method() === 'POST' && /\/move$/.test(r.url())) moves.push(r.url());
+		});
+		await openApp(page, `/mail/${accountId}/ARCHIVE`);
+
+		const parent = archiveRow(page, 'arch-03');
+		await expect(parent).toBeVisible();
+		await parent.press('Backspace');
+
+		await expect(
+			page.getByRole('status').filter({ hasText: 'Zpráva už je ve složce Archiv.' })
+		).toBeVisible();
+		await expect(parent).toBeVisible();
+		expect(moves).toEqual([]);
+	});
+});

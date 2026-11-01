@@ -10,12 +10,14 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import jakarta.mail.MessagingException;
@@ -29,7 +31,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.stubbing.Answer;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.voxrox.mailbackend.feature.account.AccountLastError;
 import org.voxrox.mailbackend.feature.account.AccountLastErrorCode;
@@ -85,9 +89,32 @@ class DraftPersistenceServiceTest {
     private AccountRepository accountRepository;
     @Mock
     private DraftRecipientsRepository draftRecipientsRepository;
+    @Spy
+    private WaitingDraftSaves waitingSaves = new WaitingDraftSaves();
 
     @InjectMocks
     private DraftPersistenceService service;
+
+    /**
+     * A save as the controller dispatches it: the content waits where
+     * {@code acceptDraftSave} leaves it, for the task to take under the lane.
+     */
+    private void save(DraftRequest request, String replaces) {
+        waitingSaves.hold(IDENTITY.stableId(), request);
+        service.saveDraftAsync(ACCOUNT_ID, replaces, IDENTITY);
+    }
+
+    /**
+     * The append as {@link ImapAppendService#appendDraft} runs it: the draft is
+     * asked for under the lane, and a source with nothing to append is not
+     * appended.
+     */
+    private static Answer<ImapAppendService.DraftAppendOutcome> appending(
+            ImapAppendService.DraftAppendOutcome outcome) {
+        return invocation -> invocation.getArgument(2, ImapAppendService.DraftSource.class).message() == null
+                ? ImapAppendService.DraftAppendOutcome.failed()
+                : outcome;
+    }
 
     @Nested
     @DisplayName("saveDraftAsync — replace guard (data-loss prevention)")
@@ -109,20 +136,26 @@ class DraftPersistenceServiceTest {
             return new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null);
         }
 
+        /**
+         * The revisions a save replaces are looked up once it is stored (B1-25): a
+         * lookup that fails then leaves their copies for the next save, and must not
+         * report the stored save as failed.
+         */
         @Test
-        @DisplayName("Exception while loading the draft being replaced -> updateLastError")
-        void replaceLookupFailureRecordsLastError() {
+        @DisplayName("Exception while loading the draft being replaced, after the new revision is stored -> no failure, nothing deleted")
+        void replaceLookupFailureAfterTheAppendRecordsNoFailure() throws Exception {
+            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(oldDraft().getAccount());
+            when(mimeMessageBuilder.build(any(), any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
+            when(appendService.appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any()))
+                    .thenAnswer(appending(new ImapAppendService.DraftAppendOutcome(true, null, null)));
             when(messageService.getByStableId(STABLE_ID)).thenThrow(
                     new DataAccessResourceFailureException("could not execute statement [select * from messages]"));
 
-            service.saveDraftAsync(ACCOUNT_ID, draftRequest(), STABLE_ID, IDENTITY);
+            save(draftRequest(), STABLE_ID);
 
-            ArgumentCaptor<AccountLastError> err = ArgumentCaptor.forClass(AccountLastError.class);
-            verify(accountRepository).updateLastError(eq(ACCOUNT_ID), err.capture(), any(LocalDateTime.class));
-            assertThat(err.getValue().code()).isEqualTo(AccountLastErrorCode.DRAFT_SAVE_FAILED);
-            // The cause, not the database's text (API surface audit, §3).
-            assertThat(err.getValue().args()).containsExactly(java.util.Map.entry("cause", "STORAGE"));
-            assertThat(err.getValue().fallbackMessage()).startsWith("Draft save failed:").doesNotContain("select");
+            verify(accountRepository, never()).updateLastError(anyLong(), any(AccountLastError.class),
+                    any(LocalDateTime.class));
+            verify(accountRepository).clearLastErrorIfCodeIn(eq(ACCOUNT_ID), any());
             verify(imapActionService, never()).hardDelete(anyLong(), anyString(), anyLong());
         }
 
@@ -130,14 +163,12 @@ class DraftPersistenceServiceTest {
         @DisplayName("Append of the new revision fails -> old draft kept, DRAFT_SAVE_FAILED, lastError not cleared")
         void appendFailureKeepsOldDraft() throws Exception {
             MessageEntity old = oldDraft();
-            when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(old));
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(old.getAccount());
-            when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn("Drafts");
             when(mimeMessageBuilder.build(any(), any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
             when(appendService.appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any()))
-                    .thenReturn(ImapAppendService.DraftAppendOutcome.failed());
+                    .thenAnswer(appending(ImapAppendService.DraftAppendOutcome.failed()));
 
-            service.saveDraftAsync(ACCOUNT_ID, draftRequest(), STABLE_ID, IDENTITY);
+            save(draftRequest(), STABLE_ID);
 
             // The only surviving copy must NOT be deleted.
             verify(imapActionService, never()).hardDelete(anyLong(), anyString(), anyLong());
@@ -161,9 +192,9 @@ class DraftPersistenceServiceTest {
             when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn("Drafts");
             when(mimeMessageBuilder.build(any(), any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
             when(appendService.appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any()))
-                    .thenReturn(new ImapAppendService.DraftAppendOutcome(true, null, null));
+                    .thenAnswer(appending(new ImapAppendService.DraftAppendOutcome(true, null, null)));
 
-            service.saveDraftAsync(ACCOUNT_ID, draftRequest(), STABLE_ID, IDENTITY);
+            save(draftRequest(), STABLE_ID);
 
             verify(imapActionService).hardDelete(ACCOUNT_ID, "Drafts", 100L);
             verify(messageService).deleteByStableId(STABLE_ID);
@@ -171,6 +202,7 @@ class DraftPersistenceServiceTest {
             // to the delete: the save only looks up the chain to make its own entry
             // current (B1-5, reopened at 1.57), and its earlier revisions to delete the
             // copies the server still holds.
+            verify(draftRecipientsRepository).findLaterRevision(ACCOUNT_ID, IDENTITY.stableId());
             verify(draftRecipientsRepository).findChainId(ACCOUNT_ID, IDENTITY.stableId());
             verify(draftRecipientsRepository).findEarlierRevisions(ACCOUNT_ID, IDENTITY.stableId());
             verifyNoMoreInteractions(draftRecipientsRepository);
@@ -191,9 +223,9 @@ class DraftPersistenceServiceTest {
             when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn("Drafts");
             when(mimeMessageBuilder.build(any(), any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
             when(appendService.appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any()))
-                    .thenReturn(new ImapAppendService.DraftAppendOutcome(true, null, null));
+                    .thenAnswer(appending(new ImapAppendService.DraftAppendOutcome(true, null, null)));
 
-            service.saveDraftAsync(ACCOUNT_ID, draftRequest(), STABLE_ID, IDENTITY);
+            save(draftRequest(), STABLE_ID);
 
             // A wrong replaces id must never expunge received mail.
             verify(imapActionService, never()).hardDelete(anyLong(), anyString(), anyLong());
@@ -215,9 +247,9 @@ class DraftPersistenceServiceTest {
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(ownAccount);
             when(mimeMessageBuilder.build(any(), any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
             when(appendService.appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any()))
-                    .thenReturn(new ImapAppendService.DraftAppendOutcome(true, null, null));
+                    .thenAnswer(appending(new ImapAppendService.DraftAppendOutcome(true, null, null)));
 
-            service.saveDraftAsync(ACCOUNT_ID, draftRequest(), STABLE_ID, IDENTITY);
+            save(draftRequest(), STABLE_ID);
 
             // The ownership check fails first, so the Drafts folder is never resolved
             // and the other account's message is left untouched.
@@ -256,13 +288,12 @@ class DraftPersistenceServiceTest {
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
             when(mimeMessageBuilder.build(any(), any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
             when(appendService.appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any()))
-                    .thenReturn(new ImapAppendService.DraftAppendOutcome(true, 42L, 7L));
+                    .thenAnswer(appending(new ImapAppendService.DraftAppendOutcome(true, 42L, 7L)));
             MessageEntity mapped = new MessageEntity();
             mapped.setStableId(IDENTITY.stableId());
             when(messageMapper.toEntity(any(), eq(account), eq(IDENTITY.draftsFolder()), eq(7L))).thenReturn(mapped);
 
-            service.saveDraftAsync(ACCOUNT_ID,
-                    new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null, IDENTITY);
+            save(new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null);
 
             verify(messageService).insertIfAbsent(mapped);
             // The typed recipients stay: the sync rewrites the row from the server's copy
@@ -278,13 +309,12 @@ class DraftPersistenceServiceTest {
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
             when(mimeMessageBuilder.build(any(), any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
             when(appendService.appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any()))
-                    .thenReturn(new ImapAppendService.DraftAppendOutcome(true, 42L, 7L));
+                    .thenAnswer(appending(new ImapAppendService.DraftAppendOutcome(true, 42L, 7L)));
             MessageEntity mapped = new MessageEntity();
             mapped.setStableId("some-other-id");
             when(messageMapper.toEntity(any(), eq(account), eq(IDENTITY.draftsFolder()), eq(7L))).thenReturn(mapped);
 
-            service.saveDraftAsync(ACCOUNT_ID,
-                    new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null, IDENTITY);
+            save(new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null);
 
             verify(messageService, never()).insertIfAbsent(any());
         }
@@ -316,8 +346,7 @@ class DraftPersistenceServiceTest {
         void theAsyncSaveWritesNoEntry() throws Exception {
             savesWithoutAppendUid();
 
-            service.saveDraftAsync(ACCOUNT_ID,
-                    new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null, IDENTITY);
+            save(new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null);
 
             verify(appendService).appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any());
             verify(draftRecipientsRepository, never()).insertEntry(any(), any(), any(), any(), any(), any(), any(),
@@ -365,6 +394,37 @@ class DraftPersistenceServiceTest {
                     DraftPersistenceService.KEPT_REVISIONS_PER_DRAFT - 1);
         }
 
+        /**
+         * B1-26, measured at 1.80: a save naming a revision that a later save of its
+         * draft already followed joined the chain as its newest, so the queue skipped
+         * the later save and a stored save deleted it, edits and all. It is the user
+         * opening an older revision again, and its save starts a draft of its own.
+         */
+        @Test
+        @DisplayName("A save naming a revision a later save of its draft follows starts a draft of its own and drops no waiting save (B1-26)")
+        void aSaveOfAFollowedRevisionStartsADraftOfItsOwn() {
+            acceptsSaves();
+            when(draftRecipientsRepository.findChainId(ACCOUNT_ID, "stable-reopened-revision"))
+                    .thenReturn(Optional.of("stable-first-revision"));
+            when(draftRecipientsRepository.findLaterRevision(ACCOUNT_ID, "stable-reopened-revision"))
+                    .thenReturn(Optional.of("stable-waiting-revision"));
+            DraftRequest waiting = new DraftRequest("to@example.com", null, null, "subj", "left", null, null, null);
+            waitingSaves.hold("stable-waiting-revision", waiting);
+
+            DraftPersistenceService.DraftIdentity identity = service.acceptDraftSave(ACCOUNT_ID,
+                    new DraftRequest("to@example.com", null, null, "subj", "reopened", null, null, null),
+                    "stable-reopened-revision");
+
+            verify(draftRecipientsRepository).insertEntry(eq(ACCOUNT_ID), eq(identity.messageId()),
+                    eq(identity.stableId()), eq(identity.stableId()), any(), any(), any(), any(LocalDateTime.class));
+            // A new draft, so the account's drafts are bounded as for any first save.
+            verify(draftRecipientsRepository).deleteDraftsButNewest(ACCOUNT_ID, identity.stableId(),
+                    DraftPersistenceService.KEPT_DRAFTS - 1);
+            verify(draftRecipientsRepository, never()).findEarlierRevisions(anyLong(), anyString());
+            assertThat(waitingSaves.take("stable-waiting-revision")).as("the newer save's waiting content")
+                    .isSameAs(waiting);
+        }
+
         @Test
         @DisplayName("A save that replaces nothing starts a chain of its own")
         void aFirstSaveStartsItsOwnChain() {
@@ -394,9 +454,8 @@ class DraftPersistenceServiceTest {
             when(draftRecipientsRepository.findChainId(ACCOUNT_ID, IDENTITY.stableId()))
                     .thenReturn(Optional.of("stable-first-revision"));
 
-            service.saveDraftAsync(ACCOUNT_ID,
-                    new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null),
-                    "stable-previous-revision", IDENTITY);
+            save(new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null),
+                    "stable-previous-revision");
 
             verify(draftRecipientsRepository).markStored(eq(ACCOUNT_ID), eq("stable-first-revision"),
                     eq(IDENTITY.messageId()), any(LocalDateTime.class));
@@ -417,10 +476,12 @@ class DraftPersistenceServiceTest {
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
             when(mimeMessageBuilder.build(any(), any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
             when(appendService.appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any()))
-                    .thenThrow(new IllegalStateException("connection lost during APPEND"));
+                    .thenAnswer(invocation -> {
+                        invocation.getArgument(2, ImapAppendService.DraftSource.class).message();
+                        throw new IllegalStateException("connection lost during APPEND");
+                    });
 
-            service.saveDraftAsync(ACCOUNT_ID,
-                    new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null, IDENTITY);
+            save(new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null);
 
             verify(draftRecipientsRepository, never()).markStored(anyLong(), anyString(), anyString(), any());
         }
@@ -440,27 +501,36 @@ class DraftPersistenceServiceTest {
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
             when(mimeMessageBuilder.build(any(), any(), any(), any(), any()))
                     .thenThrow(new MessagingException("Illegal line break in References"));
+            when(appendService.appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any()))
+                    .thenAnswer(appending(new ImapAppendService.DraftAppendOutcome(true, null, null)));
 
-            service.saveDraftAsync(ACCOUNT_ID,
-                    new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null, IDENTITY);
+            save(new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null), null);
 
             verify(draftRecipientsRepository, never()).markStored(anyLong(), anyString(), anyString(), any());
-            verifyNoInteractions(appendService);
+            // The build's own failure is recorded, not a failed APPEND: the build runs
+            // under the lane since B1-25, and is rethrown after it.
+            ArgumentCaptor<AccountLastError> err = ArgumentCaptor.forClass(AccountLastError.class);
+            verify(accountRepository).updateLastError(eq(ACCOUNT_ID), err.capture(), any(LocalDateTime.class));
+            assertThat(err.getValue().args()).doesNotContainEntry(AccountLastErrorCode.CAUSE, "SERVER_REJECTED");
         }
 
-        /** B1-5, reopened at 1.43: the same for a task that stops before the build. */
+        /**
+         * B1-5, reopened at 1.43: the same for a task that stops before the build.
+         * Until B1-25 the revision it replaces was looked up there; it is looked up
+         * after the APPEND now, and the account is the stop before the lane.
+         */
         @Test
-        @DisplayName("A save that stops on the revision it replaces leaves its entry out of the current ones (B1-5)")
-        void aSaveThatStopsOnTheReplacedRowDoesNotMakeItsEntryCurrent() {
-            when(messageService.getByStableId("stable-previous-revision"))
+        @DisplayName("A save that stops before the lane leaves its entry out of the current ones and its content behind (B1-5)")
+        void aSaveThatStopsBeforeTheLaneDoesNotMakeItsEntryCurrent() {
+            when(accountService.getAccountOrThrow(ACCOUNT_ID))
                     .thenThrow(new DataAccessResourceFailureException("database is locked"));
 
-            service.saveDraftAsync(ACCOUNT_ID,
-                    new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null),
-                    "stable-previous-revision", IDENTITY);
+            save(new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null),
+                    "stable-previous-revision");
 
             verify(draftRecipientsRepository, never()).markStored(anyLong(), anyString(), anyString(), any());
             verifyNoInteractions(appendService);
+            assertThat(waitingSaves.take(IDENTITY.stableId())).as("the content the task never took").isNull();
         }
 
         /**
@@ -496,7 +566,7 @@ class DraftPersistenceServiceTest {
             when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
             when(mimeMessageBuilder.build(any(), any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
             when(appendService.appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any()))
-                    .thenReturn(new ImapAppendService.DraftAppendOutcome(true, null, null));
+                    .thenAnswer(appending(new ImapAppendService.DraftAppendOutcome(true, null, null)));
         }
     }
 
@@ -556,7 +626,7 @@ class DraftPersistenceServiceTest {
             when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn("Drafts");
             when(mimeMessageBuilder.build(any(), any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
             when(appendService.appendDraft(eq(ACCOUNT_ID), eq("Drafts"), any()))
-                    .thenReturn(new ImapAppendService.DraftAppendOutcome(true, null, null));
+                    .thenAnswer(appending(new ImapAppendService.DraftAppendOutcome(true, null, null)));
             when(draftRecipientsRepository.findChainId(eq(ACCOUNT_ID), anyString()))
                     .thenAnswer(invocation -> Optional.of(invocation.getArgument(1, String.class)));
 
@@ -580,7 +650,7 @@ class DraftPersistenceServiceTest {
             when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn("Drafts");
             when(mimeMessageBuilder.build(any(), any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
             when(appendService.appendDraft(eq(ACCOUNT_ID), eq("Drafts"), any()))
-                    .thenReturn(ImapAppendService.DraftAppendOutcome.failed());
+                    .thenAnswer(appending(ImapAppendService.DraftAppendOutcome.failed()));
 
             String recoveryId = service.saveRecoveryDraft(ACCOUNT_ID,
                     new MailRequest("to@example.com", null, null, "subj", "body", null, null, null));
@@ -604,7 +674,7 @@ class DraftPersistenceServiceTest {
             when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn("Drafts");
             when(mimeMessageBuilder.build(any(), any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
             when(appendService.appendDraft(eq(ACCOUNT_ID), eq("Drafts"), any()))
-                    .thenReturn(new ImapAppendService.DraftAppendOutcome(true, null, null));
+                    .thenAnswer(appending(new ImapAppendService.DraftAppendOutcome(true, null, null)));
             when(draftRecipientsRepository.insertEntry(any(), any(), any(), any(), any(), any(), any(), any()))
                     .thenThrow(new RuntimeException("database is locked"));
 
@@ -628,6 +698,8 @@ class DraftPersistenceServiceTest {
             when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn("Drafts");
             when(mimeMessageBuilder.build(any(), any(), any(), any(), any()))
                     .thenThrow(new MessagingException("Illegal line break in References"));
+            when(appendService.appendDraft(eq(ACCOUNT_ID), eq("Drafts"), any()))
+                    .thenAnswer(appending(new ImapAppendService.DraftAppendOutcome(true, null, null)));
 
             String recoveryId = service.saveRecoveryDraft(ACCOUNT_ID,
                     new MailRequest("to@example.com", null, null, "subj", "body", null, null, null));
@@ -636,7 +708,133 @@ class DraftPersistenceServiceTest {
             verify(draftRecipientsRepository).insertEntry(eq(ACCOUNT_ID), any(), any(), any(), any(), any(), any(),
                     any());
             verify(draftRecipientsRepository, never()).markStored(anyLong(), anyString(), anyString(), any());
-            verifyNoInteractions(appendService);
+        }
+    }
+
+    /**
+     * IMAP/SMTP audit B1-25: the 202 returns before the APPEND, which waits for the
+     * account's background lane, and every task waiting there held its content, so
+     * autosaves queued behind a sync or a slow upload filled the heap, and each
+     * appended a copy of the draft for the next save to delete.
+     */
+    @Nested
+    @DisplayName("Waiting saves — content held until the lane, appended only for the draft's newest save (B1-25)")
+    class WaitingSaves {
+
+        private DraftRequest draftRequest() {
+            return new DraftRequest("to@example.com", null, null, "subj", "body", null, null, null);
+        }
+
+        private void hasAccount() {
+            AccountEntity account = new AccountEntity();
+            account.setId(ACCOUNT_ID);
+            when(accountService.getAccountOrThrow(ACCOUNT_ID)).thenReturn(account);
+        }
+
+        private void appendsStored() {
+            when(appendService.appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any()))
+                    .thenAnswer(appending(new ImapAppendService.DraftAppendOutcome(true, null, null)));
+        }
+
+        @Test
+        @DisplayName("A save whose draft has a later save accepted builds and appends nothing, and records no failure")
+        void aFollowedSaveAppendsNothing() {
+            hasAccount();
+            appendsStored();
+            when(draftRecipientsRepository.findLaterRevision(ACCOUNT_ID, IDENTITY.stableId()))
+                    .thenReturn(Optional.of("stable-later-revision"));
+
+            save(draftRequest(), STABLE_ID);
+
+            verifyNoInteractions(mimeMessageBuilder, messageService, imapActionService);
+            verify(draftRecipientsRepository, never()).markStored(anyLong(), anyString(), anyString(), any());
+            verify(accountRepository, never()).updateLastError(anyLong(), any(AccountLastError.class),
+                    any(LocalDateTime.class));
+        }
+
+        @Test
+        @DisplayName("A save whose content a later save dropped builds and appends nothing")
+        void aDroppedSaveAppendsNothing() {
+            hasAccount();
+            appendsStored();
+
+            service.saveDraftAsync(ACCOUNT_ID, STABLE_ID, IDENTITY);
+
+            verifyNoInteractions(mimeMessageBuilder, messageService, imapActionService);
+            verify(accountRepository, never()).updateLastError(anyLong(), any(AccountLastError.class),
+                    any(LocalDateTime.class));
+        }
+
+        @Test
+        @DisplayName("Accepting a later save of a draft drops the waiting content of its earlier saves")
+        void acceptingALaterSaveDropsTheEarlierContent() {
+            hasAccount();
+            when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn("Drafts");
+            when(draftRecipientsRepository.findChainId(ACCOUNT_ID, STABLE_ID)).thenReturn(Optional.of(STABLE_ID));
+            when(draftRecipientsRepository.findEarlierRevisions(eq(ACCOUNT_ID), anyString()))
+                    .thenReturn(List.of(STABLE_ID));
+            waitingSaves.hold(STABLE_ID, draftRequest());
+
+            DraftPersistenceService.DraftIdentity later = service.acceptDraftSave(ACCOUNT_ID, draftRequest(),
+                    STABLE_ID);
+
+            assertThat(waitingSaves.take(STABLE_ID)).as("the earlier save's content").isNull();
+            assertThat(waitingSaves.take(later.stableId())).as("the later save's content").isNotNull();
+        }
+
+        @Test
+        @DisplayName("An append retried after an authentication failure builds the draft once")
+        void aRetriedAppendBuildsTheDraftOnce() throws Exception {
+            hasAccount();
+            when(mimeMessageBuilder.build(any(), any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
+            when(appendService.appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any()))
+                    .thenAnswer(invocation -> {
+                        ImapAppendService.DraftSource source = invocation.getArgument(2,
+                                ImapAppendService.DraftSource.class);
+                        MimeMessage first = source.message();
+                        assertThat(source.message()).as("the message the retry appends").isSameAs(first).isNotNull();
+                        return new ImapAppendService.DraftAppendOutcome(true, null, null);
+                    });
+
+            save(draftRequest(), null);
+
+            verify(mimeMessageBuilder, times(1)).build(any(), any(), any(), any(), any());
+            verify(accountRepository).clearLastErrorIfCodeIn(eq(ACCOUNT_ID), any());
+        }
+
+        @Test
+        @DisplayName("The revisions a stored save replaces are looked up after its APPEND")
+        void theReplacedRevisionsAreLookedUpAfterTheAppend() throws Exception {
+            hasAccount();
+            when(mimeMessageBuilder.build(any(), any(), any(), any(), any())).thenReturn(mock(MimeMessage.class));
+            appendsStored();
+
+            save(draftRequest(), STABLE_ID);
+
+            InOrder order = inOrder(appendService, messageService, draftRecipientsRepository);
+            order.verify(appendService).appendDraft(eq(ACCOUNT_ID), eq(IDENTITY.draftsFolder()), any());
+            order.verify(messageService).getByStableId(STABLE_ID);
+            order.verify(draftRecipientsRepository).findEarlierRevisions(ACCOUNT_ID, IDENTITY.stableId());
+        }
+
+        @Test
+        @DisplayName("A send drops the waiting save of the draft it sent")
+        void aSendDropsTheSentDraftsWaitingSave() {
+            AccountEntity account = new AccountEntity();
+            account.setId(ACCOUNT_ID);
+            MessageEntity sent = new MessageEntity();
+            sent.setStableId(STABLE_ID);
+            sent.setMessageId(MESSAGE_ID);
+            sent.setAccount(account);
+            sent.setFolderName("Drafts");
+            sent.setUid(100L);
+            when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(sent));
+            when(imapFolderService.findFolderNameByRoleOrThrow(ACCOUNT_ID, FolderRole.DRAFTS)).thenReturn("Drafts");
+            waitingSaves.hold(STABLE_ID, draftRequest());
+
+            service.deleteSupersededDraft(ACCOUNT_ID, STABLE_ID);
+
+            assertThat(waitingSaves.take(STABLE_ID)).as("the sent draft's waiting content").isNull();
         }
     }
 }

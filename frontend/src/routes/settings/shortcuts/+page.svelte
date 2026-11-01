@@ -46,6 +46,11 @@
 					scopeKey: 'settings.shortcuts.scopes.globalIncludingInputs'
 				},
 				{
+					shortcut: SHORTCUT_LABELS.goToInbox,
+					actionKey: 'settings.shortcuts.actions.inbox',
+					scopeKey: 'settings.shortcuts.scopes.globalIncludingInputs'
+				},
+				{
 					shortcut: SHORTCUT_LABELS.workspacePane,
 					actionKey: 'settings.shortcuts.actions.pane',
 					scopeKey: 'settings.shortcuts.scopes.outsideTextFields'
@@ -96,6 +101,11 @@
 					scopeKey: 'settings.shortcuts.scopes.openMessage'
 				},
 				{
+					shortcut: SHORTCUT_LABELS.archiveMessage,
+					actionKey: 'settings.shortcuts.actions.archiveMessage',
+					scopeKey: 'settings.shortcuts.scopes.openMessage'
+				},
+				{
 					shortcut: SHORTCUT_LABELS.printMessage,
 					actionKey: 'settings.shortcuts.actions.printMessage',
 					scopeKey: 'settings.shortcuts.scopes.printTarget'
@@ -133,6 +143,16 @@
 				{
 					shortcut: 'Ctrl+Shift+B',
 					actionKey: 'settings.shortcuts.actions.focusBcc',
+					scopeKey: 'settings.shortcuts.scopes.compose'
+				},
+				{
+					shortcut: 'Ctrl+Shift+A',
+					actionKey: 'settings.shortcuts.actions.addAttachment',
+					scopeKey: 'settings.shortcuts.scopes.compose'
+				},
+				{
+					shortcut: 'Ctrl+V',
+					actionKey: 'settings.shortcuts.actions.pasteAttachment',
 					scopeKey: 'settings.shortcuts.scopes.compose'
 				},
 				{
@@ -178,6 +198,11 @@
 				{
 					shortcut: 'Delete',
 					actionKey: 'settings.shortcuts.actions.listDeleteMessage',
+					scopeKey: 'settings.shortcuts.scopes.messageGrid'
+				},
+				{
+					shortcut: SHORTCUT_LABELS.archiveMessage,
+					actionKey: 'settings.shortcuts.actions.listArchiveMessage',
 					scopeKey: 'settings.shortcuts.scopes.messageGrid'
 				}
 			]

@@ -21,6 +21,16 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Backend
 
+- A message from Seznam that could not be opened opens. Seznam's server writes
+  a part's disposition that has no parameters as an empty list, which IMAP does
+  not allow, and the mail library rejected the message's whole structure for
+  it: the sync kept the message without its attachments, and opening it ended
+  in "Poštovní operace selhala: neočekávaná chyba". Such a structure is now
+  read again with the empty list as none, so the message opens, and one synced
+  from now on keeps its attachments. A message the sync stored before this
+  opens too but still shows no attachments. A server response the
+  library cannot read is now logged with the library's reason, where it used to
+  be skipped without a line (#812).
 - A Microsoft work or school account, or a Google Workspace one, can be added.
   The sign-in looked up the account's servers by the address's domain, and the
   catalog lists only the consumer domains (`outlook.com`, `hotmail.com`,
@@ -61,6 +71,29 @@ Entries before 2026-09-17 predate that split and are left as written.
   and a million seven minutes; the dump waited for it on every
   try while the line stayed in the logs. It now reads such a run once, and
   replaces exactly the tokens it did before (#784).
+- Writing a message with large attachments no longer brings the backend down.
+  Every autosave waited for the account's connection, behind a sync or the
+  upload of the save before it, holding the whole message, so with 25 MB
+  attached the fifth waiting autosave ran the backend out of memory and it
+  restarted. Only a draft's newest waiting save now keeps its content, and a
+  save a later one has replaced is not uploaded at all. The queue also left a
+  copy of the draft in **Rozepsané** for each waiting save until the next one
+  was stored, and a message sent while a save was still waiting came back to
+  **Rozepsané** after the send; neither happens any more (#794).
+- The backend runs on Spring Boot 4.1.2, with SQLite 3.53.4 (`sqlite-jdbc`
+  3.53.4.0) and commonmark 0.31.0, the library that turns a sent message's
+  Markdown into its HTML part; 0.31.0 fixes four parse cases and two inputs
+  that took quadratic time. Boot 4.1.2 manages Tomcat 11.0.27 and the Jackson
+  3.1.7 and 2.21.7 boms, the versions `pom.xml` had pinned for their
+  advisories, so the three pins are gone and the next Boot bump moves those
+  libraries again instead of leaving them where the pins held them (#789).
+- Editing a draft opened again from **Rozepsané** no longer throws away what
+  was saved after the version opened. Right after leaving the composer, while
+  its save still waited for the account's connection, the list still showed
+  the draft as it was before that save; editing that version dropped the newer
+  save, or deleted it from the server once the edit was stored. Such an edit
+  now becomes a draft of its own, so both versions stay and nothing written is
+  lost (#802).
 
 ### Frontend
 
@@ -73,6 +106,20 @@ Entries before 2026-09-17 predate that split and are left as written.
 - A folder with no messages now says **Tato složka je prázdná.** ("This
   folder is empty.") instead of "Žádné zprávy v této složce." — a plainer
   statement of the same fact (#765).
+- The contacts pane lists **Importovat vCard** and **Exportovat vCard** under
+  **Akce**, next to **Spravovat štítky**, instead of under a heading of their
+  own, **Import a export**. Two headings over three buttons split the pane's
+  actions in two and gave a screen reader moving by headings one more stop.
+  While a new contact is being written the group keeps only **Spravovat
+  štítky**, as before (#807).
+- The contacts pane's buttons read **Importovat kontakty (.vcf)** and
+  **Exportovat kontakty (.vcf)** instead of **Importovat vCard** and
+  **Exportovat vCard**. "vCard" names the format, which a user does not see
+  anywhere else: the files on disk end in `.vcf`, and the old name did not say
+  that the whole address book goes in or out. The import messages say "soubor
+  .vcf" too, where they mixed "vCard soubor", ".vcf soubor" and "z vCard";
+  only the wrong-file message keeps "vCard (.vcf)", to say what was expected
+  (#808).
 - The button at the top of the left rail that shows and hides the side pane
   now draws a window with a side pane instead of a hamburger, and a rule sets
   it apart from **Pošta**, **Kontakty** and **Nastavení** below it. Testers
@@ -87,6 +134,11 @@ Entries before 2026-09-17 predate that split and are left as written.
   rail, in the command palette and on **Všechny kontakty** in the contacts
   pane. A book read as documentation or reading rather than an address book;
   Outlook draws its People the same way (#773).
+- The section headings in the side panes, **Složky** over the folder list,
+  **Štítky** in contacts, **Předvolby** in settings and the rest, are now a
+  step larger than the items under them, 16px over 14px. Since #674 they had
+  the items' size and stood apart by weight alone, and testers asked for the
+  heading to be larger than the list it heads (#790).
 
 - A backend that crashes is restarted again after a **Restartovat službu**
   that landed while a start was under way: pressed twice in a row, or in the
@@ -104,7 +156,7 @@ Entries before 2026-09-17 predate that split and are left as written.
   The stop now waits for a start under way and ends what it started, and a
   restart the stop came before no longer happens; a **Restartovat službu** in
   either moment still gets its backend. An update runs the code of the
-  installed version, so this protects updates from 0.1.1 on (#760).
+  installed version, so this protects updates from 0.2.0 on (#760).
 - A screen reader hears **Přidat přílohu** in a new message once, as the
   button. The chip's visible caption stayed in the accessibility tree next to
   the button that carries the same name, so browse mode read it as a line of
@@ -146,6 +198,86 @@ Entries before 2026-09-17 predate that split and are left as written.
   contact label, and of applying labels to selected contacts, once. Each
   dialog announced the sentence itself next to a toast that already announces
   it, so it was read twice (#775).
+- Typing in a new message with large attachments no longer lags. To tell an
+  edit from no change, the composer compared the whole message on every key
+  press, the attachments' data included, so with 25 MB attached each key took
+  about 145 ms and every save left two more copies of the attachments in
+  memory. An attachment now counts by its identity, and a key press costs the
+  same with attachments as without (#793).
+- A message with large attachments is autosaved at most once a minute while
+  you write it, instead of after every pause of three seconds. Each autosave
+  uploads the whole message, attachments included, to the mail provider and
+  holds up that account's sync until it is done, so on a slow connection the
+  upload ran for as long as the writing did. This applies once the attachments
+  reach 5 MB, the size **Velká příloha** asks about; leaving the message,
+  Ctrl+S and sending still save at once. A crash now loses at most the last
+  minute of writing in such a message (#795).
+- The **Velká příloha** dialog says what a large attachment means for the
+  message: it takes longer to save and send, and the recipient's mail server
+  may refuse it. It used to ask **Načíst ji do paměti?**, which described the
+  program rather than the message (#796).
+- The hint about dragging files into a new message shows only while nothing is
+  attached yet, or while files are being dragged, and a screen reader no longer
+  reads it on every pass through the attachments; Ctrl+V for a file copied in
+  File Explorer is listed under **Klávesové zkratky** instead (#796).
+- **Ctrl+Shift+A** in a new message opens the file dialog to add an
+  attachment. Outlook has no single key for it, and finding the button meant
+  tabbing back to it from the body; the key is listed under **Klávesové
+  zkratky** (#797).
+- A new message shows the total size of its attachments against the limit,
+  for example **Celkem 7,4 MB z 25,0 MB.**, so the limit is not met only by
+  the error once a file goes over it (#797).
+- Adding a file that is already attached, with the same name and size, skips
+  it and says so: **Soubor … už je přiložený, podruhé se nepřidal.** The other
+  files of the same selection are still added. It used to be attached a second
+  time, usually from a second drop or paste of the same file (#797).
+- The attachments of a new message are one stop for Tab: from **Předmět** the
+  next Tab reaches **Přidat přílohu**, then the attachments, then the body.
+  Tab used to stop on every **Odebrat přílohu** button on the way. The
+  attachments are a grid, as the message list is: the arrows move between
+  them and to their remove button, **Delete** removes the attachment of the
+  row, and focus moves to the next one, or to **Přidat přílohu** once none is
+  left (#798).
+- A draft opened again right after leaving the composer opens what was last
+  saved, not the older version **Rozepsané** still lists until the save
+  reaches the server, and from the account that save went from. The composer
+  remembers its newest save until another message is started, the draft is
+  sent or it is discarded, and carries on from that save, so the draft stays
+  one (#802).
+- Mail reopens on the folder it was last showing, as Outlook does: coming back
+  with **Ctrl+1** from Contacts or Settings, leaving the composer, or switching
+  back to an account no longer drops the user in **Doručené** and makes them
+  find their folder again. The app remembers one folder per account for the
+  session, so it still starts on the Inbox, and a folder deleted or renamed in
+  the meantime falls back to the Inbox too (#804).
+- **Ctrl+Shift+I** goes to the active account's **Doručené**, as Outlook's
+  "Go to Inbox" does, from anywhere in the app and also with the cursor in a
+  text field or in the body of an open message. Settings › Shortcuts lists it,
+  and the command palette shows it next to the Inbox folder (#804).
+- **Backspace** moves mail to the account's **Archiv**, as in Outlook: the
+  open message, also with the reading cursor in its body, or the row focused
+  in the message list. In the grouped view a conversation row takes the
+  conversation's messages in the folder in view, as its row menu does. The
+  target is the folder the server marks as the archive, whatever it is called.
+  An account without one, or mail already archived, is told so instead of the
+  key doing nothing audible, and a held key archives once rather than walking
+  down the folder. Settings › Shortcuts lists both, and the command palette
+  shows it next to the move to the Archive folder (#805).
+- The banner over a message with blocked images now says why they are held
+  back: "Zpráva obsahuje 1 obrázek z internetu, který jsme nenačetli. Načtení
+  obrázků z internetu může odesílateli prozradit, že jste zprávu otevřeli."
+  It used to say only "Vzdálené obrázky blokovány (1)", and testers could not
+  tell what the area was for. The second button reads **Vždy načítat obrázky
+  od tohoto odesílatele** instead of **Vždy od tohoto odesílatele**, which a
+  tester tabbing to it could not place, and the banner and its announcements
+  say "obrázky z internetu" instead of "vzdálené obrázky" (#809).
+- An open message's attachments are named once. The visible "Přílohy:"
+  caption stayed in the tree above a list named "Přílohy", so a screen reader
+  reading down the header said the word twice in a row; the caption is now for
+  the eye only, and the list keeps its name for the list key (#809).
+- With the reading pane off, the way back from an open message is an outlined
+  button reading **← Zpět do složky Doručené** in full, instead of a muted
+  **← Doručené** that testers did not see as the way back (#809).
 
 ### Tauri / Release
 
@@ -176,6 +308,77 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- `npm run sidecar:rebuild:windows` rebuilds the dev sidecar in one command. It
+  refuses while anything runs out of `frontend/src-tauri`, packages, syncs,
+  checks that the jar in `binaries/` is byte for byte the one just built and
+  that `tauri:dev` will call it fresh, and runs the sidecar smoke unless told
+  `--skip-smoke`. The freshness check, the boot error and the READMEs name it as
+  the way to rebuild, and the packaging script now cleans before it builds,
+  since a file deleted from `src/main/resources` stayed in the jar (#811).
+- `npm run tauri:dev` no longer calls an old sidecar fresh after a sync: the
+  digest of the backend sources is taken by the packaging script before the
+  build and travels inside the image, where the sync used to take it at sync
+  time and so vouched for whatever image `backend/target/sidecar` held, however
+  old. A sidecar packaged before this reads as unknown until it is packaged
+  again, and the boot error for a sidecar without `appName` names the packaging
+  script instead of `mvn package`, which never rebuilt the image (#811).
+- The IMAP/SMTP audit is 1.84 (§5, the empty-list re-read), the threat model
+  3.35 and the release check 3.11; the drift under the audit's code paths is
+  acknowledged in its ledger until the change's independent pass.
+  `EmptyParameterListIT` opens such a message over the wire through
+  `HostileImapServer`, which can now answer each FETCH item apart (#812).
+- The swagger-ui webjar is pinned to 5.34.1 again, the first release carrying
+  DOMPurify 3.4.17: the nightly vulnerability scan failed on five DOMPurify
+  advisories against the 5.32.14 springdoc manages (#806). Only Swagger UI in
+  dev ever loads the bundle; the release sidecar carries neither springdoc nor
+  the webjar. The version key it needs in `application.properties` is
+  acknowledged in the ledgers of the API surface and IMAP/SMTP audits, each at
+  1 of 8 (#810).
+- The remote-image banner's new wording sits under the content rendering
+  audit's `Code paths` and is acknowledged in its ledger, now at 2 of 8; the
+  opt-in and the frame are unchanged (#809).
+- The IMAP/SMTP audit is 1.83, the independent pass over #802: B1-26's fix is
+  confirmed and the audit is re-verified against `5612842`, clearing its ledger
+  entry. Corrected: a restart between leaving the composer and reopening the
+  older revision still splits the draft's chain, though it leaves one draft.
+  Recorded and not chased: a fork leaves an earlier copy of the draft it left
+  when that draft's newer save is never stored (#803).
+- The threat model (3.32) and the IMAP/SMTP audit (1.81, §4z) rate a denial of
+  service only an account's own mail server can cause Low, while what lasts is
+  that account's loss: the owner's rule of #669, applied now that the account
+  budget and the crash guard keep such a server to its own account. Six
+  findings move from Medium; eleven stay, because a sender can cause them or it
+  is not established that only the server can, honest use reaches them, or they
+  stop every account (#801).
+- Error Prone 2.51 and NullAway 0.14.3: the new `HashCodeInObjectsHash` check
+  flagged `Objects.hash` over the single id in `RemoteImageSenderEntity`, now
+  `Objects.hashCode`, and `docs/STATIC_ANALYSIS.md` stops naming either tool's
+  version, stale after every bump. Spring Boot 4.1.2 no longer cleans logging
+  up when the test framework pauses a cached context (spring-boot#52088), so
+  every integration test logged where the first one to start had pointed
+  logging and the five that read their own log failed; a test-only listener
+  cleans it up for each application a test starts (#789).
+- The IMAP/SMTP audit is 1.80 and the API surface audit 1.25, the independent
+  pass over #794: B1-25's fix is confirmed, and both audits are re-verified
+  against `2338c31`, clearing their ledger entries. Recorded and not chased: a
+  draft reopened from an older revision while a newer save of it waits for the
+  lane loses that save's edits, as the chain of 1.68 already did at the next
+  stored save (#799).
+- The `Tauri (Rust)` job takes WebKitGTK and the other system packages from the
+  Actions cache when it holds them, instead of from the Ubuntu mirror. Three
+  runs went red on 2026-10-26 with the mirror serving those 63.7 MB at 13-82
+  kB/s through all three bounded attempts, which no retry recovers from; apt
+  still resolves against a fresh index, so the cache changes where the files
+  come from, not which ones get installed (#800).
+- The weekly soak runs against Dovecot in a container instead of GreenMail. Its
+  failure of 2026-10-24 (#770) was GreenMail's: while another client expunges,
+  it renumbers the backend's selected mailbox before telling it, so a UID was
+  stored with its neighbour's envelope. On Dovecot the soak also runs the
+  QRESYNC path rather than the fallback that fetches every flag (#792).
+- `sidecar.test.ts` no longer fails the pre-push gate on a busy machine. Its
+  crash tests left each automatic restart waiting on a real 1 s timer, which
+  fired inside a later test once the file ran longer than that and called the
+  sidecar mock every test shares; they run on fake timers now (#791).
 - The API surface audit is 1.24, the independent pass over #784: A7's fix is
   confirmed and the audit re-verified against `f8d07ff`, clearing its ledger.
   Four more shared vectors pin what the hand scan added and no test held, the
@@ -272,6 +475,10 @@ Entries before 2026-09-17 predate that split and are left as written.
   the running shell and sidecar, and checks the data, the start, a file-by-file
   match with a fresh install, what the previous release left behind, and the
   downgrade block. Until 0.1.1 is tagged it reinstalls 0.1.0 over itself (#761).
+- The release after v0.1.0 is 0.2.0, not 0.1.1: Ctrl+Shift+A, the attachment
+  total and the duplicate check are its first new feature, and the maintainer
+  chose to merge them before the cut rather than after. The release model,
+  `docs/RELEASE_PROCESS.md` and `todo.md` name 0.2.0 now (#797).
 
 ## [0.1.0] - 2026-10-19
 

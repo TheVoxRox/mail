@@ -1013,7 +1013,7 @@ function authRoutes(method: string, segments: string[]): MockResponse | null {
 /**
  * The per-sender remote-image allow-list. Missing until the banner's second
  * button got a test: without a handler the PUT fell through to the mock's 404,
- * so "Vždy od tohoto odesílatele" took the error path in every e2e run while
+ * so "Always load images from this sender" took the error path in every e2e run while
  * looking like it worked — nothing asserted it, and the banner it leaves
  * standing is also what a failed attempt leaves standing.
  *

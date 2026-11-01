@@ -231,6 +231,8 @@ export function createMailCommands(options: MailCommandOptions): Command[] {
 				['presunout', 'slozka', folder.displayName],
 				['move', 'folder', folder.displayName]
 			),
+			// Backspace runs archiveMessage, which moves to this same folder.
+			shortcut: folder.role === 'ARCHIVE' ? SHORTCUT_LABELS.archiveMessage : undefined,
 			icon: 'folder',
 			contexts: ['mail'],
 			routePrefixes: ['/mail/'],

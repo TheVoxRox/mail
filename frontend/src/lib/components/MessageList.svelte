@@ -31,7 +31,12 @@
 	import { messageStatusLabel } from '#lib/mail/messageStatus.js';
 	import type { FolderResponse, MailSummaryResponse } from '#lib/types.js';
 	import { requestBodyFocus, suppressBodyFocus } from '#lib/mail/bodyFocus.js';
-	import { deleteMessages, markMessagesSeen, moveMessages } from '#lib/mail/mailbox.js';
+	import {
+		archiveMessage,
+		deleteMessages,
+		markMessagesSeen,
+		moveMessages
+	} from '#lib/mail/mailbox.js';
 	import { messagesPageInfo, olderMailOnServerOnly } from '#lib/mail/pageInfoAnnouncement.js';
 	import { printableSelection, printInProgress, printMessages } from '#lib/mail/printMessages.js';
 	import {
@@ -169,15 +174,19 @@
 		// so a modifier combo (Shift/Ctrl+Delete) behaves the same whether focus is
 		// on a list row or in the reading pane. Modified Delete falls through to the
 		// navigation branch, where nextCell returns null for 'Delete' → no-op.
-		if (
-			event.key === 'Delete' &&
-			!event.ctrlKey &&
-			!event.metaKey &&
-			!event.altKey &&
-			!event.shiftKey
-		) {
+		const unmodified = !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey;
+		if (event.key === 'Delete' && unmodified) {
 			event.preventDefault();
 			void deleteMessages([message.stableId]);
+			return;
+		}
+		// Plain Backspace archives the row, as in Outlook's list — claimed here so
+		// the open-message handler does not archive the open message instead. An
+		// auto-repeat is claimed and dropped: the row's neighbour takes focus, so a
+		// held key would walk down the folder archiving one row per repeat.
+		if (event.key === 'Backspace' && unmodified) {
+			event.preventDefault();
+			if (!event.repeat) void archiveMessage(message.stableId, message.folderName);
 			return;
 		}
 		if ($messagesState.status !== 'ready') return;

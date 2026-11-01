@@ -29,30 +29,33 @@ LICENSE     MIT
 
 Requires Node.js 26, JDK 25, Rust toolchain (for Tauri build), Windows.
 
-### 1. Backend (sidecar)
+### 1. Backend configuration
 
 ```bash
 cd backend
-cp .env.example .env                          # fill in OAuth values; leave MAIL_CRYPTO_* empty for desktop bootstrap
-./package-sidecar-dev-windows.ps1 -SkipTests  # jpackage image with the OAuth client ids from .env baked in
+cp .env.example .env   # fill in OAuth values; leave MAIL_CRYPTO_* empty for desktop bootstrap
 ```
-
-Without OAuth values in `.env` the packaging stops; pass `-AllowPlaceholderOAuth`
-to build a sidecar whose OAuth login will not work.
 
 ### 2. Frontend (Tauri dev)
 
 ```bash
 cd frontend
 npm install
-npm run sidecar:sync:windows   # copies the backend artifact into src-tauri/binaries/
+npm run sidecar:rebuild:windows   # packages the backend sidecar into src-tauri/binaries/
 npm run tauri:dev
 ```
+
+`sidecar:rebuild:windows` packages the backend with the OAuth client ids from
+`.env` baked in, copies the image into the Tauri bundle input, checks that what
+landed there is what was just built, and starts it once headless. Without OAuth
+values in `.env` the packaging stops;
+`npm run sidecar:rebuild:windows -- --allow-placeholder-oauth` builds a sidecar
+whose OAuth login will not work.
 
 Tauri starts the sidecar itself, with the values from `backend/.env`; there is
 no backend process to launch by hand. `tauri:dev` refuses a sidecar packaged
 from other backend sources than the ones checked out, so after a backend change
-repeat step 1 and the sync.
+stop it and run `npm run sidecar:rebuild:windows` again.
 
 In desktop mode Tauri does not forward `MAIL_CRYPTO_KEY`/`MAIL_CRYPTO_SALT`
 from `backend/.env`; the backend creates and uses a local `crypto.bin` instead.

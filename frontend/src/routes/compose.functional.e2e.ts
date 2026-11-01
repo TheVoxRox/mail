@@ -179,7 +179,7 @@ test.describe('Compose', () => {
 
 		await openApp(page, '/compose?forward=msg-01');
 
-		await expect(page.getByRole('list', { name: 'Přílohy' }).getByText('brief.pdf')).toBeVisible();
+		await expect(page.getByRole('grid', { name: 'Přílohy' }).getByText('brief.pdf')).toBeVisible();
 		await page.locator('#compose-to').fill('forward-recipient@example.com');
 		await page.getByRole('button', { name: 'Odeslat' }).click();
 
@@ -250,6 +250,89 @@ test.describe('Compose', () => {
 		expect(new URL(draftPosts[0]).searchParams.get('replaces')).toBe('draft-42');
 	});
 
+	/**
+	 * Opens draft-42, saves an edit and goes back to it, as a user does who opens
+	 * the revision again from a Drafts list that shows the newer save's row only
+	 * once the backend has stored it (IMAP/SMTP audit B1-26). The mock stores at
+	 * once and drops draft-42, so only the compose session can open what was saved.
+	 * With `fromAccount`, the save goes from that account.
+	 */
+	async function saveEditAndReopen(
+		page: Page,
+		fromAccount?: string
+	): Promise<{ newest: string; posts: URL[] }> {
+		const posts: URL[] = [];
+		const draftSave = /\/api\/v1\/accounts\/\d+\/drafts(\?|$)/;
+		page.on('request', (request) => {
+			if (request.method() !== 'POST') return;
+			if (draftSave.test(request.url()) || request.url().includes('/send')) {
+				posts.push(new URL(request.url()));
+			}
+		});
+		await openApp(page, '/compose?draft=draft-42');
+		await expect(page.locator('#compose-body')).toHaveValue('HTML obsah pro Rozepsaný koncept.');
+
+		if (fromAccount) await page.locator('#compose-from').selectOption(fromAccount);
+		await page.locator('#compose-body').fill('Naposledy uložený text.');
+		const saved = page.waitForResponse(
+			(response) => response.request().method() === 'POST' && draftSave.test(response.url())
+		);
+		await page.getByRole('button', { name: 'Uložit koncept' }).click();
+		const { stableId } = (await (await saved).json()) as { stableId: string };
+		await page.waitForURL('**/mail/**');
+
+		await page.goBack();
+		await page.waitForURL('**/compose?draft=draft-42');
+		return { newest: stableId, posts };
+	}
+
+	test('znovu otevřená revize, kterou uložení nahradilo, ukáže naposledy uložený text a naváže na něj', async ({
+		page
+	}) => {
+		const { newest, posts } = await saveEditAndReopen(page);
+
+		await expect(page.locator('#compose-body')).toHaveValue('Naposledy uložený text.');
+		await expect(page.locator('#compose-subject')).toHaveValue('Rozepsaný koncept');
+		await page.locator('#compose-body').fill('Pokračování po znovuotevření.');
+		await page.getByRole('button', { name: 'Uložit koncept' }).click();
+		await page.waitForURL('**/mail/1/INBOX');
+
+		expect(posts).toHaveLength(2);
+		expect(posts[1].searchParams.get('replaces')).toBe(newest);
+	});
+
+	test('znovu otevřená revize se neodešle jako koncept na serveru, ale z polí', async ({
+		page
+	}) => {
+		const { newest, posts } = await saveEditAndReopen(page);
+		await expect(page.locator('#compose-body')).toHaveValue('Naposledy uložený text.');
+
+		// The newest save may still be waiting for the server, so an untouched send
+		// rebuilds the message from the fields instead of sending a draft as-is.
+		await page.getByRole('button', { name: 'Odeslat' }).click();
+		await page.waitForURL('**/mail/1/INBOX');
+
+		const send = posts.at(-1);
+		expect(send?.pathname).toBe('/api/v1/messages/account/1/send');
+		expect(send?.searchParams.get('supersedesDraftId')).toBe(newest);
+	});
+
+	test('znovu otevřená revize se uloží z účtu, ze kterého šlo poslední uložení', async ({
+		page
+	}) => {
+		const { newest, posts } = await saveEditAndReopen(page, '2');
+
+		await expect(page.locator('#compose-from')).toHaveValue('2');
+		await page.locator('#compose-body').fill('Pokračování z druhého účtu.');
+		await page.getByRole('button', { name: 'Uložit koncept' }).click();
+		await page.waitForURL('**/mail/**');
+
+		expect(posts).toHaveLength(2);
+		expect(posts[0].pathname).toBe('/api/v1/accounts/2/drafts');
+		expect(posts[1].pathname).toBe('/api/v1/accounts/2/drafts');
+		expect(posts[1].searchParams.get('replaces')).toBe(newest);
+	});
+
 	test('odešle novou zprávu přes MSW API a vrátí se do inboxu', async ({ page }) => {
 		await openApp(page, '/compose');
 
@@ -310,7 +393,7 @@ test.describe('Compose', () => {
 			buffer: Buffer.from('Obsah faktury')
 		});
 		await expect(
-			page.getByRole('list', { name: 'Přílohy' }).getByText('faktura.txt')
+			page.getByRole('grid', { name: 'Přílohy' }).getByText('faktura.txt')
 		).toBeVisible();
 
 		await page.getByRole('button', { name: 'Odeslat' }).click();
@@ -549,7 +632,7 @@ test.describe('Compose', () => {
 		// only after the chip had gone, focus ended up in the same place, but
 		// JAWS kept its cursor where the chip had been.
 		await openApp(page, '/compose');
-		const attachments = page.getByRole('list', { name: 'Přílohy' });
+		const attachments = page.getByRole('grid', { name: 'Přílohy' });
 		const content = 'Text přílohy';
 
 		await page.locator('input[type="file"]').setInputFiles({
@@ -582,11 +665,107 @@ test.describe('Compose', () => {
 		).toContainEqual({ from: 'Odebrat přílohu poznamka.txt', to: 'Přidat přílohu' });
 	});
 
-	test('více příloh najednou se ohlásí počtem a součtem, odebrání jedné vrátí fokus na Přidat přílohu', async ({
+	test('Ctrl+Shift+A otevře výběr souboru a vybraný soubor přiloží', async ({ page }) => {
+		await openApp(page, '/compose');
+		const body = page.locator('#compose-body');
+
+		const chooser = page.waitForEvent('filechooser');
+		await body.press('Control+Shift+A');
+		await (
+			await chooser
+		).setFiles({ name: 'zkratkou.txt', mimeType: 'text/plain', buffer: Buffer.from('Text') });
+
+		await expect(
+			page.getByRole('grid', { name: 'Přílohy' }).getByText('zkratkou.txt')
+		).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Přidat přílohu' })).toHaveAttribute(
+			'aria-keyshortcuts',
+			'Control+Shift+A'
+		);
+	});
+
+	test('pod přílohami je jejich součet proti limitu zprávy', async ({ page }) => {
+		await openApp(page, '/compose');
+
+		await page.locator('input[type="file"]').setInputFiles([
+			{ name: 'prvni.txt', mimeType: 'text/plain', buffer: Buffer.alloc(300) },
+			{ name: 'druha.txt', mimeType: 'text/plain', buffer: Buffer.alloc(200) }
+		]);
+
+		await expect(page.getByText('Celkem 500 B z 25,0 MB.')).toBeVisible();
+	});
+
+	test('tentýž soubor podruhé se přeskočí, ostatní z dávky se přidají a řekne se to', async ({
 		page
 	}) => {
 		await openApp(page, '/compose');
-		const attachments = page.getByRole('list', { name: 'Přílohy' });
+		const fileInput = page.locator('input[type="file"]');
+		const attachments = page.getByRole('grid', { name: 'Přílohy' });
+		const note = {
+			name: 'poznamka.txt',
+			mimeType: 'text/plain',
+			buffer: Buffer.from('Text přílohy')
+		};
+
+		await fileInput.setInputFiles(note);
+		await expect(attachments.getByText('poznamka.txt')).toBeVisible();
+		await fileInput.setInputFiles([
+			note,
+			{ name: 'dalsi.txt', mimeType: 'text/plain', buffer: Buffer.from('Další') }
+		]);
+
+		await expect(page.getByRole('alert')).toHaveText(
+			'Soubor poznamka.txt už je přiložený, podruhé se nepřidal.'
+		);
+		await expect(attachments.getByText('dalsi.txt')).toBeVisible();
+		await expect(attachments.getByText('poznamka.txt')).toHaveCount(1);
+	});
+
+	test('nápověda k přetažení je vidět jen bez příloh a čtečka ji nečte', async ({ page }) => {
+		// Read on every pass through the strip, though files are not dragged with
+		// a screen reader; Ctrl+V is on the shortcuts page instead.
+		await openApp(page, '/compose');
+		const hint = page.getByText('Přetáhněte sem soubory nebo vložte přílohu ze schránky.');
+
+		await expect(hint).toBeVisible();
+		await expect(hint).toHaveAttribute('aria-hidden', 'true');
+
+		await page.locator('input[type="file"]').setInputFiles({
+			name: 'poznamka.txt',
+			mimeType: 'text/plain',
+			buffer: Buffer.from('Text přílohy')
+		});
+		await expect(
+			page.getByRole('grid', { name: 'Přílohy' }).getByText('poznamka.txt')
+		).toBeVisible();
+		await expect(hint).toHaveCount(0);
+	});
+
+	test('velká příloha se potvrzuje dialogem, který říká, co velikost znamená', async ({ page }) => {
+		await openApp(page, '/compose');
+
+		await page.locator('input[type="file"]').setInputFiles({
+			name: 'velka-priloha.bin',
+			mimeType: 'application/octet-stream',
+			buffer: Buffer.alloc(6 * 1024 * 1024)
+		});
+
+		const dialog = page.getByRole('dialog', { name: 'Velká příloha' });
+		await expect(dialog).toContainText(
+			'Zpráva se pak bude déle ukládat i odesílat a poštovní server příjemce ji může odmítnout. Přesto ji připojit?'
+		);
+		await expect(dialog).not.toContainText('paměti');
+		await dialog.getByRole('button', { name: 'Připojit' }).click();
+		await expect(
+			page.getByRole('grid', { name: 'Přílohy' }).getByText('velka-priloha.bin')
+		).toBeVisible();
+	});
+
+	test('více příloh najednou se ohlásí počtem a součtem, odebrání jedné přesune fokus na další přílohu', async ({
+		page
+	}) => {
+		await openApp(page, '/compose');
+		const attachments = page.getByRole('grid', { name: 'Přílohy' });
 
 		await page.locator('input[type="file"]').setInputFiles([
 			{ name: 'prvni.txt', mimeType: 'text/plain', buffer: Buffer.alloc(300) },
@@ -596,9 +775,56 @@ test.describe('Compose', () => {
 		await expect(page.locator('#live-region')).toContainText('Přidány 2 přílohy, celkem 500 B.');
 		await page.getByRole('button', { name: 'Odebrat přílohu prvni.txt' }).click();
 		await expect(page.locator('#live-region')).toContainText('Příloha prvni.txt odebrána.');
-		await expect(page.getByRole('button', { name: 'Přidat přílohu' })).toBeFocused();
+		// The same cell of the next attachment, as the arrows would reach it.
+		await expect(page.getByRole('button', { name: 'Odebrat přílohu druha.txt' })).toBeFocused();
 		await expect(attachments.getByText('prvni.txt')).toHaveCount(0);
 		await expect(attachments.getByText('druha.txt')).toBeVisible();
+	});
+
+	test('přílohy jsou jedna zastávka Tabu, šipky se v nich pohybují a Delete přílohu odebere', async ({
+		page
+	}) => {
+		// As a list of buttons, Tab from the subject to the body stopped on every
+		// remove button.
+		await openApp(page, '/compose');
+		const grid = page.getByRole('grid', { name: 'Přílohy' });
+		const file = (name: string) => grid.getByRole('rowheader', { name: new RegExp(name) });
+		const remove = (name: string) => page.getByRole('button', { name: `Odebrat přílohu ${name}` });
+
+		await page.locator('input[type="file"]').setInputFiles([
+			{ name: 'prvni.txt', mimeType: 'text/plain', buffer: Buffer.alloc(300) },
+			{ name: 'druha.txt', mimeType: 'text/plain', buffer: Buffer.alloc(200) },
+			{ name: 'treti.txt', mimeType: 'text/plain', buffer: Buffer.alloc(100) }
+		]);
+		await expect(grid.getByRole('rowheader')).toHaveCount(3);
+
+		await page.locator('#compose-subject').press('Tab');
+		await expect(page.getByRole('button', { name: 'Přidat přílohu' })).toBeFocused();
+		await page.keyboard.press('Tab');
+		await expect(file('prvni.txt')).toBeFocused();
+		await page.keyboard.press('Tab');
+		await expect(page.locator('#compose-body')).toBeFocused();
+		await page.keyboard.press('Shift+Tab');
+		await expect(file('prvni.txt')).toBeFocused();
+
+		await page.keyboard.press('ArrowDown');
+		await expect(file('druha.txt')).toBeFocused();
+		await page.keyboard.press('ArrowRight');
+		await expect(remove('druha.txt')).toBeFocused();
+
+		await page.keyboard.press('Delete');
+		await expect(page.locator('#live-region')).toContainText('Příloha druha.txt odebrána.');
+		await expect(remove('treti.txt')).toBeFocused();
+
+		// After the last attachment, the one before it.
+		await page.keyboard.press('Delete');
+		await expect(remove('prvni.txt')).toBeFocused();
+
+		await page.keyboard.press('ArrowLeft');
+		await expect(file('prvni.txt')).toBeFocused();
+		await page.keyboard.press('Delete');
+		await expect(page.getByRole('button', { name: 'Přidat přílohu' })).toBeFocused();
+		await expect(grid).toHaveCount(0);
 	});
 
 	test('odeslání během načítání přílohy se zablokuje, ať se příloha neztratí', async ({ page }) => {
@@ -638,7 +864,7 @@ test.describe('Compose', () => {
 		// Uvolni čtení; příloha se objeví v seznamu a odeslání už projde — i s přílohou.
 		await page.evaluate(() => (window as { __releaseFileRead?: () => void }).__releaseFileRead?.());
 		await expect(
-			page.getByRole('list', { name: 'Přílohy' }).getByText('pomala-priloha.txt')
+			page.getByRole('grid', { name: 'Přílohy' }).getByText('pomala-priloha.txt')
 		).toBeVisible();
 		await page.getByRole('button', { name: 'Odeslat' }).click();
 		await page.waitForURL('**/mail/1/INBOX');
@@ -667,7 +893,7 @@ test.describe('Compose', () => {
 		await dropTarget.dispatchEvent('drop', { dataTransfer });
 
 		await expect(
-			page.getByRole('list', { name: 'Přílohy' }).getByText('pretazena-priloha.txt')
+			page.getByRole('grid', { name: 'Přílohy' }).getByText('pretazena-priloha.txt')
 		).toBeVisible();
 	});
 
@@ -692,7 +918,7 @@ test.describe('Compose', () => {
 		await messageBody.dispatchEvent('drop', { dataTransfer });
 
 		await expect(
-			page.getByRole('list', { name: 'Přílohy' }).getByText('z-tela-zpravy.txt')
+			page.getByRole('grid', { name: 'Přílohy' }).getByText('z-tela-zpravy.txt')
 		).toBeVisible();
 	});
 
@@ -723,7 +949,7 @@ test.describe('Compose', () => {
 		expect(leftToBrowser).toBe(false);
 
 		await expect(
-			page.getByRole('list', { name: 'Přílohy' }).getByText('vlozena-priloha.txt')
+			page.getByRole('grid', { name: 'Přílohy' }).getByText('vlozena-priloha.txt')
 		).toBeVisible();
 		// A paste leaves focus in the body, so nothing else says a file was added.
 		await expect(page.locator('#live-region')).toContainText(
@@ -760,7 +986,7 @@ test.describe('Compose', () => {
 		]);
 
 		expect(leftToBrowser).toBe(true);
-		await expect(page.getByRole('list', { name: 'Přílohy' })).toHaveCount(0);
+		await expect(page.getByRole('grid', { name: 'Přílohy' })).toHaveCount(0);
 	});
 
 	test('příliš velká příloha zobrazí lokalizovanou chybu a nepřidá se do payloadu', async ({
@@ -799,7 +1025,7 @@ test.describe('Compose', () => {
 				.getByRole('alert')
 				.filter({ hasText: 'Soubor prazdny.txt je prázdný, nelze ho přiložit.' })
 		).toBeVisible();
-		await expect(page.getByRole('list', { name: 'Přílohy' })).toHaveCount(0);
+		await expect(page.getByRole('grid', { name: 'Přílohy' })).toHaveCount(0);
 	});
 
 	test('příloha nad strop 50 se odmítne při přidání a řekne, kolik se ještě vejde', async ({
@@ -816,7 +1042,7 @@ test.describe('Compose', () => {
 				mimeType: 'text/plain',
 				buffer: Buffer.from(`${prefix} ${index + 1}`)
 			}));
-		const attachments = page.getByRole('list', { name: 'Přílohy' }).getByRole('listitem');
+		const attachments = page.getByRole('grid', { name: 'Přílohy' }).getByRole('rowheader');
 		const tooMany = page
 			.getByRole('alert')
 			.filter({ hasText: 'Ke zprávě lze přiložit nejvýš 50 příloh.' });

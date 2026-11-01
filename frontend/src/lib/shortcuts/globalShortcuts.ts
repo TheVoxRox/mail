@@ -17,6 +17,8 @@ export interface GlobalShortcutHandlers {
 	isPaletteOpen: () => boolean;
 	goToPrimaryNewAction: () => Promise<void> | void;
 	goToWorkspace: (mode: WorkspaceMode) => Promise<void> | void;
+	/** Ctrl+Shift+I: the active account's Inbox. */
+	goToInbox: () => Promise<void> | void;
 	/** Ctrl+Y: into the workspace pane, sliding it out first when the window has folded it away. */
 	goToPane: () => void;
 	/** Whether a message is open, which is what the message actions below need. */
@@ -32,6 +34,8 @@ export interface GlobalShortcutHandlers {
 	 */
 	setSeen: (seen: boolean) => void;
 	deleteMessage: () => void;
+	/** Moves the open message to the account's Archive folder, or says why it cannot. */
+	archiveMessage: () => void;
 	/** Prints the open message, or says why it cannot yet. */
 	printOpenMessage: () => void;
 	/** Ctrl+P with no message open and nothing ticked: say so instead of printing the screen. */
@@ -60,8 +64,8 @@ export function isEditableTarget(target: EventTarget | null): boolean {
  *  0) A closer handler already claimed the key (defaultPrevented) → stay out.
  *  1) Ctrl/Cmd+K opens the palette (even in inputs).
  *  2) Palette open → handler hands the key to the palette component.
- *  3) Ctrl+1/2/3 (workspace), Ctrl+N (new item) and Ctrl+P (print the open
- *     message or the ticked rows) — also in inputs.
+ *  3) Ctrl+1/2/3 (workspace), Ctrl+N (new item), Ctrl+Shift+I (Inbox) and
+ *     Ctrl+P (print the open message or the ticked rows) — also in inputs.
  *  4) Cursor in an editable element → handler stays out.
  *  5) Ctrl+Y into the workspace pane.
  *  6) Outlook-style actions on the open message (reply, forward, flag, …).
@@ -101,6 +105,26 @@ export function handleGlobalKeydown(event: KeyboardEvent, handlers: GlobalShortc
 	 * half-written message this way is still guarded by the compose leave guard.
 	 */
 	if (handleWorkspaceShortcut(event, handlers)) return;
+
+	/*
+	 * Ctrl+Shift+I is Outlook's "go to Inbox", a window-level command like the
+	 * workspace keys above and ahead of the editable bail for the same reason.
+	 * It names a folder rather than a workspace: Ctrl+1 returns to the folder
+	 * Mail was last showing, this always lands on the Inbox. The webview's own
+	 * meaning, devtools, is switched off in webview_defaults.rs. Matched by
+	 * `key` like the other letters, which the frame relay in mailFrame.ts
+	 * mirrors.
+	 */
+	if (
+		(event.ctrlKey || event.metaKey) &&
+		!event.altKey &&
+		event.shiftKey &&
+		event.key.toLowerCase() === 'i'
+	) {
+		event.preventDefault();
+		void handlers.goToInbox();
+		return;
+	}
 
 	/*
 	 * Print acts on messages: the open one, or the rows ticked in the list. What
@@ -205,16 +229,26 @@ function handleWorkspaceShortcut(event: KeyboardEvent, handlers: GlobalShortcutH
  * key, so the webview never reacts.
  */
 function handleMessageShortcut(event: KeyboardEvent, handlers: GlobalShortcutHandlers): boolean {
+	const unmodified = !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey;
+
 	// Delete (no modifiers) → delete the open message.
-	if (
-		event.key === 'Delete' &&
-		!event.ctrlKey &&
-		!event.metaKey &&
-		!event.altKey &&
-		!event.shiftKey
-	) {
+	if (event.key === 'Delete' && unmodified) {
 		event.preventDefault();
 		handlers.deleteMessage();
+		return true;
+	}
+
+	/*
+	 * Backspace (no modifiers) → archive, Outlook's binding. Text fields keep it
+	 * because the editable bail ran first, and the body frame is never editable,
+	 * so its relay can hand the key over unprevented: Backspace has no default
+	 * there to cancel (Chromium dropped Backspace-for-Back long ago). An
+	 * auto-repeat is claimed and dropped, as on a list row (MessageList.svelte):
+	 * one held key archives one message, not whichever comes next.
+	 */
+	if (event.key === 'Backspace' && unmodified) {
+		event.preventDefault();
+		if (!event.repeat) handlers.archiveMessage();
 		return true;
 	}
 

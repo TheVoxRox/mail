@@ -417,7 +417,7 @@ Two properties follow, and the rest of this section rests on them:
 
 **Exception: the first ship `v0.1.0` goes straight to stable.** Decided 2026-09-09. The model protects the stable audience by putting a beta cycle in front of it — but at the first ship there is no second audience; the closed beta _is_ the whole audience. The second half is what decides it: a prerelease-suffixed tag would leave the **stable channel empty** (the `releases/latest` redirect skips prereleases), while the default channel of every installation is `stable`. Anyone who does not switch the channel in Settings → About would sit on a channel with no manifest, and the startup check would fail **silently** — the background check only `console.warn`s, deliberately, so that it does not raise a dialog on every cold start. Silently not receiving updates is the worst failure shape that path has. With stable-first, by contrast, a tester who never touches the settings rides the stable line and gets every promotion. The "beta" label does not hang on the tag: it is carried by the status badge on [voxrox.org](https://voxrox.org) and by the release title. **From the release after `v0.1.0` on the model holds literally** and the exception does not repeat.
 
-**The model does not set the version number; the content does.** Decided 2026-10-20: the release after `v0.1.0` is `0.1.1` (`0.1.1-beta.1`, then promoted), because everything it carries so far is a fix. A minor bump comes with the first new feature. The model only rules out a stable patch next to a running beta of a newer version, and none runs: the beta manifest is on `0.1.0`, so the guard accepts `0.1.1-beta.1`.
+**The model does not set the version number; the content does.** Decided 2026-10-20 that the release after `v0.1.0` would be `0.1.1`, because everything it carried was a fix and a minor bump comes with the first new feature; on 2026-10-26 the first new feature landed (#797, the maintainer's call to merge it before the cut), so the release is `0.2.0` (`0.2.0-beta.1`, then promoted). The model only rules out a stable patch next to a running beta of a newer version, and none runs: the beta manifest is on `0.1.0`, so the guard accepts `0.2.0-beta.1`.
 
 **This is why a red `beta-channel.yml` is a signal, not noise.** The guard rejects a candidate older than the current beta manifest, and in this model such a candidate has no legitimate way to arise — red means something happened outside the model, typically a re-publish of an old tag. **Do not solve it with `force=true`**; that is reserved for the HALT below. First find out which publish triggered it.
 
@@ -631,3 +631,7 @@ target/sidecar/x86_64-pc-windows-msvc/
 ```
 
 Copy the whole directory with `.exe`, `app/` and `runtime/` into the Tauri bundle, not just the `.exe` itself.
+
+`app/packaged-backend-source.sha256` is the digest of the backend sources the
+image was built from, taken before the build. `npm run tauri:dev` compares it
+with the checked-out tree; nothing at runtime reads it.
