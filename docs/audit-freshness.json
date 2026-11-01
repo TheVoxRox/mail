@@ -147,12 +147,17 @@
   },
   "docs/UPDATER_AUDIT.md": {
     "reviewedTrees": {
-      "frontend/src-tauri/src": "1089fffcbe59b0fee617df23f0555fd49029b497"
+      "frontend/src-tauri/src": "1089fffcbe59b0fee617df23f0555fd49029b497",
+      "frontend/src-tauri/tauri.conf.json": "a76600f0611041bc7c824db86721bf56d01e59b6"
     },
     "acknowledgements": [
       {
         "date": "2026-10-25",
         "note": "The only change under frontend/src-tauri/src is redact.rs, the Save logs ZIP's redactor, which is the API surface audit's subject (A4, its 1.21): the mark walk that copied Java's \\b is gone, so a token right after a non-spacing mark is replaced, and the comments now describe the Java side's hand scan. No updater command, capability, endpoint, version pin, signature check or install step is touched, and redact.rs is not on the update path: it runs only when the user saves the logs. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-01",
+        "note": "#817, the v0.2.0-beta.1 cut. The one change in tauri.conf.json is the top-level version, 0.1.0 to 0.2.0-beta.1, written by bump:version. plugins.updater (endpoints, pubkey) and bundle (the NSIS template, installMode) are untouched. No claim of the audit rests on the value: the version pin compares the manifest with the version the prompt named, the build gate compares the tag with this field, and a prerelease orders after 0.1.0 and before 0.2.0 under semver, which is the order the beta channel and the later promotion need. Verdict unchanged."
       }
     ]
   }

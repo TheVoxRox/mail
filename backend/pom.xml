@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>org.voxrox</groupId>
 	<artifactId>mail-backend</artifactId>
-	<version>0.1.0</version>
+	<version>0.2.0-beta.1</version>
 	<name>mail-backend</name>
 	<description>Backend service for the Mail application</description>
 
