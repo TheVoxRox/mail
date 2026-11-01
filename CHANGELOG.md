@@ -21,6 +21,16 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Backend
 
+- A message from Seznam that could not be opened opens. Seznam's server writes
+  a part's disposition that has no parameters as an empty list, which IMAP does
+  not allow, and the mail library rejected the message's whole structure for
+  it: the sync kept the message without its attachments, and opening it ended
+  in "Poštovní operace selhala: neočekávaná chyba". Such a structure is now
+  read again with the empty list as none, so the message opens, and one synced
+  from now on keeps its attachments. A message the sync stored before this
+  opens too but still shows no attachments. A server response the
+  library cannot read is now logged with the library's reason, where it used to
+  be skipped without a line (#812).
 - A Microsoft work or school account, or a Google Workspace one, can be added.
   The sign-in looked up the account's servers by the address's domain, and the
   catalog lists only the consumer domains (`outlook.com`, `hotmail.com`,
@@ -312,6 +322,11 @@ Entries before 2026-09-17 predate that split and are left as written.
   old. A sidecar packaged before this reads as unknown until it is packaged
   again, and the boot error for a sidecar without `appName` names the packaging
   script instead of `mvn package`, which never rebuilt the image (#811).
+- The IMAP/SMTP audit is 1.84 (§5, the empty-list re-read), the threat model
+  3.35 and the release check 3.11; the drift under the audit's code paths is
+  acknowledged in its ledger until the change's independent pass.
+  `EmptyParameterListIT` opens such a message over the wire through
+  `HostileImapServer`, which can now answer each FETCH item apart (#812).
 - The swagger-ui webjar is pinned to 5.34.1 again, the first release carrying
   DOMPurify 3.4.17: the nightly vulnerability scan failed on five DOMPurify
   advisories against the 5.32.14 springdoc manages (#806). Only Swagger UI in
