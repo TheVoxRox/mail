@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { CLIENT_VERSION } from '../lib/version.js';
 import { openApp, rowsOf, setMockFlags, setPrefs, waitForShell } from './e2e-helpers';
 
 test.beforeEach(async ({ page }) => {
@@ -25,7 +26,7 @@ test.describe('MSW bootstrap', () => {
 
 		await expect(page.getByRole('heading', { name: 'Verze' })).toBeVisible();
 		await expect(page.getByText('Verze frontendu:')).toBeVisible();
-		await expect(page.getByText('0.1.0')).toBeVisible();
+		await expect(page.getByText(CLIENT_VERSION)).toBeVisible();
 		await expect(page.getByText('Verze backendu:')).toBeVisible();
 		await expect(page.getByText('0.0.1-SNAPSHOT')).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Zkontrolovat aktualizace' })).toBeVisible();
