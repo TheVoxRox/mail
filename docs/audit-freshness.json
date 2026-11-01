@@ -55,7 +55,7 @@
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/resources/application.properties": "6f4dcc647382dd679f0ff713b79931a3b92c2d48",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "63e7648cdbd6b9a5bb8fb93b7bbc3acaab2462a1"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "6930a827d26f8a0f9b1727cc01c30c1452af0376"
     },
     "acknowledgements": [
       {
@@ -65,6 +65,10 @@
       {
         "date": "2026-11-01",
         "note": "#812, recorded in the audit as 1.84 (§5) and waiting for its independent pass. BoundedImapProtocol.parseBounded reads a FETCH that Angus rejected once more with each empty list in its structure written NIL (EmptyListsAsNil, new), for the (\"inline\" ()) disposition Seznam writes. Only after the rejection, at most 1 MiB, and only a () inside a BODYSTRUCTURE or BODY value after a string or an atom; what it hands back goes through the same DepthBoundedFetchResponse and type check, so no bound moves, and the copy it makes is at most 1.5 MiB. A FETCH it does not rescue is now logged with Angus's reason, cut to 200 characters, before the skip it always had. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-01",
+        "note": "Folder display order. FolderDisplayOrder (new) sorts the list MailFacade.getFolders returns to GET /api/v1/accounts/{accountId}/folders: INBOX, its USER subfolders (unless a system folder also lives under INBOX, the Courier namespace layout), the other system roles in a fixed order, then USER folders by path in the request's collation. It is an in-memory sort of the FolderResponse list ImapFolderService already produced: no IMAP command, no folder opened, no bound moved, and nothing held beyond a copy of the list. The cached list and every internal caller of ImapFolderService.getFolders (the sync's folder listing, role resolution, the move target check) keep the server's order, and folders sharing a role keep their relative order in the sorted list too, so the folder a role resolves to does not move. Verdict unchanged."
       }
     ]
   },
