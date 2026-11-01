@@ -403,14 +403,14 @@ Tester:    machine half automated; §3–§9 are the maintainer's
 | `backend/src`                | `ab50e1b46c64` |
 | `backend/pom.xml`            | `b9f41b12f13b` |
 | `backend/scripts`            | `e8a157ab4cf1` |
-| `frontend/src`               | `0d1103251db0` |
+| `frontend/src`               | `6d37042fbc45` |
 | `frontend/src-tauri`         | `5b426e68f08b` |
 | `frontend/package.json`      | `8cb96b3e0d5f` |
 | `frontend/package-lock.json` | `dba15649aabf` |
 
 - [x] **§0 Version** — `npm run bump:version 0.2.0-beta.1`, and `npm run check:versions` OK on all five files. The script writes neither lockfile, so both took the version by hand (`npm install --package-lock-only`, `cargo update -w`), which moved nothing else in either.
 - [x] **§1 Backend build** — `clean verify` on `main` at `ce9003f` green: 0 failures and 0 errors on surefire and failsafe; the one skip is `MailSyncQresyncDovecotIT` without Docker, which CI runs. SpotBugs reports no bug instance. The jar produced, still named `0.1.0` since §1 runs before the bump. Sidecar packaged with `-EnableAotCache` and the OAuth values from `backend/.env`, as the signed build packages it: "Google client-id baked into the launcher; no placeholder", all 10 JVM options present in the launcher, "The JVM mapped app\mail.aot from outside the image directory and started on it", and 14 of 14 modules declared for the runtime. `regen:licenses:all` after `npm ci` and the packaging caught the backend list and `NOTICE.txt` up with what merged since 2026-10-18 (Spring Boot 4.1.2, bits-ui 2.20.2, the shell's crates); this cut carries the result. The run without a system JDK is taken on the installed candidate.
-- [x] **§2 Frontend automation** — on the same commit: `generate:api` (no drift in `schema.d.ts`), `check:i18n`, `build`, and `test:e2e`, the functional project and then the a11y suite, all passed with no flake and no re-run.
+- [x] **§2 Frontend automation** — on the same commit: `generate:api` (no drift in `schema.d.ts`), `check:i18n`, `build`, and `test:e2e`, the functional project and then the a11y suite, all passed with no flake and no re-run. `frontend/src` on the tag differs from that commit in `version.ts` and in `readiness.test.ts`, which the bump broke (see the changelog); the unit suite runs in the pre-push gate and in CI.
 - [ ] **§3 Fresh install** —
 - [ ] **§3a Installer behaviour** —
 - [ ] **§4 Account flows** —
