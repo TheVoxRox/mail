@@ -368,7 +368,7 @@ What happens when a new version starts:
    further schema change arrives as `V2+` (the rule is in `RELEASE_CHECKLIST.md`
    §8b).
 6. `verifySqlitePragmas` logs the effective PRAGMAs once the application has started.
-7. The `app_started` audit record captures `appVersion`, `dbSchemaVersion` and `previousAppVersion` (derived from the newest backup file).
+7. The `app_started` audit record captures `appVersion`, `dbSchemaVersion` and `previousAppVersion` (derived from the newest backup file another version took; this version's own backup from step 3 is skipped).
 
 The diagnostic dump carries `dbSchemaVersion` in `summary.json`, and the `app_started` records with the checksum in its copy of `audit.log`.
 

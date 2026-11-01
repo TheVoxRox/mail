@@ -21,6 +21,11 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Backend
 
+- The `app_started` record in `audit.log` names the version an update came
+  from. It read the newest database backup, and the backup the new version
+  takes before migrating is the newest one by the time the record is written,
+  so after the first update from 0.1.0 it would have named the new version
+  instead (#816).
 - The folder list says which folder each one is shown under, so the app can
   show the hierarchy without reading the server's folder names (#815). A
   subfolder of Sent, Trash, Archive or another system folder now follows it,

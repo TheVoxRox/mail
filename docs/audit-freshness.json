@@ -85,7 +85,8 @@
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/core/init": "6b860914def198938000e51a328137049fffac81",
       "backend/src/main/java/org/voxrox/mailbackend/core/security/CryptoService.java": "df4472da20af9ad59377f11b282535b75dbb5b17",
-      "backend/src/main/java/org/voxrox/mailbackend/core/security/CryptoProperties.java": "3595302c4b8c43f9dda3f35d0e59373b2aa7a7e6"
+      "backend/src/main/java/org/voxrox/mailbackend/core/security/CryptoProperties.java": "3595302c4b8c43f9dda3f35d0e59373b2aa7a7e6",
+      "backend/src/main/java/org/voxrox/mailbackend/core/backup": "72c0ffc003a6ce3537170d9d6a43a3538825933c"
     },
     "acknowledgements": [
       {
@@ -95,6 +96,10 @@
       {
         "date": "2026-10-11",
         "note": "Recorded in the audit itself as v1.2: the PBKDF2 iteration count moves from CryptoProperties (mail.crypto.pbkdf2-iterations, @Min 1000, default 600000) to a private constant PBKDF2_ITERATIONS = 600_000 in CryptoService, and CryptoProperties.java joins Code paths with this entry, so a format value cannot come back as a property unseen. The bean constructor is now @Autowired and passes the constant to a package-private constructor that takes the count, which CryptoServiceTest uses with 1000; getOrDeriveKey reads the field where it read the property. Section 2 holds with the same values: AES/GCM, 12-byte IV, 128-bit tag, PBKDF2WithHmacSHA256 at 600,000 over global salt || accountId to 256 bits, accountId as AAD, the self-test, the LRU and the shutdown hygiene are byte-identical, and a ciphertext pinned in CryptoServiceTest from the production constructor decrypts (changing the constant to 700_000 fails it, run and seen). Section 1 is untouched: core/init and core/security/secret did not change. Verdict stays PASS."
+      },
+      {
+        "date": "2026-11-01",
+        "note": "#816. DatabaseBackupService.previousAppVersion skips the file named after the current version (backup-pre-v<appVersion>) before taking the newest backup by modification time; createPreMigrationBackup runs before Flyway and wrote that file first, so the app_started audit record named the running version instead of the one updated from. The method only reads directory entries and returns a version string for the audit log. The backup itself is unchanged: VACUUM INTO through a bound parameter, the idempotent per-version name, the partial-file cleanup on failure, the retention prune and the backup's plaintext status as a copy of mail.db (AR-1 in section 3) are all as audited. No key material, crypto.bin path or file permission is touched. Verdict unchanged."
       }
     ]
   },

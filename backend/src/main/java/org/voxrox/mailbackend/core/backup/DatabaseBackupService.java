@@ -170,13 +170,18 @@ public class DatabaseBackupService {
     }
 
     /**
-     * Version of the previous run, derived from the most recent backup file. Used
-     * only for the {@code app_started} audit log so that support can see which
-     * version the user upgraded from. {@code null} = first run or all backups
-     * deleted.
+     * Version of the previous run, derived from the most recent backup file another
+     * version took. Used only for the {@code app_started} audit log so that support
+     * can see which version the user upgraded from. The current version's own
+     * backup is skipped: {@link #createPreMigrationBackup()} writes it before
+     * Flyway, so by the time the audit record is written it is the newest file and
+     * would name this version. {@code null} = first run, all backups deleted, or a
+     * previous version that only ever started on a fresh install and so took none.
      */
     public @Nullable String previousAppVersion() {
+        String currentBackup = BACKUP_PREFIX + appVersion();
         return listBackups(storageProperties.getDbPath()).stream()
+                .filter(path -> !currentBackup.equals(String.valueOf(path.getFileName())))
                 .max(Comparator.comparingLong(DatabaseBackupService::lastModifiedMillis))
                 // Optional.map short-circuits to empty if getFileName() is null (a root
                 // path) — a backup file always has a name, but the guard keeps the deref
