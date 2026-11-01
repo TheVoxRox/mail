@@ -10,6 +10,7 @@ import jakarta.mail.internet.ParameterList;
 
 import org.eclipse.angus.mail.iap.Argument;
 import org.eclipse.angus.mail.iap.ByteArray;
+import org.eclipse.angus.mail.iap.ParsingException;
 import org.eclipse.angus.mail.iap.Protocol;
 import org.eclipse.angus.mail.iap.ProtocolException;
 import org.eclipse.angus.mail.iap.Response;
@@ -92,6 +93,13 @@ import org.voxrox.mailbackend.util.LogCategory;
  * message's items: it loads the envelope and flags with FETCHes of their own,
  * and loading the structure fails, which the sync already keeps as an
  * envelope-only stub.
+ * <p>
+ * A FETCH that Angus's own parse rejects is skipped the same way, and no longer
+ * in silence: the parser's reason is logged, which Angus kept at its FINE
+ * level. One rejected for an empty list in its structure, which Seznam's server
+ * writes where IMAP has {@code NIL}, is read once more with NIL in its place
+ * ({@link EmptyListsAsNil}), through the same bounded parse, and kept if it
+ * parses then.
  * <p>
  * The bounds above are per response; {@link #readResponse()} adds one per
  * command (B1-8), because Angus holds all of a command's responses until the
@@ -217,6 +225,13 @@ final class BoundedImapProtocol extends IMAPProtocol implements AccountMemoryBud
      * into five segments, counts some 400.
      */
     static final int MAX_TYPE_CHARS = 16 * 1024;
+
+    /**
+     * How much of Angus's reason for rejecting a FETCH the log keeps. The reason
+     * for a structure names a part's type, which the server wrote and the parse had
+     * not bounded yet when it stopped.
+     */
+    private static final int MAX_LOGGED_REASON_CHARS = 200;
 
     /**
      * What {@link #partTypeChars} counts for each segment Jakarta Mail writes a
@@ -805,7 +820,30 @@ final class BoundedImapProtocol extends IMAPProtocol implements AccountMemoryBud
             log.warn("{} Dropped a FETCH response from IMAP server {} that the parser stopped consuming; "
                     + "the message it describes is left without its structure.", LogCategory.IMAP, host);
             throw new StalledParseException();
+        } catch (ParsingException e) {
+            IMAPResponse reread = EmptyListsAsNil.of(response);
+            if (reread == null) {
+                log.warn(
+                        "{} IMAP server {} sent a FETCH response the parser rejected ({}); "
+                                + "the message it describes is left without the items it carried.",
+                        LogCategory.IMAP, host, parseReason(e));
+                throw e;
+            }
+            log.info("{} IMAP server {} wrote an empty list in a message structure, where IMAP has NIL; "
+                    + "reading the response again with NIL in its place.", LogCategory.IMAP, host);
+            return parseBounded(reread, fetchItems, protocol, host);
         }
+    }
+
+    /**
+     * Angus's reason for rejecting a response, cut to
+     * {@link #MAX_LOGGED_REASON_CHARS}.
+     */
+    private static String parseReason(ParsingException e) {
+        String reason = Objects.requireNonNullElse(e.getMessage(), "no reason given");
+        return reason.length() <= MAX_LOGGED_REASON_CHARS
+                ? reason
+                : reason.substring(0, MAX_LOGGED_REASON_CHARS) + "...";
     }
 
     /**
