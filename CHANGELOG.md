@@ -121,6 +121,11 @@ Entries before 2026-09-17 predate that split and are left as written.
   menus put a folder's subfolders in a group named after it, announced on
   entering it, since a menu item has no nesting level of its own. Opening a
   subfolder no longer marks its parent as the current folder too (#815).
+- In the command palette, the option selected with the arrow keys, Home, End
+  or the mouse stays selected when the results refresh, after a sync for
+  example; it used to jump back to the first result. Until an option is
+  chosen, the selection is the first result, where Enter runs it, also when
+  the results reorder (#815).
 - The account wizard offers **Přihlásit přes Microsoft** and **Přihlásit přes
   Google** under "Pracovní nebo školní účet?" for an address whose domain it
   does not know, next to the server settings. A work account's sign-in used to
@@ -347,6 +352,10 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- An end-to-end test that fails in CI now leaves a Playwright trace, the page
+  at every step, in the uploaded test results. The palette test that failed
+  only in CI left a snapshot of the search field alone, which could not say
+  why (#815).
 - `npm run sidecar:rebuild:windows` rebuilds the dev sidecar in one command. It
   refuses while anything runs out of `frontend/src-tauri`, packages, syncs,
   checks that the jar in `binaries/` is byte for byte the one just built and
