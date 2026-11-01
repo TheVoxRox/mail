@@ -404,7 +404,9 @@ Provisional until §9 of the 2026-11-01 candidate sheet, per
   and in both lockfiles, which it does not write; the license lists and the
   bundled `NOTICE.txt`, which last caught up on 2026-10-18 and miss Spring Boot
   4.1.2 (#789), bits-ui 2.20.2 and the shell's crates; and the 2026-11-01
-  candidate sheet with §0 to §2 (#816).
+  candidate sheet with §0 to §2. The version field of `tauri.conf.json` lies
+  under the updater audit's code paths and is acknowledged in its ledger, now
+  at 2 of 8 (#816).
 - Development tools move up a patch or a minor: Svelte 5.57.3, Vite 8.3.5,
   knip 6.43.0 and typescript-eslint 8.72.1. Their fixes are to reactivity edge
   cases, hydration and the dev server, none of which the app is known to have
