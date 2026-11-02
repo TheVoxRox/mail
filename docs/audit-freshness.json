@@ -153,7 +153,7 @@
     "reviewedTrees": {
       "frontend/src-tauri/src": "1089fffcbe59b0fee617df23f0555fd49029b497",
       "frontend/src-tauri/tauri.conf.json": "a76600f0611041bc7c824db86721bf56d01e59b6",
-      ".github/workflows/windows-signed-release.yml": "62bbfd724b2c26b298a97d2f2a101fee1747b18f",
+      ".github/workflows/windows-signed-release.yml": "fa3f401f9b9e34149e12283035ec3cde436dbee3",
       ".github/workflows/beta-channel.yml": "526d528e83625cfdcf93f21f578b57bf8477783c",
       "frontend/scripts/prepare-tauri-windows-release-config.mjs": "c16142c20347046119a7e1ead5bb7c4e365556e2"
     },
@@ -173,6 +173,10 @@
       {
         "date": "2026-11-02",
         "note": "#828, recorded in the audit as 1.20 (U-2). windows-signed-release.yml becomes two jobs: build-signed-windows (contents: read, no updater key, Authenticode PFX and password on the detect and import steps only) and publish-release (fresh runner, npm ci --ignore-scripts, the installer and release config as an artifact, the key on the signing step only, then manifest, verify-updater-signature, attestation and upload). prepare-tauri-windows-release-config.mjs sets createUpdaterArtifacts to false, so tauri build does not ask for the key; the pubkey and endpoints still come from requireEnv. beta-channel.yml changes only its two action pins to commit SHAs, the same commits its tags named. Read against §2 and §6: the tag gate is untouched, no run: block in either file holds an expression (U-1 holds), the .sig is still required by the manifest generator and checked against the generated config's pubkey before any upload, and the signature has the format and trusted comment tauri build writes (verified locally over a throwaway key). Verdict unchanged, U-2 fixed."
+      },
+      {
+        "date": "2026-11-02",
+        "note": "#829, recorded in the audit as 1.21. windows-signed-release.yml gains `environment: release` on publish-release and a new description for the release-tag input; no step, permission, run: block or action pin changes, and the tag gate is untouched (U-1 holds). The environment admits only v* tag refs with can_admins_bypass off, and the two key secrets move into it, so the key reaches only that job of a run from a release tag. A job in an environment still reads repository secrets, so nothing in the trust chain changes whether or not the move has happened yet. Verdict unchanged."
       }
     ]
   }
