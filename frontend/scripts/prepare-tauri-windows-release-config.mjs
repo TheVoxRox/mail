@@ -12,10 +12,16 @@ const outputPath = path.resolve(process.argv[2] ?? 'src-tauri/tauri.release.conf
 // updater endpoint + pubkey come from the CI TAURI_UPDATER_* env (buildUpdaterPlugin),
 // NOT from the base tauri.conf.json, whose updater block is only a dev reference.
 // The signed workflow always builds with `--config tauri.release.conf.json`; a bare
-// `npm run tauri:build` would ship the base-config values and, since
-// createUpdaterArtifacts is unset there, produce no `.sig` — such a build must never
+// `npm run tauri:build` would ship the base-config values — such a build must never
 // be published. See RELEASE_CHECKLIST §3a.
-const bundle = { createUpdaterArtifacts: true };
+//
+// createUpdaterArtifacts stays off here as well, so `tauri build` never asks for the
+// updater signing key: the build runs vite's plugins and every crate's build script,
+// and none of them should be able to read it. The workflow signs the finished
+// installer in a step of its own (U-2 in docs/UPDATER_AUDIT.md), and the release
+// fails on a missing or mismatched `.sig` either way: the manifest generator
+// requires one, and verify-updater-signature.mjs checks it against this config.
+const bundle = { createUpdaterArtifacts: false };
 
 // Authenticode signing is OPTIONAL: this is an open-source build with no paid
 // code-signing certificate. When WINDOWS_CERTIFICATE_THUMBPRINT is set the
