@@ -23,11 +23,9 @@ someone a rework at least once. For the human-facing versions see
   Czech **with diacritics**. Quoted Czech UI strings inside an English doc also
   stay as they are — they are the product's own text, and translating a quote
   makes it stop matching what is on screen.
-- `todo.md` and `todo-archive.md` are the standing exception to both rules:
-  Czech, diacritics-free, from before any of this was written. `todo.md` is due
-  to be taken apart after the release (its own header says where each part
-  goes), so its text gets settled as part of that move rather than in a rewrite
-  that would be thrown away. The archive is not maintained at all.
+- `todo-archive.md` is the standing exception to both rules: Czech,
+  diacritics-free, from before any of this was written, and not maintained at
+  all. GitHub issues are written in English, like PR descriptions.
 - `CHANGELOG.md` is **written in English from 2026-09-09 on**. Entries dated
   before that are Czech and stay so — a changelog is a dated record of what was
   written at the time, and the file says this in its own header.
@@ -58,8 +56,10 @@ someone a rework at least once. For the human-facing versions see
   its artifact and says why, not just what. Internal work (CI, tooling, tests,
   audits, docs) goes under `### Repo` in one to three sentences with the PR
   number; the detail belongs in the commit message.
-- `todo.md` holds live tasks only. Finished work is one line, detail moves to
-  `todo-archive.md`. No implementation diaries.
+- Open work is a GitHub issue, not a list in the repo (`todo.md` was retired
+  on 2026-11-02). A decision that should outlive its issue or PR goes into
+  `docs/DECISIONS.md` in the same PR, with its date, its reason and the
+  condition that reopens it.
 - Docs are typed: **living** (kept current), **snapshot** (dated record with a
   HISTORICAL SNAPSHOT banner, never updated) or **worksheet** (filled per
   release candidate). Check the type before "fixing" a stale-looking claim in a

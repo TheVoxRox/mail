@@ -417,8 +417,8 @@ text, and a translated quote stops matching the screen.
 `CHANGELOG.md` is written in English from 2026-09-09 on; older entries are
 Czech and stay that way, because a changelog is a dated record of what was
 written at the time. How an entry is shaped, user-visible against internal,
-is in the header of the file itself. The two task files (`todo.md`, `todo-archive.md`) predate
-all of this and are left alone.
+is in the header of the file itself. The task archive (`todo-archive.md`)
+predates all of this and is left alone.
 
 ## Filing Issues and PRs
 
@@ -433,4 +433,6 @@ all of this and are left alone.
 - PRs should include a one-line summary + a checklist of which gates
   were run locally.
 
-The maintainers' active task list and decision log live in `todo.md`.
+Open work is tracked in GitHub Issues. Standing decisions, with the reason
+behind each and the condition that reopens it, are in
+[docs/DECISIONS.md](docs/DECISIONS.md).

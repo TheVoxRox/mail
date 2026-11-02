@@ -28,6 +28,10 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- `todo.md` is retired. Its open items become GitHub issues (#836 to #840), its
+  standing decisions move to `docs/DECISIONS.md`, and the removal conditions of
+  the frontend `overrides` join the backend and cargo ones in the release
+  checklist §8b; finished items stay in git history and the changelog (#841).
 - `todo.md` closes the two update-smoke items the 0.2.0 candidate was to
   settle: the `update` job of the v0.2.0-beta.2 candidate smoke went from 0.1.0
   over a running shell and sidecar and left no file of the previous release

@@ -392,7 +392,7 @@ one, so no dead `cid:` source is ever retained.
   release that changed SVG/MathML breakout placement and RCDATA handling.
   `npm run check:audits` cannot stand in for this: it compares object ids of
   the files under `Code paths`, and `backend/pom.xml` is deliberately not one
-  (decision recorded in [todo.md](../todo.md)).
+  (decision recorded in [DECISIONS.md](DECISIONS.md)).
 
 ## 5. F1 verification evidence
 

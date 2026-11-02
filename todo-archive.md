@@ -1,9 +1,14 @@
 > **ARCHIV — append-only, zalozeno 2026-06-07** z puvodniho `todo.md` (748
 > radku v okamziku rozdeleni). Drzi historii hotovych ukolu, audit reportu a
 > implementacnich deniku; nove buckety sem pribyvaji, jak se zavira prace v
-> zivem [todo.md](todo.md), ale **jednou zapsany zaznam se uz nereviduje** —
+> zivem `todo.md`, ale **jednou zapsany zaznam se uz nereviduje** —
 > muze proto obsahovat tvrzeni o kodu, ktera dnes neplati (presne proto archiv
-> vznikl). Zive ukoly viz [todo.md](todo.md).
+> vznikl).
+>
+> **2026-11-02:** `todo.md` zrusen a archiv uz nic nepribyva. Otevrena prace je
+> od te doby v GitHub Issues, trvala rozhodnuti v
+> [docs/DECISIONS.md](docs/DECISIONS.md), posledni stav `todo.md` v historii
+> gitu.
 
 ---
 
