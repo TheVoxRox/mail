@@ -427,7 +427,7 @@ Findings:
 - **Found and fixed while cutting: `previousAppVersion` in the `app_started` audit record would have named the new version after the first update (#816).** The backup a version takes before migrating is the newest file when the record is written; the record now skips it. §3a's update smoke on the beta channel can read the record as the evidence of the version updated from.
 - **§0–§2 taken before the bump cannot see a test that holds the version.** Two did (§2), found by the pre-push gate and by CI on the cut's pull request rather than by §2. Until no test hard-codes it, the next cut runs `test:unit` and `test:e2e` once more after `bump:version`.
 - **This cut takes everything merged since `v0.1.0`:** the pull requests #752 to #819, among them the first new features (#797, #804, #805, #814, #815). Each fix that merges from here adds its number to the next item.
-- **Waiting for the next cut:** none.
+- **Waiting for the next cut:** #828 and #829. The next signed build is the first run of the two-job workflow and the first signed with the new updater key, `068F68E532BCF6DC` (#829). Installations of this tag and of `v0.1.0` trust the retired `AA238C4CC59B9906`, so the §3a updater item cannot be taken from them: the next candidate is installed by hand over them, and the updater itself is taken between two releases signed with the new key.
 
 ### Candidate 2026-10-19 — tag `v0.1.0` (see the object ids below)
 

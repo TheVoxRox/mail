@@ -19,6 +19,20 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Tauri / Release
+
+- Updates are signed with a new key, `068F68E532BCF6DC`, in place of
+  `AA238C4CC59B9906`. The old key had been readable by every dependency the
+  release build ran (U-2) and existed nowhere outside GitHub, so it is retired
+  rather than kept. Installations of 0.1.0 and 0.2.0-beta.1 trust only the old
+  key and cannot take the next release through the updater (#829).
+
+### Manual steps
+
+- An installation of 0.1.0 or 0.2.0-beta.1 installs the next release by hand:
+  run its installer over the existing installation, which keeps mail, accounts
+  and settings. Updates after that arrive through the updater again.
+
 ### Repo
 
 - The updater signing key is a secret of a `release` environment that admits
