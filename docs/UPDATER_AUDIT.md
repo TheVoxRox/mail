@@ -2,7 +2,7 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.22                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| **Version**        | 1.23                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | **Date**           | 2026-11-02                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **Applies to**     | VoxRox Mail V0.1.0 (`0d84ec6`), which under `Code paths` differs from the audited commit only in the base config's pubkey (#755), a value a release build replaces (§6)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | **Audited commit** | `246b2ba` (re-verified 2026-10-25, clearing seven acknowledgements; v1.18 anchor: `5def679`, re-verified 2026-10-12, clearing seven; v1.16/1.17 anchor: `a2e6d43`, re-verified 2026-09-16, clearing seven; v1.5–1.15 anchor: `0165149`, itself a re-verification on 2026-09-07 clearing five; v1.10/1.11 anchor: `3e71529`; v1.5–v1.9 anchor: `c6744a1`; v1.4 anchor: `cad05cb`, recorded pre-squash as `5799e8b`; v1.2/1.3 anchor: `3162e6a` (#144), v1.0/1.1 baseline: `d55b753`)                                                                                                                                                                                                                                                                                                                                              |
@@ -210,6 +210,18 @@ generated by [prepare-tauri-windows-release-config.mjs](../frontend/scripts/prep
   bridge release carried the new pubkey, because the maintainer's own were
   the only installations: those of `0.1.0` and `0.2.0-beta.1` trust the
   retired key and take the next release by hand, not through the updater.
+- **A published release cannot be changed** (v1.23). Immutable releases are on
+  since 2026-11-02 (`gh api repos/TheVoxRox/mail/immutable-releases` reports
+  `enabled: true`): from publication on, the installer, its `.sig`, its
+  `.sha256` and `latest.json` cannot be replaced or deleted, and the tag cannot
+  be moved, so a write token that leaks after a release, a workflow's included,
+  can no longer swap what a first install downloads. Drafts are not affected,
+  so the signed build still uploads with `--clobber` before publication. The
+  setting covers only releases published after it, which keeps the moving
+  `beta` release writable for
+  [beta-channel.yml](../.github/workflows/beta-channel.yml); that workflow no
+  longer creates `beta` when it is missing and fails instead, since a new one
+  would be locked and the beta channel's compiled-in URL would stop moving.
 - **The two halves of the key pair are compared** ("Verify updater signature
   against the shipped pubkey" →
   [verify-updater-signature.mjs](../frontend/scripts/verify-updater-signature.mjs),
@@ -532,6 +544,15 @@ renders through `{message}` in a `<span>` — Svelte text interpolation, no
 
 ## 8. Change log
 
+- **1.23** (2026-11-02) — **published releases are immutable; verdict stays
+  PASS.** §2: the repository setting is on, which locks a published release's
+  files and tag, and `beta-channel.yml` stops creating the `beta` release, so
+  a missing or locked `beta` fails the run instead of freezing the beta
+  channel. Its upload step now reads the release's `immutable` field through
+  `gh api`, with every outside value still arriving through `env:` (U-1
+  holds); the guard, the force path and the manifest are untouched. The
+  `Audited commit` stays `246b2ba`, the drift recorded in
+  [audit-freshness.json](audit-freshness.json).
 - **1.22** (2026-11-02) — **the signed build checks that the tag's commit is
   on `main` with green CI; verdict stays PASS.** §2: a step after the tag gate
   enforces what RELEASE_PROCESS step 3 asked and only `release:status`

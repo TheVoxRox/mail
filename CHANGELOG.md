@@ -35,6 +35,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- Immutable releases are on: from publication, a release's installer,
+  signature, checksum and `latest.json` cannot be replaced and its tag cannot
+  move, so a write token that leaks later cannot swap what a first install
+  downloads. `beta-channel.yml` no longer creates the `beta` release, because a
+  new one would be locked and the beta channel would stop moving; OPERATIONS
+  says never to delete it and how to restore it (updater audit 1.23, #831).
 - Windows Signed Release stops before building unless the tag's commit is on
   `main` and its CI run there passed. RELEASE_PROCESS step 3 asked for both and
   only `release:status` checked them, so whoever could push a branch and move a

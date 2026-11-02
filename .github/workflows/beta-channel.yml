@@ -145,14 +145,22 @@ jobs:
 
       - name: Upload manifest to beta release
         if: steps.candidate.outputs.proceed == 'true'
+        # Immutable releases are on for this repository since 2026-11-02, and
+        # they lock a release's files once it is published. The `beta` release
+        # predates that and stays writable. One created now would be locked
+        # from the start, so this upload would fail on every later publish and
+        # the beta channel, whose URL every installation carries, would stop
+        # moving. So this step never creates it: a missing or locked `beta`
+        # release needs a person, and backend/OPERATIONS.md "Release channels"
+        # says how to restore it.
         run: |
-          if ! gh release view "$BETA_POINTER_TAG" --json tagName >/dev/null 2>&1; then
-            # --prerelease is mandatory: a full 'beta' release would become the
-            # newest non-prerelease and capture the releases/latest redirect,
-            # feeding the beta manifest to the STABLE channel.
-            gh release create "$BETA_POINTER_TAG" --prerelease \
-              --title "Beta channel" \
-              --notes "Moving release holding only latest.json for the beta update channel. Do not download installers from here; use the versioned releases."
+          if ! immutable=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$BETA_POINTER_TAG" --jq .immutable 2>/dev/null); then
+            echo "::error::The $BETA_POINTER_TAG release is missing or unreadable. Do not let anything recreate it while immutable releases are on: see backend/OPERATIONS.md \"Release channels\"."
+            exit 1
+          fi
+          if [ "$immutable" = "true" ]; then
+            echo "::error::The $BETA_POINTER_TAG release is immutable, so its latest.json cannot be replaced: see backend/OPERATIONS.md \"Release channels\"."
+            exit 1
           fi
           gh release upload "$BETA_POINTER_TAG" candidate/latest.json --clobber
           echo "Beta channel now serves $(node -p 'JSON.parse(require("fs").readFileSync("candidate/latest.json","utf8")).version')."

@@ -397,6 +397,12 @@ The updater has two channels. Each installation holds the choice in Settings →
 
 **Never publish a release without `latest.json` + `.sig`** (not even "just a tag with notes"): the stable channel is a GitHub redirect to the latest non-prerelease publish, so a bare release immediately becomes "latest" and every installation gets an update-check error on every start. Anything that is not a full signed build stays a draft or a prerelease (review #170).
 
+### Immutable releases
+
+Enabled on 2026-11-02 (Settings → General → Releases). From publication on, a release's files cannot be added, replaced or deleted and its tag cannot be moved or deleted while the release exists; the title, the notes and the prerelease flag stay editable, and GitHub records a release attestation, checked with `gh release verify <tag>` and `gh release verify-asset <tag> <file>`. Drafts are not affected, so a re-cut before publishing works as before. A mistake in a published release's files is repaired by roll-forward only, which the rule above already required.
+
+It applies only to releases published after it was enabled, and that is what keeps the beta channel working: the moving `beta` release predates it, so `beta-channel.yml` can still replace its `latest.json`. **Never delete the `beta` release.** A recreated one would be locked from the start and the channel would stop moving, and its URL is compiled into every installation. `beta-channel.yml` therefore refuses to create it and fails instead. If it is gone anyway: turn immutable releases off, create `beta` again as a **prerelease** titled "Beta channel" (a full release would capture the `releases/latest` redirect and feed the beta manifest to the stable channel), run "Beta Channel Manifest" with the newest published tag, and turn immutable releases back on. A release created while the setting is off stays writable after it is turned back on.
+
 ### The release model: everything goes through beta
 
 Decided 2026-08-28. **Every change ships as a beta first and is promoted to stable only after testing.** Beta is not a parking place for unfinished work — it carries finished features that already passed developer testing; beta only means a wider circle of users.
@@ -425,7 +431,7 @@ Ship a full version (no suffix) through the ordinary release process, in its pro
 
 ### HALT — withdrawing a faulty beta
 
-1. Switch the faulty prerelease in GitHub Releases back to draft (or delete it) — that ends manual installer downloads.
+1. Delete the faulty prerelease in GitHub Releases — that ends manual installer downloads. A release published since 2026-11-02 is immutable (see "Immutable releases" above): its files cannot change, so do not count on switching it back to draft, and once it is deleted its tag name cannot be used again, which roll-forward never needs.
 2. Re-point the beta manifest to the last good version: Actions → "Beta Channel Manifest" → Run workflow with `tag=<last good tag>` and `force=true`. The guard (`frontend/scripts/beta-channel-guard.mjs`) otherwise refuses a manifest downgrade — `force` exists precisely for this step.
 3. Anyone who already installed the faulty beta will not get a downgrade (`allowDowngrades: false` + DB migrations) — for them the roll-forward below applies.
 

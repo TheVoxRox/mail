@@ -162,7 +162,9 @@ Two rules follow from what CI does and does not cover:
 - **Before publish, a bad tag is disposable.** Delete it locally and on the
   remote (`git push origin :refs/tags/v<X.Y.Z>`), delete the draft release,
   fix, re-tag. After publish it is immovable and the only repair is
-  roll-forward — OPERATIONS "Roll-forward".
+  roll-forward — OPERATIONS "Roll-forward". Since 2026-11-02 GitHub enforces
+  that: immutable releases lock a published release's files and tag
+  (OPERATIONS "Immutable releases").
 
 ## 4. Build the signed artifacts
 
@@ -338,6 +340,9 @@ page is not, because its body can be edited afterwards without a trace.
 
 Publish from the GitHub release page. From that moment:
 
+- The release's files and its tag are locked (OPERATIONS "Immutable
+  releases"): what `npm run release:status` found attached is what ships, and
+  only the notes, the title and the prerelease flag can still change.
 - The **stable** channel serves the build immediately if it is not a
   prerelease (`releases/latest` redirect). A prerelease is skipped by that
   redirect and reaches beta installs only.
