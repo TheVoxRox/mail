@@ -21,6 +21,13 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The updater signing key leaves the build. Windows Signed Release was one job
+  whose env held the key while `npm ci`, Maven, vite and every crate's build
+  script ran, so one compromised dependency could have signed an update for
+  every installation; now the build holds no key and only reads the repository,
+  and a second job on a fresh runner signs the installer with the Tauri CLI,
+  attests and publishes (U-2, updater audit 1.20). Every workflow pins its
+  actions to commit SHAs (#828).
 - The release decision for `v0.2.0-beta.1`: §3 to §8 of the 2026-11-01 sheet
   recorded on its signed build, the machine half from Release Candidate Smoke
   and the rest per the maintainer, and §9 approved with no open blocker; the

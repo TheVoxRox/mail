@@ -85,6 +85,11 @@ updates:
           - minor
           - patch
 
+  # Every action is pinned to a full commit SHA with its release in a trailing
+  # comment (`@<sha> # v7.0.1`), so a moved or rewritten tag cannot change what
+  # runs; dependabot updates the SHA and the comment together. The exception it
+  # cannot follow is dtolnay/rust-toolchain, pinned to its `stable` branch,
+  # which has no release tags: re-pin it by hand (`git ls-remote` on the branch).
   - package-ecosystem: github-actions
     directory: /
     schedule:

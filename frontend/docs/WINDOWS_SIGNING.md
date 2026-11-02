@@ -3,9 +3,20 @@
 Signed Windows releases are built by the `Windows Signed Release` GitHub Actions
 workflow. It checks out the monorepo, packages the backend sidecar, imports a
 PFX code-signing certificate into the runner certificate store, signs the
-sidecar executable, builds the Tauri bundle with Windows signing and updater
-artifacts enabled, generates `latest.json`, verifies the resulting signatures,
-and uploads the signed bundle artifacts to the target GitHub Release.
+sidecar executable and builds the Tauri bundle with Windows signing enabled. A
+second job then signs the finished installer for the updater, generates
+`latest.json`, verifies the resulting signatures, attests the installer and
+uploads the signed bundle artifacts to the target GitHub Release.
+
+The split is by what each job runs. The build runs code the repository does
+not own (npm install scripts, Maven plugins, vite plugins, crate build
+scripts), so it holds no updater key and can only read the repository. The
+publish job holds the updater signing key, on its signing step only, along with
+the attestation's OIDC token and the right to write the release, on a fresh
+runner that installs the dependency tree with `--ignore-scripts` and runs none
+of it (U-2 in [UPDATER_AUDIT.md](../../docs/UPDATER_AUDIT.md)). The `.pfx` and
+its password stay in the build, on the two steps that detect and import the
+certificate, because the Tauri build signs through it.
 
 > **Current posture (decided 2026-07-18):** official releases ship **without**
 > an Authenticode signature — the `WINDOWS_CERTIFICATE_*` secrets are
@@ -50,9 +61,8 @@ On Windows:
 ## Local signed build
 
 Import the `.pfx` into `Cert:\CurrentUser\My`, set `WINDOWS_CERTIFICATE_THUMBPRINT`,
-`TAURI_UPDATER_PUBKEY`, `TAURI_UPDATER_ENDPOINTS`, and `TAURI_SIGNING_PRIVATE_KEY`,
-optionally set `WINDOWS_DIGEST_ALGORITHM`, `WINDOWS_TIMESTAMP_URL`, and
-`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, then:
+`TAURI_UPDATER_PUBKEY` and `TAURI_UPDATER_ENDPOINTS`, optionally set
+`WINDOWS_DIGEST_ALGORITHM` and `WINDOWS_TIMESTAMP_URL`, then:
 
 ```powershell
 npm run sidecar:rebuild:windows
@@ -60,6 +70,15 @@ npm run tauri:release-config:windows
 .\scripts\sign-windows-file.ps1 -Path .\src-tauri\binaries\voxrox-mail-backend-x86_64-pc-windows-msvc.exe
 npm run tauri:build -- --config src-tauri/tauri.release.conf.json
 .\scripts\verify-windows-signatures.ps1
+```
+
+The build produces no updater `.sig`. To sign the installer for the updater as
+the workflow does, set `TAURI_SIGNING_PRIVATE_KEY` (and
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` if the key has one) only for this command,
+with the version from `tauri.conf.json`:
+
+```powershell
+npm run tauri -- signer sign --app-version <version> <path to voxrox-mail-<version>-windows-x64-setup.exe>
 ```
 
 ## Generating Tauri updater keys
@@ -78,8 +97,8 @@ key content in `TAURI_SIGNING_PRIVATE_KEY`.
 
 ## Release artifacts
 
-The release build produces updater artifacts and `.sig` files beside the
-platform bundles. The workflow publishes:
+The signing step writes the updater `.sig` beside the installer the build
+produced. The workflow publishes:
 
 - `voxrox-mail-<version>-windows-x64-setup.exe` (normalized name)
 - `voxrox-mail-<version>-windows-x64-setup.exe.sig` (Tauri updater signature)
