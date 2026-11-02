@@ -41,8 +41,9 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Known issues
 
-Provisional until §9 of the 2026-11-02 candidate sheet, per
-[RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) step 2. Unchanged from 0.2.0-beta.1:
+Reconciled with §9 of the 2026-11-02 candidate sheet, per
+[RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) step 6. Unchanged from
+0.2.0-beta.1:
 
 - **A transient IMAP hiccup, `failed to create new store connection`, appears
   in the log a couple of times a day.** A bounded retry with backoff recovers it
@@ -108,6 +109,13 @@ Provisional until §9 of the 2026-11-02 candidate sheet, per
   the license inventories and the bundled `NOTICE.txt` caught up with the
   dependency bumps above, and the 2026-11-02 candidate sheet with §0 to §2
   ticked (#833).
+- The release decision for `v0.2.0-beta.2`: §3 to §8 of the 2026-11-02 sheet
+  recorded on its signed build, the first of the two-job workflow and of the
+  new key. The machine half is from Release Candidate Smoke; §5 was re-taken by
+  the maintainer where SvelteKit 3.1.1 reaches, and the rest carries from the
+  2026-11-01 sheet. §9 is approved with no open blocker; the updater itself is
+  taken from this release to the next. The release notes are in
+  `docs/release-notes/` (#834).
 
 ## [0.2.0-beta.1] - 2026-11-01
 
