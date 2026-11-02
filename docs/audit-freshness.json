@@ -148,44 +148,5 @@
         "note": "ExternalProviderLoginService takes the provider template from the OAuth registration the sign-in went through (AccountProviderService.resolveOAuthProvider, a lookup by mail_providers.oauth2_registration_id) instead of from the domain of the address the provider returned, so a Microsoft 365 or Google Workspace account at an organization's own domain gets an account instead of ProviderNotFoundException. The template only fills a new row's server settings: the lookup order of findOrCreateExternalAccount, the refusal of an address another identity owns, the credential write, the after-commit invalidation and the reauth clear are unchanged, and a missing template still throws before any write. What a sign-in can reach narrows rather than widens: an address at another provider's domain no longer gives a new row that provider's servers, so a token is only ever presented to the servers of the provider that issued it. Under feature/auth nothing changes. Verdict unchanged."
       }
     ]
-  },
-  "docs/UPDATER_AUDIT.md": {
-    "reviewedTrees": {
-      "frontend/src-tauri/src": "1089fffcbe59b0fee617df23f0555fd49029b497",
-      "frontend/src-tauri/tauri.conf.json": "993d324ca377d6e9760c0c7ea460534e982292c6",
-      ".github/workflows/windows-signed-release.yml": "aed2d65ca93cf3aa71b49bfd0473553e869512a4",
-      ".github/workflows/beta-channel.yml": "b30dc089d88e95ed458c987e95cdb4509e85ee6e",
-      "frontend/scripts/prepare-tauri-windows-release-config.mjs": "c16142c20347046119a7e1ead5bb7c4e365556e2"
-    },
-    "acknowledgements": [
-      {
-        "date": "2026-10-25",
-        "note": "The only change under frontend/src-tauri/src is redact.rs, the Save logs ZIP's redactor, which is the API surface audit's subject (A4, its 1.21): the mark walk that copied Java's \\b is gone, so a token right after a non-spacing mark is replaced, and the comments now describe the Java side's hand scan. No updater command, capability, endpoint, version pin, signature check or install step is touched, and redact.rs is not on the update path: it runs only when the user saves the logs. Verdict unchanged."
-      },
-      {
-        "date": "2026-11-01",
-        "note": "#817, the v0.2.0-beta.1 cut. The one change in tauri.conf.json is the top-level version, 0.1.0 to 0.2.0-beta.1, written by bump:version. plugins.updater (endpoints, pubkey) and bundle (the NSIS template, installMode) are untouched. No claim of the audit rests on the value: the version pin compares the manifest with the version the prompt named, the build gate compares the tag with this field, and a prerelease orders after 0.1.0 and before 0.2.0 under semver, which is the order the beta channel and the later promotion need. Verdict unchanged."
-      },
-      {
-        "date": "2026-11-01",
-        "note": "#819. In windows-signed-release.yml only the Package backend sidecar step changes: package-sidecar-windows.ps1 runs without -EnableAotCache, and the comment above it says why (JDK-8376576). The step still reads SKIP_BACKEND_TESTS through env:, still never passes -AllowPlaceholderOAuth, and no run: block gains an expression (U-1 holds). The tag gate, the release config, the updater signing, the verify-updater-signature step, the asset upload and the attestation are untouched, so the installer, its .sig and latest.json are produced and checked exactly as audited; the backend inside the installer is laid out differently, which no claim of this audit is about. Verdict unchanged."
-      },
-      {
-        "date": "2026-11-02",
-        "note": "#828, recorded in the audit as 1.20 (U-2). windows-signed-release.yml becomes two jobs: build-signed-windows (contents: read, no updater key, Authenticode PFX and password on the detect and import steps only) and publish-release (fresh runner, npm ci --ignore-scripts, the installer and release config as an artifact, the key on the signing step only, then manifest, verify-updater-signature, attestation and upload). prepare-tauri-windows-release-config.mjs sets createUpdaterArtifacts to false, so tauri build does not ask for the key; the pubkey and endpoints still come from requireEnv. beta-channel.yml changes only its two action pins to commit SHAs, the same commits its tags named. Read against §2 and §6: the tag gate is untouched, no run: block in either file holds an expression (U-1 holds), the .sig is still required by the manifest generator and checked against the generated config's pubkey before any upload, and the signature has the format and trusted comment tauri build writes (verified locally over a throwaway key). Verdict unchanged, U-2 fixed."
-      },
-      {
-        "date": "2026-11-02",
-        "note": "#829, recorded in the audit as 1.21. windows-signed-release.yml gains `environment: release` on publish-release and a new description for the release-tag input; no step, permission, run: block or action pin changes, and the tag gate is untouched (U-1 holds). The environment admits only v* tag refs with can_admins_bypass off, and the two key secrets move into it, so the key reaches only that job of a run from a release tag. A job in an environment still reads repository secrets, so nothing in the trust chain changes whether or not the move has happened yet. The key is also replaced: tauri.conf.json changes only plugins.updater.pubkey, from AA238C4CC59B9906 to 068F68E532BCF6DC, and the gate's test follows; the endpoints, the CSP, allowDowngrades and bundle are untouched, and verification is the same code against a different pinned key. Installed 0.1.0 and 0.2.0-beta.1 keep the retired key and are updated by hand, as the audit's §2 records. Verdict unchanged."
-      },
-      {
-        "date": "2026-11-02",
-        "note": "#830, recorded in the audit as 1.22. windows-signed-release.yml gains one step after the tag gate: it fails unless the compare API reports the built commit as identical to or behind main and the newest ci.yml run for it from a push to main completed with success, and the build job gains actions: read for that. The step reads GH_TOKEN, REPOSITORY and GITHUB_SHA through env, so no run: block holds an expression (U-1 holds); nothing in the publish job, the signing, the manifest or the key-pair gate changes. It only narrows which commits reach the build. Verdict unchanged."
-      },
-      {
-        "date": "2026-11-02",
-        "note": "#831, recorded in the audit as 1.23. beta-channel.yml's upload step no longer creates the beta release: it reads the release's immutable field through gh api and fails on a missing or locked beta, then uploads latest.json with --clobber as before. GITHUB_REPOSITORY and BETA_POINTER_TAG are read as variables, so no run: block holds an expression (U-1 holds); the source-tag resolution, the guard against a manifest downgrade and the force path are untouched. The repository's immutable releases setting is on; it covers releases published from now on, which leaves beta writable (immutable: false, checked). Verdict unchanged."
-      }
-    ]
   }
 }

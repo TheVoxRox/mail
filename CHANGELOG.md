@@ -35,6 +35,13 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The updater audit is re-verified at 1.24 by a session that wrote none of the
+  release-pipeline changes, clearing its seven acknowledgements. It found U-3
+  (Low): the `release` environment admits any `v*` tag, and the tag-on-`main`
+  check runs inside the workflow being started, so whoever could push could
+  have reached the signing key through a tag on an edited workflow; a tag
+  ruleset now lets only the admin role push `v*` tags. Four claims that were
+  false at the audited commit are corrected (#832).
 - Immutable releases are on: from publication, a release's installer,
   signature, checksum and `latest.json` cannot be replaced and its tag cannot
   move, so a write token that leaks later cannot swap what a first install
