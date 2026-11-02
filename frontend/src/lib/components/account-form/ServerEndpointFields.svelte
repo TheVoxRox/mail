@@ -11,7 +11,10 @@
 	 */
 	import { Field } from '#lib/components/ui/field/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
-	import { nativeControlClass } from '#lib/components/ui/native-control/index.js';
+	import {
+		nativeChoiceClass,
+		nativeChoiceControlClass
+	} from '#lib/components/ui/native-control/index.js';
 	import { _ } from '#lib/i18n/index.js';
 	import { cn } from '#lib/utils.js';
 
@@ -48,6 +51,7 @@
 
 	const hostId = $derived(`${idPrefix}-host`);
 	const portId = $derived(`${idPrefix}-port`);
+	const sslId = $derived(`${idPrefix}-ssl`);
 	const hostErrorId = $derived(`${hostId}-error`);
 	const portErrorId = $derived(`${portId}-error`);
 </script>
@@ -102,8 +106,8 @@
 				{/snippet}
 			</Field>
 		</div>
-		<label class="flex items-center gap-2 text-sm">
-			<input type="checkbox" bind:checked={useSsl} class={nativeControlClass} />
+		<label for={sslId} class={cn(nativeChoiceClass, 'text-sm')}>
+			<input id={sslId} type="checkbox" bind:checked={useSsl} class={nativeChoiceControlClass} />
 			<span>{$_('accounts.form.useSsl')}</span>
 		</label>
 	</fieldset>

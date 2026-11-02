@@ -25,7 +25,10 @@
 	import Icon from '#lib/components/Icon.svelte';
 	import MoveTargetMenuItems from '#lib/components/MoveTargetMenuItems.svelte';
 	import { Button, buttonVariants } from '#lib/components/ui/button/index.js';
-	import { nativeControlClass } from '#lib/components/ui/native-control/index.js';
+	import {
+		nativeChoiceClass,
+		nativeChoiceControlClass
+	} from '#lib/components/ui/native-control/index.js';
 	import { _ } from '#lib/i18n/index.js';
 	import { cn } from '#lib/utils.js';
 	import type { FolderResponse } from '#lib/types.js';
@@ -33,7 +36,7 @@
 	interface Props {
 		/** Every row of the page is selected. */
 		allSelected: boolean;
-		/** Some but not all — the native tri-state box and `aria-checked="mixed"`. */
+		/** Some but not all — the native tri-state box, which reads as "mixed". */
 		someSelected: boolean;
 		/** Whether there is anything to act on; the actions render only then. */
 		hasSelection: boolean;
@@ -68,6 +71,9 @@
 		onPrint
 	}: Props = $props();
 
+	const uid = $props.id();
+	const selectAllId = `${uid}-select-all`;
+
 	let seenMenuOpen = $state(false);
 	let moveMenuOpen = $state(false);
 	let selectAllInput = $state<HTMLInputElement | null>(null);
@@ -99,7 +105,9 @@
 	const setSeenMenuOpen = menuOpenSetter((open) => (seenMenuOpen = open));
 	const setMoveMenuOpen = menuOpenSetter((open) => (moveMenuOpen = open));
 
-	// The native tri-state, so the box looks the way `aria-checked="mixed"` sounds.
+	// The native tri-state, which a screen reader hears as "mixed". Never as
+	// `aria-checked` beside it: ARIA in HTML forbids that attribute on a native
+	// checkbox, whose state is the input's own.
 	$effect(() => {
 		if (selectAllInput) selectAllInput.indeterminate = someSelected;
 	});
@@ -110,13 +118,13 @@
 	aria-label={$_('messages.bulkToolbarLabel')}
 	class="flex min-h-11 flex-wrap items-center gap-2 border-b border-border/80 bg-muted/20 px-3 py-2"
 >
-	<label class="flex items-center gap-2 text-xs text-muted-foreground">
+	<label for={selectAllId} class={cn(nativeChoiceClass, 'text-xs text-muted-foreground')}>
 		<input
 			bind:this={selectAllInput}
+			id={selectAllId}
 			type="checkbox"
-			class={nativeControlClass}
+			class={nativeChoiceControlClass}
 			checked={allSelected}
-			aria-checked={someSelected ? 'mixed' : allSelected ? 'true' : 'false'}
 			onchange={(event) => onSelectAll((event.currentTarget as HTMLInputElement).checked)}
 		/>
 		<span>{$_('messages.selectAll')}</span>

@@ -21,6 +21,15 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- NVDA reads a checkbox or radio button on one line with its label in browse
+  mode, as JAWS already did. The box was laid out as a flex item, which counts
+  as a block, and NVDA starts a new line at every block, so it read the box and
+  then its label as two lines. Every label now also names its box through
+  `for`, which the W3C forms tutorial prefers to wrapping alone. The partly
+  selected boxes of the mail lists (select all, a partly ticked conversation)
+  carry only the native mixed state, without the `aria-checked` that ARIA in
+  HTML forbids on a native checkbox. Long label names in the contact form and
+  the label dialog wrap instead of being cut off.
 - The interface takes tailwind-variants 4.0.0. Component variants now merge
   their classes through the same merger as the rest of the interface instead of
   a copy configured alike, so the two cannot resolve a class conflict

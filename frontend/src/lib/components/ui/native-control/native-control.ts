@@ -20,3 +20,26 @@
 import { focusRing } from '../focus-ring/index.js';
 
 export const nativeControlClass = `size-4 accent-primary ${focusRing}`;
+
+/**
+ * A checkbox or radio and its visible text, on the element that holds the two:
+ * the `<label>` itself, or a span inside it when the label is a card or a row
+ * with more in it. The box stays an inline box on the text's own line.
+ *
+ * Inside a flex or grid container the box is an item, and CSS makes every item
+ * a block, whatever its class says. NVDA's browse mode starts a new line at
+ * anything whose `display` is not inline, inline-block or inline-flex
+ * (nvdaHelper/vbufBackends/gecko_ia2), and while the label is on screen it
+ * leaves the name off the box. So the flex labels the app had read as two
+ * lines, "check box not checked" and then the text, where JAWS read one.
+ *
+ * The hanging indent does what `items-start gap-…` did: the box sits in the
+ * padding, so a wrapped line starts under the text rather than under the box.
+ * The whitespace between the box and the text is part of the gap.
+ *
+ * Pair it with `<label for>` and an `id` even where the label wraps the box:
+ * the WAI forms tutorial prefers the explicit association as the better
+ * supported one. `choiceLabelLosses` in the e2e helpers holds both.
+ */
+export const nativeChoiceClass = 'block pl-7';
+export const nativeChoiceControlClass = `-ml-7 mr-2 align-middle ${nativeControlClass}`;

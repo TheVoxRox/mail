@@ -7,7 +7,11 @@
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { DialogDescription, DialogShell, DialogTitle } from '#lib/components/ui/dialog/index.js';
 	import { StateMessage } from '#lib/components/ui/state-message/index.js';
-	import { nativeControlClass } from '#lib/components/ui/native-control/index.js';
+	import {
+		nativeChoiceClass,
+		nativeChoiceControlClass
+	} from '#lib/components/ui/native-control/index.js';
+	import { cn } from '#lib/utils.js';
 	import type { ContactResponse } from '#lib/types.js';
 
 	interface Props {
@@ -151,25 +155,30 @@
 					for={inputId}
 					class="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm hover:bg-muted/40 has-[:checked]:border-primary has-[:checked]:bg-primary/10"
 				>
-					<input
-						id={inputId}
-						type="checkbox"
-						class={nativeControlClass}
-						checked={effectiveChecked(label.id)}
-						indeterminate={partial}
-						onchange={(event) => toggle(label.id, event.currentTarget.checked)}
-						disabled={busy}
-					/>
-					<span class="min-w-0 flex-1 truncate">{label.name}</span>
+					<!-- Wraps rather than truncating: a clipped box would clip its focus ring. -->
+					<span class={cn(nativeChoiceClass, 'min-w-0 flex-1 wrap-anywhere')}>
+						<input
+							id={inputId}
+							type="checkbox"
+							class={nativeChoiceControlClass}
+							checked={effectiveChecked(label.id)}
+							indeterminate={partial}
+							onchange={(event) => toggle(label.id, event.currentTarget.checked)}
+							disabled={busy}
+						/>
+						<span>{label.name}</span>
+						{#if partial}
+							<!--
+								A native indeterminate checkbox announces "mixed", which says the
+								state but not what it means here. The sr-only text spells out that
+								only part of the selection carries the label.
+							-->
+							<span class="sr-only">
+								{$_('contacts.assignPartial', { values: { label: label.name } })}
+							</span>
+						{/if}
+					</span>
 					{#if partial}
-						<!--
-							A native indeterminate checkbox announces "mixed", which says the
-							state but not what it means here. The sr-only text spells out that
-							only part of the selection carries the label.
-						-->
-						<span class="sr-only">
-							{$_('contacts.assignPartial', { values: { label: label.name } })}
-						</span>
 						<span class="shrink-0 text-xs text-muted-foreground" aria-hidden="true">
 							{$_('contacts.assignPartialCount', {
 								values: { carriers: carrierCount(label.id), total: contacts.length }
