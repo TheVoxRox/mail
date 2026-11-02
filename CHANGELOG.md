@@ -26,6 +26,13 @@ Entries before 2026-09-17 predate that split and are left as written.
   a copy configured alike, so the two cannot resolve a class conflict
   differently; nothing on screen changes (#824).
 
+### Repo
+
+- `todo.md` closes the two update-smoke items the 0.2.0 candidate was to
+  settle: the `update` job of the v0.2.0-beta.2 candidate smoke went from 0.1.0
+  over a running shell and sidecar and left no file of the previous release
+  (#835).
+
 ## [0.2.0-beta.2] - 2026-11-02
 
 ### Frontend
