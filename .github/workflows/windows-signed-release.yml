@@ -39,6 +39,8 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: read
+      # Read by the step that checks CI on main for the tag commit.
+      actions: read
     outputs:
       release-tag: ${{ steps.tag.outputs.release-tag }}
 
@@ -136,6 +138,37 @@ jobs:
 
           "release-tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           Write-Host "Publishing release assets to tag $tag"
+
+      # The step above makes this run build what the tag names; this one makes
+      # the tag name a commit main has been through. RELEASE_PROCESS step 3 tags
+      # only a commit on main whose CI run there was green, and until 2026-11-02
+      # only `npm run release:status` checked it, so whoever could push a branch
+      # and move a tag could have had their own commit built and signed. It reads
+      # CI as release:status does: the newest ci.yml run for the commit from a
+      # push to main, completed with success.
+      - name: Check the tag commit is on main and green
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          $status = gh api "repos/$env:REPOSITORY/compare/main...$env:GITHUB_SHA" --jq .status
+          if ($LASTEXITCODE -ne 0) { throw "Could not compare $env:GITHUB_SHA with main." }
+          # "behind" and "identical" mean main contains the commit.
+          if ($status -notin @('identical', 'behind')) {
+            throw "$env:GITHUB_SHA is not on main (compare status: $status). RELEASE_PROCESS step 3 tags only a commit on main."
+          }
+
+          $json = gh run list --repo $env:REPOSITORY --workflow ci.yml --commit $env:GITHUB_SHA --json event,headBranch,status,conclusion
+          if ($LASTEXITCODE -ne 0) { throw "Could not read the CI runs for $env:GITHUB_SHA." }
+          $ci = @($json | ConvertFrom-Json | Where-Object { $_.event -eq 'push' -and $_.headBranch -eq 'main' }) | Select-Object -First 1
+          if (-not $ci) {
+            throw "No CI run on main was found for $env:GITHUB_SHA. RELEASE_PROCESS step 3 tags only a green commit."
+          }
+          if ($ci.status -ne 'completed' -or $ci.conclusion -ne 'success') {
+            throw "CI on main for $env:GITHUB_SHA is $($ci.status) / $($ci.conclusion). RELEASE_PROCESS step 3 tags only a green commit."
+          }
+          Write-Host "$env:GITHUB_SHA is on main ($status), and CI there passed."
 
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0

@@ -153,7 +153,7 @@
     "reviewedTrees": {
       "frontend/src-tauri/src": "1089fffcbe59b0fee617df23f0555fd49029b497",
       "frontend/src-tauri/tauri.conf.json": "993d324ca377d6e9760c0c7ea460534e982292c6",
-      ".github/workflows/windows-signed-release.yml": "fa3f401f9b9e34149e12283035ec3cde436dbee3",
+      ".github/workflows/windows-signed-release.yml": "aed2d65ca93cf3aa71b49bfd0473553e869512a4",
       ".github/workflows/beta-channel.yml": "526d528e83625cfdcf93f21f578b57bf8477783c",
       "frontend/scripts/prepare-tauri-windows-release-config.mjs": "c16142c20347046119a7e1ead5bb7c4e365556e2"
     },
@@ -177,6 +177,10 @@
       {
         "date": "2026-11-02",
         "note": "#829, recorded in the audit as 1.21. windows-signed-release.yml gains `environment: release` on publish-release and a new description for the release-tag input; no step, permission, run: block or action pin changes, and the tag gate is untouched (U-1 holds). The environment admits only v* tag refs with can_admins_bypass off, and the two key secrets move into it, so the key reaches only that job of a run from a release tag. A job in an environment still reads repository secrets, so nothing in the trust chain changes whether or not the move has happened yet. The key is also replaced: tauri.conf.json changes only plugins.updater.pubkey, from AA238C4CC59B9906 to 068F68E532BCF6DC, and the gate's test follows; the endpoints, the CSP, allowDowngrades and bundle are untouched, and verification is the same code against a different pinned key. Installed 0.1.0 and 0.2.0-beta.1 keep the retired key and are updated by hand, as the audit's §2 records. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-02",
+        "note": "#830, recorded in the audit as 1.22. windows-signed-release.yml gains one step after the tag gate: it fails unless the compare API reports the built commit as identical to or behind main and the newest ci.yml run for it from a push to main completed with success, and the build job gains actions: read for that. The step reads GH_TOKEN, REPOSITORY and GITHUB_SHA through env, so no run: block holds an expression (U-1 holds); nothing in the publish job, the signing, the manifest or the key-pair gate changes. It only narrows which commits reach the build. Verdict unchanged."
       }
     ]
   }

@@ -35,6 +35,11 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- Windows Signed Release stops before building unless the tag's commit is on
+  `main` and its CI run there passed. RELEASE_PROCESS step 3 asked for both and
+  only `release:status` checked them, so whoever could push a branch and move a
+  tag could have had their own commit built and signed (updater audit 1.22,
+  #830).
 - The updater signing key is a secret of a `release` environment that admits
   only a run from a `v*` tag, rather than a repository secret every workflow on
   every branch could read; the publish job is the one job that names it
