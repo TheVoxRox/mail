@@ -158,7 +158,7 @@ Two rules follow from what CI does and does not cover:
   [ci.yml](../.github/workflows/ci.yml) triggers on `push` to `main` and on
   pull requests — **not on tags**, so tagging does not re-run anything. The
   green run you are relying on is the one from the merge that produced the
-  commit.
+  commit. The signed build checks both before it builds anything (step 4).
 - **Before publish, a bad tag is disposable.** Delete it locally and on the
   remote (`git push origin :refs/tags/v<X.Y.Z>`), delete the draft release,
   fix, re-tag. After publish it is immovable and the only repair is
@@ -176,7 +176,11 @@ The first step compares the tag against `version` in
 field from the config — a mismatch ships a manifest whose installer URL 404s.
 The same step fails when the tag does not exist on origin or points at another
 commit than the one the run builds, which closes the draft-before-tag trap from
-step 3 by machine rather than by discipline.
+step 3 by machine rather than by discipline. The step after it fails when that
+commit is not on `main`, or when the newest CI run for it on `main` did not
+finish green, reading CI the way `npm run release:status` does. Until
+2026-11-02 only `release:status` checked either, so anyone who could push a
+branch and move a tag could have had a commit of their own built and signed.
 
 What the run produces, uploads and attests is described in
 [WINDOWS_SIGNING.md](../frontend/docs/WINDOWS_SIGNING.md) "Release artifacts".

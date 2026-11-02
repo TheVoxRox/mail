@@ -2,7 +2,7 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.21                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| **Version**        | 1.22                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | **Date**           | 2026-11-02                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **Applies to**     | VoxRox Mail V0.1.0 (`0d84ec6`), which under `Code paths` differs from the audited commit only in the base config's pubkey (#755), a value a release build replaces (§6)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | **Audited commit** | `246b2ba` (re-verified 2026-10-25, clearing seven acknowledgements; v1.18 anchor: `5def679`, re-verified 2026-10-12, clearing seven; v1.16/1.17 anchor: `a2e6d43`, re-verified 2026-09-16, clearing seven; v1.5–1.15 anchor: `0165149`, itself a re-verification on 2026-09-07 clearing five; v1.10/1.11 anchor: `3e71529`; v1.5–v1.9 anchor: `c6744a1`; v1.4 anchor: `cad05cb`, recorded pre-squash as `5799e8b`; v1.2/1.3 anchor: `3162e6a` (#144), v1.0/1.1 baseline: `d55b753`)                                                                                                                                                                                                                                                                                                                                              |
@@ -183,6 +183,14 @@ generated by [prepare-tauri-windows-release-config.mjs](../frontend/scripts/prep
   `signer sign --app-version`, the version binding `tauri build` applies when it
   signs. A missing `.sig` still stops the release, since the manifest generator
   below selects only an artifact that has one.
+- **Only a commit `main` has been through is built and signed** (v1.22). The
+  build job's tag gate fails a run whose tag is missing on origin or names
+  another commit than the one being built, and the step after it fails when
+  that commit is not on `main` (the compare API's status is neither
+  `identical` nor `behind`) or when the newest `ci.yml` run for it from a push
+  to `main` is not completed with success, the reading `release:status` uses.
+  Before it, someone able to push a branch and move a tag could have had a
+  commit of their own built and signed by the publish job.
 - **Only a run from a release tag can reach the key** (v1.21).
   `TAURI_SIGNING_PRIVATE_KEY` and its password are secrets of the `release`
   environment, not of the repository; `publish-release` is the one job that
@@ -524,6 +532,15 @@ renders through `{message}` in a `<span>` — Svelte text interpolation, no
 
 ## 8. Change log
 
+- **1.22** (2026-11-02) — **the signed build checks that the tag's commit is
+  on `main` with green CI; verdict stays PASS.** §2: a step after the tag gate
+  enforces what RELEASE_PROCESS step 3 asked and only `release:status`
+  checked, and the build job gains `actions: read` to list the CI runs. Tried
+  before merge against the repository: it passes the `v0.2.0-beta.1` commit
+  and fails a squashed pull request's head as `diverged`. No other step,
+  permission or pin changes, and no `run:` block holds an expression (U-1
+  holds). The `Audited commit` stays `246b2ba`, the drift recorded in
+  [audit-freshness.json](audit-freshness.json).
 - **1.21** (2026-11-02) — **the signing key is replaced and becomes a secret
   of the `release` environment, which admits only `v*` tags; verdict stays
   PASS.** §2: the
