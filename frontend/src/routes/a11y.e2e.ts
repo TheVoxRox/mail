@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import {
 	bodyFrame,
+	choiceLabelLosses,
 	contactGrid,
 	conversationGrid,
 	expectNoFindings,
@@ -303,7 +304,7 @@ test.describe('Přístupnost', () => {
 		// Tick one member so the scan also covers the member checkboxes and the
 		// parent's `mixed` state, which only exists with a partial selection.
 		await member.locator('input[type="checkbox"]').check();
-		await expect(parent.locator('input[type="checkbox"]')).toHaveAttribute('aria-checked', 'mixed');
+		await expect(parent.locator('input[type="checkbox"]')).toBeChecked({ indeterminate: true });
 
 		const results = await wcagScan(page).analyze();
 		await expectNoFindings(page, results);
@@ -530,9 +531,11 @@ test.describe('Přístupnost', () => {
 		await expect(primaryRadio(1)).not.toHaveAttribute('aria-label', /./);
 
 		// The route-level sweep scans the create form with a single address, where
-		// the group no longer exists — this is now the only axe pass that sees it.
+		// the group no longer exists — this is now the only axe pass that sees it,
+		// and the only line check.
 		const results = await wcagScan(page).analyze();
 		await expectNoFindings(page, results);
+		expect(await choiceLabelLosses(page)).toEqual([]);
 
 		// Arrow keys are the only way into the unchecked radio: a radio group is one
 		// tab stop, so row 2's control is reachable from row 1's, not by Tab.
@@ -709,6 +712,7 @@ test.describe('Přístupnost', () => {
 
 		const results = await wcagScan(page).include('[role="dialog"]').analyze();
 		await expectNoFindings(page, results);
+		expect(await choiceLabelLosses(page)).toEqual([]);
 	});
 
 	test('dialog správy štítků nemá a11y porušení a potvrzení mazání je živé', async ({ page }) => {
@@ -777,6 +781,7 @@ test.describe('Přístupnost', () => {
 
 		const results = await wcagScan(page).include('[role="dialog"]').analyze();
 		await expectNoFindings(page, results);
+		expect(await choiceLabelLosses(page)).toEqual([]);
 	});
 
 	test('AppRail je přítomný a aktivní tlačítko odpovídá módu', async ({ page }) => {
@@ -1817,6 +1822,70 @@ test.describe('Nápověda k ovládacímu prvku se čte jednou', () => {
 	}
 });
 
+test.describe('Zaškrtávátko a přepínač se čtou na jednom řádku s popiskem', () => {
+	// One case per component that draws a labelled box, so the sweep below is
+	// known to have judged each of them rather than passed a page without one.
+	const cases: ReadonlyArray<{
+		name: string;
+		path: string;
+		flags?: MockFlags;
+		control: (page: Page) => Locator;
+	}> = [
+		{
+			name: 'kontrola aktualizací při spuštění',
+			path: '/settings/about',
+			control: (page) =>
+				page.getByRole('checkbox', { name: 'Kontrolovat aktualizace při spuštění aplikace' })
+		},
+		{
+			name: 'aktivní účet',
+			path: '/settings/accounts/1',
+			control: (page) => page.getByRole('checkbox', { name: 'Účet je aktivní (synchronizuje se)' })
+		},
+		{
+			name: 'vkládání podpisu',
+			path: '/settings/accounts/1',
+			control: (page) =>
+				page.getByRole('checkbox', { name: 'Vkládat podpis automaticky do nových zpráv' })
+		},
+		{
+			name: 'poskytovatel nebo vlastní server',
+			path: '/settings/accounts/1',
+			control: (page) => page.getByRole('radio', { name: 'Vybrat poskytovatele' })
+		},
+		{
+			name: 'šifrování u vlastního serveru',
+			path: '/settings/accounts/4',
+			flags: { customAccount: true },
+			control: (page) => page.getByRole('checkbox', { name: 'Šifrování SSL/TLS' }).first()
+		},
+		{
+			name: 'výběr všech zpráv',
+			path: '/mail/1/INBOX',
+			control: (page) => page.getByRole('checkbox', { name: 'Vybrat vše' })
+		},
+		{
+			name: 'výběr všech kontaktů',
+			path: '/contacts',
+			control: (page) => page.getByRole('checkbox', { name: 'Vybrat vše' })
+		},
+		{
+			name: 'štítek ve formuláři kontaktu',
+			path: '/contacts?create=1',
+			control: (page) => page.getByRole('checkbox', { name: 'Klienti' })
+		}
+	];
+
+	for (const { name, path, flags, control } of cases) {
+		test(`${name}: jeden řádek a <label for>`, async ({ page }) => {
+			if (flags) await setMockFlags(page, flags);
+			await openApp(page, path);
+			await expect(control(page)).toBeVisible();
+			expect(await choiceLabelLosses(page)).toEqual([]);
+		});
+	}
+});
+
 test.describe('Přístupnost – jednotlivé obrazovky', () => {
 	for (const { path, name, ready, flags } of routes) {
 		for (const [theme, themeName] of [
@@ -1859,6 +1928,13 @@ test.describe('Přístupnost – jednotlivé obrazovky', () => {
 			await expect(ready(page)).toBeVisible();
 			const results = await wcagScan(page).analyze();
 			await expectNoFindings(page, results);
+		});
+
+		test(`${name} (${path}) čte zaškrtávátka na jednom řádku s popiskem`, async ({ page }) => {
+			if (flags) await setMockFlags(page, flags);
+			await openApp(page, path);
+			await expect(ready(page)).toBeVisible();
+			expect(await choiceLabelLosses(page)).toEqual([]);
 		});
 
 		test(`${name} (${path}) má živou oblast, skip-link a main landmark`, async ({ page }) => {

@@ -724,7 +724,7 @@ test.describe('Výběr jednotlivých zpráv ve vlákně', () => {
 
 		const toolbar = page.getByRole('toolbar', { name: 'Hromadné akce' });
 		await expect(toolbar.getByText('1 vybraná zpráva')).toBeVisible();
-		await expect(parentBox(page, 'arch-03')).toHaveAttribute('aria-checked', 'mixed');
+		await expect(parentBox(page, 'arch-03')).toBeChecked({ indeterminate: true });
 
 		await toolbar.getByRole('button', { name: 'Smazat vybrané' }).click();
 
@@ -744,7 +744,7 @@ test.describe('Výběr jednotlivých zpráv ve vlákně', () => {
 		const toolbar = page.getByRole('toolbar', { name: 'Hromadné akce' });
 		await expect(toolbar.getByText('1 vybraná zpráva')).toBeVisible();
 		// Part of the thread ticked — the parent must not claim the whole of it.
-		await expect(parentBox(page, 'arch-03')).toHaveAttribute('aria-checked', 'mixed');
+		await expect(parentBox(page, 'arch-03')).toBeChecked({ indeterminate: true });
 
 		await toolbar.getByRole('button', { name: 'Smazat vybrané' }).click();
 
@@ -774,7 +774,7 @@ test.describe('Výběr jednotlivých zpráv ve vlákně', () => {
 		const toolbar = page.getByRole('toolbar', { name: 'Hromadné akce' });
 		// The newest message plus the reply that stayed ticked.
 		await expect(toolbar.getByText('2 vybrané zprávy')).toBeVisible();
-		await expect(parentBox(page, 'arch-03')).toHaveAttribute('aria-checked', 'mixed');
+		await expect(parentBox(page, 'arch-03')).toBeChecked({ indeterminate: true });
 
 		await toolbar.getByRole('button', { name: 'Smazat vybrané' }).click();
 
@@ -807,7 +807,7 @@ test.describe('Výběr jednotlivých zpráv ve vlákně', () => {
 
 		await expect(toolbar.getByText('1 vybraná konverzace')).toBeVisible();
 		await expect(parentBox(page, 'arch-03')).toBeChecked();
-		await expect(parentBox(page, 'arch-03')).toHaveAttribute('aria-checked', 'true');
+		await expect(parentBox(page, 'arch-03')).toHaveJSProperty('indeterminate', false);
 	});
 });
 

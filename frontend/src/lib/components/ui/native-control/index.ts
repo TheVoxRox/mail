@@ -1,1 +1,5 @@
-export { nativeControlClass } from './native-control.js';
+export {
+	nativeChoiceClass,
+	nativeChoiceControlClass,
+	nativeControlClass
+} from './native-control.js';

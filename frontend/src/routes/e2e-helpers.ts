@@ -746,3 +746,58 @@ export async function reflowLosses(page: Page): Promise<string[]> {
 	});
 	return [...losses, ...more];
 }
+
+/**
+ * Checkboxes and radios with label text that a screen reader would not read on
+ * one line with it, or that no `<label for>` names.
+ *
+ * NVDA's browse mode starts a new line at any element whose `display` is not
+ * inline, inline-block or inline-flex, and a flex or grid item is a block
+ * whatever its class says: a box in a flex label read as a line of its own
+ * ahead of its text, where JAWS read the two as one (see `nativeChoiceClass`).
+ * So the check walks up from the box, and from the first text of its label, to
+ * the element that holds both, and fails anything on either path that would
+ * start a line. A label that only wraps its box fails too: the WAI forms
+ * tutorial prefers the explicit association as the better supported one. A box
+ * whose label has no text, like a grid row's named by aria-label, is not judged.
+ */
+export function choiceLabelLosses(page: Page): Promise<string[]> {
+	return page.evaluate(() => {
+		const inline = new Set(['inline', 'inline-block', 'inline-flex', 'contents']);
+		const tag = (el: Element) =>
+			el.tagName.toLowerCase() + (el.id ? `#${el.id}` : '') + ` (${getComputedStyle(el).display})`;
+		const firstText = (label: HTMLLabelElement): Text | null => {
+			const walker = document.createTreeWalker(label, NodeFilter.SHOW_TEXT);
+			for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+				if (node.textContent?.trim()) return node as Text;
+			}
+			return null;
+		};
+		const breaksBetween = (from: Element | null, stop: Element): Element | null => {
+			for (let el = from; el && el !== stop; el = el.parentElement) {
+				if (!inline.has(getComputedStyle(el).display)) return el;
+			}
+			return null;
+		};
+		const losses: string[] = [];
+		const choices = document.querySelectorAll<HTMLInputElement>(
+			'input[type="checkbox"], input[type="radio"]'
+		);
+		for (const input of choices) {
+			if (input.getClientRects().length === 0) continue;
+			const labels = [...(input.labels ?? [])];
+			const labelled = labels.find((label) => firstText(label));
+			if (!labelled) continue;
+			const text = firstText(labelled)!;
+			const name = `${input.type} "${(labelled.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 40)}"`;
+			if (!input.id || !labels.some((label) => label.htmlFor === input.id)) {
+				losses.push(`${name}: no <label for> names it`);
+			}
+			let common: Element = input;
+			while (!common.contains(text) && common.parentElement) common = common.parentElement;
+			const breaker = breaksBetween(input, common) ?? breaksBetween(text.parentElement, common);
+			if (breaker) losses.push(`${name}: <${tag(breaker)}> starts a line between box and text`);
+		}
+		return losses;
+	});
+}

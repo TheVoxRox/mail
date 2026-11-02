@@ -20,7 +20,10 @@
 	import ProviderLogo from '#lib/components/ProviderLogo.svelte';
 	import { Select } from '#lib/components/ui/select/index.js';
 	import { Surface } from '#lib/components/ui/surface/index.js';
-	import { nativeControlClass } from '#lib/components/ui/native-control/index.js';
+	import {
+		nativeChoiceClass,
+		nativeChoiceControlClass
+	} from '#lib/components/ui/native-control/index.js';
 	import { ApiError } from '#lib/api/client.js';
 	import { toErrorMessage } from '#lib/api/errors.js';
 	import { _ } from '#lib/i18n/index.js';
@@ -551,6 +554,9 @@
 				? 'border-primary bg-primary/10 text-primary'
 				: 'border-border bg-background text-muted-foreground hover:text-foreground hover:bg-muted/40'
 		);
+	const hiddenRadioClass = 'size-px appearance-none align-middle opacity-0';
+	const checkboxCardClass =
+		'block rounded-md border border-border bg-background/70 p-3 text-sm transition-colors hover:bg-muted/60';
 </script>
 
 <form
@@ -662,26 +668,33 @@
 				Wraps: side by side, the two choices ran past the window at 320 CSS px
 				and the large text size, and the fieldset will not shrink below them
 				(WCAG 1.4.10).
+
+				Each radio hides on the line of its text rather than over the button:
+				an absolutely positioned box is a block, which NVDA reads as a line of
+				its own before the text (see nativeChoiceClass). The label takes the
+				click and draws the focus.
 			-->
 			<div class="flex flex-wrap gap-2">
-				<label class={cn('relative', segmentedClasses(serverMode === 'provider'))}>
+				<label for="acc-serverMode-provider" class={segmentedClasses(serverMode === 'provider')}>
 					<input
+						id="acc-serverMode-provider"
 						type="radio"
 						name="server-mode"
 						value="provider"
 						checked={serverMode === 'provider'}
-						class="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+						class={hiddenRadioClass}
 						onchange={() => switchServerMode('provider')}
 					/>
 					{$_('accounts.form.serverModeProvider')}
 				</label>
-				<label class={cn('relative', segmentedClasses(serverMode === 'custom'))}>
+				<label for="acc-serverMode-custom" class={segmentedClasses(serverMode === 'custom')}>
 					<input
+						id="acc-serverMode-custom"
 						type="radio"
 						name="server-mode"
 						value="custom"
 						checked={serverMode === 'custom'}
-						class="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+						class={hiddenRadioClass}
 						onchange={() => switchServerMode('custom')}
 					/>
 					{$_('accounts.form.serverModeCustom')}
@@ -875,25 +888,31 @@
 			{/snippet}
 		</Field>
 
-		<label
-			class="flex items-start gap-3 rounded-md border border-border bg-background/70 p-3 text-sm transition-colors hover:bg-muted/60"
-		>
-			<input
-				type="checkbox"
-				bind:checked={signatureAutoInsert}
-				disabled={busy}
-				class={cn('mt-0.5', nativeControlClass)}
-			/>
-			<span class="min-w-0 text-sm text-foreground">{$_('accounts.form.signatureAutoInsert')}</span>
+		<label for="acc-signatureAutoInsert" class={checkboxCardClass}>
+			<span class={nativeChoiceClass}>
+				<input
+					id="acc-signatureAutoInsert"
+					type="checkbox"
+					bind:checked={signatureAutoInsert}
+					disabled={busy}
+					class={nativeChoiceControlClass}
+				/>
+				<span class="text-foreground">{$_('accounts.form.signatureAutoInsert')}</span>
+			</span>
 		</label>
 	{/if}
 
 	{#if mode === 'edit'}
-		<label
-			class="flex items-start gap-3 rounded-md border border-border bg-background/70 p-3 text-sm transition-colors hover:bg-muted/60"
-		>
-			<input type="checkbox" bind:checked={active} class={cn('mt-0.5', nativeControlClass)} />
-			<span class="min-w-0 text-sm text-foreground">{$_('accounts.form.activeCheckbox')}</span>
+		<label for="acc-active" class={checkboxCardClass}>
+			<span class={nativeChoiceClass}>
+				<input
+					id="acc-active"
+					type="checkbox"
+					bind:checked={active}
+					class={nativeChoiceControlClass}
+				/>
+				<span class="text-foreground">{$_('accounts.form.activeCheckbox')}</span>
+			</span>
 		</label>
 	{/if}
 

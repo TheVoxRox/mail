@@ -13,7 +13,11 @@
 	import { Select } from '#lib/components/ui/select/index.js';
 	import { Surface } from '#lib/components/ui/surface/index.js';
 	import { Textarea } from '#lib/components/ui/textarea/index.js';
-	import { nativeControlClass } from '#lib/components/ui/native-control/index.js';
+	import {
+		nativeChoiceClass,
+		nativeChoiceControlClass
+	} from '#lib/components/ui/native-control/index.js';
+	import { cn } from '#lib/utils.js';
 	import { onMount, tick } from 'svelte';
 	import type {
 		ContactCreateRequest,
@@ -426,23 +430,23 @@
 							as a stray word after it. Every other field here is named natively, which
 							is why this was the only one that stuttered.
 						-->
-						<div class="flex items-center gap-1.5 md:h-9">
-							<input
-								id={`contact-email-${index}-primary`}
-								type="radio"
-								name="contact-primary-email"
-								class={nativeControlClass}
-								checked={row.primary}
-								onchange={() => setPrimary(index)}
-								disabled={busy}
-							/>
-							<label
-								for={`contact-email-${index}-primary`}
-								class="select-none text-xs text-muted-foreground"
-							>
+						<label
+							for={`contact-email-${index}-primary`}
+							class="flex items-center select-none text-xs text-muted-foreground md:h-9"
+						>
+							<span class={nativeChoiceClass}>
+								<input
+									id={`contact-email-${index}-primary`}
+									type="radio"
+									name="contact-primary-email"
+									class={nativeChoiceControlClass}
+									checked={row.primary}
+									onchange={() => setPrimary(index)}
+									disabled={busy}
+								/>
 								{$_('contacts.emailPrimary')}
-							</label>
-						</div>
+							</span>
+						</label>
 					{/if}
 					{#if index === emails.length - 1}
 						<Button
@@ -489,17 +493,20 @@
 						{@const inputId = `contact-label-${label.id}`}
 						<label
 							for={inputId}
-							class="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-sm hover:bg-muted/40 has-[:checked]:border-primary has-[:checked]:bg-primary/10"
+							class="min-w-0 cursor-pointer rounded-md border border-border bg-background px-3 py-1.5 text-sm hover:bg-muted/40 has-[:checked]:border-primary has-[:checked]:bg-primary/10"
 						>
-							<input
-								id={inputId}
-								type="checkbox"
-								class={nativeControlClass}
-								checked={labelIds.includes(label.id)}
-								onchange={(event) => toggleLabel(label.id, event.currentTarget.checked)}
-								disabled={busy}
-							/>
-							<span class="min-w-0 truncate">{label.name}</span>
+							<!-- Wraps rather than truncating: a clipped box would clip its focus ring. -->
+							<span class={cn(nativeChoiceClass, 'wrap-anywhere')}>
+								<input
+									id={inputId}
+									type="checkbox"
+									class={nativeChoiceControlClass}
+									checked={labelIds.includes(label.id)}
+									onchange={(event) => toggleLabel(label.id, event.currentTarget.checked)}
+									disabled={busy}
+								/>
+								<span>{label.name}</span>
+							</span>
 						</label>
 					{/each}
 				</div>

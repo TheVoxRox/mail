@@ -7,8 +7,10 @@
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { DialogDescription, DialogShell, DialogTitle } from '#lib/components/ui/dialog/index.js';
 	import { StateMessage } from '#lib/components/ui/state-message/index.js';
-	import { nativeControlClass } from '#lib/components/ui/native-control/index.js';
-	import { cn } from '#lib/utils.js';
+	import {
+		nativeChoiceClass,
+		nativeChoiceControlClass
+	} from '#lib/components/ui/native-control/index.js';
 	import {
 		MAX_EMAILS_PER_CONTACT,
 		buildMergePreview,
@@ -96,20 +98,20 @@
 					<li>
 						<label
 							for={inputId}
-							class="flex cursor-pointer items-start gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm hover:bg-muted/40 has-[:checked]:border-primary has-[:checked]:bg-primary/10"
+							class="block cursor-pointer rounded-md border border-border bg-background px-3 py-2 text-sm hover:bg-muted/40 has-[:checked]:border-primary has-[:checked]:bg-primary/10"
 						>
-							<input
-								id={inputId}
-								type="radio"
-								name="contact-merge-target"
-								class={cn('mt-0.5', nativeControlClass)}
-								value={c.id}
-								checked={targetId === c.id}
-								onchange={() => (targetId = c.id)}
-								disabled={busy}
-							/>
-							<span class="min-w-0 flex-1">
-								<span class="block font-medium text-foreground">{contactLabel(c)}</span>
+							<span class={nativeChoiceClass}>
+								<input
+									id={inputId}
+									type="radio"
+									name="contact-merge-target"
+									class={nativeChoiceControlClass}
+									value={c.id}
+									checked={targetId === c.id}
+									onchange={() => (targetId = c.id)}
+									disabled={busy}
+								/>
+								<span class="font-medium text-foreground">{contactLabel(c)}</span>
 								<span class="mt-0.5 block text-xs text-muted-foreground">
 									{$_('contacts.mergeContactEmailCount', {
 										values: { count: c.emails.length }

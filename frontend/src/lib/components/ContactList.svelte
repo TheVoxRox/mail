@@ -15,7 +15,11 @@
 	import { Select } from '#lib/components/ui/select/index.js';
 	import { StateMessage } from '#lib/components/ui/state-message/index.js';
 	import { avatarColorClass } from '#lib/components/ui/avatar/index.js';
-	import { nativeControlClass } from '#lib/components/ui/native-control/index.js';
+	import {
+		nativeChoiceClass,
+		nativeChoiceControlClass,
+		nativeControlClass
+	} from '#lib/components/ui/native-control/index.js';
 	import { createRovingGrid } from '#lib/components/grid/rovingGrid.svelte.js';
 	import { createBulkAnnouncer } from '#lib/components/grid/bulkAnnouncer.js';
 	import { isRowBackgroundClick } from '#lib/components/grid/rowActivation.js';
@@ -70,6 +74,9 @@
 		restoreFocusContactId = null,
 		onFocusRestored
 	}: Props = $props();
+
+	const uid = $props.id();
+	const selectAllId = `${uid}-select-all`;
 
 	const DEFAULT_SORT: ContactSort = 'surname';
 	const SORT_OPTIONS = [
@@ -445,11 +452,12 @@
 	<div
 		class="flex min-h-11 flex-wrap items-center gap-2 border-b border-border bg-muted/20 px-4 py-2 text-xs"
 	>
-		<label class="inline-flex min-w-0 items-center gap-2 text-muted-foreground">
+		<label for={selectAllId} class={cn(nativeChoiceClass, 'min-w-0 text-muted-foreground')}>
 			<input
 				bind:this={selectAllInput}
+				id={selectAllId}
 				type="checkbox"
-				class={nativeControlClass}
+				class={nativeChoiceControlClass}
 				checked={allVisibleSelected}
 				onchange={(event) => toggleAllVisible(event.currentTarget.checked)}
 				disabled={bulkBusy}

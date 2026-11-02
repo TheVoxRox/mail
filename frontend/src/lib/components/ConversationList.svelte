@@ -1414,14 +1414,9 @@
 										{...grid.cell(rowIndex, COL_SELECT)}
 										class={nativeControlClass}
 										checked={conversationChecked(row.conversation)}
-										aria-checked={mixed
-											? 'mixed'
-											: conversationChecked(row.conversation)
-												? 'true'
-												: 'false'}
 										{@attach (node: HTMLInputElement) => {
-											// Part of the thread ticked: the native tri-state, so the
-											// box looks the way `aria-checked="mixed"` sounds.
+											// Part of the thread ticked: the native tri-state, read as
+											// "mixed" (no `aria-checked`, see MailBulkToolbar).
 											node.indeterminate = mixed;
 										}}
 										aria-label={selectionLabel(row.conversation)}

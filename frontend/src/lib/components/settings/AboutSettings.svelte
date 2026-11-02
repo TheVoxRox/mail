@@ -13,7 +13,10 @@
 	import { Select } from '#lib/components/ui/select/index.js';
 	import { StateMessage } from '#lib/components/ui/state-message/index.js';
 	import { Surface } from '#lib/components/ui/surface/index.js';
-	import { nativeControlClass } from '#lib/components/ui/native-control/index.js';
+	import {
+		nativeChoiceClass,
+		nativeChoiceControlClass
+	} from '#lib/components/ui/native-control/index.js';
 	import ThirdPartyNotices from '#lib/components/settings/ThirdPartyNotices.svelte';
 	import { checkForUpdateManually } from '#lib/updates.js';
 	import { setUpdateStartupCheck, updateStartupCheck } from '#lib/stores/updateStartupCheck.js';
@@ -200,17 +203,16 @@
 			</Field>
 
 			<div class="space-y-1">
-				<label class="flex items-start gap-3 text-sm">
+				<label for="update-startup-check" class={cn(nativeChoiceClass, 'text-sm')}>
 					<input
+						id="update-startup-check"
 						type="checkbox"
 						checked={$updateStartupCheck === 'on'}
 						onchange={handleStartupCheckChange}
 						aria-describedby="update-startup-check-hint"
-						class={cn('mt-0.5', nativeControlClass)}
+						class={nativeChoiceControlClass}
 					/>
-					<span class="min-w-0 text-foreground"
-						>{$_('settings.about.versions.startupCheck.label')}</span
-					>
+					<span class="text-foreground">{$_('settings.about.versions.startupCheck.label')}</span>
 				</label>
 				<!-- Read with the checkbox through aria-describedby, so hidden from the
 				     tree: as a line of its own it repeated the checkbox (see Field). -->
