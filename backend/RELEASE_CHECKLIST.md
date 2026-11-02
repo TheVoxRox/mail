@@ -391,6 +391,43 @@ Findings:
 - <what went wrong or stays open, and what to do before the next run>
 ````
 
+### Candidate 2026-11-02 — tag `v0.2.0-beta.2` (see the object ids below)
+
+```text
+Platform:  Windows 11 Pro x64, machine lacina-hp-650 (§0–§2)
+Tester:    machine half automated; §3–§9 are the maintainer's
+```
+
+| path                         | object id      |
+| ---------------------------- | -------------- |
+| `backend/src`                | `e7f162b1f756` |
+| `backend/pom.xml`            | `45d8e969d6f5` |
+| `backend/scripts`            | `8a0fe4f8bdc1` |
+| `frontend/src`               | `28dca14833bc` |
+| `frontend/src-tauri`         | `f5733a9c964a` |
+| `frontend/package.json`      | `95e29ae3991b` |
+| `frontend/package-lock.json` | `b0dfdfa87c0e` |
+
+- [x] **§0 Version** — `npm run bump:version 0.2.0-beta.2`, which since #818 writes both lockfiles too, and `npm run check:versions` OK on all seven files.
+- [x] **§1 Backend build** — `clean verify` on the tree this cut tags, the version already bumped: 0 failures and 0 errors on surefire and failsafe; the one skip is `MailSyncQresyncDovecotIT` without Docker, which CI runs. SpotBugs reports no bug instance. `mail-backend-0.2.0-beta.2.jar` produced. Sidecar packaged by `npm run sidecar:rebuild:windows` with the OAuth values from `backend/.env`: the application jar and 107 libraries in `lib\`, "Google client-id baked into the launcher; no placeholder", all 10 JVM options present in the launcher, "A copy of the image outside target\ started to ready and exited", 14 of 14 modules declared for the runtime, and the packaged sidecar smoke passed. `regen:licenses:all` after `npm ci` and the packaging moved exactly the dependency bumps this cut takes: `@tauri-apps/plugin-shell` 2.6.0 and `@sveltejs/kit` 3.1.1 on the npm side; `tauri-plugin-shell` 2.6.0, `tauri-plugin-single-instance` 2.5.5, `tauri-plugin-updater` 2.14.1, and `zip` 9.1.3 with `typed-path` 0.13.0 on the cargo side. The backend inventory did not change. The run without a system JDK is taken on the installed candidate.
+- [x] **§2 Frontend automation** — on the same tree: `generate:api` (no drift in `schema.d.ts`), `check:i18n`, `build`, `test:unit`, and `test:e2e`. The first `test:e2e` failed one functional test on a `waitForURL` timeout (third finding). A second full run, the functional project and then the a11y suite, passed with no failure.
+- [x] **§3 Fresh install** — machine half: Release Candidate Smoke [41453536494](https://github.com/TheVoxRox/mail/actions/runs/41453536494) on the build of this tag, 23 of 23 checks, the installer from the draft with its SHA-256 and build provenance verified for `refs/tags/v0.2.0-beta.2` at `f66d8f0`; no JVM warning or error in the Tauri log on either start. On lacina-hp-650 the maintainer installed the candidate by hand over 0.2.0-beta.1 (2026-11-02), the installer checked first against its `.sha256` and with `gh attestation verify`; it started, nothing reported. The rest carried from the 2026-11-01 sheet: nothing §3 rests on moved since (`npm run release:status`).
+- [x] **§3a Installer behaviour** — the installer half of the update smoke vN-1 → vN: Release Candidate Smoke's update job in the same run, 16 of 16, from the published `v0.1.0` over its running installation with `/P /UPDATE`. The contact and `crypto.bin` were kept, the updated installation reached ready and matched a fresh install file for file, nothing of 0.1.0 was left, and the 0.1.0 installer refused to go back (exit 2). The rest carried from the 2026-11-01 sheet: nothing §3a rests on moved. **The updater itself is not taken on this candidate:** installations of 0.1.0 and 0.2.0-beta.1 trust the retired `AA238C4CC59B9906`, so no installation can take this build through it — §9.
+- [x] **§4 Account flows** — carried from the 2026-11-01 sheet: nothing under the OAuth audit's `Code paths` or in `application.properties` moved, and the OAuth clients and the Azure registration are the ones that sheet signed in with.
+- [x] **§5 Mail workflows** — re-taken where `@sveltejs/kit` 3.1.1 (#823) reaches, by the maintainer on the installed candidate (2026-11-02), nothing reported: the screen-reader pass over the message list, an open message and compose; the command palette (Ctrl+K) and its focus return; Settings → About and the update channel switch; a Markdown message sent to a real recipient; and an attachment saved through the desktop dialog. The rest carried from the 2026-11-01 sheet by the maintainer's decision (2026-11-02): the mail and contact backend under §5's paths did not move, so the full sync, the moves checked at the provider, the 30 MB attachment and the vCard round trip stand.
+- [x] **§6 Sidecar lifecycle** — machine half: Release Candidate Smoke [41453536494](https://github.com/TheVoxRox/mail/actions/runs/41453536494); killing `voxrox-mail.exe` alone took the sidecar with it. `tauri-plugin-shell` 2.6.0 (#822, #825), which starts the sidecar, is not among §6's inputs, and the smoke's starts, its kill and the update over a running installation all ran on it. The rest carried from the 2026-11-01 sheet: nothing §6 rests on moved.
+- [x] **§7 Diagnostics** — machine half: the diagnostic dump in Release Candidate Smoke carries every section. The rest carried from the 2026-11-01 sheet: nothing §7 rests on moved.
+- [x] **§8 Long run** — §8.1 carried from the 2026-11-01 sheet: nothing §8 rests on moved. §8.2 is replaced by the weekly soak (see §8.2), whose last scheduled run passed on 2026-10-31 ([41190398430](https://github.com/TheVoxRox/mail/actions/runs/41190398430)).
+- [x] **§9** — Blockers: none open. Known issues, as in `CHANGELOG.md` and `docs/release-notes/v0.2.0-beta.2.md`, are the three of 0.2.0-beta.1: Gmail only for accounts on the test list; the transient IMAP connection failure; and a hostile server that can still run the service out of memory when two such accounts sync at once, with the sync of an account paused after three restarts in a row. Accepted risk: the §3a updater item, which no earlier installation can take because they trust the retired key; it is taken from an installation of this candidate to the next release, before that one is promoted. Named, not a risk: the functional test that failed once under the full suite (third finding). Approved: the maintainer, 2026-11-02.
+
+Findings:
+
+- **The first signed build of the two-job workflow and the first signed with the new updater key.** #828 to #831 changed how a release is built and signed, and the workflow runs only from a release tag, so this candidate's signed build is its first run: the build job without the key, the publish job in the `release` environment, the tag-on-`main` check, and the signature made by `tauri signer sign`. Installations of `v0.2.0-beta.1` and `v0.1.0` trust the retired `AA238C4CC59B9906`. This candidate is therefore installed by hand over them, and the §3a updater item is taken from an installation of this candidate to the next release, the first update checked against `068F68E532BCF6DC`.
+- **§5 rests on `@sveltejs/kit`, which #823 moves from 3.1.0 to 3.1.1.** Whether §5 carries is `npm run release:status`'s report and the maintainer's decision.
+- **A functional test failed once under the full suite.** `palette.functional.e2e.ts`, "umí navigovat do Nastavení přes filtrovaný příkaz", waited 30 s for the Settings URL. It passed 5 of 5 in isolation (`--repeat-each=5`, the file 100 of 100), in the second full run, and in CI on `main` for the same dependency set. Not a blocker; watch it on the next runs.
+- **This cut takes everything merged since `v0.2.0-beta.1` (`648a438`):** #821 (the beta.1 release decision and notes); #828, #829, #830 and #831 (the signing split, the `release` environment and the new key, the tag-on-`main` check, immutable releases); #832 (updater audit 1.24, with the `v*` tag ruleset); and the dependency bumps #822, #823, #825, #826 and #827. Each fix that merges from here adds its number to the next item.
+- **Waiting for the next cut:** a docs-only correction. U-2's description and a comment in `windows-signed-release.yml` say `npm ci` runs the install scripts of the whole dependency tree. npm 11.20, here and in CI, skips those that `allowScripts` does not cover, so none of the tree's two ran (`es5-ext`, `esbuild`). The dependency code the build job runs is vite's plugins, the crates' build scripts and Maven's plugins.
+
 ### Candidate 2026-11-01 — tag `v0.2.0-beta.1` (see the object ids below)
 
 ```text
@@ -427,7 +464,7 @@ Findings:
 - **Found and fixed while cutting: `previousAppVersion` in the `app_started` audit record would have named the new version after the first update (#816).** The backup a version takes before migrating is the newest file when the record is written; the record now skips it. §3a's update smoke on the beta channel can read the record as the evidence of the version updated from.
 - **§0–§2 taken before the bump cannot see a test that holds the version.** Two did (§2), found by the pre-push gate and by CI on the cut's pull request rather than by §2. Until no test hard-codes it, the next cut runs `test:unit` and `test:e2e` once more after `bump:version`.
 - **This cut takes everything merged since `v0.1.0`:** the pull requests #752 to #819, among them the first new features (#797, #804, #805, #814, #815). Each fix that merges from here adds its number to the next item.
-- **Waiting for the next cut:** none.
+- **Waiting for the next cut:** #828 and #829. The next signed build is the first run of the two-job workflow and the first signed with the new updater key, `068F68E532BCF6DC` (#829). Installations of this tag and of `v0.1.0` trust the retired `AA238C4CC59B9906`, so the §3a updater item cannot be taken from them: the next candidate is installed by hand over them, and the updater itself is taken between two releases signed with the new key.
 
 ### Candidate 2026-10-19 — tag `v0.1.0` (see the object ids below)
 

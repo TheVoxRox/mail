@@ -57,6 +57,14 @@ souboru v releasu):
 gh attestation verify "voxrox-mail-<verze>-windows-x64-setup.exe" --repo TheVoxRox/mail
 ```
 
+Releasy vydané po verzi 0.2.0-beta.1 jsou navíc neměnné: po vydání v nich GitHub
+nedovolí žádný soubor vyměnit. Že je stažený instalátor přesně ten vydaný,
+potvrdí:
+
+```powershell
+gh release verify-asset v<verze> "voxrox-mail-<verze>-windows-x64-setup.exe" --repo TheVoxRox/mail
+```
+
 Přiložený `…-setup.exe.sha256` slouží už jen jako **rychlá kontrola integrity**
 (že se soubor nepoškodil při stahování) — sám o sobě nechrání proti úmyslné
 záměně, protože leží ve stejném releasu:

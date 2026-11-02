@@ -1,7 +1,7 @@
 {
 	"$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
 	"productName": "VoxRox Mail",
-	"version": "0.2.0-beta.1",
+	"version": "0.2.0-beta.2",
 	"identifier": "org.voxrox.mail",
 	"build": {
 		"frontendDist": "../build",
@@ -74,7 +74,7 @@
 	"plugins": {
 		"updater": {
 			"endpoints": ["https://github.com/TheVoxRox/mail/releases/latest/download/latest.json"],
-			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEFBMjM4QzRDQzU5Qjk5MDYKUldRR21adkZUSXdqcW05VDYvbzBtQWRpMXphSUFKbllobFM4QkV6RmdoWlRJdnZ2UFprNzFuLzgK"
+			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDA2OEY2OEU1MzJCQ0Y2REMKUldUYzlyd3k1V2lQQmlNQmpPaDNBUDZiZ3ZZN3F3MnpvekZqOW0vNzB3MlNCZzF2d3lZdnZscnEK"
 		}
 	}
 }

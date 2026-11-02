@@ -19,14 +19,103 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+## [0.2.0-beta.2] - 2026-11-02
+
+### Frontend
+
+- The interface is built with SvelteKit 3.1.1 and adapter-static 4.0.1, both
+  patch releases (#823).
+
+### Tauri / Release
+
+- Updates are signed with a new key, `068F68E532BCF6DC`, in place of
+  `AA238C4CC59B9906`. The old key had been readable by every dependency the
+  release build ran (U-2) and existed nowhere outside GitHub, so it is retired
+  rather than kept. Installations of 0.1.0 and 0.2.0-beta.1 trust only the old
+  key and cannot take this release through the updater (#829).
+- The shell takes `tauri-plugin-shell` 2.6.0 with its JavaScript side (#822),
+  and `tauri-plugin-single-instance` 2.5.5, `tauri-plugin-updater` 2.14.1 and
+  `zip` 9.1.3 (#825). The updater plugin is the one that checks and installs
+  updates, so the update from this beta to the next release is the first to go
+  through it with the new key.
+
+### Known issues
+
+Reconciled with §9 of the 2026-11-02 candidate sheet, per
+[RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) step 6. Unchanged from
+0.2.0-beta.1:
+
+- **A transient IMAP hiccup, `failed to create new store connection`, appears
+  in the log a couple of times a day.** A bounded retry with backoff recovers it
+  on the next attempt.
+- **Google sign-in works only for accounts on the test list.** The OAuth
+  consent screen stays in `Testing`.
+- **A hostile mail server can still run the mail service out of memory when
+  two such accounts sync at once.** What one account keeps is bounded by an
+  account budget, so a single hostile server costs only its own account. Three
+  restarts in a row still pause that account's sync.
+
+### Manual steps
+
+- **For the user:** an installation of 0.1.0 or 0.2.0-beta.1 installs this
+  release by hand: run its installer over the existing installation, which
+  keeps mail, accounts and settings. Updates after this one arrive through the
+  updater again.
+- **For the operator:** the RELEASE_CHECKLIST §3a updater item cannot be taken
+  from an older installation, which trusts the retired key. Take it from an
+  installation of this release to the next one, before that one is promoted.
+
 ### Repo
 
+- The updater audit is re-verified at 1.24 by a session that wrote none of the
+  release-pipeline changes, clearing its seven acknowledgements. It found U-3
+  (Low): the `release` environment admits any `v*` tag, and the tag-on-`main`
+  check runs inside the workflow being started, so whoever could push could
+  have reached the signing key through a tag on an edited workflow; a tag
+  ruleset now lets only the admin role push `v*` tags. Four claims that were
+  false at the audited commit are corrected (#832).
+- Immutable releases are on: from publication, a release's installer,
+  signature, checksum and `latest.json` cannot be replaced and its tag cannot
+  move, so a write token that leaks later cannot swap what a first install
+  downloads. `beta-channel.yml` no longer creates the `beta` release, because a
+  new one would be locked and the beta channel would stop moving; OPERATIONS
+  says never to delete it and how to restore it (updater audit 1.23, #831).
+- Windows Signed Release stops before building unless the tag's commit is on
+  `main` and its CI run there passed. RELEASE_PROCESS step 3 asked for both and
+  only `release:status` checked them, so whoever could push a branch and move a
+  tag could have had their own commit built and signed (updater audit 1.22,
+  #830).
+- The updater signing key is a secret of a `release` environment that admits
+  only a run from a `v*` tag, rather than a repository secret every workflow on
+  every branch could read; the publish job is the one job that names it
+  (updater audit 1.21, #829).
+- The updater signing key leaves the build. Windows Signed Release was one job
+  whose env held the key while `npm ci`, Maven, vite and every crate's build
+  script ran, so one compromised dependency could have signed an update for
+  every installation; now the build holds no key and only reads the repository,
+  and a second job on a fresh runner signs the installer with the Tauri CLI,
+  attests and publishes (U-2, updater audit 1.20). Every workflow pins its
+  actions to commit SHAs (#828).
 - The release decision for `v0.2.0-beta.1`: §3 to §8 of the 2026-11-01 sheet
   recorded on its signed build, the machine half from Release Candidate Smoke
   and the rest per the maintainer, and §9 approved with no open blocker; the
   updater itself is taken on the beta channel right after publishing. The
   release notes in `docs/release-notes/` carry the same known issues, which the
   changelog now marks as reconciled (#821).
+- Development tools move up a patch or a minor: knip 6.44.0 (#823), GreenMail
+  2.1.15 and JaCoCo 0.8.16 (#827), and springdoc 3.2.0, which only the
+  development build serves, since the release jar excludes it (#826).
+- The `0.2.0-beta.2` cut: the version in the seven files `bump:version` writes,
+  the license inventories and the bundled `NOTICE.txt` caught up with the
+  dependency bumps above, and the 2026-11-02 candidate sheet with §0 to §2
+  ticked (#833).
+- The release decision for `v0.2.0-beta.2`: §3 to §8 of the 2026-11-02 sheet
+  recorded on its signed build, the first of the two-job workflow and of the
+  new key. The machine half is from Release Candidate Smoke; §5 was re-taken by
+  the maintainer where SvelteKit 3.1.1 reaches, and the rest carries from the
+  2026-11-01 sheet. §9 is approved with no open blocker; the updater itself is
+  taken from this release to the next. The release notes are in
+  `docs/release-notes/` (#834).
 
 ## [0.2.0-beta.1] - 2026-11-01
 

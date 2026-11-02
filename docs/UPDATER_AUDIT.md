@@ -2,14 +2,14 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.19                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| **Date**           | 2026-10-25                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| **Applies to**     | VoxRox Mail V0.1.0 (`0d84ec6`), which under `Code paths` differs from the audited commit only in the base config's pubkey (#755), a value a release build replaces (§6)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| **Audited commit** | `246b2ba` (re-verified 2026-10-25, clearing seven acknowledgements; v1.18 anchor: `5def679`, re-verified 2026-10-12, clearing seven; v1.16/1.17 anchor: `a2e6d43`, re-verified 2026-09-16, clearing seven; v1.5–1.15 anchor: `0165149`, itself a re-verification on 2026-09-07 clearing five; v1.10/1.11 anchor: `3e71529`; v1.5–v1.9 anchor: `c6744a1`; v1.4 anchor: `cad05cb`, recorded pre-squash as `5799e8b`; v1.2/1.3 anchor: `3162e6a` (#144), v1.0/1.1 baseline: `d55b753`)                                                                                                                                                                                                                                                                                                                                              |
+| **Version**        | 1.24                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| **Date**           | 2026-11-02                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **Applies to**     | The app side (§1, §3–§5) to VoxRox Mail V0.2.0-beta.1 (`648a438`), which under `Code paths` differs from the audited commit only in the release pipeline (#828 to #831) and the base config's pubkey (#829); the pipeline (§2) to the next release built from `main` at or after the audited commit, since `v0.2.0-beta.1` and `v0.1.0` (`0d84ec6`) were built and signed by the single-job workflow with the retired key (U-2)                                                                                                                                                                                                                                                                                                                                                                                                  |
+| **Audited commit** | `c8b09a6` (re-verified 2026-11-02, clearing seven acknowledgements; v1.19–1.23 anchor: `246b2ba`, re-verified 2026-10-25, clearing seven; v1.18 anchor: `5def679`, re-verified 2026-10-12, clearing seven; v1.16/1.17 anchor: `a2e6d43`, re-verified 2026-09-16, clearing seven; v1.5–1.15 anchor: `0165149`, itself a re-verification on 2026-09-07 clearing five; v1.10/1.11 anchor: `3e71529`; v1.5–v1.9 anchor: `c6744a1`; v1.4 anchor: `cad05cb`, recorded pre-squash as `5799e8b`; v1.2/1.3 anchor: `3162e6a` (#144), v1.0/1.1 baseline: `d55b753`)                                                                                                                                                                                                                                                                        |
 | **Code paths**     | `frontend/src-tauri/src`, `frontend/src-tauri/tauri.conf.json`, `frontend/src-tauri/capabilities`, `frontend/src/lib/updates.ts`, `frontend/src/lib/nativeShell.ts`, `frontend/src/lib/bootstrap.ts`, `frontend/src/lib/components/boot/BootErrorView.svelte`, `frontend/src/lib/components/UpdatePromptDialog.svelte`, `frontend/src/lib/components/UpdateFailureDialog.svelte`, `frontend/src/lib/components/settings/AboutSettings.svelte`, `.github/workflows/windows-signed-release.yml`, `.github/workflows/beta-channel.yml`, `frontend/scripts/beta-channel-guard.mjs`, `frontend/scripts/generate-tauri-latest-windows.mjs`, `frontend/scripts/verify-updater-signature.mjs`, `frontend/scripts/lib/minisign.mjs`, `frontend/scripts/prepare-tauri-windows-release-config.mjs`, `frontend/scripts/lib/tauri-config.mjs` |
-| **Auditor**        | 1.19 re-verified by Claude Opus 5.5, a session that wrote none of the delta it read, #704 to #755; 1.18 re-verified by Claude, an independent agent and not the author of #701; the revisions before it did not record their auditor                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| **Auditor**        | 1.24 re-verified by Claude Opus 5.5, a session that wrote none of the delta it read, #780 to #831, the release-pipeline changes #828 to #831 among them; 1.19 re-verified by Claude Opus 5.5, a session that wrote none of the delta it read, #704 to #755; 1.18 re-verified by Claude, an independent agent and not the author of #701; the revisions before it did not record their auditor                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | **Subsystem**      | Tauri auto-updater — Boundary 6 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| **Verdict**        | **Security: PASS** — nothing in the trust chain, re-verified against `246b2ba`. The one finding this audit raised (U-1, workflow script injection, **Low**) is fixed, and so is the HTTPS-only note §6 had carried since v1.0; one procedural note stays open. The v1.5 code changes came from the operational review in `todo.md`, not from this audit.                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| **Verdict**        | **Security: PASS** — re-verified against `c8b09a6`. All three findings are fixed: U-1 (workflow script injection, **Low**), U-2 (the updater signing key readable by dependency code in the build, **Medium**, v1.20) and U-3 (any `v*` tag reaching that key while nothing restricted who could push one, **Low**, v1.24, fixed in the repository's settings), and so is the HTTPS-only note §6 had carried since v1.0; one procedural note stays open. The v1.5 code changes came from the operational review in `todo.md`, not from this audit.                                                                                                                                                                                                                                                                               |
 
 Per-subsystem release audit of the update channel **"GitHub release →
 signature-verified install"**. This is the one path that cannot be fixed after a
@@ -56,6 +56,39 @@ blocks the record; an availability finding within the boundary, or an
 observation on code the delta did not touch, is recorded and not chased.
 Static only: nothing was built, run or measured. Where a test is cited, it
 passed in the CI run of `main` at `246b2ba`.
+
+**Method (1.24).** Every file under `Code paths` read in full at `c8b09a6`
+(`git ls-files` on the pathspec lists them), and the delta since `246b2ba`
+(`git diff 246b2ba c8b09a6 -- <Code paths>`) read as one change rather than as
+the seven acknowledgements it had been recorded in: the redactor's rewrite by
+character (#780), the version of the `v0.2.0-beta.1` cut (#817), the sidecar
+packaged without the AOT cache (#819), and the release pipeline of #828 to
+#831 — the two-job split, the `release` environment and the replaced key, the
+tag-on-`main` check, and the `beta` release under immutable releases. The
+commands of §1 re-run, `{@html}` counted for §4, and U-1's property re-checked
+over both workflows with a scanner that finds the two interpolations `ci.yml`
+keeps (§6); every `uses:` in every workflow is pinned to a 40-hex commit, and
+each pin was resolved against the upstream tag its comment names. Three things
+were run rather than read. The publish job's signing chain, on a dummy
+installer with a throwaway key and the Tauri CLI the lockfile pins (2.12.4):
+`signer sign --app-version` writes a trusted comment with `timestamp`, `file`
+and `version`, the manifest generator accepts the `.sig`, and the key-pair gate
+verifies it; one byte changed in the installer fails the gate as a bad
+signature, the pinned key `068F68E532BCF6DC` fails it as a key mismatch, and a
+wrong or empty password or no key exits 1 without prompting. The two API reads
+of the tag-on-`main` step, by hand: the `v0.2.0-beta.1` commit reads `behind`
+with a green push run of `ci.yml` on `main`, and #830's pull request head reads
+`diverged`. And the repository settings §2 names, with the commands it lists.
+The pinned pubkey's key id was decoded from its payload rather than read off
+its comment. The repository secret `TAURI_UPDATER_PUBKEY` cannot be read back:
+whether it holds the new key shows first in the key-pair gate of the next
+signed run, which fails before any upload if it does not. The pass was held to
+the rule of [AUDIT_GUIDE.md](AUDIT_GUIDE.md) §5, stated in its brief before it
+began: a claim false at the audited commit, or a finding that reaches
+confidentiality or integrity, blocks the record; an availability-only finding,
+or an observation on code the delta did not touch, is recorded with its
+severity, reason and upgrade path and not chased. Where a test is cited, it
+passed in the CI run of `main` at `c8b09a6`.
 
 ## 1. Signature verification — no bypass (confirmed)
 
@@ -171,9 +204,76 @@ generated by [prepare-tauri-windows-release-config.mjs](../frontend/scripts/prep
 - **`dangerousInsecureTransportProtocol`** (Tauri's flag to allow `http`
   endpoints) is **opt-in behind `TAURI_UPDATER_DANGEROUS_INSECURE_TRANSPORT_PROTOCOL === 'true'`**
   and is not set — transport is HTTPS-only (`github.com`).
-- The workflow separately **throws if `TAURI_SIGNING_PRIVATE_KEY` is absent**
-  ("Validate Tauri updater signing secrets"), so `.sig` artifacts are always
-  produced.
+- **The updater signing key never reaches the build** (v1.20, U-2 in §6). The
+  workflow is two jobs. `build-signed-windows` runs every step that executes
+  dependency code, with `contents: read` and no updater key; the release config
+  sets `createUpdaterArtifacts: false`, so `tauri build` does not ask for one.
+  `publish-release` holds the key, on its signing step only, together with
+  `contents: write` and the attestation's `id-token: write`, on a fresh runner
+  that installs the npm tree with `--ignore-scripts`. The only code from
+  outside the repository that runs there is the Tauri CLI's signer and the
+  GitHub actions the job names, each pinned to a commit: checkout, setup-node
+  and the artifact download before the signing step, the attestation and the
+  upload after it (**corrected in 1.24**: this said the job ran nothing but the
+  signer and the repository's own scripts). That step **throws if
+  `TAURI_SIGNING_PRIVATE_KEY` is absent** and signs the installer with
+  `signer sign --app-version`, the version binding `tauri build` applies when it
+  signs. A missing `.sig` still stops the release, since the manifest generator
+  below selects only an artifact that has one.
+- **Only a commit `main` has been through is built and signed** (v1.22). The
+  build job's tag gate fails a run whose tag is missing on origin or names
+  another commit than the one being built, and the step after it fails when
+  that commit is not on `main` (the compare API's status is neither
+  `identical` nor `behind`) or when the newest `ci.yml` run for it from a push
+  to `main` is not completed with success, the reading `release:status` uses.
+  Both are steps of the workflow in the commit being built, so they bind the
+  workflow as it stands on `main` and nothing else: a run of a workflow edited
+  in the tagged commit itself does not have them, and what keeps such a run
+  from the key is who may push a `v*` tag, U-3 in §6. **Corrected in 1.24**:
+  this bullet said the step ended the case of someone able to push a branch
+  and move a tag having a commit of their own built and signed, which it does
+  only for someone who leaves the workflow alone.
+- **Only a run from a release tag can reach the key** (v1.21).
+  `TAURI_SIGNING_PRIVATE_KEY` and its password are secrets of the `release`
+  environment, not of the repository; `publish-release` is the one job that
+  names the environment, and the environment admits only a run whose ref is a
+  `v*` tag, with `can_admins_bypass` off. Before it, any workflow on any branch
+  could have read them, a pull request's from this repository included. The
+  environment judges a run by its ref's name alone, so any workflow file in a
+  commit that carries a `v*` tag can name it; who may push such a tag is U-3
+  (§6). The setting lives outside the repository, so check it there:
+  `gh api repos/TheVoxRox/mail/environments/release` (`can_admins_bypass`
+  false, `custom_branch_policies` true),
+  `gh api repos/TheVoxRox/mail/environments/release/deployment-branch-policies`
+  (one policy, `tag v*`), and `gh secret list` naming neither key secret at
+  repository level while `gh secret list --env release` names both; all four
+  read as stated on 2026-11-02 (1.24), with no protection rule on the
+  environment besides that policy. Who may push a `v*` tag is a setting of its
+  own, the tag ruleset of U-3 (§6), checked with the command listed there. The
+  key
+  in the environment is not the one U-2 exposed: `068F68E532BCF6DC` was
+  generated on 2026-11-02 on the maintainer's machine, with a password and a
+  backup of its own, and replaced `AA238C4CC59B9906`, which had sat in the
+  build job's env since 2026-06-16 and existed nowhere outside GitHub. No
+  bridge release carried the new pubkey, because the maintainer's own were
+  the only installations: those of `0.1.0` and `0.2.0-beta.1` trust the
+  retired key and take the next release by hand, not through the updater.
+- **A published release cannot be changed** (v1.23). Immutable releases are on
+  since 2026-11-02 (`gh api repos/TheVoxRox/mail/immutable-releases` reports
+  `enabled: true`): from publication on, the installer, its `.sig`, its
+  `.sha256` and `latest.json` cannot be replaced or deleted, and the tag cannot
+  be moved, so a write token that leaks after a release, a workflow's included,
+  can no longer swap what a first install downloads. Drafts are not affected,
+  so the signed build still uploads with `--clobber` before publication. The
+  setting covers only releases published after it: `v0.1.0` and
+  `v0.2.0-beta.1` read `immutable: false` (1.24), so their assets can still be
+  replaced by a write token, which reaches a first install from those release
+  pages and no update, since an update still has to verify against the pinned
+  key. It also keeps the moving `beta` release writable (`immutable: false`,
+  1.24) for
+  [beta-channel.yml](../.github/workflows/beta-channel.yml); that workflow no
+  longer creates `beta` when it is missing and fails instead, since a new one
+  would be locked and the beta channel's compiled-in URL would stop moving.
 - **The two halves of the key pair are compared** ("Verify updater signature
   against the shipped pubkey" →
   [verify-updater-signature.mjs](../frontend/scripts/verify-updater-signature.mjs),
@@ -384,16 +484,20 @@ renders through `{message}` in a `<span>` — Svelte text interpolation, no
   and with nothing recorded the stored value stays in charge;
   [updateStartupCheck.test.ts](../frontend/src/lib/stores/updateStartupCheck.test.ts)
   covers the write-back.
-- **Not proven by any test:** that the installer really does overwrite
-  `runtime/**` and `app/**` without a file-in-use failure. Only a real vN-1 → vN
-  smoke shows that, and `CheckIfAppIsRunning` in the bundled NSIS template still
-  guards only `${MAINBINARYNAME}.exe`, so a **manual** reinstall while the app
-  runs (a path outside this flow) has nothing covering the sidecar. Tracked in
-  `todo.md`, not claimed here. Since #761 Release Candidate Smoke has a job
-  that runs a candidate's installer with the updater's `/P /UPDATE` over the
-  running shell and sidecar of the latest published release, but it has not
-  yet passed on a candidate (its one run, on the pull request that added it,
-  did not), so it proves nothing yet either.
+- **Shown by a real update rather than by a unit test** (**corrected in
+  1.24**): that the installer overwrites `runtime/**` and `app/**` without a
+  file-in-use failure. The update job of Release Candidate Smoke (#761)
+  installs the latest published release, starts it, runs the candidate's
+  installer with the updater's `/P /UPDATE` over its running shell and
+  sidecar, and compares the result file by file with a fresh install of the
+  same installer. It passed on the `v0.2.0-beta.1` candidate on 2026-11-01
+  (run 41348557084, `v0.1.0` → `v0.2.0-beta.1`). This bullet said it had not
+  yet passed on a candidate, and that the bundled NSIS template ended only the
+  shell before installing, so that a manual reinstall over a running app had
+  nothing covering the sidecar; the template has ended the sidecar too since
+  #762 (2026-10-20), before the 1.19 pass, which did not see it because the
+  template lies outside `Code paths`. One green run shows that update on a
+  hosted runner, not on every machine; the job runs again on each candidate.
 
 ## 6. Findings and informational notes
 
@@ -423,19 +527,131 @@ renders through `{message}` in a `<span>` — Svelte text interpolation, no
   commit SHAs (`github.event.pull_request.base.sha` / `github.event.before`, both
   40-hex from GitHub), and `vuln-scan.yml` passes the NVD API key — a
   log-hygiene item for a secret, not an injection, and outside this boundary.
+- **U-2 — the updater signing key was readable by dependency code in the build
+  (Medium, FIXED 2026-11-02).** `TAURI_SIGNING_PRIVATE_KEY` and its password
+  sat in the job-level `env:` of
+  [windows-signed-release.yml](../.github/workflows/windows-signed-release.yml),
+  so every step could read them, and most steps run code the repository does
+  not own: `npm ci` runs the install scripts of the whole npm tree, Maven runs
+  its plugins, and `tauri build` runs vite's plugins and every crate's build
+  script. One compromised package among them, the shape of the npm worms that
+  harvested CI secrets in 2025, could take the key and sign an update every
+  installation accepts; no later release can revoke it, because the pubkey is
+  compiled into each installed version. The same job held `id-token: write`
+  and `contents: write`, and checkout left the job's token in `.git/config`, so
+  the same package could also have attested a binary of its own as this
+  workflow's build or replaced the draft's assets. Rated Medium: the impact is
+  the whole installed base, but it needs a dependency compromised first. Not
+  Low, as U-1 was, because that compromise needs no access to this repository.
+  Found in a best-practices review of the release process, not by a revision of
+  this audit: §2 had checked that the key was present and matched its pubkey,
+  never what could read it.
+  **Fix:** the workflow is two jobs (§2). The build keeps every step that runs
+  dependency code, reads the repository only, and makes no updater artifact;
+  `publish-release` takes the installer and the release config it was built
+  with as an artifact, installs the npm tree with `--ignore-scripts`, and signs
+  on the one step that holds the key; the manifest, the key-pair gate, the
+  attestation and the upload follow there. Scoping the key to one step of the
+  old job was considered and is not enough: an earlier step on the same runner
+  can plant what the signing step then runs (a `NODE_OPTIONS` in `GITHUB_ENV`, a
+  `node` on `GITHUB_PATH`, an edited signer under `node_modules`). Checkout no
+  longer persists the token in either job, and every action in every workflow
+  is pinned to a commit SHA, so a moved tag cannot change what runs beside the
+  key. Verified before merge: the signer, run on its own over a throwaway key,
+  writes a `.sig` that `generate-tauri-latest-windows.mjs` accepts and
+  `verify-updater-signature.mjs` verifies, with the trusted comment `tauri build`
+  writes (`timestamp`, `file`, `version`); a wrong or empty password and a
+  missing key exit 1 without prompting. The workflow itself runs only from a
+  release tag, so the first signed build after the merge is its first run.
+  **Residual:** an Authenticode certificate, once configured, is imported into
+  the build job, where `tauri build` signs through it while running the same
+  dependency code. None is configured (AR-4 in
+  [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)); configuring one
+  should move that signing into the publish job too. And what the split does
+  not change, stated in 1.24 so the fix is not read wider than it is: the
+  publish job signs and attests whatever installer the build job hands it, so
+  a dependency compromised in the build still puts its code into that release
+  under a valid signature and provenance. That is the threat model's
+  compromised-dependency adversary, whose build-time half it keeps out of
+  scope, and a dependency the app bundles reaches every installation through
+  the app itself anyway. What U-2 ended is the key leaving the pipeline, which
+  would have outlived every release and needed none to be used.
+- **U-3 — any `v*` tag reached the signing key, and nothing restricted who
+  could push one (Low, FIXED 2026-11-02).** The `release` environment admits a
+  run by the name of its ref, and its one policy is `tag v*`. The tag gate and
+  the tag-on-`main` check are steps of the workflow in the commit being run,
+  so they bind the workflow as it stands on `main` and nothing else: someone
+  able to push could commit a copy of
+  [windows-signed-release.yml](../.github/workflows/windows-signed-release.yml)
+  without them, or any workflow that names `environment: release`, push a tag
+  named `v` and anything at that commit, and start it; the environment would
+  admit the run and hand its job the key. The repository had no tag ruleset
+  (its one ruleset covers the default branch), so such a tag took write access
+  and nothing more. Rated **Low** on U-1's terms: it needs write access to the
+  repository, which only the maintainer's admin account holds
+  (`gh api repos/TheVoxRox/mail/collaborators`), and a workflow token cannot
+  do it, since no job in any workflow holds both `contents: write` and
+  `actions: write` and a push made with `GITHUB_TOKEN` starts no workflow.
+  Found by this pass; v1.22 had recorded the tag-on-`main` check as closing
+  the path, and v1.21 said only a run from a release tag could reach the key
+  without saying that any `v*` tag is one.
+  **Fix:** a tag ruleset, `release tags`, on `refs/tags/v*`, restricting
+  creating, moving and deleting such a tag to the repository admin role. A run
+  the environment admits is now one from a tag the maintainer pushed. An admin
+  can still change the environment itself, which no setting prevents; the
+  maintainer is the one admin. Like the environment, the setting lives outside
+  the repository, so check it there:
+
+  ```sh
+  gh api repos/TheVoxRox/mail/rulesets/26363006 \
+    --jq '{name, target, enforcement, include: .conditions.ref_name.include, rules: [.rules[].type], bypass: .bypass_actors}'
+  ```
+
+  It should read target `tag`, enforcement `active`, include
+  `["refs/tags/v*"]`, rules `creation`, `update` and `deletion`, and one
+  bypass actor, `RepositoryRole` 5 (admin) with `bypass_mode` `always`; it read
+  so on 2026-11-02, when it was created. `gh api repos/TheVoxRox/mail/rulesets`
+  lists it beside the default branch's.
+
+- **Observations of the 1.24 pass, recorded and not chased.** None reaches the
+  trust chain; the upgrade path for each is to correct it in the next change
+  to its file.
+  - Two comments in
+    [windows-signed-release.yml](../.github/workflows/windows-signed-release.yml)
+    say what stopped being true in #828 and #829: the tag step's U-1 note calls
+    the build job one that "holds contents: write and the updater signing key",
+    and the publish job's note says no other workflow, branch or pull request
+    can name the `release` environment, which U-3 qualifies.
+  - [beta-channel.yml](../.github/workflows/beta-channel.yml) still logs that a
+    missing `beta` release "will be created before upload", which #831 ended;
+    the upload step then fails with the right message. Log text only.
+  - In code the delta did not touch:
+    [verify-updater-signature.mjs](../frontend/scripts/verify-updater-signature.mjs)
+    calls its HTTPS assertion an open note "since v1.0", closed in v1.9;
+    `lib.rs`, `updates.ts` and `tray.rs` name the `beforeunload` hook where the
+    sidecar has stopped on `pagehide` since 2026-09-16 (§5); and
+    [lib/tauri-config.mjs](../frontend/scripts/lib/tauri-config.mjs) describes
+    updater-only and signing-only variants of the release config, of which
+    only the release script is left (v1.9). Comments only.
+  - §5 rested a claim on the NSIS template, which is outside `Code paths`, and
+    it went stale unseen when #762 changed the template. The bullet now rests
+    on the update smoke, which runs the installer that template produces. The
+    template stays outside: it follows upstream on each Tauri CLI minor, and
+    each of those would cost an acknowledgement here.
 - **Base-config updater block is a dev reference, not the release source of
   truth.** [tauri.conf.json](../frontend/src-tauri/tauri.conf.json) carries a
   hardcoded pubkey + `TheVoxRox/mail` endpoint; the shipped values come from the
   CI `TAURI_UPDATER_*` env via the release config. A bare `npm run tauri:build`
-  would use the base values **and** (because `createUpdaterArtifacts` is unset
-  there) produce **no `.sig`**, so such a build cannot be a valid release — but
+  would use the base values **and** produce **no `.sig`** (no build does since
+  v1.20: the publish job signs), so such a build cannot be a valid release — but
   the guard against publishing one is **procedural** (RELEASE_CHECKLIST §3a),
   not enforced in code. Pubkeys are public by nature, so committing one leaks no
-  secret. Since #755 the base key is the one releases sign with,
-  `AA238C4CC59B9906`, in place of a key no release used, so
+  secret. Since #755 the base key is the one releases sign with, so
   `verify-updater-signature.mjs` with `--config` set to the base file verifies a
   published release; the shipped key still comes from the release config,
-  where `requireEnv` still throws on an empty one.
+  where `requireEnv` still throws on an empty one. Since #829 that key is
+  `068F68E532BCF6DC` (v1.21); releases up to `v0.2.0-beta.1` were signed with
+  the retired `AA238C4CC59B9906` and verify only against that one.
 - ~~**`dangerousInsecureTransportProtocol`** is env-gated and unset; a future CI
   lint asserting it is never `true` for a release would make the HTTPS-only
   guarantee explicit rather than default.~~ **Closed 2026-08-28** (v1.9), after
@@ -454,6 +670,85 @@ renders through `{message}` in a `<span>` — Svelte text interpolation, no
 
 ## 8. Change log
 
+- **1.24** (2026-11-02) — **re-verified against `c8b09a6`, clearing the seven
+  acknowledgements recorded since 2026-10-25; U-3 (Low) found and fixed;
+  verdict stays PASS.** By a session that wrote none of the delta, #780 to
+  #831, the independent pass AUDIT_GUIDE §5 asks for after the release
+  pipeline changed under 1.20 to 1.23. The delta since `246b2ba` was read as
+  one change (method above). The stopping rule, stated in the brief before the
+  pass: a claim false at the audited commit, or a finding that reaches
+  confidentiality or integrity, blocks the record; an availability-only
+  finding, or an observation on code the delta did not touch, is recorded with
+  severity, reason and upgrade path and not chased. Nothing in the app's trust
+  chain moved: under `frontend/src-tauri/src` the delta is `redact.rs` alone,
+  `generate_handler!` lists the same commands as at `246b2ba`, `capabilities/` grants
+  nothing under `updater:` and no `emit`, `tauri.conf.json` moved only its
+  version and pubkey (key id `068F68E532BCF6DC`, decoded from the key itself),
+  `{@html}` is still absent from `frontend/src`, and no `${{ }}` sits inside a
+  `run:` block of either workflow. The publish job's signing chain was run on a
+  throwaway key and the tag-on-`main` reads replayed by hand (method above);
+  the repository settings read as §2 states. **U-3 (Low, blocking under the
+  rule, fixed):** the `release` environment admits any `v*` tag, and the
+  checks of v1.22 live in the workflow a writer would be running, so a
+  pushed tag at an edited workflow could reach the key; a tag ruleset now
+  restricts `v*` tags to the admin role (§6). Corrected, each false at the
+  audited commit: §2 said the tag-on-`main` check ended a writer's route to a
+  signed build of their own commit, and that the publish job ran nothing but
+  the signer and the repository's own scripts, where pinned GitHub actions run
+  there too; §5 said the update smoke had never passed on a candidate, where it
+  passed on the `v0.2.0-beta.1` candidate on 2026-11-01, and that the NSIS
+  template ended only the shell, where #762 made it end the sidecar too before
+  the 1.19 pass. Made more precise: the header's `Applies to` splits the app
+  side, which `v0.2.0-beta.1` carries, from the pipeline, which the next
+  release is the first to run; §2 records `immutable: false` on the two
+  releases published before the setting; U-2's residual says the publish job
+  signs what the build hands it. Four observations recorded in §6, none in
+  the trust chain. Static apart from what the method lists as run; the tests
+  cited passed in CI on `main` at `c8b09a6`.
+- **1.23** (2026-11-02) — **published releases are immutable; verdict stays
+  PASS.** §2: the repository setting is on, which locks a published release's
+  files and tag, and `beta-channel.yml` stops creating the `beta` release, so
+  a missing or locked `beta` fails the run instead of freezing the beta
+  channel. Its upload step now reads the release's `immutable` field through
+  `gh api`, with every outside value still arriving through `env:` (U-1
+  holds); the guard, the force path and the manifest are untouched. The
+  `Audited commit` stays `246b2ba`, the drift recorded in
+  [audit-freshness.json](audit-freshness.json).
+- **1.22** (2026-11-02) — **the signed build checks that the tag's commit is
+  on `main` with green CI; verdict stays PASS.** §2: a step after the tag gate
+  enforces what RELEASE_PROCESS step 3 asked and only `release:status`
+  checked, and the build job gains `actions: read` to list the CI runs. Tried
+  before merge against the repository: it passes the `v0.2.0-beta.1` commit
+  and fails a squashed pull request's head as `diverged`. No other step,
+  permission or pin changes, and no `run:` block holds an expression (U-1
+  holds). The `Audited commit` stays `246b2ba`, the drift recorded in
+  [audit-freshness.json](audit-freshness.json).
+- **1.21** (2026-11-02) — **the signing key is replaced and becomes a secret
+  of the `release` environment, which admits only `v*` tags; verdict stays
+  PASS.** §2: the
+  publish job names the environment, the two key secrets leave the repository
+  level, and the commands that show the setting are listed, since it lives in
+  the repository's settings rather than in a file this audit can hash. The
+  workflow changes by that one key and the `release-tag` input's description;
+  the tag gate and the jobs' steps are untouched. The key itself is replaced:
+  `068F68E532BCF6DC` in place of `AA238C4CC59B9906`, which U-2 had exposed
+  and of which no copy existed outside GitHub. The new pubkey goes into the
+  base `tauri.conf.json`, the `TAURI_UPDATER_PUBKEY` secret and the gate's
+  test; verification itself is unchanged. Installed `0.1.0` and
+  `0.2.0-beta.1` trust the retired key and are updated by hand, which the
+  maintainer accepted as their only installations. The `Audited commit` stays
+  `246b2ba`, the drift recorded in [audit-freshness.json](audit-freshness.json).
+- **1.20** (2026-11-02) — **U-2 (Medium) found and fixed; verdict stays
+  PASS.** §2 and §6: the updater signing key leaves the job that runs dependency
+  code for a publish job of its own on a fresh runner, the build makes no
+  updater artifact, checkout persists no token, and every workflow pins its
+  actions to commit SHAs. Found in a best-practices review of the release
+  process. The trust chain the app enforces did not move: same pubkey, same
+  manifest shape, same signature format and version binding, and the key-pair
+  gate still judges the generated config and manifest. The `Audited commit`
+  stays `246b2ba`; the drift in `windows-signed-release.yml`, `beta-channel.yml`
+  (its pins only) and `prepare-tauri-windows-release-config.mjs` is what this
+  entry describes, recorded in [audit-freshness.json](audit-freshness.json).
 - **1.19** (2026-10-25) — **re-verified against `246b2ba`, clearing the seven
   acknowledgements recorded since 2026-10-12; verdict stays PASS.** By a
   session that wrote none of the delta, at 7 of 8, together with the content

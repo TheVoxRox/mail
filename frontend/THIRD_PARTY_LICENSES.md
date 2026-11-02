@@ -26,7 +26,7 @@ Counts: 115 packages total. 83 MIT, 14 ISC, 6 Apache-2.0, 4 MPL-2.0, 3 MIT OR Ap
 - **@rolldown/pluginutils** 1.0.1 — [https://github.com/rolldown/plugins](https://github.com/rolldown/plugins)
 - **@standard-schema/spec** 1.1.0 — [https://github.com/standard-schema/standard-schema](https://github.com/standard-schema/standard-schema)
 - **@sveltejs/acorn-typescript** 1.0.13 — [https://github.com/sveltejs/acorn-typescript](https://github.com/sveltejs/acorn-typescript)
-- **@sveltejs/kit** 3.1.0 — [https://github.com/sveltejs/kit](https://github.com/sveltejs/kit)
+- **@sveltejs/kit** 3.1.1 — [https://github.com/sveltejs/kit](https://github.com/sveltejs/kit)
 - **@sveltejs/vite-plugin-svelte** 7.3.1 — [https://github.com/sveltejs/vite-plugin-svelte](https://github.com/sveltejs/vite-plugin-svelte)
 - **@tailwindcss/node** 4.3.3 — [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
 - **@tailwindcss/oxide** 4.3.3 — [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
@@ -127,7 +127,7 @@ Counts: 115 packages total. 83 MIT, 14 ISC, 6 Apache-2.0, 4 MPL-2.0, 3 MIT OR Ap
 
 - **@tauri-apps/plugin-fs** 2.7.1 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
 - **@tauri-apps/plugin-http** 2.8.3 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
-- **@tauri-apps/plugin-shell** 2.5.0 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
+- **@tauri-apps/plugin-shell** 2.6.0 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
 
 ## BSD-3-Clause (2)
 
