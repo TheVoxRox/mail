@@ -93,8 +93,8 @@
 	disabledOptions?: readonly string[];
 })}
 	<Surface as="section" class="space-y-3">
-		<h2 id={`${setting.id}-label`} class="text-sm font-semibold">
-			{$_(`settings.appearance.${setting.section}.heading`)}
+		<h2 class="text-sm font-semibold">
+			<label for={setting.id}>{$_(`settings.appearance.${setting.section}.heading`)}</label>
 		</h2>
 		<Field for={setting.id} hint={$_(`settings.appearance.${setting.section}.hint`)}>
 			{#snippet children(control)}
@@ -103,7 +103,6 @@
 					value={setting.value}
 					onchange={setting.onchange}
 					width="full"
-					aria-labelledby={`${setting.id}-label`}
 					{...control}
 				>
 					{#each setting.options as option (option)}
@@ -118,18 +117,26 @@
 {/snippet}
 
 <!--
-	Each card names its select with its own heading (`aria-labelledby`) instead
-	of carrying a separate `<label>`. A card holding one control does not need
-	two names for it, and two is what it had: the heading plus a field label
-	worded differently. Screen-reader users heard both, one after the other, and
-	voice-control users were left saying the heading at a control that answered
-	to the label.
+	Each card's heading is its select's label: a `<label for>` inside the `<h2>`,
+	so one wording is both the card's entry in the page outline and the
+	control's name. `Field` is given no `label` and renders none of its own. A
+	card holding one control does not need two names for it, and two is what it
+	once had: the heading plus a field label worded differently. Screen-reader
+	users heard both, one after the other, and voice-control users were left
+	saying the heading at a control that answered to the label.
 
-	The labels were hidden with `sr-only` rather than reworded, which removed the
-	visible duplicate but not the spoken one — and the flag then spread to cards
-	whose label was *not* a duplicate, so the reason stopped matching the code.
-	The headings below carry the wording those labels had, since it was written
-	to name a control; `settings.appearance.*.label` is gone.
+	The heading named the select through `aria-labelledby` before, which kept
+	one name as well. The W3C forms tutorial prefers `<label for>` wherever it
+	can be used, and it can here: a label is phrasing content, allowed inside a
+	heading, and a click on the heading text now focuses the select as a label's
+	click does.
+
+	Those field labels were first hidden with `sr-only` rather than reworded,
+	which removed the visible duplicate but not the spoken one — and the flag
+	then spread to cards whose label was *not* a duplicate, so the reason
+	stopped matching the code. The headings carry the wording those labels had,
+	since it was written to name a control; `settings.appearance.*.label` is
+	gone.
 -->
 <div class="max-w-2xl space-y-4">
 	{@render selectCard({

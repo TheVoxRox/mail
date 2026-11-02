@@ -68,6 +68,8 @@
 
 	const keys = $derived(PAGINATION_LABELS[variant]);
 	const pageCount = $derived(Math.max(1, totalPages));
+	const uid = $props.id();
+	const jumpId = `${uid}-jump`;
 
 	let jumpValue = $derived(page + 1);
 
@@ -176,11 +178,18 @@
 				transient native bubble and the field kept a value that contradicted
 				the page on screen. Clamping in the handler lands the user on a real
 				page and the pager's live region says which one.
+
+				The label names the field through `for` as well as by wrapping it:
+				the explicit association is the one the W3C forms tutorial prefers
+				and the only one WCAG technique H44 describes. Its text stays
+				visually hidden, as the tutorial allows where the purpose is clear
+				from context: a number box between the page buttons and Go.
 			-->
 		<form class="flex items-center gap-1" novalidate onsubmit={handleJump}>
-			<label class="flex items-center">
+			<label for={jumpId} class="flex items-center">
 				<span class="sr-only">{$_(keys.jumpLabel)}</span>
 				<Input
+					id={jumpId}
 					type="number"
 					inputmode="numeric"
 					min="1"

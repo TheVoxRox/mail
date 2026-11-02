@@ -311,6 +311,51 @@ test.describe('Tisk vybraných zpráv', () => {
 	});
 
 	/*
+	 * Move has a lasting reason to be off as well: no folder to move to. That
+	 * one is `disabled`, and a print running beside it must not add
+	 * aria-disabled on top, since ARIA in HTML says not to put the two on one
+	 * element. The folder list is cut down to the folder on screen.
+	 */
+	test('Přesunout bez cílové složky zůstane během tisku jen disabled, bez aria-disabled', async ({
+		page
+	}) => {
+		await page.addInitScript(() => {
+			const origFetch = window.fetch;
+			window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+				const url =
+					typeof input === 'string' ? input : input instanceof Request ? input.url : String(input);
+				const response = await origFetch(input, init);
+				if (!/\/api\/v1\/accounts\/1\/folders$/.test(url)) return response;
+				const folders = (await response.json()) as Array<{ folderRef: string }>;
+				const onlyInbox = folders.filter((folder) => folder.folderRef === 'INBOX');
+				return new Response(JSON.stringify(onlyInbox), {
+					status: response.status,
+					headers: response.headers
+				});
+			};
+		});
+		await openApp(page, '/mail/1/INBOX');
+		await recordPrints(page);
+		await page.getByRole('checkbox', { name: 'Select message Projektové podklady' }).check();
+		const bar = page.getByRole('toolbar', { name: 'Bulk actions', exact: true });
+		const move = bar.getByRole('button', { name: 'Move selected' });
+		await expect(move).toBeDisabled();
+		await expect(move).not.toHaveAttribute('aria-disabled');
+
+		await bar.getByRole('button', { name: 'Print selected' }).press('Enter');
+
+		await expect.poll(async () => (await prints(page)).length).toBe(1);
+		await expect(bar.getByRole('button', { name: 'Preparing to print…' })).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
+		await expect(move).toBeDisabled();
+		await expect(move).not.toHaveAttribute('aria-disabled');
+
+		await closePrintDialog(page);
+	});
+
+	/*
 	 * Only the sheet's afterprint used to release a print job, so a sheet that
 	 * never arrived held it for the rest of the session: the bar stuck on
 	 * "Preparing to print…" and every later print refused. The sheet's chunk is
