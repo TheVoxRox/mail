@@ -91,6 +91,7 @@
 	 * not their own action to know about.
 	 */
 	const idle = $derived(busy === null);
+	const noMoveTarget = $derived(moveTargets.length === 0);
 
 	function whenIdle<A extends unknown[]>(action: (...args: A) => void): (...args: A) => void {
 		return (...args) => {
@@ -178,11 +179,16 @@
 			</MenuContent>
 		</DropdownMenu.Root>
 		<DropdownMenu.Root bind:open={() => moveMenuOpen, setMoveMenuOpen}>
-			<!-- No move target is a lasting state, not an action in flight: that one stays disabled. -->
+			<!--
+				No move target is a lasting state, not an action in flight: that one
+				stays disabled, and then without aria-disabled beside it while busy.
+				ARIA in HTML (4.2) says not to put aria-disabled="true" on an element
+				that already has `disabled`, which says the same thing natively.
+			-->
 			<DropdownMenu.Trigger
 				class={cn(buttonVariants({ variant: 'outline', size: 'xs' }), 'data-[state=open]:bg-muted')}
-				disabled={moveTargets.length === 0}
-				aria-disabled={idle ? undefined : 'true'}
+				disabled={noMoveTarget}
+				aria-disabled={idle || noMoveTarget ? undefined : 'true'}
 				aria-busy={busy === 'move' ? 'true' : undefined}
 			>
 				<Icon name="folder" />

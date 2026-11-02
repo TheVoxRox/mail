@@ -21,6 +21,15 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- Three more controls are named the way the W3C forms tutorial prefers. The
+  pager's page-jump field ("Přejít na stranu") is named through `<label for>`
+  and its own id, the association WCAG technique H44 describes, instead of only
+  by the label wrapping it. Each card in Appearance settings names its select
+  with a label inside its heading rather than through `aria-labelledby`: the
+  heading stays in the outline and stays the select's only name, and clicking
+  it now focuses the select. The bulk toolbar's Move button, off because there
+  is no folder to move to, no longer adds `aria-disabled` beside `disabled`
+  while another action runs, which ARIA in HTML advises against (#843).
 - NVDA reads a checkbox or radio button on one line with its label in browse
   mode, as JAWS already did. The box was laid out as a flex item, which counts
   as a block, and NVDA starts a new line at every block, so it read the box and

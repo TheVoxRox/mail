@@ -200,6 +200,11 @@ test.describe('Search', () => {
 		const pagination = page.getByRole('navigation', { name: 'Stránkování výsledků' });
 		const jumpField = pagination.getByRole('spinbutton', { name: 'Přejít na stranu' });
 		const jumpButton = pagination.getByRole('button', { name: 'Přejít', exact: true });
+		// Named through `<label for>` and the field's id, the association WCAG
+		// technique H44 describes, rather than by the label wrapping it alone.
+		const jumpId = await jumpField.getAttribute('id');
+		expect(jumpId).toBeTruthy();
+		await expect(pagination.locator(`label[for="${jumpId}"]`)).toHaveText('Přejít na stranu');
 
 		await jumpField.fill('99');
 		await jumpButton.click();

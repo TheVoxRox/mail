@@ -816,17 +816,19 @@ test.describe('Přístupnost', () => {
 		await expect(page.getByRole('heading', { level: 1, name: 'Vzhled' })).toBeVisible();
 
 		/*
-		 * Each card names its select with its own heading instead of carrying a
-		 * separate <label>, so every select's accessible name must be exactly the
-		 * heading above it: one name per control, and the one a voice-control
-		 * user can read off the screen.
+		 * Each card's heading is its select's label: a <label for> inside the
+		 * <h2>. Both halves are checked, since putting the label there could
+		 * cost either one: the heading must still be in the outline under its
+		 * own text, and the select's accessible name must be exactly that text —
+		 * one name per control, and the one a voice-control user can read off
+		 * the screen.
 		 *
-		 * Both halves are needed. The name assertion alone would not notice a
-		 * <label> coming back, because `aria-labelledby` outranks it in the name
-		 * calculation — the label would sit there as a second visible wording
-		 * while the name stayed right. The `label[for]` count is what catches
-		 * that, and it is scoped to these selects so an unrelated checkbox added
-		 * to this page later is free to have one.
+		 * The label is the heading's own and the only one for its select, so a
+		 * second wording cannot come back beside it. No `aria-labelledby`
+		 * either: it would outrank the label in the name calculation, and the
+		 * name would stay right while the label stopped naming anything. The
+		 * `label[for]` count is scoped to these selects so an unrelated checkbox
+		 * added to this page later is free to have one.
 		 */
 		const cards: ReadonlyArray<{ id: string; heading: string }> = [
 			{ id: 'theme-select', heading: 'Téma' },
@@ -839,9 +841,12 @@ test.describe('Přístupnost', () => {
 			{ id: 'toast-dismissal-select', heading: 'Zavírání oznámení' }
 		];
 		for (const { id, heading } of cards) {
-			await expect(page.getByRole('heading', { level: 2, name: heading })).toBeVisible();
+			const cardHeading = page.getByRole('heading', { level: 2, name: heading, exact: true });
+			await expect(cardHeading).toBeVisible();
 			await expect(page.locator(`#${id}`)).toHaveAccessibleName(heading);
-			await expect(page.locator(`label[for="${id}"]`)).toHaveCount(0);
+			await expect(page.locator(`#${id}`)).not.toHaveAttribute('aria-labelledby');
+			await expect(page.locator(`label[for="${id}"]`)).toHaveCount(1);
+			await expect(cardHeading.locator(`label[for="${id}"]`)).toHaveText(heading);
 		}
 
 		const readingPaneSelect = page.getByRole('combobox', { name: 'Rozložení podokna čtení' });
