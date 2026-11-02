@@ -21,6 +21,10 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The updater signing key is a secret of a `release` environment that admits
+  only a run from a `v*` tag, rather than a repository secret every workflow on
+  every branch could read; the publish job is the one job that names it
+  (updater audit 1.21, #829).
 - The updater signing key leaves the build. Windows Signed Release was one job
   whose env held the key while `npm ci`, Maven, vite and every crate's build
   script ran, so one compromised dependency could have signed an update for

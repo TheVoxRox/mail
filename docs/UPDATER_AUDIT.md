@@ -2,7 +2,7 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.20                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| **Version**        | 1.21                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | **Date**           | 2026-11-02                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **Applies to**     | VoxRox Mail V0.1.0 (`0d84ec6`), which under `Code paths` differs from the audited commit only in the base config's pubkey (#755), a value a release build replaces (§6)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | **Audited commit** | `246b2ba` (re-verified 2026-10-25, clearing seven acknowledgements; v1.18 anchor: `5def679`, re-verified 2026-10-12, clearing seven; v1.16/1.17 anchor: `a2e6d43`, re-verified 2026-09-16, clearing seven; v1.5–1.15 anchor: `0165149`, itself a re-verification on 2026-09-07 clearing five; v1.10/1.11 anchor: `3e71529`; v1.5–v1.9 anchor: `c6744a1`; v1.4 anchor: `cad05cb`, recorded pre-squash as `5799e8b`; v1.2/1.3 anchor: `3162e6a` (#144), v1.0/1.1 baseline: `d55b753`)                                                                                                                                                                                                                                                                                                                                              |
@@ -183,6 +183,18 @@ generated by [prepare-tauri-windows-release-config.mjs](../frontend/scripts/prep
   `signer sign --app-version`, the version binding `tauri build` applies when it
   signs. A missing `.sig` still stops the release, since the manifest generator
   below selects only an artifact that has one.
+- **Only a run from a release tag can reach the key** (v1.21).
+  `TAURI_SIGNING_PRIVATE_KEY` and its password are secrets of the `release`
+  environment, not of the repository; `publish-release` is the one job that
+  names the environment, and the environment admits only a run whose ref is a
+  `v*` tag, with `can_admins_bypass` off. Before it, any workflow on any branch
+  could have read them, a pull request's from this repository included. The
+  setting lives outside the repository, so check it there:
+  `gh api repos/TheVoxRox/mail/environments/release` (`can_admins_bypass`
+  false, `custom_branch_policies` true),
+  `gh api repos/TheVoxRox/mail/environments/release/deployment-branch-policies`
+  (one policy, `tag v*`), and `gh secret list` naming neither key secret at
+  repository level while `gh secret list --env release` names both.
 - **The two halves of the key pair are compared** ("Verify updater signature
   against the shipped pubkey" →
   [verify-updater-signature.mjs](../frontend/scripts/verify-updater-signature.mjs),
@@ -504,6 +516,15 @@ renders through `{message}` in a `<span>` — Svelte text interpolation, no
 
 ## 8. Change log
 
+- **1.21** (2026-11-02) — **the signing key becomes a secret of the `release`
+  environment, which admits only `v*` tags; verdict stays PASS.** §2: the
+  publish job names the environment, the two key secrets leave the repository
+  level, and the commands that show the setting are listed, since it lives in
+  the repository's settings rather than in a file this audit can hash. The
+  workflow changes by that one key and the `release-tag` input's description;
+  the tag gate, the jobs' steps and the trust chain are untouched. The
+  `Audited commit` stays `246b2ba`, the drift recorded in
+  [audit-freshness.json](audit-freshness.json).
 - **1.20** (2026-11-02) — **U-2 (Medium) found and fixed; verdict stays
   PASS.** §2 and §6: the updater signing key leaves the job that runs dependency
   code for a publish job of its own on a fresh runner, the build makes no
