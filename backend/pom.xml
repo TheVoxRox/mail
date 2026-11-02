@@ -30,7 +30,7 @@
 		<error-prone.version>2.51.0</error-prone.version>
 		<nullaway.version>0.14.3</nullaway.version>
 		<archunit.version>1.5.1</archunit.version>
-		<greenmail.version>2.1.14</greenmail.version>
+		<greenmail.version>2.1.15</greenmail.version>
 		<!--
 			JaCoCo injects its coverage agent into these (prepare-agent ->
 			surefireArgLine, prepare-agent-integration -> failsafeArgLine). Surefire
@@ -625,7 +625,7 @@
 			<plugin>
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
-				<version>0.8.15</version>
+				<version>0.8.16</version>
 				<executions>
 					<execution>
 						<id>prepare-agent</id>
