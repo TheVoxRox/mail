@@ -78,7 +78,7 @@ Counts: 115 packages total. 83 MIT, 14 ISC, 6 Apache-2.0, 4 MPL-2.0, 3 MIT OR Ap
 - **svelte-i18n** 4.0.1 — [https://github.com/kaisermann/svelte-i18n](https://github.com/kaisermann/svelte-i18n)
 - **tabbable** 6.5.0 — [https://github.com/focus-trap/tabbable](https://github.com/focus-trap/tabbable)
 - **tailwind-merge** 3.7.0 — [https://github.com/dcastil/tailwind-merge](https://github.com/dcastil/tailwind-merge)
-- **tailwind-variants** 3.3.1 — [https://github.com/heroui-inc/tailwind-variants](https://github.com/heroui-inc/tailwind-variants)
+- **tailwind-variants** 4.0.0 — [https://github.com/heroui-inc/tailwind-variants](https://github.com/heroui-inc/tailwind-variants)
 - **tailwindcss** 4.3.3 — [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
 - **tapable** 2.3.3 — [https://github.com/webpack/tapable](https://github.com/webpack/tapable)
 - **tiny-glob** 0.2.9 — [https://github.com/terkelg/tiny-glob](https://github.com/terkelg/tiny-glob)

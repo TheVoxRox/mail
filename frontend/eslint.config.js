@@ -110,7 +110,14 @@ export default defineConfig(
 						},
 						{
 							name: 'tailwind-variants',
-							importNames: ['tv', 'createTV', 'cn', 'cnMerge'],
+							importNames: ['tv', 'createTV', 'cn', 'cnMerge', 'twMerge'],
+							message: "Use tv or cn from '#lib/utils.js', which know app.css's font sizes."
+						}
+					],
+					patterns: [
+						{
+							// /lite, /merge and /config each carry a tv or a merger of their own.
+							group: ['tailwind-variants/*'],
 							message: "Use tv or cn from '#lib/utils.js', which know app.css's font sizes."
 						}
 					]

@@ -30,4 +30,13 @@ describe('class merging and the font sizes app.css adds', () => {
 		});
 		expect(variants({ tone: 'muted' })).toBe(`text-${size} text-muted-foreground`);
 	});
+
+	// The test above also passes when tv only joins classes; this one needs a merger.
+	it.each(appCssFontSizes)('tv lets text-%s from a variant replace another font size', (size) => {
+		const variants = tv({
+			base: 'text-sm',
+			variants: { size: { app: `text-${size}` } }
+		});
+		expect(variants({ size: 'app' })).toBe(`text-${size}`);
+	});
 });

@@ -19,6 +19,13 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Frontend
+
+- The interface takes tailwind-variants 4.0.0. Component variants now merge
+  their classes through the same merger as the rest of the interface instead of
+  a copy configured alike, so the two cannot resolve a class conflict
+  differently; nothing on screen changes (#824).
+
 ## [0.2.0-beta.2] - 2026-11-02
 
 ### Frontend
