@@ -154,7 +154,7 @@
       "frontend/src-tauri/src": "1089fffcbe59b0fee617df23f0555fd49029b497",
       "frontend/src-tauri/tauri.conf.json": "993d324ca377d6e9760c0c7ea460534e982292c6",
       ".github/workflows/windows-signed-release.yml": "aed2d65ca93cf3aa71b49bfd0473553e869512a4",
-      ".github/workflows/beta-channel.yml": "526d528e83625cfdcf93f21f578b57bf8477783c",
+      ".github/workflows/beta-channel.yml": "b30dc089d88e95ed458c987e95cdb4509e85ee6e",
       "frontend/scripts/prepare-tauri-windows-release-config.mjs": "c16142c20347046119a7e1ead5bb7c4e365556e2"
     },
     "acknowledgements": [
@@ -181,6 +181,10 @@
       {
         "date": "2026-11-02",
         "note": "#830, recorded in the audit as 1.22. windows-signed-release.yml gains one step after the tag gate: it fails unless the compare API reports the built commit as identical to or behind main and the newest ci.yml run for it from a push to main completed with success, and the build job gains actions: read for that. The step reads GH_TOKEN, REPOSITORY and GITHUB_SHA through env, so no run: block holds an expression (U-1 holds); nothing in the publish job, the signing, the manifest or the key-pair gate changes. It only narrows which commits reach the build. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-02",
+        "note": "#831, recorded in the audit as 1.23. beta-channel.yml's upload step no longer creates the beta release: it reads the release's immutable field through gh api and fails on a missing or locked beta, then uploads latest.json with --clobber as before. GITHUB_REPOSITORY and BETA_POINTER_TAG are read as variables, so no run: block holds an expression (U-1 holds); the source-tag resolution, the guard against a manifest downgrade and the force path are untouched. The repository's immutable releases setting is on; it covers releases published from now on, which leaves beta writable (immutable: false, checked). Verdict unchanged."
       }
     ]
   }
