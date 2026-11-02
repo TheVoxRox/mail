@@ -9,7 +9,7 @@ on:
         required: true
         default: false
       release-tag:
-        description: "GitHub Release tag to publish assets to. Required when running from a branch."
+        description: "GitHub Release tag to publish assets to. Leave empty and run from the tag: the release environment admits only v* tags, so a branch run stops before signing."
         type: string
         required: false
         default: ""
@@ -282,6 +282,13 @@ jobs:
     name: Sign and publish the release
     needs: build-signed-windows
     runs-on: windows-latest
+    # The updater signing key and its password are secrets of this environment,
+    # not of the repository, and the environment admits only a run whose ref is
+    # a `v*` tag, with no bypass for administrators (repository settings). So
+    # the key reaches this job of this workflow run from a release tag, and no
+    # other workflow, branch or pull request can name it. The tag gate in the
+    # build job still checks that the tag is the commit being built.
+    environment: release
     permissions:
       contents: write
       # Required by actions/attest-build-provenance: id-token for Sigstore OIDC,
