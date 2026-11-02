@@ -268,7 +268,7 @@ Java 25+ supports "ahead-of-time class loading & linking": a training run
 writes a binary cache of class loading and linking metadata, which a later
 start maps instead of rebuilding it from the jars. Release builds shipped such
 a cache, trained on the build machine, from 0.1.0 to the first `0.2.0-beta.1`
-candidate. **Since 2026-11-01 they do not.**
+candidate. **Since 2026-11-01 they do not**; bringing it back is #839.
 
 On JDK 25 a class the JVM loads from the cache takes its `CodeSource` from the
 path the cache was trained at. On any other machine that path does not exist
@@ -547,6 +547,34 @@ If the user wants to revoke access immediately (e.g. after losing the device):
    client ID and click "Remove permission".
 3. The backend record no longer exists anyway (deleteAccount removed it), so
    this step is cleanup on the provider's side.
+
+### Microsoft verified publisher (once a legal entity exists)
+
+The Entra app registration `VoxRox Mail` has no verified publisher, and gets
+none while the project has no legal entity (decided 2026-06-20). That does not
+block the target audience: personal Microsoft accounts and the own
+`@voxrox.org` tenant consent without it and only see an "unverified" notice.
+Work and school accounts are supported since #763, but a foreign tenant whose
+ordinary users may not consent to an app from an unverified publisher needs its
+administrator to approve the app (admin consent) — and that stays true even
+after verification wherever the tenant has user consent turned off.
+
+The procedure, checked against Microsoft's documentation on 2026-06-20:
+
+1. Get a verified **Microsoft AI Cloud Partner Program** account — a Partner
+   Global Account with completed business verification (tax ID or D-U-N-S) —
+   which gives a global **Partner One ID**. Registration is free; the vetting
+   takes days and is the slow step.
+2. DNS-verify `voxrox.org` in the Default Directory tenant and set it as the
+   app's publisher domain. It must match the domain of the e-mail address used
+   to verify the Partner account.
+3. Give `info@voxrox.org` the Entra role Application Administrator (or Cloud
+   Application Administrator) and the Partner Center role CPP Partner Admin
+   (or Account Admin), and sign in with MFA.
+4. portal.azure.com → Default Directory → App registrations → `VoxRox Mail` →
+   Branding & properties → **Partner One ID** → **Verify and save** (about five
+   minutes once steps 1–3 hold). Check that the consent screen shows
+   "Verified".
 
 ## Sidecar startup failures
 

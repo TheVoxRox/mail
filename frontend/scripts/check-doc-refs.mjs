@@ -50,10 +50,7 @@ const HISTORICAL = [
  * and the check fails once the file appears — otherwise the exemption outlives
  * the thing it was excusing, which is how allowlists become lies.
  */
-const PLANNED_REFS = {
-	'docs/DECISIONS.md':
-		'todo.md plans to move `## Rozhodnuti` here when todo.md is retired post-release'
-};
+const PLANNED_REFS = {};
 
 const CODE_ROOTS = [
 	'backend/src/main/java',

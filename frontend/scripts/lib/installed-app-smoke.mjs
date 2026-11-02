@@ -102,9 +102,8 @@ export function samePath(a, b) {
  * The version an installer was built for, from the name tauri-build.mjs gives
  * it (`voxrox-mail-<version>-windows-x64-setup.exe`), or null for any other
  * name. Not the setup executable's own version resource: that is the NSIS
- * VIProductVersion, which the bundler computes, and what it makes of a
- * prerelease suffix no build has shown yet (todo.md, the decision on the
- * first ship).
+ * VIProductVersion, which the bundler computes, and a version resource holds
+ * only numbers, so it cannot carry the prerelease suffix the name does.
  */
 export function installerVersion(fileName) {
 	const match = /^voxrox-mail-(.+)-windows-x64-setup\.exe$/i.exec(fileName);

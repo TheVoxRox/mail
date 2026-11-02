@@ -399,7 +399,7 @@ was produced on a different machine.** This section is measured on the **desktop
 PC** (AMD Ryzen 9 9900X, 12 cores / 24 threads, 4.4 GHz, 62 GB RAM), the previous
 morning one on the **laptop** (i7-1255U, 15W U-series, 1.7 GHz base, 16 GB —
 confirmed by the maintainer, it is the same machine the pre-push gate was measured
-on, see `todo.md`). The sidecar differs too: the one in `src-tauri/binaries/` was
+on). The sidecar differs too: the one in `src-tauri/binaries/` was
 repackaged the same day at 16:03 **without the JEP 483 AOT class cache** —
 `mail-x86_64-pc-windows-msvc.cfg` carries `-Dspring.aot.enabled=true`
 and `-XX:TieredStopAtLevel=1`, but no `-XX:AOTCache`, and no cache file sits next
@@ -551,7 +551,7 @@ mailbox**. The dev profile is not enough for that, and not even the ratio can be
 taken from it: 524 messages and 65 rows, but 338 of those messages sit in one
 mailing-list folder (few senders, many messages) and Trash and Spam are not
 harvested at all. Measuring it needs a full sync, and that is blocked on a fresh
-login to the Gmail account (see `todo.md`). The threshold above is high enough
+login to the Gmail account. The threshold above is high enough
 that the design question need not wait for it.
 
 **Further limitations:** the data is synthetic (ASCII, an even distribution of

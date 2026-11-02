@@ -126,10 +126,11 @@ Legal / compliance:
 - [`frontend/THIRD_PARTY_LICENSES.md`](frontend/THIRD_PARTY_LICENSES.md) — npm third-party license inventory
 - [`frontend/src-tauri/THIRD_PARTY_LICENSES.md`](frontend/src-tauri/THIRD_PARTY_LICENSES.md) — Cargo + bundled OpenJDK license inventory
 
-Live task tracking:
+Work tracking:
 
-- [`todo.md`](todo.md) — current open work (release gate items, audit follow-ups, manual smoke checklist)
-- [`todo-archive.md`](todo-archive.md) — closed work, kept for the detail behind a one-line entry in `todo.md` (snapshot)
+- [GitHub Issues](https://github.com/TheVoxRox/mail/issues) — open work
+- [`docs/DECISIONS.md`](docs/DECISIONS.md) — standing decisions, the reason behind each and the condition that reopens it
+- [`todo-archive.md`](todo-archive.md) — closed work from before the task list moved to issues (snapshot, Czech)
 
 ## License
 

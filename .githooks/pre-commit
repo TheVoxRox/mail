@@ -49,7 +49,7 @@ if printf '%s\n' "$staged" | grep -q '^backend/src/main/resources/messages.*\.pr
 	fi
 fi
 
-# Markdown lives all over the monorepo (root todo.md/CHANGELOG.md, docs/,
+# Markdown lives all over the monorepo (root CHANGELOG.md, docs/,
 # backend/docs/, .github/), so a commit touching only Markdown never reaches
 # the frontend gate below — which is exactly how 23 files drifted out of format
 # before this check existed. Prettier's config and node_modules live in

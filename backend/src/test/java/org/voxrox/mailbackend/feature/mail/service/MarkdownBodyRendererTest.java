@@ -180,7 +180,7 @@ class MarkdownBodyRendererTest {
      * That is the reason {@code accounts.signature} is a single untyped
      * {@code TEXT} column and needs no {@code signature_html} sibling or
      * {@code signature_format} discriminator (decision recorded in
-     * {@code todo.md}).
+     * {@code docs/DECISIONS.md}).
      *
      * <p>
      * These tests hold the half of that reasoning which could break silently: that

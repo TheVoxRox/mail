@@ -1,7 +1,7 @@
 name: Soak
 
 # The accelerated soak that replaces the overnight run of RELEASE_CHECKLIST
-# §8.2 (decided 2026-09-13, see todo.md). SyncSoakIT starts the packaged backend
+# §8.2 (decided 2026-09-13, see docs/DECISIONS.md). SyncSoakIT starts the packaged backend
 # as a process of its own, keeps a Dovecot mailbox (a container, through a TCP
 # proxy) changing with every interval shortened, and on a timeline drops the
 # connections, pauses the process with SIGSTOP, makes the server unreachable,

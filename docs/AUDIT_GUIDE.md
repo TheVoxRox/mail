@@ -126,7 +126,7 @@ judged by the same rule. The default, unless the brief argues otherwise:
   boundary's own scope (the same account, the same local process), rated as
   the threat model rates its adversary, and an observation on code the change
   did not touch. Each gets its severity, the reason it is accepted and an
-  upgrade path, in the audit's residual or as a `todo.md` item; the pass does
+  upgrade path, in the audit's residual or as a GitHub issue; the pass does
   not wait on its fix.
 - **A fix gets one pass, over the fix.** A blocking finding is fixed and the
   next pass checks that fix and the claims it changed, under the same rule —
