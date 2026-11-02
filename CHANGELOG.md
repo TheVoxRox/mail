@@ -29,7 +29,7 @@ Entries before 2026-09-17 predate that split and are left as written.
   selected boxes of the mail lists (select all, a partly ticked conversation)
   carry only the native mixed state, without the `aria-checked` that ARIA in
   HTML forbids on a native checkbox. Long label names in the contact form and
-  the label dialog wrap instead of being cut off.
+  the label dialog wrap instead of being cut off (#842).
 - The interface takes tailwind-variants 4.0.0. Component variants now merge
   their classes through the same merger as the rest of the interface instead of
   a copy configured alike, so the two cannot resolve a class conflict

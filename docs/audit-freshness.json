@@ -161,7 +161,7 @@
       },
       {
         "date": "2026-11-02",
-        "note": "Checkbox labels read on one line in NVDA. The startup-check checkbox in AboutSettings.svelte changes markup only: its <label> gains for=\"update-startup-check\" and the input the matching id, and the flex layout gives way to the inline nativeChoiceClass / nativeChoiceControlClass pair, so NVDA reads the box and its label as one line instead of two. checked still reads $updateStartupCheck === 'on', onchange is still handleStartupCheckChange, aria-describedby still names the hint, and nothing else in the file moved. The claims about the setting (it can only keep the startup check from running; the manual check stays in Settings > About) do not rest on the markup. Verdict unchanged."
+        "note": "#842, checkbox labels read on one line in NVDA. The startup-check checkbox in AboutSettings.svelte changes markup only: its <label> gains for=\"update-startup-check\" and the input the matching id, and the flex layout gives way to the inline nativeChoiceClass / nativeChoiceControlClass pair, so NVDA reads the box and its label as one line instead of two. checked still reads $updateStartupCheck === 'on', onchange is still handleStartupCheckChange, aria-describedby still names the hint, and nothing else in the file moved. The claims about the setting (it can only keep the startup check from running; the manual check stays in Settings > About) do not rest on the markup. Verdict unchanged."
       }
     ]
   }
