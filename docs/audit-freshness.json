@@ -152,7 +152,8 @@
   "docs/UPDATER_AUDIT.md": {
     "reviewedTrees": {
       "frontend/src-tauri/tauri.conf.json": "e08473599711dcff81eb38e084115827c175e872",
-      "frontend/src/lib/components/settings/AboutSettings.svelte": "b282710648cfa025cd4566873263dcc529970682"
+      "frontend/src/lib/components/settings/AboutSettings.svelte": "b282710648cfa025cd4566873263dcc529970682",
+      ".github/workflows/windows-signed-release.yml": "77f306b502b1b8cf7591eed23c8ea4c60b40a6a2"
     },
     "acknowledgements": [
       {
@@ -162,6 +163,10 @@
       {
         "date": "2026-11-02",
         "note": "#842, checkbox labels read on one line in NVDA. The startup-check checkbox in AboutSettings.svelte changes markup only: its <label> gains for=\"update-startup-check\" and the input the matching id, and the flex layout gives way to the inline nativeChoiceClass / nativeChoiceControlClass pair, so NVDA reads the box and its label as one line instead of two. checked still reads $updateStartupCheck === 'on', onchange is still handleStartupCheckChange, aria-describedby still names the hint, and nothing else in the file moved. The claims about the setting (it can only keep the startup check from running; the manual check stays in Settings > About) do not rest on the markup. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-03",
+        "note": "#847, recorded in the audit itself as 1.25. The one change in windows-signed-release.yml is the header comment: npm ci in the build now runs only the install scripts allowScripts in frontend/package.json allows, where it said npm ci ran the whole tree's, and the paragraph is re-wrapped. Every step, permission, environment, pin and run: block is byte-identical (U-1 and U-3 hold). The policy itself lives in frontend/package.json and frontend/.npmrc, outside Code paths, and the audit says no verdict rests on it: what keeps the key out of the build is still the two-job split of U-2. Verdict unchanged."
       }
     ]
   }
