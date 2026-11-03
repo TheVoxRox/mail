@@ -21,6 +21,11 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The `v0.2.0-beta.3` sheet records what was taken after publishing, as its §9
+  approved: the first update through the updater itself, from 0.2.0-beta.2 on
+  the beta channel (#836), and §3a, §4 and §7 re-taken on the installation it
+  updated; §5 carries by the maintainer's decision, and its hand-run items over
+  the reworked palette and menus are named as not taken (#854).
 - The scheduled vulnerability scan generates the npm SBOM again. Since #847,
   `npx` installed cyclonedx-npm under `frontend/.npmrc` and stopped on the
   build script of libxmljs2, which the tool brings for XML validation the JSON
