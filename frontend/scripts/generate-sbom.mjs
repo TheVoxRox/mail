@@ -54,8 +54,14 @@ const NPM_CYCLONEDX_VERSION = '4.0.0';
 // which Node refuses to spawn without one (and shell + args array is
 // deprecated, DEP0190). The output path is cwd-relative to keep the command
 // free of spaces.
+//
+// `--ignore-scripts`: npx installs the tool under frontend/.npmrc, whose
+// strict-allow-scripts fails the install on libxmljs2's build script, a
+// package the tool's own tree brings and allowScripts cannot name (#847). The
+// tool needs it only to validate XML; this run writes JSON. A warm npx cache
+// installs nothing and hid the failure; a fresh runner does not.
 const command = [
-	'npx --yes',
+	'npx --yes --ignore-scripts',
 	`@cyclonedx/cyclonedx-npm@${NPM_CYCLONEDX_VERSION}`,
 	'--output-format JSON',
 	'--spec-version 1.5',

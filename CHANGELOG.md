@@ -26,6 +26,13 @@ Entries before 2026-09-17 predate that split and are left as written.
   the beta channel (#836), and §3a, §4 and §7 re-taken on the installation it
   updated; §5 carries by the maintainer's decision, and its hand-run items over
   the reworked palette and menus are named as not taken (#854).
+- The scheduled vulnerability scan generates the npm SBOM again. Since #847,
+  `npx` installed cyclonedx-npm under `frontend/.npmrc` and stopped on the
+  build script of libxmljs2, which the tool brings for XML validation the JSON
+  run does not use; `regen:sbom` now installs it with `--ignore-scripts`. The
+  SBOM job failed on 2026-11-03 and took the backend's Trivy gate with it; a
+  warm `npx` cache installs nothing, which is why the cut did not see it
+  (#855).
 
 ## [0.2.0-beta.3] - 2026-11-03
 
