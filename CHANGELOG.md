@@ -44,6 +44,22 @@ Entries before 2026-09-17 predate that split and are left as written.
   a copy configured alike, so the two cannot resolve a class conflict
   differently; nothing on screen changes (#824).
 
+### Tauri / Release
+
+- The shell's lockfile catches up with what its dependencies allow, among them
+  `wry` 0.57.1, `tao` 0.37.2, `tokio` 1.54.1, `hyper` 1.12.0, `reqwest` 0.13.5
+  and `zip` 9.3.0. Dependabot moves only the crates `Cargo.toml` names, so the
+  rest of the tree had stayed where the last bump of a named crate left it.
+  `Cargo.toml` does not change, and `webview2-com`, `windows-core` and
+  `windows-registry`, which move only with Tauri, keep their versions. The
+  fixes `wry` 0.57.1 lists are for Android, Linux and macOS. The shell's license
+  list and `NOTICE.txt` follow, with the same set of license groups. Eight of
+  the new entries (`jiff` and `defmt` with their parts, `bs58`, `bitflags`
+  1.3.2) arrive with `serde_with` 3.24 and are not compiled into the Windows
+  build: the list is read from `cargo metadata`, which also counts optional
+  dependencies the build never turns on, as it already did for about twenty
+  entries such as `quinn` and `rand` (#844).
+
 ### Repo
 
 - `todo.md` is retired. Its open items become GitHub issues (#836 to #840), its
