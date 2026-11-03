@@ -574,6 +574,42 @@ async function waitForAnimations(page: Page): Promise<void> {
 }
 
 /**
+ * Contrast of the outline `target` draws inside its own edge against what it
+ * lies on: the element's background over every ancestor's, since a
+ * translucent tint, such as Delete's red in a menu, only has a colour once it
+ * lies over something. Colours are painted onto a 1x1 canvas, which is how
+ * the `oklch()` that Tailwind 4 computes becomes channels to measure.
+ */
+export function insetOutlineContrast(target: Locator): Promise<number> {
+	return target.evaluate((el) => {
+		const canvas = document.createElement('canvas');
+		canvas.width = canvas.height = 1;
+		const context = canvas.getContext('2d', { willReadFrequently: true });
+		if (!context) throw new Error('No 2D canvas to paint colours on.');
+		const paint = (color: string) => {
+			context.fillStyle = color;
+			context.fillRect(0, 0, 1, 1);
+		};
+		const luminance = () => {
+			const [r, g, b] = [...context.getImageData(0, 0, 1, 1).data.slice(0, 3)].map((value) => {
+				const s = value / 255;
+				return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+			});
+			return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+		};
+		const layers: Element[] = [];
+		for (let node: Element | null = el; node; node = node.parentElement) layers.unshift(node);
+		// The browser's own canvas, under a root that paints nothing.
+		paint('#fff');
+		for (const layer of layers) paint(getComputedStyle(layer).backgroundColor);
+		const fill = luminance();
+		paint(getComputedStyle(el).outlineColor);
+		const ring = luminance();
+		return (Math.max(ring, fill) + 0.05) / (Math.min(ring, fill) + 0.05);
+	});
+}
+
+/**
  * Tab stops whose focus indicator cannot be seen (WCAG 2.4.7), or does not
  * reach 3:1 against what was there before it (1.4.11).
  *

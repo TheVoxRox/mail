@@ -2,7 +2,11 @@
 	import { tick } from 'svelte';
 	import { autocompleteContacts, forgetHistorySuggestion } from '#lib/api/contacts.js';
 	import { chipVariants } from '#lib/components/ui/chip/index.js';
-	import { focusRing, focusRingInset } from '#lib/components/ui/focus-ring/index.js';
+	import {
+		focusRing,
+		focusRingActiveOption,
+		focusRingInset
+	} from '#lib/components/ui/focus-ring/index.js';
 	import { menuContentVariants, menuItemVariants } from '#lib/components/ui/menu/index.js';
 	import { clientConfig } from '#lib/stores/clientConfig.js';
 	import { announcePolite, pushToast } from '#lib/stores/toasts.js';
@@ -331,10 +335,11 @@
 							role="option"
 							tabindex="-1"
 							aria-selected={index === activeSuggestion}
+							data-selected={index === activeSuggestion ? '' : undefined}
 							class={cn(
 								menuItemVariants(),
-								'items-center justify-between gap-2 hover:bg-muted',
-								index === activeSuggestion && 'bg-muted'
+								'items-center justify-between gap-2 hover:bg-muted data-[selected]:bg-muted',
+								focusRingActiveOption
 							)}
 							onmousedown={(event) => event.preventDefault()}
 							onclick={() => selectSuggestion(suggestion)}

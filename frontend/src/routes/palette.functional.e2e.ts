@@ -1,5 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
-import { openApp, setMockFlags, setPrefs, waitForRootRedirect } from './e2e-helpers';
+import {
+	insetOutlineContrast,
+	openApp,
+	setMockFlags,
+	setPrefs,
+	waitForRootRedirect
+} from './e2e-helpers';
 
 const fixture = {
 	accountId: 1,
@@ -525,31 +531,7 @@ test.describe('Command palette – viditelnost výběru a přiblížení', () =>
 			await expect(selected).toHaveCSS('outline-width', '2px');
 			await expect(other).toHaveCSS('outline-style', 'none');
 
-			const ratio = await selected.evaluate((option) => {
-				const rgb = (color: string): number[] => {
-					const canvas = document.createElement('canvas');
-					canvas.width = canvas.height = 1;
-					const context = canvas.getContext('2d')!;
-					context.fillStyle = color;
-					context.fillRect(0, 0, 1, 1);
-					return [...context.getImageData(0, 0, 1, 1).data.slice(0, 3)];
-				};
-				const luminance = (channels: number[]): number => {
-					const [r, g, b] = channels.map((value) => {
-						const unit = value / 255;
-						return unit <= 0.03928 ? unit / 12.92 : ((unit + 0.055) / 1.055) ** 2.4;
-					});
-					return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-				};
-				let behind: Element | null = option;
-				while (behind && getComputedStyle(behind).backgroundColor === 'rgba(0, 0, 0, 0)') {
-					behind = behind.parentElement;
-				}
-				const ring = luminance(rgb(getComputedStyle(option).outlineColor));
-				const fill = luminance(rgb(getComputedStyle(behind ?? document.body).backgroundColor));
-				return (Math.max(ring, fill) + 0.05) / (Math.min(ring, fill) + 0.05);
-			});
-			expect(ratio).toBeGreaterThanOrEqual(3);
+			expect(await insetOutlineContrast(selected)).toBeGreaterThanOrEqual(3);
 		});
 	}
 
