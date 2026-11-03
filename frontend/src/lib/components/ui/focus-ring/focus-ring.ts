@@ -50,6 +50,22 @@ export const focusRingScrollArea =
 	'outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-ring';
 
 /**
+ * For an option that holds the focus through `aria-activedescendant`, as the
+ * command palette's results do: DOM focus stays in the search field, and the
+ * option it names is the one Enter runs. The option itself is never focused,
+ * so the ring follows bits-ui's `data-selected` rather than `:focus-visible`,
+ * and sits inside the edge, where the scrolling list does not clip it.
+ *
+ * Before it the selection was a background tint, 1.11:1 against the other
+ * options on the light theme and 1.09:1 on the dark one. Under forced colors it
+ * was nothing at all: `outline-hidden` keeps an outline there on every option,
+ * so all of them were outlined alike. The others drop it, which leaves the
+ * selected one the only option with an outline.
+ */
+export const focusRingActiveOption =
+	'forced-colors:outline-0 data-[selected]:outline-2 data-[selected]:outline-solid data-[selected]:-outline-offset-2 data-[selected]:outline-ring';
+
+/**
  * For a visible box whose focusable element is hidden inside it: the label
  * around the attachment picker's sr-only file input, a segmented choice around
  * its transparent radio. The box draws the ring while that element has

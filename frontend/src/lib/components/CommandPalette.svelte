@@ -17,6 +17,10 @@
 		type VisibleCommand
 	} from '#lib/commands/paletteRanking.js';
 	import type { CommandGroup } from '#lib/commands/shared.js';
+	import {
+		focusRingActiveOption,
+		focusRingScrollArea
+	} from '#lib/components/ui/focus-ring/index.js';
 	import { inputVariants } from '#lib/components/ui/input/index.js';
 	import { menuItemVariants } from '#lib/components/ui/menu/index.js';
 	import { cn } from '#lib/utils.js';
@@ -38,6 +42,7 @@
 	 */
 	let chosenCommandId = $state<string | null>(null);
 	let inputElement = $state<HTMLInputElement | null>(null);
+	let listElement = $state<HTMLElement | null>(null);
 	let executionError = $state('');
 
 	function commandOptionId(command: Command): string {
@@ -89,6 +94,11 @@
 		});
 
 		return groups;
+	});
+
+	const selectedOptionId = $derived.by(() => {
+		const entry = filteredCommands.find((candidate) => candidate.command.id === selectedCommandId);
+		return entry ? commandOptionId(entry.command) : undefined;
 	});
 
 	const resultsAnnouncement = $derived.by(() => {
@@ -152,26 +162,51 @@
 	}
 
 	/*
-	 * Home and End too, which bits-ui would otherwise handle on the root without
-	 * this component knowing the user moved the selection.
+	 * The option Enter runs has to be on screen. bits-ui scrolls to the options
+	 * it selects itself, but here this component moves the selection, so nothing
+	 * scrolled: End, or the eighth ArrowDown, left it below the list's edge
+	 * (WCAG 2.4.11). Only the keyboard and a new query move it out of sight; the
+	 * pointer chooses what it is over. The first result brings its group's
+	 * heading back into view with it, and scrolling into view also scrolls the
+	 * dialog, which has its own scrollbar when the window is short.
 	 */
-	function handleInputKeydown(event: KeyboardEvent): void {
+	function revealSelection(): void {
+		void tick().then(() => {
+			const option = selectedOptionId ? document.getElementById(selectedOptionId) : null;
+			if (!option) return;
+			if (listElement && filteredCommands[0]?.command.id === selectedCommandId) {
+				listElement.scrollTop = 0;
+			}
+			option.scrollIntoView({ block: 'nearest' });
+		});
+	}
+
+	/*
+	 * Home and End too, which bits-ui would otherwise handle on the root without
+	 * this component knowing the user moved the selection. The results list
+	 * takes the same keys when it has focus itself; Enter it leaves to bits-ui,
+	 * which runs the selected option.
+	 */
+	function handleSelectionKeydown(event: KeyboardEvent): void {
 		if (filteredCommands.length > 0 && (event.key === 'Home' || event.key === 'End')) {
 			event.preventDefault();
 			event.stopPropagation();
 			choose(filteredCommands[event.key === 'Home' ? 0 : filteredCommands.length - 1].command.id);
+			revealSelection();
 			return;
 		}
 		if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
 		event.preventDefault();
 		event.stopPropagation();
 		moveSelection(event.key === 'ArrowDown' ? 1 : -1);
+		revealSelection();
 	}
 
 	function handleQueryInput(): void {
 		executionError = '';
 		// A new query is a new search: the selection goes back to its first result.
 		chosenCommandId = null;
+		revealSelection();
 	}
 
 	/*
@@ -235,16 +270,23 @@
 	size="2xl"
 	placement="top"
 	padding="none"
-	class="overflow-hidden"
+	scroll
+	class="flex flex-col"
 >
+	<!--
+		A column so that the results give way when the window is short: they
+		shrink to a few rows before the dialog itself starts to scroll, and every
+		result can still be brought on screen at 200% and 400% zoom (WCAG 1.4.10).
+	-->
 	<BitsCommand.Root
 		label={$_('palette.title')}
 		bind:value={selectedCommandId}
 		shouldFilter={false}
 		loop
 		vimBindings={false}
+		class="flex min-h-0 flex-col"
 	>
-		<div class="border-b border-border px-4 py-3">
+		<div class="shrink-0 border-b border-border px-4 py-3">
 			<DialogTitle id="palette-title">
 				{$_('palette.title')}
 			</DialogTitle>
@@ -258,13 +300,13 @@
 			</DialogDescription>
 		</div>
 
-		<div class="border-b border-border px-4 py-3">
+		<div class="shrink-0 border-b border-border px-4 py-3">
 			<BitsCommand.Input
 				id="command-palette-input"
 				bind:ref={inputElement}
 				bind:value={query}
 				oninput={handleQueryInput}
-				onkeydown={handleInputKeydown}
+				onkeydown={handleSelectionKeydown}
 				aria-describedby="palette-hint"
 				autofocus
 				placeholder={$_('palette.placeholder')}
@@ -278,17 +320,34 @@
 			{/if}
 		</div>
 
+		<!--
+			Outside the listbox, which is hidden while it has nothing to list: a
+			listbox holding only this sentence has no option for the role to own
+			(axe aria-required-children). The live region above says it as well.
+		-->
+		{#if filteredCommands.length === 0}
+			<p class="px-6 py-6 text-sm text-muted-foreground">{$_('palette.noResults')}</p>
+		{/if}
+
+		<!--
+			A tab stop of its own because it scrolls, and axe's
+			scrollable-region-focusable fails without one. Focused, it has to be
+			usable too: it names the selected option as the field does and takes
+			the same keys, so a screen reader hears the option rather than an
+			empty list, and the arrows move it.
+		-->
 		<BitsCommand.List
+			bind:ref={listElement}
 			aria-label={$_('palette.resultsLabel')}
+			aria-activedescendant={selectedOptionId}
 			tabindex={0}
-			class="max-h-[26rem] overflow-y-auto p-2"
+			hidden={filteredCommands.length === 0}
+			onkeydown={handleSelectionKeydown}
+			onfocus={revealSelection}
+			class={cn('max-h-[26rem] min-h-30 overflow-y-auto p-2', focusRingScrollArea)}
 		>
 			<BitsCommand.Viewport id="palette-listbox">
-				{#if filteredCommands.length === 0}
-					<BitsCommand.Empty class="px-2 py-4 text-sm text-muted-foreground">
-						{$_('palette.noResults')}
-					</BitsCommand.Empty>
-				{:else}
+				{#if filteredCommands.length > 0}
 					{#each groupedCommands as group (group.groupKey)}
 						<BitsCommand.Group value={group.groupKey}>
 							<BitsCommand.GroupHeading
@@ -308,12 +367,13 @@
 										onSelect={() => void execute(entry.command)}
 										class={cn(
 											menuItemVariants(),
-											'items-center gap-3 hover:bg-muted data-[selected]:bg-muted'
+											'items-center gap-3 hover:bg-muted data-[selected]:bg-muted',
+											focusRingActiveOption
 										)}
 									>
 										{#if entry.command.icon}
 											<span
-												class="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background"
+												class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-background"
 											>
 												<Icon name={entry.command.icon} size={16} />
 											</span>
@@ -324,11 +384,16 @@
 											folder name — so shown here they became part of the
 											option's accessible name and a screen reader read them
 											after the title on every match.
+
+											It wraps rather than truncating: at 320px, 400% zoom on
+											a 1280px screen, four titles lost their ends to an
+											ellipsis (WCAG 1.4.10).
 										-->
-										<span class="min-w-0 flex-1 truncate text-sm font-medium">{entry.title}</span>
+										<span class="min-w-0 flex-1 text-sm font-medium break-words">{entry.title}</span
+										>
 										{#if entry.command.shortcut}
 											<span
-												class="rounded-md border border-border px-2 py-1 text-caption text-muted-foreground"
+												class="shrink-0 rounded-md border border-border px-2 py-1 text-caption text-muted-foreground"
 											>
 												{entry.command.shortcut}
 											</span>

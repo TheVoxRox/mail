@@ -21,6 +21,17 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- The command palette works for someone who sees the screen and uses the
+  keyboard or zoom, not only with a screen reader. The command Enter runs has
+  an outline, 3.76:1 against its fill on the light theme and 6.3:1 on the dark
+  one, where the tint it had measured 1.11:1, and it stays the only outlined
+  one under Windows high contrast, where every command used to be outlined
+  alike. The list scrolls along when the arrows, Home or End move the
+  selection; before, End or the eighth arrow left it below the edge. At 200%
+  and 400% zoom every result can be brought on screen, and titles wrap instead
+  of losing their ends. Tab into the results list now names the selected
+  command, and the arrows and Enter work there. With nothing found, the
+  sentence saying so no longer sits inside an empty list (#849).
 - Going elsewhere while Mail is still opening no longer pulls you back into the
   mailbox. On a start with no folder list loaded yet, Mail waits for the list
   and then opens a folder; it did that even after you had moved on, with
