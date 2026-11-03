@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { navigating, page } from '$app/state';
 	import { get } from 'svelte/store';
 	import {
 		accountsState,
@@ -67,6 +68,13 @@
 			if (loadError === null) empty = 'noFolders';
 			return;
 		}
+		// The folder list can take seconds, and the user need not wait on `/` for
+		// it: Ctrl+3 or the palette takes them elsewhere first. Opening the mailbox
+		// now would pull them back out of where they went, or cancel the navigation
+		// still on its way there. One on its way back to `/` is still a request
+		// for Mail, and stopping for it would leave the page saying it loads.
+		const leaving = navigating.to !== null && navigating.to.route.id !== '/';
+		if (page.route.id !== '/' || leaving) return;
 
 		await goto(folderHref(accountId, entry), { replace: true });
 	}
