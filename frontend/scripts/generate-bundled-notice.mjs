@@ -25,6 +25,8 @@
  * NOTICE is a statement about redistribution, and the dependency tree is wider
  * than the artifact in one direction and narrower in the other (see
  * distributedMavenComponents below). That narrowing needs a built backend jar.
+ * The Cargo one is narrowed the same way, to what the Windows build compiles
+ * (builtCargoComponents below), which needs `cargo` on the PATH.
  * Run `npm run regen:sbom:all && npm run regen:notice` to render this file
  * directly, or `npm run regen:licenses:all` for the one-shot release regen
  * (inventories + SBOMs + this notice). Either way the SBOMs must be fresh
@@ -37,6 +39,7 @@ import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { packagedArtifacts } from '../../backend/scripts/lib/packaged-artifacts.mjs';
+import { builtCrates } from '../src-tauri/scripts/lib/built-crates.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '..', '..');
@@ -56,7 +59,7 @@ const sbomSources = [
 		ecosystem: 'maven'
 	},
 	{
-		label: 'Tauri runtime (Cargo crates)',
+		label: 'Tauri runtime (Cargo — crates the Windows build compiles)',
 		path: path.resolve(repoRoot, 'frontend', 'src-tauri', 'bom.json'),
 		ecosystem: 'cargo'
 	}
@@ -178,6 +181,30 @@ function distributedMavenComponents(bom) {
 	return distributed;
 }
 
+/*
+ * The Cargo SBOM is wider than the shell for two reasons, and stays so for the
+ * same scanners. It carries the build-script crates (cc, embed-resource,
+ * tauri-build and what they use), which cargo-cyclonedx marks with the
+ * CycloneDX scope `excluded`: "not reachable within a call graph at runtime".
+ * And it lists optional crates no build compiles, because it reads
+ * `cargo metadata` (see frontend/src-tauri/scripts/lib/built-crates.mjs):
+ * https://github.com/CycloneDX/cyclonedx-rust-cargo/issues/766, which the
+ * draft PR #877 there fixes.
+ * The scope is honoured as the SBOM states it; the second filter, against
+ * `cargo tree`, is the workaround for #766 and can go once a cargo-cyclonedx
+ * release carries the fix. What is left is the list in
+ * frontend/src-tauri/THIRD_PARTY_LICENSES.md, and a crate the build compiles
+ * that the SBOM scopes out or lacks fails the assertion instead of vanishing.
+ */
+function builtCargoComponents(bom) {
+	const built = builtCrates(path.resolve(repoRoot, 'frontend', 'src-tauri'));
+	const distributed = bom.components.filter(
+		(c) => c.scope !== 'excluded' && built.ships(c.name, c.version)
+	);
+	built.assertAllAccountedFor('NOTICE.txt');
+	return distributed;
+}
+
 const licenseTexts = new Map();
 for (const file of readdirSync(templatesDir)) {
 	if (!file.endsWith('.txt')) continue;
@@ -191,7 +218,12 @@ const byLicense = new Map();
 const ecosystemCounts = new Map();
 for (const src of sbomSources) {
 	const bom = readSbom(src.path);
-	const components = src.ecosystem === 'maven' ? distributedMavenComponents(bom) : bom.components;
+	const components =
+		src.ecosystem === 'maven'
+			? distributedMavenComponents(bom)
+			: src.ecosystem === 'cargo'
+				? builtCargoComponents(bom)
+				: bom.components;
 	ecosystemCounts.set(src.ecosystem, components.length);
 	for (const c of components) {
 		const license = componentLicense(c);

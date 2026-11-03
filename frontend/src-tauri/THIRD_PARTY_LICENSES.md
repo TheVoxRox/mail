@@ -1,16 +1,16 @@
 # Third-Party Licenses — Tauri Runtime (Cargo crates)
 
-The Tauri runtime that ships with VoxRox Mail compiles in the following Rust crates (normal dependencies only, resolved for the `x86_64-pc-windows-msvc` target — build-only and dev dependencies are excluded).
+The Windows build of the Tauri runtime that ships with VoxRox Mail compiles the following Rust crates: the normal dependencies `cargo tree` lists for the `x86_64-pc-windows-msvc` target with the features the build enables. Build-only and dev dependencies are excluded. Procedural macros and their dependencies are included: they run at build time rather than link into the binary, but the code they generate is compiled into it.
 
 Dual-licensed crates (e.g. `MIT OR Apache-2.0`) are listed under their canonical license expression — pick either license when redistributing.
 
-Counts: 302 crates total. 147 MIT OR Apache-2.0, 58 MIT, 31 Apache-2.0 OR MIT, 18 Unicode-3.0, 8 Unlicense OR MIT, 6 MIT/Apache-2.0, 5 MPL-2.0, 3 BSD-3-Clause, 2 Apache-2.0, 2 Apache-2.0 OR ISC OR MIT, 2 ISC, 2 MIT OR Apache-2.0 OR Zlib, 2 MIT OR Zlib OR Apache-2.0, 2 Unlicense/MIT, 2 Zlib, 1 (Apache-2.0 OR MIT) AND BSD-3-Clause, 1 (MIT OR Apache-2.0) AND Unicode-3.0, 1 0BSD OR MIT OR Apache-2.0, 1 Apache-2.0 / MIT, 1 Apache-2.0 AND ISC, 1 Apache-2.0 AND MIT, 1 Apache-2.0 OR BSL-1.0, 1 BSD-3-Clause AND MIT, 1 BSD-3-Clause/MIT, 1 CC0-1.0 OR MIT-0 OR Apache-2.0, 1 CDLA-Permissive-2.0, 1 Zlib OR Apache-2.0 OR MIT.
+Counts: 274 crates total. 130 MIT OR Apache-2.0, 56 MIT, 31 Apache-2.0 OR MIT, 18 Unicode-3.0, 5 MPL-2.0, 4 MIT/Apache-2.0, 4 Unlicense OR MIT, 3 BSD-3-Clause, 2 Apache-2.0, 2 Apache-2.0 OR ISC OR MIT, 2 ISC, 2 MIT OR Zlib OR Apache-2.0, 2 Unlicense/MIT, 1 (Apache-2.0 OR MIT) AND BSD-3-Clause, 1 (MIT OR Apache-2.0) AND Unicode-3.0, 1 0BSD OR MIT OR Apache-2.0, 1 Apache-2.0 / MIT, 1 Apache-2.0 AND ISC, 1 Apache-2.0 AND MIT, 1 Apache-2.0 OR BSL-1.0, 1 BSD-3-Clause AND MIT, 1 BSD-3-Clause/MIT, 1 CC0-1.0 OR MIT-0 OR Apache-2.0, 1 CDLA-Permissive-2.0, 1 MIT OR Apache-2.0 OR Zlib, 1 Zlib.
 
-## MIT OR Apache-2.0 (147)
+## MIT OR Apache-2.0 (130)
 
 - **anyhow** 1.0.104 — [https://github.com/dtolnay/anyhow](https://github.com/dtolnay/anyhow)
-- **base64** 0.23.1 — [https://github.com/marshallpierce/rust-base64](https://github.com/marshallpierce/rust-base64)
 - **base64** 0.22.1 — [https://github.com/marshallpierce/rust-base64](https://github.com/marshallpierce/rust-base64)
+- **base64** 0.23.1 — [https://github.com/marshallpierce/rust-base64](https://github.com/marshallpierce/rust-base64)
 - **bitflags** 2.13.2 — [https://github.com/bitflags/bitflags](https://github.com/bitflags/bitflags)
 - **block-buffer** 0.10.4 — [https://github.com/RustCrypto/utils](https://github.com/RustCrypto/utils)
 - **camino** 1.2.6 — [https://github.com/camino-rs/camino](https://github.com/camino-rs/camino)
@@ -18,15 +18,11 @@ Counts: 302 crates total. 147 MIT OR Apache-2.0, 58 MIT, 31 Apache-2.0 OR MIT, 1
 - **cfg-if** 1.0.5 — [https://github.com/rust-lang/cfg-if](https://github.com/rust-lang/cfg-if)
 - **cookie** 0.18.2 — [https://github.com/SergioBenitez/cookie-rs](https://github.com/SergioBenitez/cookie-rs)
 - **cpufeatures** 0.2.17 — [https://github.com/RustCrypto/utils](https://github.com/RustCrypto/utils)
-- **cpufeatures** 0.3.1 — [https://github.com/RustCrypto/utils](https://github.com/RustCrypto/utils)
 - **crc32fast** 1.5.4 — [https://github.com/srijs/rust-crc32fast](https://github.com/srijs/rust-crc32fast)
 - **crossbeam-channel** 0.5.17 — [https://github.com/crossbeam-rs/crossbeam](https://github.com/crossbeam-rs/crossbeam)
 - **crossbeam-utils** 0.8.23 — [https://github.com/crossbeam-rs/crossbeam](https://github.com/crossbeam-rs/crossbeam)
 - **crypto-common** 0.1.7 — [https://github.com/RustCrypto/traits](https://github.com/RustCrypto/traits)
 - **data-url** 0.3.2 — [https://github.com/servo/rust-url](https://github.com/servo/rust-url)
-- **defmt** 1.2.0 — [https://github.com/knurling-rs/defmt](https://github.com/knurling-rs/defmt)
-- **defmt-macros** 1.2.0 — [https://github.com/knurling-rs/defmt](https://github.com/knurling-rs/defmt)
-- **defmt-parser** 1.1.0 — [https://github.com/knurling-rs/defmt](https://github.com/knurling-rs/defmt)
 - **deranged** 0.5.9 — [https://github.com/jhpratt/deranged](https://github.com/jhpratt/deranged)
 - **digest** 0.10.7 — [https://github.com/RustCrypto/traits](https://github.com/RustCrypto/traits)
 - **dirs** 7.0.0 — [https://codeberg.org/dirs/dirs-rs](https://codeberg.org/dirs/dirs-rs)
@@ -40,24 +36,20 @@ Counts: 302 crates total. 147 MIT OR Apache-2.0, 58 MIT, 31 Apache-2.0 OR MIT, 1
 - **form_urlencoded** 1.2.2 — [https://github.com/servo/rust-url](https://github.com/servo/rust-url)
 - **futures-core** 0.3.34 — [https://github.com/rust-lang/futures-rs](https://github.com/rust-lang/futures-rs)
 - **futures-channel** 0.3.34 — [https://github.com/rust-lang/futures-rs](https://github.com/rust-lang/futures-rs)
-- **futures-io** 0.3.34 — [https://github.com/rust-lang/futures-rs](https://github.com/rust-lang/futures-rs)
 - **futures-macro** 0.3.34 — [https://github.com/rust-lang/futures-rs](https://github.com/rust-lang/futures-rs)
 - **futures-sink** 0.3.34 — [https://github.com/rust-lang/futures-rs](https://github.com/rust-lang/futures-rs)
 - **futures-task** 0.3.34 — [https://github.com/rust-lang/futures-rs](https://github.com/rust-lang/futures-rs)
 - **futures-util** 0.3.34 — [https://github.com/rust-lang/futures-rs](https://github.com/rust-lang/futures-rs)
+- **getrandom** 0.2.17 — [https://github.com/rust-random/getrandom](https://github.com/rust-random/getrandom)
 - **getrandom** 0.3.4 — [https://github.com/rust-random/getrandom](https://github.com/rust-random/getrandom)
 - **getrandom** 0.4.3 — [https://github.com/rust-random/getrandom](https://github.com/rust-random/getrandom)
-- **getrandom** 0.2.17 — [https://github.com/rust-random/getrandom](https://github.com/rust-random/getrandom)
 - **glob** 0.3.4 — [https://github.com/rust-lang/glob](https://github.com/rust-lang/glob)
-- **hashbrown** 0.17.1 — [https://github.com/rust-lang/hashbrown](https://github.com/rust-lang/hashbrown)
 - **hashbrown** 0.12.3 — [https://github.com/rust-lang/hashbrown](https://github.com/rust-lang/hashbrown)
+- **hashbrown** 0.17.1 — [https://github.com/rust-lang/hashbrown](https://github.com/rust-lang/hashbrown)
 - **heck** 0.5.0 — [https://github.com/withoutboats/heck](https://github.com/withoutboats/heck)
-- **hex** 0.4.3 — [https://github.com/KokaKiwi/rust-hex](https://github.com/KokaKiwi/rust-hex)
 - **html5ever** 0.39.0 — [https://github.com/servo/html5ever](https://github.com/servo/html5ever)
 - **http** 1.5.0 — [https://github.com/hyperium/http](https://github.com/hyperium/http)
 - **httparse** 1.10.1 — [https://github.com/seanmonstar/httparse](https://github.com/seanmonstar/httparse)
-- **chacha20** 0.10.2 — [https://github.com/RustCrypto/stream-ciphers](https://github.com/RustCrypto/stream-ciphers)
-- **chrono** 0.4.45 — [https://github.com/chronotope/chrono](https://github.com/chronotope/chrono)
 - **idna** 1.1.0 — [https://github.com/servo/rust-url/](https://github.com/servo/rust-url/)
 - **ipnet** 2.12.2 — [https://github.com/krisprice/ipnet](https://github.com/krisprice/ipnet)
 - **itoa** 1.0.18 — [https://github.com/dtolnay/itoa](https://github.com/dtolnay/itoa)
@@ -69,7 +61,6 @@ Counts: 302 crates total. 147 MIT OR Apache-2.0, 58 MIT, 31 Apache-2.0 OR MIT, 1
 - **markup5ever** 0.39.0 — [https://github.com/servo/html5ever](https://github.com/servo/html5ever)
 - **mime** 0.3.17 — [https://github.com/hyperium/mime](https://github.com/hyperium/mime)
 - **num-conv** 0.2.2 — [https://github.com/jhpratt/num-conv](https://github.com/jhpratt/num-conv)
-- **num-traits** 0.2.19 — [https://github.com/rust-num/num-traits](https://github.com/rust-num/num-traits)
 - **once_cell** 1.21.4 — [https://github.com/matklad/once_cell](https://github.com/matklad/once_cell)
 - **parking_lot** 0.12.5 — [https://github.com/Amanieu/parking_lot](https://github.com/Amanieu/parking_lot)
 - **parking_lot_core** 0.9.12 — [https://github.com/Amanieu/parking_lot](https://github.com/Amanieu/parking_lot)
@@ -77,15 +68,7 @@ Counts: 302 crates total. 147 MIT OR Apache-2.0, 58 MIT, 31 Apache-2.0 OR MIT, 1
 - **png** 0.18.1 — [https://github.com/image-rs/image-png](https://github.com/image-rs/image-png)
 - **powerfmt** 0.2.1 — [https://github.com/jhpratt/powerfmt](https://github.com/jhpratt/powerfmt)
 - **proc-macro2** 1.0.107 — [https://github.com/dtolnay/proc-macro2](https://github.com/dtolnay/proc-macro2)
-- **quinn** 0.11.12 — [https://github.com/quinn-rs/quinn](https://github.com/quinn-rs/quinn)
-- **quinn-proto** 0.11.19 — [https://github.com/quinn-rs/quinn](https://github.com/quinn-rs/quinn)
-- **quinn-udp** 0.5.16 — [https://github.com/quinn-rs/quinn](https://github.com/quinn-rs/quinn)
 - **quote** 1.0.47 — [https://github.com/dtolnay/quote](https://github.com/dtolnay/quote)
-- **rand** 0.10.3 — [https://github.com/rust-random/rand](https://github.com/rust-random/rand)
-- **rand_core** 0.10.1 — [https://github.com/rust-random/rand_core](https://github.com/rust-random/rand_core)
-- **rand_pcg** 0.10.2 — [https://github.com/rust-random/rngs](https://github.com/rust-random/rngs)
-- **ref-cast** 1.0.27 — [https://github.com/dtolnay/ref-cast](https://github.com/dtolnay/ref-cast)
-- **ref-cast-impl** 1.0.27 — [https://github.com/dtolnay/ref-cast](https://github.com/dtolnay/ref-cast)
 - **regex** 1.13.1 — [https://github.com/rust-lang/regex](https://github.com/rust-lang/regex)
 - **regex-automata** 0.4.18 — [https://github.com/rust-lang/regex](https://github.com/rust-lang/regex)
 - **regex-syntax** 0.8.11 — [https://github.com/rust-lang/regex](https://github.com/rust-lang/regex)
@@ -116,8 +99,8 @@ Counts: 302 crates total. 147 MIT OR Apache-2.0, 58 MIT, 31 Apache-2.0 OR MIT, 1
 - **softbuffer** 0.4.8 — [https://github.com/rust-windowing/softbuffer](https://github.com/rust-windowing/softbuffer)
 - **stable_deref_trait** 1.2.1 — [https://github.com/storyyeller/stable_deref_trait](https://github.com/storyyeller/stable_deref_trait)
 - **string_cache** 0.9.0 — [https://github.com/servo/string-cache](https://github.com/servo/string-cache)
-- **syn** 3.0.9 — [https://github.com/dtolnay/syn](https://github.com/dtolnay/syn)
 - **syn** 2.0.119 — [https://github.com/dtolnay/syn](https://github.com/dtolnay/syn)
+- **syn** 3.0.9 — [https://github.com/dtolnay/syn](https://github.com/dtolnay/syn)
 - **tempfile** 3.27.0 — [https://github.com/Stebalien/tempfile](https://github.com/Stebalien/tempfile)
 - **tendril** 0.5.1 — [https://github.com/servo/html5ever](https://github.com/servo/html5ever)
 - **thiserror** 2.0.21 — [https://github.com/dtolnay/thiserror](https://github.com/dtolnay/thiserror)
@@ -156,7 +139,7 @@ Counts: 302 crates total. 147 MIT OR Apache-2.0, 58 MIT, 31 Apache-2.0 OR MIT, 1
 - **windows-threading** 0.2.1 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 - **windows-version** 0.1.7 — [https://github.com/microsoft/windows-rs](https://github.com/microsoft/windows-rs)
 
-## MIT (58)
+## MIT (56)
 
 - **bytes** 1.12.1 — [https://github.com/tokio-rs/bytes](https://github.com/tokio-rs/bytes)
 - **cargo_metadata** 0.19.2 — [https://github.com/oli-obk/cargo_metadata](https://github.com/oli-obk/cargo_metadata)
@@ -190,8 +173,6 @@ Counts: 302 crates total. 147 MIT OR Apache-2.0, 58 MIT, 31 Apache-2.0 OR MIT, 1
 - **quick-xml** 0.42.0 — [https://github.com/tafia/quick-xml](https://github.com/tafia/quick-xml)
 - **shared_child** 1.1.2 — [https://github.com/oconnor663/shared_child.rs](https://github.com/oconnor663/shared_child.rs)
 - **schemars** 0.8.22 — [https://github.com/GREsau/schemars](https://github.com/GREsau/schemars)
-- **schemars** 0.9.0 — [https://github.com/GREsau/schemars](https://github.com/GREsau/schemars)
-- **schemars** 1.2.3 — [https://github.com/GREsau/schemars](https://github.com/GREsau/schemars)
 - **schemars_derive** 0.8.22 — [https://github.com/GREsau/schemars](https://github.com/GREsau/schemars)
 - **simd-adler32** 0.3.10 — [https://github.com/mcountryman/simd-adler32](https://github.com/mcountryman/simd-adler32)
 - **slab** 0.4.12 — [https://github.com/tokio-rs/slab](https://github.com/tokio-rs/slab)
@@ -226,8 +207,8 @@ Counts: 302 crates total. 147 MIT OR Apache-2.0, 58 MIT, 31 Apache-2.0 OR MIT, 1
 - **equivalent** 1.0.3 — [https://github.com/indexmap-rs/equivalent](https://github.com/indexmap-rs/equivalent)
 - **fastrand** 2.5.0 — [https://github.com/smol-rs/fastrand](https://github.com/smol-rs/fastrand)
 - **idna_adapter** 1.2.2 — [https://github.com/hsivonen/idna_adapter](https://github.com/hsivonen/idna_adapter)
-- **indexmap** 2.14.2 — [https://github.com/indexmap-rs/indexmap](https://github.com/indexmap-rs/indexmap)
 - **indexmap** 1.9.3 — [https://github.com/bluss/indexmap](https://github.com/bluss/indexmap)
+- **indexmap** 2.14.2 — [https://github.com/indexmap-rs/indexmap](https://github.com/indexmap-rs/indexmap)
 - **muda** 0.20.0 — [https://github.com/tauri-apps/muda](https://github.com/tauri-apps/muda)
 - **multiversion_no_op** 1.0.0 — [https://github.com/hsivonen/multiversion_no_op](https://github.com/hsivonen/multiversion_no_op)
 - **pin-project-lite** 0.2.17 — [https://github.com/taiki-e/pin-project-lite](https://github.com/taiki-e/pin-project-lite)
@@ -272,26 +253,6 @@ Counts: 302 crates total. 147 MIT OR Apache-2.0, 58 MIT, 31 Apache-2.0 OR MIT, 1
 - **zerovec** 0.11.9 — [https://github.com/unicode-org/icu4x](https://github.com/unicode-org/icu4x)
 - **zerovec-derive** 0.11.7 — [https://github.com/unicode-org/icu4x](https://github.com/unicode-org/icu4x)
 
-## Unlicense OR MIT (8)
-
-- **aho-corasick** 1.1.5 — [https://github.com/BurntSushi/aho-corasick](https://github.com/BurntSushi/aho-corasick)
-- **byteorder** 1.5.0 — [https://github.com/BurntSushi/byteorder](https://github.com/BurntSushi/byteorder)
-- **jiff** 0.2.39 — [https://github.com/BurntSushi/jiff](https://github.com/BurntSushi/jiff)
-- **jiff-core** 0.1.2 — [https://github.com/BurntSushi/jiff](https://github.com/BurntSushi/jiff)
-- **jiff-tzdb** 0.1.9 — [https://github.com/BurntSushi/jiff](https://github.com/BurntSushi/jiff)
-- **jiff-tzdb-platform** 0.1.3 — [https://github.com/BurntSushi/jiff](https://github.com/BurntSushi/jiff)
-- **memchr** 2.8.3 — [https://github.com/BurntSushi/memchr](https://github.com/BurntSushi/memchr)
-- **winapi-util** 0.1.11 — [https://github.com/BurntSushi/winapi-util](https://github.com/BurntSushi/winapi-util)
-
-## MIT/Apache-2.0 (6)
-
-- **bitflags** 1.3.2 — [https://github.com/bitflags/bitflags](https://github.com/bitflags/bitflags)
-- **bs58** 0.5.1 — [https://github.com/Nullus157/bs58-rs](https://github.com/Nullus157/bs58-rs)
-- **core_detect** 1.0.0 — [https://github.com/thomcc/core_detect](https://github.com/thomcc/core_detect)
-- **ident_case** 1.0.1 — [https://github.com/TedDriggs/ident_case](https://github.com/TedDriggs/ident_case)
-- **json-patch** 4.2.0 — [https://github.com/idubrov/json-patch](https://github.com/idubrov/json-patch)
-- **serde_urlencoded** 0.7.1 — [https://github.com/nox/serde_urlencoded](https://github.com/nox/serde_urlencoded)
-
 ## MPL-2.0 (5)
 
 - **cssparser** 0.37.0 — [https://github.com/servo/rust-cssparser](https://github.com/servo/rust-cssparser)
@@ -299,6 +260,20 @@ Counts: 302 crates total. 147 MIT OR Apache-2.0, 58 MIT, 31 Apache-2.0 OR MIT, 1
 - **dtoa-short** 0.3.5 — [https://github.com/upsuper/dtoa-short](https://github.com/upsuper/dtoa-short)
 - **option-ext** 0.2.0 — [https://github.com/soc/option-ext.git](https://github.com/soc/option-ext.git)
 - **selectors** 0.38.0 — [https://github.com/servo/stylo](https://github.com/servo/stylo)
+
+## MIT/Apache-2.0 (4)
+
+- **core_detect** 1.0.0 — [https://github.com/thomcc/core_detect](https://github.com/thomcc/core_detect)
+- **ident_case** 1.0.1 — [https://github.com/TedDriggs/ident_case](https://github.com/TedDriggs/ident_case)
+- **json-patch** 4.2.0 — [https://github.com/idubrov/json-patch](https://github.com/idubrov/json-patch)
+- **serde_urlencoded** 0.7.1 — [https://github.com/nox/serde_urlencoded](https://github.com/nox/serde_urlencoded)
+
+## Unlicense OR MIT (4)
+
+- **aho-corasick** 1.1.5 — [https://github.com/BurntSushi/aho-corasick](https://github.com/BurntSushi/aho-corasick)
+- **byteorder** 1.5.0 — [https://github.com/BurntSushi/byteorder](https://github.com/BurntSushi/byteorder)
+- **memchr** 2.8.3 — [https://github.com/BurntSushi/memchr](https://github.com/BurntSushi/memchr)
+- **winapi-util** 0.1.11 — [https://github.com/BurntSushi/winapi-util](https://github.com/BurntSushi/winapi-util)
 
 ## BSD-3-Clause (3)
 
@@ -321,25 +296,15 @@ Counts: 302 crates total. 147 MIT OR Apache-2.0, 58 MIT, 31 Apache-2.0 OR MIT, 1
 - **rustls-webpki** 0.103.16 — [https://github.com/rustls/webpki](https://github.com/rustls/webpki)
 - **untrusted** 0.9.0 — [https://github.com/briansmith/untrusted](https://github.com/briansmith/untrusted)
 
-## MIT OR Apache-2.0 OR Zlib (2)
-
-- **lru-slab** 0.1.3 — [https://github.com/Ralith/lru-slab](https://github.com/Ralith/lru-slab)
-- **raw-window-handle** 0.6.2 — [https://github.com/rust-windowing/raw-window-handle](https://github.com/rust-windowing/raw-window-handle)
-
 ## MIT OR Zlib OR Apache-2.0 (2)
 
-- **miniz_oxide** 0.9.1 — [https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide](https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide)
 - **miniz_oxide** 0.8.9 — [https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide](https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide)
+- **miniz_oxide** 0.9.1 — [https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide](https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide)
 
 ## Unlicense/MIT (2)
 
 - **same-file** 1.0.6 — [https://github.com/BurntSushi/same-file](https://github.com/BurntSushi/same-file)
 - **walkdir** 2.5.0 — [https://github.com/BurntSushi/walkdir](https://github.com/BurntSushi/walkdir)
-
-## Zlib (2)
-
-- **foldhash** 0.2.0 — [https://github.com/orlp/foldhash](https://github.com/orlp/foldhash)
-- **zlib-rs** 0.6.8 — [https://github.com/trifectatechfoundation/zlib-rs](https://github.com/trifectatechfoundation/zlib-rs)
 
 ## (Apache-2.0 OR MIT) AND BSD-3-Clause (1)
 
@@ -385,6 +350,10 @@ Counts: 302 crates total. 147 MIT OR Apache-2.0, 58 MIT, 31 Apache-2.0 OR MIT, 1
 
 - **webpki-roots** 1.0.11 — [https://github.com/rustls/webpki-roots](https://github.com/rustls/webpki-roots)
 
-## Zlib OR Apache-2.0 OR MIT (1)
+## MIT OR Apache-2.0 OR Zlib (1)
 
-- **tinyvec** 1.13.3 — [https://github.com/Lokathor/tinyvec](https://github.com/Lokathor/tinyvec)
+- **raw-window-handle** 0.6.2 — [https://github.com/rust-windowing/raw-window-handle](https://github.com/rust-windowing/raw-window-handle)
+
+## Zlib (1)
+
+- **foldhash** 0.2.0 — [https://github.com/orlp/foldhash](https://github.com/orlp/foldhash)

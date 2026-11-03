@@ -5,6 +5,13 @@
  * release; the file is published as a CI artefact and consumed by
  * external CVE scanners.
  *
+ * The target is explicit because cargo-cyclonedx otherwise describes the
+ * host: on the `ubuntu-latest` runner in vuln-scan.yml that was a Linux tree
+ * of gtk and webkit2gtk without the windows and webview2-com crates the
+ * shipped build is made of. Build dependencies stay in — a scanner wants
+ * the whole build surface. That also makes the SBOM wider than what ships,
+ * so generate-bundled-notice.mjs narrows it before writing NOTICE.txt.
+ *
  * Requires `cargo-cyclonedx` installed as a cargo subcommand:
  *   cargo install cargo-cyclonedx
  *
@@ -15,6 +22,7 @@
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { SHIPPED_TARGET } from './lib/built-crates.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const tauriDir = path.resolve(here, '..');
@@ -29,7 +37,17 @@ try {
 
 execFileSync(
 	'cargo',
-	['cyclonedx', '--format', 'json', '--spec-version', '1.5', '--override-filename', 'bom'],
+	[
+		'cyclonedx',
+		'--format',
+		'json',
+		'--spec-version',
+		'1.5',
+		'--target',
+		SHIPPED_TARGET,
+		'--override-filename',
+		'bom'
+	],
 	{
 		cwd: tauriDir,
 		stdio: 'inherit'
