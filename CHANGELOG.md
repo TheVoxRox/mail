@@ -46,6 +46,18 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Tauri / Release
 
+- The shell's license list and `NOTICE.txt` name only the crates the Windows
+  build compiles: the list goes from 302 crates to 274, and the Cargo part of
+  `NOTICE.txt` from 321 to 274. Both were read from `cargo metadata`, which
+  keeps an optional dependency that a feature names without turning it on, so
+  they carried 28 crates no build compiles, among them `quinn`, `chrono`,
+  `jiff` and both `schemars`; `NOTICE.txt` also carried the 19 crates only
+  build scripts use. They now come from `cargo tree`, which agrees with the
+  build. One license group goes with them, `Zlib OR Apache-2.0 OR MIT`, whose
+  only crate, `tinyvec`, was among those never compiled. Procedural macros
+  stay listed: they run while the shell is built, and the code they generate
+  is part of it. Why not cargo-about or cargo-auditable is in
+  `docs/DECISIONS.md` (#846).
 - The shell asks for `dirs` 7, the version Tauri itself now brings, so the
   build links one copy of the crate instead of two and the license list and
   `NOTICE.txt` lose the second entry. Dependabot's bump was closed in #484 until
@@ -68,6 +80,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The Tauri SBOM is generated for `x86_64-pc-windows-msvc` wherever it runs.
+  Without a target cargo-cyclonedx describes the host, so the `ubuntu-latest`
+  runner in `vuln-scan.yml` produced a Linux tree, and Trivy scanned gtk and
+  webkit2gtk crates the release never compiles while missing `webview2-com`
+  and the `windows` crates; `cargo audit`, the gate, reads the whole lockfile
+  and was not affected (#846).
 - `todo.md` is retired. Its open items become GitHub issues (#836 to #840), its
   standing decisions move to `docs/DECISIONS.md`, and the removal conditions of
   the frontend `overrides` join the backend and cargo ones in the release

@@ -1,22 +1,25 @@
 #!/usr/bin/env node
 /**
- * Regenerates `frontend/src-tauri/THIRD_PARTY_LICENSES.md` from
- * `cargo metadata` resolved for the `x86_64-pc-windows-msvc` target
- * (the only target VoxRox Mail ships today).
+ * Regenerates `frontend/src-tauri/THIRD_PARTY_LICENSES.md`: the crates the
+ * `x86_64-pc-windows-msvc` build compiles (the only target VoxRox Mail ships
+ * today), with the licence and repository each declares.
  *
  * Run before every release; do not commit Cargo.toml/lock changes without
  * updating this file.
  *
  * Usage: `node frontend/src-tauri/scripts/regen-third-party-licenses.mjs`.
  *
- * Build-only and dev dependencies are excluded — they do not ship to the
- * end-user binary. The root `app` crate is also excluded.
+ * Which crates comes from `cargo tree` (see lib/built-crates.mjs for why not
+ * `cargo metadata`); what each declares comes from `cargo metadata`. Build-only
+ * and dev dependencies are excluded — they do not ship to the end-user
+ * binary. The root `app` crate is also excluded.
  */
 
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { builtCrates, SHIPPED_TARGET } from './lib/built-crates.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const tauriDir = path.resolve(here, '..');
@@ -24,7 +27,7 @@ const outFile = path.join(tauriDir, 'THIRD_PARTY_LICENSES.md');
 
 const raw = execFileSync(
 	'cargo',
-	['metadata', '--format-version', '1', '--filter-platform', 'x86_64-pc-windows-msvc'],
+	['metadata', '--format-version', '1', '--filter-platform', SHIPPED_TARGET],
 	{
 		cwd: tauriDir,
 		encoding: 'utf8',
@@ -34,38 +37,15 @@ const raw = execFileSync(
 
 const meta = JSON.parse(raw);
 
-// Walk the resolve graph to find what is actually built into the binary
-// (normal dependencies of the root + their transitive normal deps). The
-// `packages` list also contains build-only and dev deps which would inflate
-// the inventory.
-const rootIds = new Set(meta.workspace_default_members);
-const normalDeps = new Set();
-const queue = Array.from(rootIds);
-const byId = new Map(meta.packages.map((p) => [p.id, p]));
-const resolveById = new Map((meta.resolve?.nodes ?? []).map((n) => [n.id, n]));
-
-while (queue.length) {
-	const id = queue.shift();
-	if (normalDeps.has(id)) continue;
-	normalDeps.add(id);
-	const node = resolveById.get(id);
-	if (!node) continue;
-	for (const dep of node.deps ?? []) {
-		// Each `dep_kinds[].kind` is "normal" | "dev" | "build" | null.
-		// Anything that has at least one "normal" kind ships.
-		const isNormal = (dep.dep_kinds ?? []).some((dk) => dk.kind === null || dk.kind === 'normal');
-		if (isNormal) queue.push(dep.pkg);
-	}
-}
-
 // Exclude the workspace root(s) — those are our own code.
-for (const id of rootIds) normalDeps.delete(id);
+const rootIds = new Set(meta.workspace_default_members);
+const built = builtCrates(tauriDir);
+const shipped = meta.packages.filter((p) => !rootIds.has(p.id) && built.ships(p.name, p.version));
+built.assertAllAccountedFor('THIRD_PARTY_LICENSES.md');
 
 /** @type {Map<string, Array<{ name: string, version: string, repo: string }>>} */
 const byLicense = new Map();
-for (const id of normalDeps) {
-	const pkg = byId.get(id);
-	if (!pkg) continue;
+for (const pkg of shipped) {
 	const license = pkg.license ?? 'UNKNOWN';
 	const repo = typeof pkg.repository === 'string' ? pkg.repository : '';
 	if (!byLicense.has(license)) byLicense.set(license, []);
@@ -79,13 +59,13 @@ const sortedLicenses = Array.from(byLicense.keys()).sort((a, b) => {
 	return a.localeCompare(b);
 });
 
-const total = normalDeps.size;
+const total = shipped.length;
 const summary = sortedLicenses.map((lic) => `${byLicense.get(lic).length} ${lic}`).join(', ');
 
 const lines = [
 	'# Third-Party Licenses — Tauri Runtime (Cargo crates)',
 	'',
-	'The Tauri runtime that ships with VoxRox Mail compiles in the following Rust crates (normal dependencies only, resolved for the `x86_64-pc-windows-msvc` target — build-only and dev dependencies are excluded).',
+	`The Windows build of the Tauri runtime that ships with VoxRox Mail compiles the following Rust crates: the normal dependencies \`cargo tree\` lists for the \`${SHIPPED_TARGET}\` target with the features the build enables. Build-only and dev dependencies are excluded. Procedural macros and their dependencies are included: they run at build time rather than link into the binary, but the code they generate is compiled into it.`,
 	'',
 	'Dual-licensed crates (e.g. `MIT OR Apache-2.0`) are listed under their canonical license expression — pick either license when redistributing.',
 	'',

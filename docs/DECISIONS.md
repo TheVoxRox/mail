@@ -235,6 +235,71 @@ action without a PFX, so the workflow needs two signing steps — the sidecar
 before the bundle, the installer after it — and the updater `.sig` must be
 computed from the signed installer.
 
+### The Cargo license list counts what the build compiles, procedural macros included
+
+**Decided 2026-11-03** (#846). `frontend/src-tauri/THIRD_PARTY_LICENSES.md`
+and the Cargo part of the bundled `NOTICE.txt` list the crates
+`cargo tree --target x86_64-pc-windows-msvc -e normal` shows: what the Windows
+build compiles. Two other boundaries were measured on the lockfile of #844 and
+rejected:
+
+- **`cargo metadata`'s resolve graph, 303 crates**, which the list used
+  before. It is the dependency resolver's graph, not the feature resolver's:
+  it keeps an optional crate that a feature names weakly (`dep?/feature`), and
+  its features are unified across platforms. 28 of the crates it listed are
+  compiled by no build. Listing them was harmless, but it made the list's own
+  header untrue.
+- **Only what links into `voxrox-mail.exe`, 202 crates**
+  (`-e normal,no-proc-macro`). Procedural macros and what they use run inside
+  rustc and are not linked, but the code they generate is compiled into the
+  binary — `serde_derive`, `thiserror-impl`, `tauri-macros` and what
+  `tauri-codegen` writes. Whether that code carries the macro's license is a
+  legal question, and leaving the crates out would answer it by omission. It
+  would also drop four MPL-2.0 crates (`cssparser`, `cssparser-macros`,
+  `selectors`, `dtoa-short`) and two license groups. Listing more than ships
+  costs nothing; listing less is the omission a notice exists to prevent.
+
+Two established tools were measured against it and not adopted:
+
+- **cargo-about** 0.9.3, the usual generator of Rust license notices, with
+  `targets` and `ignore-build-dependencies` / `ignore-dev-dependencies`. Its
+  graph library, krates, re-resolves features and drops the 28 crates too, but
+  it listed 273: `indexmap` 1.9.3 and `hashbrown` 0.12.3 are missing although
+  the build compiles them. They sit under `schemars` 0.8 in the copy of
+  `tauri-utils` that `tauri-codegen` runs, and the feature that pulls them in
+  comes from `tauri-build`, a build dependency. Cargo builds that host-side
+  copy once for both, while cargo-about drops the build edge before it
+  resolves features. Its strength is attribution: it prints each crate's own
+  license file, copyright line included, which it found for 240 crates. For
+  33 others, every `windows*` and `webview2-com` crate and the six Tauri
+  plugins among them, it printed the canonical text with a literal
+  `<year> <copyright holders>`, although those crates ship a license file
+  naming the holder. Neither its online mode nor a lower `--threshold`
+  changed that, so it would need a hand-kept `clarify` entry per such crate.
+  It also has no CycloneDX output, so it would be a second source beside the
+  SBOM.
+- **cargo-auditable**, which embeds the dependency list in the binary for
+  `cargo audit bin`, Trivy, Grype and Syft. It records no licenses, and on
+  stable it reads `cargo metadata`, so it over-lists the same way; its own
+  schema says so. Precise data needs Cargo's unstable `-Z sbom`. It would also
+  change the signed release build. It answers a vulnerability-scanning
+  question, not this one.
+
+The Cargo SBOM stays wider on purpose. cargo-cyclonedx is given `--target`,
+keeps the build-script crates and marks them with the CycloneDX scope
+`excluded`, which `generate-bundled-notice.mjs` honours. The 28 crates it
+still marks `required` are its open issue
+<https://github.com/CycloneDX/cyclonedx-rust-cargo/issues/766>, and the NOTICE
+filters them out against `cargo tree`, as it already narrows the Maven SBOM to
+the shipped jar.
+
+**Revisit when:** a cargo-cyclonedx release fixes #766 there (then the NOTICE
+filter against `cargo tree` goes, and the SBOM's scope alone narrows it); a
+legal review says crates used only at build time need no notice (then
+`no-proc-macro`); Cargo's SBOM output is stable (then cargo-auditable or
+Cargo's own data is the precise source); or the shell ships for a second
+target (then the list is the union of each target's `cargo tree`).
+
 ### Dependency manifests are not part of an audit's `Code paths`
 
 **Decided 2026-08-31** while analysing the jsoup 1.23.2 bump (#349). The blind

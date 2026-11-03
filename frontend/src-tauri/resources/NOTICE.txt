@@ -8,10 +8,10 @@ attached to the component. The product itself is licensed under
 the terms of the LICENSE file shipped alongside this notice in the
 installation directory.
 
-Total third-party components: 537
+Total third-party components: 490
   npm    110
   maven  106
-  cargo  321
+  cargo  274
 
 Generated: 2026-11-03
 
@@ -20,667 +20,7 @@ published alongside the installer on the GitHub Releases page.
 
 ------------------------------------------------------------------
 
-## MIT OR Apache-2.0  —  163 component(s)
-
-License text: see https://spdx.org/licenses/MIT%20OR%20Apache-2.0.html
-
-Components and their copyright notices:
-
-  * anyhow 1.0.104  [cargo]
-      David Tolnay <dtolnay@gmail.com>
-      https://github.com/dtolnay/anyhow
-
-  * base64 0.22.1  [cargo]
-      Marshall Pierce <marshall@mpierce.org>
-      https://github.com/marshallpierce/rust-base64
-
-  * base64 0.23.1  [cargo]
-      Marshall Pierce <marshall@mpierce.org>
-      https://github.com/marshallpierce/rust-base64
-
-  * bitflags 1.3.2  [cargo]
-      The Rust Project Developers
-      https://github.com/bitflags/bitflags
-
-  * bitflags 2.13.2  [cargo]
-      The Rust Project Developers
-      https://github.com/bitflags/bitflags
-
-  * block-buffer 0.10.4  [cargo]
-      RustCrypto Developers
-      https://github.com/RustCrypto/utils
-
-  * bs58 0.5.1  [cargo]
-      (copyright not declared)
-      https://github.com/Nullus157/bs58-rs
-
-  * camino 1.2.6  [cargo]
-      Without Boats <saoirse@without.boats>, Ashley Williams <ashley666ashley@gmail.com>, Steve Klabnik <steve@steveklabnik.com>, Rain <rain@sunshowers.io>
-      https://github.com/camino-rs/camino
-
-  * cargo-platform 0.1.9  [cargo]
-      (copyright not declared)
-      https://github.com/rust-lang/cargo
-
-  * cc 1.11.0  [cargo]
-      (copyright not declared)
-      https://github.com/rust-lang/cc-rs
-
-  * cfg-if 1.0.5  [cargo]
-      Alex Crichton <alex@alexcrichton.com>
-      https://github.com/rust-lang/cfg-if
-
-  * cookie 0.18.2  [cargo]
-      Sergio Benitez <sb@sergio.bz>, Alex Crichton <alex@alexcrichton.com>
-      https://github.com/SergioBenitez/cookie-rs
-
-  * core_detect 1.0.0  [cargo]
-      Thom Chiovoloni <chiovolonit@gmail.com>
-      https://github.com/thomcc/core_detect
-
-  * cpufeatures 0.2.17  [cargo]
-      RustCrypto Developers
-      https://github.com/RustCrypto/utils
-
-  * cpufeatures 0.3.1  [cargo]
-      RustCrypto Developers
-      https://github.com/RustCrypto/utils
-
-  * crc32fast 1.5.4  [cargo]
-      Sam Rijs <srijs@airpost.net>, Alex Crichton <alex@alexcrichton.com>
-      https://github.com/srijs/rust-crc32fast
-
-  * crossbeam-channel 0.5.17  [cargo]
-      (copyright not declared)
-      https://github.com/crossbeam-rs/crossbeam
-
-  * crossbeam-utils 0.8.23  [cargo]
-      (copyright not declared)
-      https://github.com/crossbeam-rs/crossbeam
-
-  * crypto-common 0.1.7  [cargo]
-      RustCrypto Developers
-      https://github.com/RustCrypto/traits
-
-  * data-url 0.3.2  [cargo]
-      Simon Sapin <simon.sapin@exyr.org>
-      https://github.com/servo/rust-url
-
-  * defmt 1.2.0  [cargo]
-      The Knurling-rs developers
-      https://github.com/knurling-rs/defmt
-
-  * defmt-macros 1.2.0  [cargo]
-      The Knurling-rs developers
-      https://github.com/knurling-rs/defmt
-
-  * defmt-parser 1.1.0  [cargo]
-      The Knurling-rs developers
-      https://github.com/knurling-rs/defmt
-
-  * deranged 0.5.9  [cargo]
-      Jacob Pratt <jacob@jhpratt.dev>
-      https://github.com/jhpratt/deranged
-
-  * digest 0.10.7  [cargo]
-      RustCrypto Developers
-      https://github.com/RustCrypto/traits
-
-  * dirs 7.0.0  [cargo]
-      Simon Ochsenreither <simon@ochsenreither.de>
-      https://codeberg.org/dirs/dirs-rs
-
-  * dirs-sys 0.5.0  [cargo]
-      Simon Ochsenreither <simon@ochsenreither.de>
-      https://github.com/dirs-dev/dirs-sys-rs
-
-  * displaydoc 0.2.7  [cargo]
-      Jane Lusby <jlusby@yaah.dev>
-      https://github.com/yaahc/displaydoc
-
-  * dtoa 1.0.11  [cargo]
-      David Tolnay <dtolnay@gmail.com>
-      https://github.com/dtolnay/dtoa
-
-  * dyn-clone 1.0.20  [cargo]
-      David Tolnay <dtolnay@gmail.com>
-      https://github.com/dtolnay/dyn-clone
-
-  * erased-serde 0.4.11  [cargo]
-      David Tolnay <dtolnay@gmail.com>
-      https://github.com/dtolnay/erased-serde
-
-  * fdeflate 0.3.7  [cargo]
-      The image-rs Developers
-      https://github.com/image-rs/fdeflate
-
-  * find-msvc-tools 0.1.15  [cargo]
-      (copyright not declared)
-      https://github.com/rust-lang/cc-rs
-
-  * flate2 1.1.10  [cargo]
-      Alex Crichton <alex@alexcrichton.com>, Josh Triplett <josh@joshtriplett.org>
-      https://github.com/rust-lang/flate2-rs
-
-  * form_urlencoded 1.2.2  [cargo]
-      The rust-url developers
-      https://github.com/servo/rust-url
-
-  * futures-core 0.3.34  [cargo]
-      (copyright not declared)
-      https://github.com/rust-lang/futures-rs
-
-  * futures-channel 0.3.34  [cargo]
-      (copyright not declared)
-      https://github.com/rust-lang/futures-rs
-
-  * futures-io 0.3.34  [cargo]
-      (copyright not declared)
-      https://github.com/rust-lang/futures-rs
-
-  * futures-macro 0.3.34  [cargo]
-      (copyright not declared)
-      https://github.com/rust-lang/futures-rs
-
-  * futures-sink 0.3.34  [cargo]
-      (copyright not declared)
-      https://github.com/rust-lang/futures-rs
-
-  * futures-task 0.3.34  [cargo]
-      (copyright not declared)
-      https://github.com/rust-lang/futures-rs
-
-  * futures-util 0.3.34  [cargo]
-      (copyright not declared)
-      https://github.com/rust-lang/futures-rs
-
-  * getrandom 0.2.17  [cargo]
-      The Rand Project Developers
-      https://github.com/rust-random/getrandom
-
-  * getrandom 0.3.4  [cargo]
-      The Rand Project Developers
-      https://github.com/rust-random/getrandom
-
-  * getrandom 0.4.3  [cargo]
-      The Rand Project Developers
-      https://github.com/rust-random/getrandom
-
-  * glob 0.3.4  [cargo]
-      The Rust Project Developers
-      https://github.com/rust-lang/glob
-
-  * hashbrown 0.12.3  [cargo]
-      Amanieu d'Antras <amanieu@gmail.com>
-      https://github.com/rust-lang/hashbrown
-
-  * hashbrown 0.17.1  [cargo]
-      (copyright not declared)
-      https://github.com/rust-lang/hashbrown
-
-  * heck 0.5.0  [cargo]
-      (copyright not declared)
-      https://github.com/withoutboats/heck
-
-  * hex 0.4.3  [cargo]
-      KokaKiwi <kokakiwi@kokakiwi.net>
-      https://github.com/KokaKiwi/rust-hex
-
-  * html5ever 0.39.0  [cargo]
-      The html5ever Project Developers
-      https://github.com/servo/html5ever
-
-  * http 1.5.0  [cargo]
-      Alex Crichton <alex@alexcrichton.com>, Carl Lerche <me@carllerche.com>, Sean McArthur <sean@seanmonstar.com>
-      https://github.com/hyperium/http
-
-  * httparse 1.10.1  [cargo]
-      Sean McArthur <sean@seanmonstar.com>
-      https://github.com/seanmonstar/httparse
-
-  * chacha20 0.10.2  [cargo]
-      RustCrypto Developers
-      https://github.com/RustCrypto/stream-ciphers
-
-  * chrono 0.4.45  [cargo]
-      (copyright not declared)
-      https://github.com/chronotope/chrono
-
-  * ident_case 1.0.1  [cargo]
-      Ted Driggs <ted.driggs@outlook.com>
-      https://github.com/TedDriggs/ident_case
-
-  * idna 1.1.0  [cargo]
-      The rust-url developers
-      https://github.com/servo/rust-url/
-
-  * ipnet 2.12.2  [cargo]
-      Kris Price <kris@krisprice.nz>
-      https://github.com/krisprice/ipnet
-
-  * itoa 1.0.18  [cargo]
-      David Tolnay <dtolnay@gmail.com>
-      https://github.com/dtolnay/itoa
-
-  * json-patch 4.2.0  [cargo]
-      Ivan Dubrov <dubrov.ivan@gmail.com>
-      https://github.com/idubrov/json-patch
-
-  * jsonptr 0.7.1  [cargo]
-      chance dinkins, André Sá de Mello <codasm@pm.me>, Oliver Wangler <oliver@wngr.de>
-      https://github.com/chanced/jsonptr
-
-  * keyboard-types 0.8.3  [cargo]
-      Pyfisch <pyfisch@posteo.org>
-      https://github.com/rust-windowing/keyboard-types
-
-  * libc 0.2.191  [cargo]
-      (copyright not declared)
-      https://github.com/rust-lang/libc
-
-  * lock_api 0.4.14  [cargo]
-      Amanieu d'Antras <amanieu@gmail.com>
-      https://github.com/Amanieu/parking_lot
-
-  * log 0.4.35  [cargo]
-      The Rust Project Developers
-      https://github.com/rust-lang/log
-
-  * markup5ever 0.39.0  [cargo]
-      The html5ever Project Developers
-      https://github.com/servo/html5ever
-
-  * mime 0.3.17  [cargo]
-      Sean McArthur <sean@seanmonstar.com>
-      https://github.com/hyperium/mime
-
-  * num-conv 0.2.2  [cargo]
-      Jacob Pratt <jacob@jhpratt.dev>
-      https://github.com/jhpratt/num-conv
-
-  * num-traits 0.2.19  [cargo]
-      The Rust Project Developers
-      https://github.com/rust-num/num-traits
-
-  * once_cell 1.21.4  [cargo]
-      Aleksey Kladov <aleksey.kladov@gmail.com>
-      https://github.com/matklad/once_cell
-
-  * parking_lot 0.12.5  [cargo]
-      Amanieu d'Antras <amanieu@gmail.com>
-      https://github.com/Amanieu/parking_lot
-
-  * parking_lot_core 0.9.12  [cargo]
-      Amanieu d'Antras <amanieu@gmail.com>
-      https://github.com/Amanieu/parking_lot
-
-  * percent-encoding 2.3.2  [cargo]
-      The rust-url developers
-      https://github.com/servo/rust-url/
-
-  * plugin-fs 2.7.1  [npm]
-      (no author in package.json — see git+https://github.com/tauri-apps/plugins-workspace.git)
-      git+https://github.com/tauri-apps/plugins-workspace.git
-
-  * plugin-http 2.8.3  [npm]
-      (no author in package.json — see git+https://github.com/tauri-apps/plugins-workspace.git)
-      git+https://github.com/tauri-apps/plugins-workspace.git
-
-  * plugin-shell 2.6.0  [npm]
-      (no author in package.json — see git+https://github.com/tauri-apps/plugins-workspace.git)
-      git+https://github.com/tauri-apps/plugins-workspace.git
-
-  * png 0.18.1  [cargo]
-      The image-rs Developers
-      https://github.com/image-rs/image-png
-
-  * powerfmt 0.2.1  [cargo]
-      Jacob Pratt <jacob@jhpratt.dev>
-      https://github.com/jhpratt/powerfmt
-
-  * proc-macro2 1.0.107  [cargo]
-      David Tolnay <dtolnay@gmail.com>, Alex Crichton <alex@alexcrichton.com>
-      https://github.com/dtolnay/proc-macro2
-
-  * quinn 0.11.12  [cargo]
-      (copyright not declared)
-      https://github.com/quinn-rs/quinn
-
-  * quinn-proto 0.11.19  [cargo]
-      (copyright not declared)
-      https://github.com/quinn-rs/quinn
-
-  * quinn-udp 0.5.16  [cargo]
-      (copyright not declared)
-      https://github.com/quinn-rs/quinn
-
-  * quote 1.0.47  [cargo]
-      David Tolnay <dtolnay@gmail.com>
-      https://github.com/dtolnay/quote
-
-  * rand 0.10.3  [cargo]
-      The Rand Project Developers, The Rust Project Developers
-      https://github.com/rust-random/rand
-
-  * rand_core 0.10.1  [cargo]
-      The Rand Project Developers
-      https://github.com/rust-random/rand_core
-
-  * rand_pcg 0.10.2  [cargo]
-      The Rand Project Developers
-      https://github.com/rust-random/rngs
-
-  * ref-cast 1.0.27  [cargo]
-      David Tolnay <dtolnay@gmail.com>
-      https://github.com/dtolnay/ref-cast
-
-  * ref-cast-impl 1.0.27  [cargo]
-      David Tolnay <dtolnay@gmail.com>
-      https://github.com/dtolnay/ref-cast
-
-  * regex 1.13.1  [cargo]
-      The Rust Project Developers, Andrew Gallant <jamslam@gmail.com>
-      https://github.com/rust-lang/regex
-
-  * regex-automata 0.4.18  [cargo]
-      The Rust Project Developers, Andrew Gallant <jamslam@gmail.com>
-      https://github.com/rust-lang/regex
-
-  * regex-syntax 0.8.11  [cargo]
-      The Rust Project Developers, Andrew Gallant <jamslam@gmail.com>
-      https://github.com/rust-lang/regex
-
-  * reqwest 0.12.28  [cargo]
-      Sean McArthur <sean@seanmonstar.com>
-      https://github.com/seanmonstar/reqwest
-
-  * reqwest 0.13.5  [cargo]
-      Sean McArthur <sean@seanmonstar.com>
-      https://github.com/seanmonstar/reqwest
-
-  * rustc_version 0.4.1  [cargo]
-      (copyright not declared)
-      https://github.com/djc/rustc-version-rs
-
-  * rustls-pki-types 1.15.1  [cargo]
-      (copyright not declared)
-      https://github.com/rustls/pki-types
-
-  * rustls-platform-verifier 0.7.1  [cargo]
-      (copyright not declared)
-      https://github.com/rustls/rustls-platform-verifier
-
-  * rustversion 1.0.23  [cargo]
-      David Tolnay <dtolnay@gmail.com>
-      https://github.com/dtolnay/rustversion
-
-  * scopeguard 1.2.0  [cargo]
-      bluss
-      https://github.com/bluss/scopeguard
-
-  * semver 1.0.28  [cargo]
-      David Tolnay <dtolnay@gmail.com>
-      https://github.com/dtolnay/semver
-
-  * serde 1.0.229  [cargo]
-      Erick Tryzelaar <erick.tryzelaar@gmail.com>, David Tolnay <dtolnay@gmail.com>
-      https://github.com/serde-rs/serde
-
-  * serde_core 1.0.229  [cargo]
-      Erick Tryzelaar <erick.tryzelaar@gmail.com>, David Tolnay <dtolnay@gmail.com>
-      https://github.com/serde-rs/serde
-
-  * serde_derive 1.0.229  [cargo]
-      Erick Tryzelaar <erick.tryzelaar@gmail.com>, David Tolnay <dtolnay@gmail.com>
-      https://github.com/serde-rs/serde
-
-  * serde_derive_internals 0.29.1  [cargo]
-      Erick Tryzelaar <erick.tryzelaar@gmail.com>, David Tolnay <dtolnay@gmail.com>
-      https://github.com/serde-rs/serde
-
-  * serde_json 1.0.154  [cargo]
-      (copyright not declared)
-      https://github.com/serde-rs/json
-
-  * serde_repr 0.1.21  [cargo]
-      David Tolnay <dtolnay@gmail.com>
-      https://github.com/dtolnay/serde-repr
-
-  * serde_spanned 1.1.2  [cargo]
-      (copyright not declared)
-      https://github.com/toml-rs/toml
-
-  * serde_urlencoded 0.7.1  [cargo]
-      Anthony Ramine <n.oxyde@gmail.com>
-      https://github.com/nox/serde_urlencoded
-
-  * serde_with 3.24.0  [cargo]
-      Jonas Bushart, Marcin Kaźmierczak
-      https://github.com/jonasbb/serde_with/
-
-  * serde_with_macros 3.24.0  [cargo]
-      Jonas Bushart
-      https://github.com/jonasbb/serde_with/
-
-  * serde-untagged 0.1.9  [cargo]
-      David Tolnay <dtolnay@gmail.com>
-      https://github.com/dtolnay/serde-untagged
-
-  * serialize-to-javascript 0.1.2  [cargo]
-      Chip Reed <chip@chip.sh>
-      https://github.com/chippers/serialize-to-javascript
-
-  * serialize-to-javascript-impl 0.1.2  [cargo]
-      Chip Reed <chip@chip.sh>
-      https://github.com/chippers/serialize-to-javascript
-
-  * servo_arc 0.4.3  [cargo]
-      The Servo Project Developers
-      https://github.com/servo/stylo
-
-  * sha2 0.10.9  [cargo]
-      RustCrypto Developers
-      https://github.com/RustCrypto/hashes
-
-  * shlex 2.0.1  [cargo]
-      comex <comexk@gmail.com>, Fenhl <fenhl@fenhl.net>, Adrian Taylor <adetaylor@chromium.org>, Alex Touchet <alextouchet@outlook.com>, Daniel Parks <dp+git@oxidized.org>, Garrett Berg <googberg@gmail.com>
-      https://github.com/comex/rust-shlex
-
-  * simdutf8 0.1.5  [cargo]
-      Hans Kratz <hans@appfour.com>
-      https://github.com/rusticstuff/simdutf8
-
-  * siphasher 1.0.4  [cargo]
-      Frank Denis <github@pureftpd.org>
-      https://github.com/jedisct1/rust-siphash
-
-  * smallvec 1.16.4  [cargo]
-      The Servo Project Developers
-      https://github.com/servo/rust-smallvec
-
-  * socket2 0.6.5  [cargo]
-      Alex Crichton <alex@alexcrichton.com>, Thomas de Zeeuw <thomasdezeeuw@gmail.com>
-      https://github.com/rust-lang/socket2
-
-  * softbuffer 0.4.8  [cargo]
-      (copyright not declared)
-      https://github.com/rust-windowing/softbuffer
-
-  * stable_deref_trait 1.2.1  [cargo]
-      Robert Grosse <n210241048576@gmail.com>
-      https://github.com/storyyeller/stable_deref_trait
-
-  * string_cache 0.9.0  [cargo]
-      The Servo Project Developers
-      https://github.com/servo/string-cache
-
-  * string_cache_codegen 0.6.1  [cargo]
-      The Servo Project Developers
-      https://github.com/servo/string-cache
-
-  * syn 2.0.119  [cargo]
-      David Tolnay <dtolnay@gmail.com>
-      https://github.com/dtolnay/syn
-
-  * syn 3.0.9  [cargo]
-      David Tolnay <dtolnay@gmail.com>
-      https://github.com/dtolnay/syn
-
-  * tempfile 3.27.0  [cargo]
-      Steven Allen <steven@stebalien.com>, The Rust Project Developers, Ashley Mannix <ashleymannix@live.com.au>, Jason White <me@jasonwhite.io>
-      https://github.com/Stebalien/tempfile
-
-  * tendril 0.5.1  [cargo]
-      Keegan McAllister <mcallister.keegan@gmail.com>, Simon Sapin <simon.sapin@exyr.org>, Chris Morgan <me@chrismorgan.info>
-      https://github.com/servo/html5ever
-
-  * thiserror 2.0.21  [cargo]
-      David Tolnay <dtolnay@gmail.com>
-      https://github.com/dtolnay/thiserror
-
-  * thiserror-impl 2.0.21  [cargo]
-      David Tolnay <dtolnay@gmail.com>
-      https://github.com/dtolnay/thiserror
-
-  * time 0.3.55  [cargo]
-      Jacob Pratt <open-source@jhpratt.dev>, Time contributors
-      https://github.com/time-rs/time
-
-  * time-core 0.1.9  [cargo]
-      Jacob Pratt <open-source@jhpratt.dev>, Time contributors
-      https://github.com/time-rs/time
-
-  * time-macros 0.2.32  [cargo]
-      Jacob Pratt <open-source@jhpratt.dev>, Time contributors
-      https://github.com/time-rs/time
-
-  * tokio-rustls 0.26.6  [cargo]
-      (copyright not declared)
-      https://github.com/rustls/tokio-rustls
-
-  * toml 1.1.8+spec-1.1.0  [cargo]
-      (copyright not declared)
-      https://github.com/toml-rs/toml
-
-  * toml_datetime 1.1.2+spec-1.1.0  [cargo]
-      (copyright not declared)
-      https://github.com/toml-rs/toml
-
-  * toml_parser 1.1.5+spec-1.1.0  [cargo]
-      (copyright not declared)
-      https://github.com/toml-rs/toml
-
-  * toml_writer 1.1.3+spec-1.1.0  [cargo]
-      (copyright not declared)
-      https://github.com/toml-rs/toml
-
-  * tray-icon 0.25.1  [cargo]
-      (copyright not declared)
-      https://github.com/tauri-apps/tray-icon
-
-  * typed-path 0.13.0  [cargo]
-      Chip Senkbeil <chip@senkbeil.org>
-      https://github.com/chipsenkbeil/typed-path
-
-  * typeid 1.0.3  [cargo]
-      David Tolnay <dtolnay@gmail.com>
-      https://github.com/dtolnay/typeid
-
-  * typenum 1.20.1  [cargo]
-      (copyright not declared)
-      https://github.com/paholg/typenum
-
-  * unicode-segmentation 1.13.3  [cargo]
-      kwantam <kwantam@gmail.com>, Manish Goregaokar <manishsmail@gmail.com>
-      https://github.com/unicode-rs/unicode-segmentation
-
-  * url 2.5.8  [cargo]
-      The rust-url developers
-      https://github.com/servo/rust-url
-
-  * version_check 0.9.5  [cargo]
-      Sergio Benitez <sb@sergio.bz>
-      https://github.com/SergioBenitez/version_check
-
-  * web_atoms 0.2.6  [cargo]
-      The html5ever Project Developers
-      https://github.com/servo/html5ever
-
-  * web-time 1.1.0  [cargo]
-      (copyright not declared)
-      https://github.com/daxpedda/web-time
-
-  * windows 0.62.2  [cargo]
-      (copyright not declared)
-      https://github.com/microsoft/windows-rs
-
-  * windows_x86_64_msvc 0.53.1  [cargo]
-      (copyright not declared)
-      https://github.com/microsoft/windows-rs
-
-  * windows-collections 0.3.2  [cargo]
-      (copyright not declared)
-      https://github.com/microsoft/windows-rs
-
-  * windows-core 0.62.2  [cargo]
-      (copyright not declared)
-      https://github.com/microsoft/windows-rs
-
-  * windows-future 0.3.2  [cargo]
-      (copyright not declared)
-      https://github.com/microsoft/windows-rs
-
-  * windows-implement 0.60.2  [cargo]
-      (copyright not declared)
-      https://github.com/microsoft/windows-rs
-
-  * windows-interface 0.59.3  [cargo]
-      (copyright not declared)
-      https://github.com/microsoft/windows-rs
-
-  * windows-link 0.2.1  [cargo]
-      (copyright not declared)
-      https://github.com/microsoft/windows-rs
-
-  * windows-numerics 0.3.1  [cargo]
-      (copyright not declared)
-      https://github.com/microsoft/windows-rs
-
-  * windows-registry 0.6.1  [cargo]
-      (copyright not declared)
-      https://github.com/microsoft/windows-rs
-
-  * windows-result 0.4.1  [cargo]
-      (copyright not declared)
-      https://github.com/microsoft/windows-rs
-
-  * windows-strings 0.5.1  [cargo]
-      (copyright not declared)
-      https://github.com/microsoft/windows-rs
-
-  * windows-sys 0.60.2  [cargo]
-      Microsoft
-      https://github.com/microsoft/windows-rs
-
-  * windows-sys 0.61.2  [cargo]
-      (copyright not declared)
-      https://github.com/microsoft/windows-rs
-
-  * windows-targets 0.53.5  [cargo]
-      (copyright not declared)
-      https://github.com/microsoft/windows-rs
-
-  * windows-threading 0.2.1  [cargo]
-      (copyright not declared)
-      https://github.com/microsoft/windows-rs
-
-  * windows-version 0.1.7  [cargo]
-      (copyright not declared)
-      https://github.com/microsoft/windows-rs
-
-------------------------------------------------------------------
-
-## MIT  —  148 component(s)
+## MIT  —  139 component(s)
 
 License text:
 
@@ -733,10 +73,6 @@ Components and their copyright notices:
   * cfb 0.14.0  [cargo]
       Matthew D. Steele <mdsteele@alum.mit.edu>
       https://github.com/mdsteele/rust-cfb
-
-  * cfg_aliases 0.2.2  [cargo]
-      Zicklag <zicklag@katharostech.com>
-      https://github.com/katharostech/cfg_aliases
 
   * clsx 2.1.1  [npm]
       Luke Edwards
@@ -797,10 +133,6 @@ Components and their copyright notices:
   * ecma402-abstract 2.3.6  [npm]
       Long Ho
       git+ssh://git@github.com/formatjs/formatjs.git
-
-  * embed-resource 3.0.12  [cargo]
-      наб <nabijaczleweli@nabijaczleweli.xyz>, Cat Plus Plus <piotrlegnica@piotrl.pl>, Liigo <liigo@qq.com>, azyobuzin <azyobuzin@users.sourceforge.jp>, Peter Atashian <retep998@gmail.com>, pravic <ehysta@gmail.com>, Gabriel Majeri <gabriel.majeri6@gmail.com>, SonnyX, Johan Andersson <repi@repi.se>, Jordan Poles <jpdev.noreply@gmail.com>, MSxDOS <melcodos@gmail.com>, Jim McGrath <jimmc2@gmail.com>, roblabla <unfiltered@roblab.la>, Jasper Bekkers <jasper@traverseresearch.nl>, Richard Markiewicz <rmarkiewicz@devolutions.net>, Emerson de Freitas Barcelos <emersonfxbx@gmail.com>, Li Keqing <me@kaze.ai>, Alexis Bourget <alexis.bourget@gmail.com>, Michael Farrell <micolous+git@gmail.com>, Jacob Okamoto <oko@oko.io>, Marijn Suijten <marijn@traverseresearch.nl>, Lucas Nogueira <lucas@tauri.app>, CharlesChen0823 <yongchen0823@gmail.com>, Daniel Schaefer <dhs@frame.work>, Rene Leonhardt, ssrlive, Kan-Ru Chen <kanru@kanru.info>, Tony <legendmastertony@gmail.com>, Berrysoft <Strawberry_Str@hotmail.com>, Marcus Ahlberg <marcus.ahlberg@kvaser.com>, Thomas Eizinger <thomas@eizinger.io>
-      https://github.com/nabijaczleweli/rust-embed-resource
 
   * enhanced-resolve 5.24.3  [npm]
       Tobias Koppers @sokra
@@ -998,10 +330,6 @@ Components and their copyright notices:
       Steven Fackler <sfackler@gmail.com>
       https://github.com/rust-phf/rust-phf
 
-  * phf_codegen 0.13.1  [cargo]
-      Steven Fackler <sfackler@gmail.com>
-      https://github.com/rust-phf/rust-phf
-
   * phf_generator 0.13.1  [cargo]
       Steven Fackler <sfackler@gmail.com>
       https://github.com/rust-phf/rust-phf
@@ -1063,14 +391,6 @@ Components and their copyright notices:
       https://github.com/oconnor663/shared_child.rs
 
   * schemars 0.8.22  [cargo]
-      Graham Esau <gesau@hotmail.co.uk>
-      https://github.com/GREsau/schemars
-
-  * schemars 0.9.0  [cargo]
-      Graham Esau <gesau@hotmail.co.uk>
-      https://github.com/GREsau/schemars
-
-  * schemars 1.2.3  [cargo]
       Graham Esau <gesau@hotmail.co.uk>
       https://github.com/GREsau/schemars
 
@@ -1141,10 +461,6 @@ Components and their copyright notices:
   * tapable 2.3.3  [npm]
       Tobias Koppers @sokra
       git+ssh://git@github.com/webpack/tapable.git
-
-  * tauri-winres 0.3.7  [cargo]
-      Tauri Programme within The Commons Conservancy, Max Resch <resch.max@gmail.com>
-      https://github.com/tauri-apps/winres
 
   * tiny-glob 0.2.9  [npm]
       Terkel Gjervig
@@ -1250,14 +566,6 @@ Components and their copyright notices:
       (no author in package.json — see git+https://github.com/svitejs/vitefu.git)
       git+https://github.com/svitejs/vitefu.git
 
-  * vswhom 0.1.0  [cargo]
-      nabijaczleweli <nabijaczleweli@gmail.com>
-      https://github.com/nabijaczleweli/vswhom.rs
-
-  * vswhom-sys 0.1.3  [cargo]
-      наб <nabijaczleweli@nabijaczleweli.xyz>, forrestsmithfb <forrest.smith@fb.com>
-      https://github.com/nabijaczleweli/vswhom-sys.rs
-
   * want 0.3.2  [cargo]
       Sean McArthur <sean@seanmonstar.com>
       https://github.com/seanmonstar/want
@@ -1282,10 +590,6 @@ Components and their copyright notices:
       (copyright not declared)
       https://github.com/winnow-rs/winnow
 
-  * winreg 0.56.0  [cargo]
-      Igor Shaula <gentoo90@gmail.com>
-      https://github.com/gentoo90/winreg-rs
-
   * zimmerframe 1.1.4  [npm]
       (no author in package.json — see git+https://github.com/sveltejs/zimmerframe.git)
       git+https://github.com/sveltejs/zimmerframe.git
@@ -1297,6 +601,562 @@ Components and their copyright notices:
   * zmij 1.0.23  [cargo]
       David Tolnay <dtolnay@gmail.com>
       https://github.com/dtolnay/zmij
+
+------------------------------------------------------------------
+
+## MIT OR Apache-2.0  —  137 component(s)
+
+License text: see https://spdx.org/licenses/MIT%20OR%20Apache-2.0.html
+
+Components and their copyright notices:
+
+  * anyhow 1.0.104  [cargo]
+      David Tolnay <dtolnay@gmail.com>
+      https://github.com/dtolnay/anyhow
+
+  * base64 0.22.1  [cargo]
+      Marshall Pierce <marshall@mpierce.org>
+      https://github.com/marshallpierce/rust-base64
+
+  * base64 0.23.1  [cargo]
+      Marshall Pierce <marshall@mpierce.org>
+      https://github.com/marshallpierce/rust-base64
+
+  * bitflags 2.13.2  [cargo]
+      The Rust Project Developers
+      https://github.com/bitflags/bitflags
+
+  * block-buffer 0.10.4  [cargo]
+      RustCrypto Developers
+      https://github.com/RustCrypto/utils
+
+  * camino 1.2.6  [cargo]
+      Without Boats <saoirse@without.boats>, Ashley Williams <ashley666ashley@gmail.com>, Steve Klabnik <steve@steveklabnik.com>, Rain <rain@sunshowers.io>
+      https://github.com/camino-rs/camino
+
+  * cargo-platform 0.1.9  [cargo]
+      (copyright not declared)
+      https://github.com/rust-lang/cargo
+
+  * cfg-if 1.0.5  [cargo]
+      Alex Crichton <alex@alexcrichton.com>
+      https://github.com/rust-lang/cfg-if
+
+  * cookie 0.18.2  [cargo]
+      Sergio Benitez <sb@sergio.bz>, Alex Crichton <alex@alexcrichton.com>
+      https://github.com/SergioBenitez/cookie-rs
+
+  * core_detect 1.0.0  [cargo]
+      Thom Chiovoloni <chiovolonit@gmail.com>
+      https://github.com/thomcc/core_detect
+
+  * cpufeatures 0.2.17  [cargo]
+      RustCrypto Developers
+      https://github.com/RustCrypto/utils
+
+  * crc32fast 1.5.4  [cargo]
+      Sam Rijs <srijs@airpost.net>, Alex Crichton <alex@alexcrichton.com>
+      https://github.com/srijs/rust-crc32fast
+
+  * crossbeam-channel 0.5.17  [cargo]
+      (copyright not declared)
+      https://github.com/crossbeam-rs/crossbeam
+
+  * crossbeam-utils 0.8.23  [cargo]
+      (copyright not declared)
+      https://github.com/crossbeam-rs/crossbeam
+
+  * crypto-common 0.1.7  [cargo]
+      RustCrypto Developers
+      https://github.com/RustCrypto/traits
+
+  * data-url 0.3.2  [cargo]
+      Simon Sapin <simon.sapin@exyr.org>
+      https://github.com/servo/rust-url
+
+  * deranged 0.5.9  [cargo]
+      Jacob Pratt <jacob@jhpratt.dev>
+      https://github.com/jhpratt/deranged
+
+  * digest 0.10.7  [cargo]
+      RustCrypto Developers
+      https://github.com/RustCrypto/traits
+
+  * dirs 7.0.0  [cargo]
+      Simon Ochsenreither <simon@ochsenreither.de>
+      https://codeberg.org/dirs/dirs-rs
+
+  * dirs-sys 0.5.0  [cargo]
+      Simon Ochsenreither <simon@ochsenreither.de>
+      https://github.com/dirs-dev/dirs-sys-rs
+
+  * displaydoc 0.2.7  [cargo]
+      Jane Lusby <jlusby@yaah.dev>
+      https://github.com/yaahc/displaydoc
+
+  * dtoa 1.0.11  [cargo]
+      David Tolnay <dtolnay@gmail.com>
+      https://github.com/dtolnay/dtoa
+
+  * dyn-clone 1.0.20  [cargo]
+      David Tolnay <dtolnay@gmail.com>
+      https://github.com/dtolnay/dyn-clone
+
+  * erased-serde 0.4.11  [cargo]
+      David Tolnay <dtolnay@gmail.com>
+      https://github.com/dtolnay/erased-serde
+
+  * fdeflate 0.3.7  [cargo]
+      The image-rs Developers
+      https://github.com/image-rs/fdeflate
+
+  * flate2 1.1.10  [cargo]
+      Alex Crichton <alex@alexcrichton.com>, Josh Triplett <josh@joshtriplett.org>
+      https://github.com/rust-lang/flate2-rs
+
+  * form_urlencoded 1.2.2  [cargo]
+      The rust-url developers
+      https://github.com/servo/rust-url
+
+  * futures-core 0.3.34  [cargo]
+      (copyright not declared)
+      https://github.com/rust-lang/futures-rs
+
+  * futures-channel 0.3.34  [cargo]
+      (copyright not declared)
+      https://github.com/rust-lang/futures-rs
+
+  * futures-macro 0.3.34  [cargo]
+      (copyright not declared)
+      https://github.com/rust-lang/futures-rs
+
+  * futures-sink 0.3.34  [cargo]
+      (copyright not declared)
+      https://github.com/rust-lang/futures-rs
+
+  * futures-task 0.3.34  [cargo]
+      (copyright not declared)
+      https://github.com/rust-lang/futures-rs
+
+  * futures-util 0.3.34  [cargo]
+      (copyright not declared)
+      https://github.com/rust-lang/futures-rs
+
+  * getrandom 0.2.17  [cargo]
+      The Rand Project Developers
+      https://github.com/rust-random/getrandom
+
+  * getrandom 0.3.4  [cargo]
+      The Rand Project Developers
+      https://github.com/rust-random/getrandom
+
+  * getrandom 0.4.3  [cargo]
+      The Rand Project Developers
+      https://github.com/rust-random/getrandom
+
+  * glob 0.3.4  [cargo]
+      The Rust Project Developers
+      https://github.com/rust-lang/glob
+
+  * hashbrown 0.12.3  [cargo]
+      Amanieu d'Antras <amanieu@gmail.com>
+      https://github.com/rust-lang/hashbrown
+
+  * hashbrown 0.17.1  [cargo]
+      (copyright not declared)
+      https://github.com/rust-lang/hashbrown
+
+  * heck 0.5.0  [cargo]
+      (copyright not declared)
+      https://github.com/withoutboats/heck
+
+  * html5ever 0.39.0  [cargo]
+      The html5ever Project Developers
+      https://github.com/servo/html5ever
+
+  * http 1.5.0  [cargo]
+      Alex Crichton <alex@alexcrichton.com>, Carl Lerche <me@carllerche.com>, Sean McArthur <sean@seanmonstar.com>
+      https://github.com/hyperium/http
+
+  * httparse 1.10.1  [cargo]
+      Sean McArthur <sean@seanmonstar.com>
+      https://github.com/seanmonstar/httparse
+
+  * ident_case 1.0.1  [cargo]
+      Ted Driggs <ted.driggs@outlook.com>
+      https://github.com/TedDriggs/ident_case
+
+  * idna 1.1.0  [cargo]
+      The rust-url developers
+      https://github.com/servo/rust-url/
+
+  * ipnet 2.12.2  [cargo]
+      Kris Price <kris@krisprice.nz>
+      https://github.com/krisprice/ipnet
+
+  * itoa 1.0.18  [cargo]
+      David Tolnay <dtolnay@gmail.com>
+      https://github.com/dtolnay/itoa
+
+  * json-patch 4.2.0  [cargo]
+      Ivan Dubrov <dubrov.ivan@gmail.com>
+      https://github.com/idubrov/json-patch
+
+  * jsonptr 0.7.1  [cargo]
+      chance dinkins, André Sá de Mello <codasm@pm.me>, Oliver Wangler <oliver@wngr.de>
+      https://github.com/chanced/jsonptr
+
+  * keyboard-types 0.8.3  [cargo]
+      Pyfisch <pyfisch@posteo.org>
+      https://github.com/rust-windowing/keyboard-types
+
+  * libc 0.2.191  [cargo]
+      (copyright not declared)
+      https://github.com/rust-lang/libc
+
+  * lock_api 0.4.14  [cargo]
+      Amanieu d'Antras <amanieu@gmail.com>
+      https://github.com/Amanieu/parking_lot
+
+  * log 0.4.35  [cargo]
+      The Rust Project Developers
+      https://github.com/rust-lang/log
+
+  * markup5ever 0.39.0  [cargo]
+      The html5ever Project Developers
+      https://github.com/servo/html5ever
+
+  * mime 0.3.17  [cargo]
+      Sean McArthur <sean@seanmonstar.com>
+      https://github.com/hyperium/mime
+
+  * num-conv 0.2.2  [cargo]
+      Jacob Pratt <jacob@jhpratt.dev>
+      https://github.com/jhpratt/num-conv
+
+  * once_cell 1.21.4  [cargo]
+      Aleksey Kladov <aleksey.kladov@gmail.com>
+      https://github.com/matklad/once_cell
+
+  * parking_lot 0.12.5  [cargo]
+      Amanieu d'Antras <amanieu@gmail.com>
+      https://github.com/Amanieu/parking_lot
+
+  * parking_lot_core 0.9.12  [cargo]
+      Amanieu d'Antras <amanieu@gmail.com>
+      https://github.com/Amanieu/parking_lot
+
+  * percent-encoding 2.3.2  [cargo]
+      The rust-url developers
+      https://github.com/servo/rust-url/
+
+  * plugin-fs 2.7.1  [npm]
+      (no author in package.json — see git+https://github.com/tauri-apps/plugins-workspace.git)
+      git+https://github.com/tauri-apps/plugins-workspace.git
+
+  * plugin-http 2.8.3  [npm]
+      (no author in package.json — see git+https://github.com/tauri-apps/plugins-workspace.git)
+      git+https://github.com/tauri-apps/plugins-workspace.git
+
+  * plugin-shell 2.6.0  [npm]
+      (no author in package.json — see git+https://github.com/tauri-apps/plugins-workspace.git)
+      git+https://github.com/tauri-apps/plugins-workspace.git
+
+  * png 0.18.1  [cargo]
+      The image-rs Developers
+      https://github.com/image-rs/image-png
+
+  * powerfmt 0.2.1  [cargo]
+      Jacob Pratt <jacob@jhpratt.dev>
+      https://github.com/jhpratt/powerfmt
+
+  * proc-macro2 1.0.107  [cargo]
+      David Tolnay <dtolnay@gmail.com>, Alex Crichton <alex@alexcrichton.com>
+      https://github.com/dtolnay/proc-macro2
+
+  * quote 1.0.47  [cargo]
+      David Tolnay <dtolnay@gmail.com>
+      https://github.com/dtolnay/quote
+
+  * regex 1.13.1  [cargo]
+      The Rust Project Developers, Andrew Gallant <jamslam@gmail.com>
+      https://github.com/rust-lang/regex
+
+  * regex-automata 0.4.18  [cargo]
+      The Rust Project Developers, Andrew Gallant <jamslam@gmail.com>
+      https://github.com/rust-lang/regex
+
+  * regex-syntax 0.8.11  [cargo]
+      The Rust Project Developers, Andrew Gallant <jamslam@gmail.com>
+      https://github.com/rust-lang/regex
+
+  * reqwest 0.12.28  [cargo]
+      Sean McArthur <sean@seanmonstar.com>
+      https://github.com/seanmonstar/reqwest
+
+  * reqwest 0.13.5  [cargo]
+      Sean McArthur <sean@seanmonstar.com>
+      https://github.com/seanmonstar/reqwest
+
+  * rustls-pki-types 1.15.1  [cargo]
+      (copyright not declared)
+      https://github.com/rustls/pki-types
+
+  * rustls-platform-verifier 0.7.1  [cargo]
+      (copyright not declared)
+      https://github.com/rustls/rustls-platform-verifier
+
+  * scopeguard 1.2.0  [cargo]
+      bluss
+      https://github.com/bluss/scopeguard
+
+  * semver 1.0.28  [cargo]
+      David Tolnay <dtolnay@gmail.com>
+      https://github.com/dtolnay/semver
+
+  * serde 1.0.229  [cargo]
+      Erick Tryzelaar <erick.tryzelaar@gmail.com>, David Tolnay <dtolnay@gmail.com>
+      https://github.com/serde-rs/serde
+
+  * serde_core 1.0.229  [cargo]
+      Erick Tryzelaar <erick.tryzelaar@gmail.com>, David Tolnay <dtolnay@gmail.com>
+      https://github.com/serde-rs/serde
+
+  * serde_derive 1.0.229  [cargo]
+      Erick Tryzelaar <erick.tryzelaar@gmail.com>, David Tolnay <dtolnay@gmail.com>
+      https://github.com/serde-rs/serde
+
+  * serde_derive_internals 0.29.1  [cargo]
+      Erick Tryzelaar <erick.tryzelaar@gmail.com>, David Tolnay <dtolnay@gmail.com>
+      https://github.com/serde-rs/serde
+
+  * serde_json 1.0.154  [cargo]
+      (copyright not declared)
+      https://github.com/serde-rs/json
+
+  * serde_repr 0.1.21  [cargo]
+      David Tolnay <dtolnay@gmail.com>
+      https://github.com/dtolnay/serde-repr
+
+  * serde_spanned 1.1.2  [cargo]
+      (copyright not declared)
+      https://github.com/toml-rs/toml
+
+  * serde_urlencoded 0.7.1  [cargo]
+      Anthony Ramine <n.oxyde@gmail.com>
+      https://github.com/nox/serde_urlencoded
+
+  * serde_with 3.24.0  [cargo]
+      Jonas Bushart, Marcin Kaźmierczak
+      https://github.com/jonasbb/serde_with/
+
+  * serde_with_macros 3.24.0  [cargo]
+      Jonas Bushart
+      https://github.com/jonasbb/serde_with/
+
+  * serde-untagged 0.1.9  [cargo]
+      David Tolnay <dtolnay@gmail.com>
+      https://github.com/dtolnay/serde-untagged
+
+  * serialize-to-javascript 0.1.2  [cargo]
+      Chip Reed <chip@chip.sh>
+      https://github.com/chippers/serialize-to-javascript
+
+  * serialize-to-javascript-impl 0.1.2  [cargo]
+      Chip Reed <chip@chip.sh>
+      https://github.com/chippers/serialize-to-javascript
+
+  * servo_arc 0.4.3  [cargo]
+      The Servo Project Developers
+      https://github.com/servo/stylo
+
+  * sha2 0.10.9  [cargo]
+      RustCrypto Developers
+      https://github.com/RustCrypto/hashes
+
+  * simdutf8 0.1.5  [cargo]
+      Hans Kratz <hans@appfour.com>
+      https://github.com/rusticstuff/simdutf8
+
+  * siphasher 1.0.4  [cargo]
+      Frank Denis <github@pureftpd.org>
+      https://github.com/jedisct1/rust-siphash
+
+  * smallvec 1.16.4  [cargo]
+      The Servo Project Developers
+      https://github.com/servo/rust-smallvec
+
+  * socket2 0.6.5  [cargo]
+      Alex Crichton <alex@alexcrichton.com>, Thomas de Zeeuw <thomasdezeeuw@gmail.com>
+      https://github.com/rust-lang/socket2
+
+  * softbuffer 0.4.8  [cargo]
+      (copyright not declared)
+      https://github.com/rust-windowing/softbuffer
+
+  * stable_deref_trait 1.2.1  [cargo]
+      Robert Grosse <n210241048576@gmail.com>
+      https://github.com/storyyeller/stable_deref_trait
+
+  * string_cache 0.9.0  [cargo]
+      The Servo Project Developers
+      https://github.com/servo/string-cache
+
+  * syn 2.0.119  [cargo]
+      David Tolnay <dtolnay@gmail.com>
+      https://github.com/dtolnay/syn
+
+  * syn 3.0.9  [cargo]
+      David Tolnay <dtolnay@gmail.com>
+      https://github.com/dtolnay/syn
+
+  * tempfile 3.27.0  [cargo]
+      Steven Allen <steven@stebalien.com>, The Rust Project Developers, Ashley Mannix <ashleymannix@live.com.au>, Jason White <me@jasonwhite.io>
+      https://github.com/Stebalien/tempfile
+
+  * tendril 0.5.1  [cargo]
+      Keegan McAllister <mcallister.keegan@gmail.com>, Simon Sapin <simon.sapin@exyr.org>, Chris Morgan <me@chrismorgan.info>
+      https://github.com/servo/html5ever
+
+  * thiserror 2.0.21  [cargo]
+      David Tolnay <dtolnay@gmail.com>
+      https://github.com/dtolnay/thiserror
+
+  * thiserror-impl 2.0.21  [cargo]
+      David Tolnay <dtolnay@gmail.com>
+      https://github.com/dtolnay/thiserror
+
+  * time 0.3.55  [cargo]
+      Jacob Pratt <open-source@jhpratt.dev>, Time contributors
+      https://github.com/time-rs/time
+
+  * time-core 0.1.9  [cargo]
+      Jacob Pratt <open-source@jhpratt.dev>, Time contributors
+      https://github.com/time-rs/time
+
+  * time-macros 0.2.32  [cargo]
+      Jacob Pratt <open-source@jhpratt.dev>, Time contributors
+      https://github.com/time-rs/time
+
+  * tokio-rustls 0.26.6  [cargo]
+      (copyright not declared)
+      https://github.com/rustls/tokio-rustls
+
+  * toml 1.1.8+spec-1.1.0  [cargo]
+      (copyright not declared)
+      https://github.com/toml-rs/toml
+
+  * toml_datetime 1.1.2+spec-1.1.0  [cargo]
+      (copyright not declared)
+      https://github.com/toml-rs/toml
+
+  * toml_parser 1.1.5+spec-1.1.0  [cargo]
+      (copyright not declared)
+      https://github.com/toml-rs/toml
+
+  * toml_writer 1.1.3+spec-1.1.0  [cargo]
+      (copyright not declared)
+      https://github.com/toml-rs/toml
+
+  * tray-icon 0.25.1  [cargo]
+      (copyright not declared)
+      https://github.com/tauri-apps/tray-icon
+
+  * typed-path 0.13.0  [cargo]
+      Chip Senkbeil <chip@senkbeil.org>
+      https://github.com/chipsenkbeil/typed-path
+
+  * typeid 1.0.3  [cargo]
+      David Tolnay <dtolnay@gmail.com>
+      https://github.com/dtolnay/typeid
+
+  * typenum 1.20.1  [cargo]
+      (copyright not declared)
+      https://github.com/paholg/typenum
+
+  * unicode-segmentation 1.13.3  [cargo]
+      kwantam <kwantam@gmail.com>, Manish Goregaokar <manishsmail@gmail.com>
+      https://github.com/unicode-rs/unicode-segmentation
+
+  * url 2.5.8  [cargo]
+      The rust-url developers
+      https://github.com/servo/rust-url
+
+  * web_atoms 0.2.6  [cargo]
+      The html5ever Project Developers
+      https://github.com/servo/html5ever
+
+  * web-time 1.1.0  [cargo]
+      (copyright not declared)
+      https://github.com/daxpedda/web-time
+
+  * windows 0.62.2  [cargo]
+      (copyright not declared)
+      https://github.com/microsoft/windows-rs
+
+  * windows_x86_64_msvc 0.53.1  [cargo]
+      (copyright not declared)
+      https://github.com/microsoft/windows-rs
+
+  * windows-collections 0.3.2  [cargo]
+      (copyright not declared)
+      https://github.com/microsoft/windows-rs
+
+  * windows-core 0.62.2  [cargo]
+      (copyright not declared)
+      https://github.com/microsoft/windows-rs
+
+  * windows-future 0.3.2  [cargo]
+      (copyright not declared)
+      https://github.com/microsoft/windows-rs
+
+  * windows-implement 0.60.2  [cargo]
+      (copyright not declared)
+      https://github.com/microsoft/windows-rs
+
+  * windows-interface 0.59.3  [cargo]
+      (copyright not declared)
+      https://github.com/microsoft/windows-rs
+
+  * windows-link 0.2.1  [cargo]
+      (copyright not declared)
+      https://github.com/microsoft/windows-rs
+
+  * windows-numerics 0.3.1  [cargo]
+      (copyright not declared)
+      https://github.com/microsoft/windows-rs
+
+  * windows-registry 0.6.1  [cargo]
+      (copyright not declared)
+      https://github.com/microsoft/windows-rs
+
+  * windows-result 0.4.1  [cargo]
+      (copyright not declared)
+      https://github.com/microsoft/windows-rs
+
+  * windows-strings 0.5.1  [cargo]
+      (copyright not declared)
+      https://github.com/microsoft/windows-rs
+
+  * windows-sys 0.60.2  [cargo]
+      Microsoft
+      https://github.com/microsoft/windows-rs
+
+  * windows-sys 0.61.2  [cargo]
+      (copyright not declared)
+      https://github.com/microsoft/windows-rs
+
+  * windows-targets 0.53.5  [cargo]
+      (copyright not declared)
+      https://github.com/microsoft/windows-rs
+
+  * windows-threading 0.2.1  [cargo]
+      (copyright not declared)
+      https://github.com/microsoft/windows-rs
+
+  * windows-version 0.1.7  [cargo]
+      (copyright not declared)
+      https://github.com/microsoft/windows-rs
 
 ------------------------------------------------------------------
 
@@ -1846,7 +1706,7 @@ Components and their copyright notices:
 
 ------------------------------------------------------------------
 
-## Apache-2.0 OR MIT  —  36 component(s)
+## Apache-2.0 OR MIT  —  32 component(s)
 
 License text: see https://spdx.org/licenses/Apache-2.0%20OR%20MIT.html
 
@@ -1860,10 +1720,6 @@ Components and their copyright notices:
       Stjepan Glavina <stjepang@gmail.com>, Contributors to futures-rs
       https://github.com/smol-rs/atomic-waker
 
-  * autocfg 1.5.1  [cargo]
-      Josh Stone <cuviper@gmail.com>
-      https://github.com/cuviper/autocfg
-
   * bit-set 0.8.0  [cargo]
       Alexis Beingessner <a.beingessner@gmail.com>
       https://github.com/contain-rs/bit-set
@@ -1871,10 +1727,6 @@ Components and their copyright notices:
   * bit-vec 0.8.0  [cargo]
       Alexis Beingessner <a.beingessner@gmail.com>
       https://github.com/contain-rs/bit-vec
-
-  * cargo_toml 1.0.1  [cargo]
-      Kornel <kornel@geekhood.net>
-      https://gitlab.com/lib.rs/cargo_toml
 
   * ctor 1.0.13  [cargo]
       Matt Mastracci <matthew@mastracci.com>
@@ -1920,19 +1772,11 @@ Components and their copyright notices:
       Tauri Programme within The Commons Conservancy
       https://github.com/tauri-apps/tauri
 
-  * tauri-build 2.7.4  [cargo]
-      Tauri Programme within The Commons Conservancy
-      https://github.com/tauri-apps/tauri
-
   * tauri-codegen 2.7.4  [cargo]
       Tauri Programme within The Commons Conservancy
       https://github.com/tauri-apps/tauri
 
   * tauri-macros 2.7.4  [cargo]
-      Tauri Programme within The Commons Conservancy
-      https://github.com/tauri-apps/tauri
-
-  * tauri-plugin 2.7.2  [cargo]
       Tauri Programme within The Commons Conservancy
       https://github.com/tauri-apps/tauri
 
@@ -2255,54 +2099,6 @@ Components and their copyright notices:
 
 ------------------------------------------------------------------
 
-## Unlicense OR MIT  —  10 component(s)
-
-License text: see https://spdx.org/licenses/Unlicense%20OR%20MIT.html
-
-Components and their copyright notices:
-
-  * aho-corasick 1.1.5  [cargo]
-      Andrew Gallant <jamslam@gmail.com>
-      https://github.com/BurntSushi/aho-corasick
-
-  * byteorder 1.5.0  [cargo]
-      Andrew Gallant <jamslam@gmail.com>
-      https://github.com/BurntSushi/byteorder
-
-  * jiff 0.2.39  [cargo]
-      Andrew Gallant <jamslam@gmail.com>
-      https://github.com/BurntSushi/jiff
-
-  * jiff-core 0.1.2  [cargo]
-      Andrew Gallant <jamslam@gmail.com>
-      https://github.com/BurntSushi/jiff
-
-  * jiff-tzdb 0.1.9  [cargo]
-      Andrew Gallant <jamslam@gmail.com>
-      https://github.com/BurntSushi/jiff
-
-  * jiff-tzdb-platform 0.1.3  [cargo]
-      Andrew Gallant <jamslam@gmail.com>
-      https://github.com/BurntSushi/jiff
-
-  * memchr 2.8.3  [cargo]
-      Andrew Gallant <jamslam@gmail.com>, bluss
-      https://github.com/BurntSushi/memchr
-
-  * same-file 1.0.6  [cargo]
-      Andrew Gallant <jamslam@gmail.com>
-      https://github.com/BurntSushi/same-file
-
-  * walkdir 2.5.0  [cargo]
-      Andrew Gallant <jamslam@gmail.com>
-      https://github.com/BurntSushi/walkdir
-
-  * winapi-util 0.1.11  [cargo]
-      Andrew Gallant <jamslam@gmail.com>
-      https://github.com/BurntSushi/winapi-util
-
-------------------------------------------------------------------
-
 ## EPL-2.0  —  8 component(s)
 
 License text: see https://spdx.org/licenses/EPL-2.0.html
@@ -2398,23 +2194,35 @@ Components and their copyright notices:
 
 ------------------------------------------------------------------
 
-## MIT OR Apache-2.0 OR Zlib  —  3 component(s)
+## Unlicense OR MIT  —  6 component(s)
 
-License text: see https://spdx.org/licenses/MIT%20OR%20Apache-2.0%20OR%20Zlib.html
+License text: see https://spdx.org/licenses/Unlicense%20OR%20MIT.html
 
 Components and their copyright notices:
 
-  * lru-slab 0.1.3  [cargo]
-      Benjamin Saunders <ben.e.saunders@gmail.com>
-      https://github.com/Ralith/lru-slab
+  * aho-corasick 1.1.5  [cargo]
+      Andrew Gallant <jamslam@gmail.com>
+      https://github.com/BurntSushi/aho-corasick
 
-  * raw-window-handle 0.6.2  [cargo]
-      Osspial <osspial@gmail.com>
-      https://github.com/rust-windowing/raw-window-handle
+  * byteorder 1.5.0  [cargo]
+      Andrew Gallant <jamslam@gmail.com>
+      https://github.com/BurntSushi/byteorder
 
-  * static_vcruntime 3.0.0  [cargo]
-      (copyright not declared)
-      https://github.com/ChrisDenton/static_vcruntime
+  * memchr 2.8.3  [cargo]
+      Andrew Gallant <jamslam@gmail.com>, bluss
+      https://github.com/BurntSushi/memchr
+
+  * same-file 1.0.6  [cargo]
+      Andrew Gallant <jamslam@gmail.com>
+      https://github.com/BurntSushi/same-file
+
+  * walkdir 2.5.0  [cargo]
+      Andrew Gallant <jamslam@gmail.com>
+      https://github.com/BurntSushi/walkdir
+
+  * winapi-util 0.1.11  [cargo]
+      Andrew Gallant <jamslam@gmail.com>
+      https://github.com/BurntSushi/winapi-util
 
 ------------------------------------------------------------------
 
@@ -2447,22 +2255,6 @@ Components and their copyright notices:
   * miniz_oxide 0.9.1  [cargo]
       Frommi <daniil.liferenko@gmail.com>, oyvindln <oyvindln@users.noreply.github.com>, Rich Geldreich richgel99@gmail.com
       https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide
-
-------------------------------------------------------------------
-
-## Zlib  —  2 component(s)
-
-License text: see https://spdx.org/licenses/Zlib.html
-
-Components and their copyright notices:
-
-  * foldhash 0.2.0  [cargo]
-      Orson Peters <orsonpeters@gmail.com>
-      https://github.com/orlp/foldhash
-
-  * zlib-rs 0.6.8  [cargo]
-      (copyright not declared)
-      https://github.com/trifectatechfoundation/zlib-rs
 
 ------------------------------------------------------------------
 
@@ -2670,6 +2462,18 @@ Components and their copyright notices:
 
 ------------------------------------------------------------------
 
+## MIT OR Apache-2.0 OR Zlib  —  1 component(s)
+
+License text: see https://spdx.org/licenses/MIT%20OR%20Apache-2.0%20OR%20Zlib.html
+
+Components and their copyright notices:
+
+  * raw-window-handle 0.6.2  [cargo]
+      Osspial <osspial@gmail.com>
+      https://github.com/rust-windowing/raw-window-handle
+
+------------------------------------------------------------------
+
 ## UNKNOWN  —  1 component(s)
 
 License text: see https://spdx.org/licenses/UNKNOWN.html
@@ -2681,14 +2485,14 @@ Components and their copyright notices:
 
 ------------------------------------------------------------------
 
-## Zlib OR Apache-2.0 OR MIT  —  1 component(s)
+## Zlib  —  1 component(s)
 
-License text: see https://spdx.org/licenses/Zlib%20OR%20Apache-2.0%20OR%20MIT.html
+License text: see https://spdx.org/licenses/Zlib.html
 
 Components and their copyright notices:
 
-  * tinyvec 1.13.3  [cargo]
-      Lokathor <zefria@gmail.com>
-      https://github.com/Lokathor/tinyvec
+  * foldhash 0.2.0  [cargo]
+      Orson Peters <orsonpeters@gmail.com>
+      https://github.com/orlp/foldhash
 
 ------------------------------------------------------------------
