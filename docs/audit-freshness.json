@@ -151,7 +151,7 @@
   },
   "docs/UPDATER_AUDIT.md": {
     "reviewedTrees": {
-      "frontend/src-tauri/tauri.conf.json": "e08473599711dcff81eb38e084115827c175e872",
+      "frontend/src-tauri/tauri.conf.json": "83dc89c9108fa682527af7a52fb1c9b66b525293",
       "frontend/src/lib/components/settings/AboutSettings.svelte": "b282710648cfa025cd4566873263dcc529970682",
       ".github/workflows/windows-signed-release.yml": "77f306b502b1b8cf7591eed23c8ea4c60b40a6a2"
     },
@@ -167,6 +167,10 @@
       {
         "date": "2026-11-03",
         "note": "#847, recorded in the audit itself as 1.25. The one change in windows-signed-release.yml is the header comment: npm ci in the build now runs only the install scripts allowScripts in frontend/package.json allows, where it said npm ci ran the whole tree's, and the paragraph is re-wrapped. Every step, permission, environment, pin and run: block is byte-identical (U-1 and U-3 hold). The policy itself lives in frontend/package.json and frontend/.npmrc, outside Code paths, and the audit says no verdict rests on it: what keeps the key out of the build is still the two-job split of U-2. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-03",
+        "note": "#851, the v0.2.0-beta.3 cut. The one change in tauri.conf.json is the top-level version, 0.2.0-beta.2 to 0.2.0-beta.3, written by bump:version. plugins.updater (endpoints, pubkey 068F68E532BCF6DC) and bundle (the NSIS template, installMode) are untouched. No claim of the audit rests on the value: the build gate compares the tag with this field, the version pin compares the manifest with the version the prompt named, and beta.3 orders after beta.2 and before 0.2.0 under semver, which is the order the beta channel and the later promotion need. Verdict unchanged."
       }
     ]
   }
