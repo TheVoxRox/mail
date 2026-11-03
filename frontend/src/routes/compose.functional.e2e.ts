@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { expectNoFindings, openApp, setPrefs, wcagScan } from './e2e-helpers';
+import { expectNoFindings, insetOutlineContrast, openApp, setPrefs, wcagScan } from './e2e-helpers';
 
 test.beforeEach(async ({ page }) => {
 	await setPrefs(page, { locale: 'cs', readingPane: 'right' });
@@ -1457,5 +1457,52 @@ test.describe('Compose', () => {
 
 		// Reopened recipients render as token chips (the input itself is empty).
 		await expect(page.getByText('skryta-kopie@example.com')).toBeVisible();
+	});
+});
+
+/*
+ * The suggestions name the highlighted one through `aria-activedescendant`, as
+ * the command palette names its selection, and showed it the same way the
+ * palette did before its fix: a tint alone, 1.11:1 against the other
+ * suggestions on the light theme and 1.09:1 on the dark one (WCAG 1.4.11 asks
+ * 3:1), and under forced colors not at all, every suggestion outlined alike.
+ */
+test.describe('Návrhy adres – viditelnost zvýrazněného návrhu', () => {
+	for (const theme of ['light', 'dark'] as const) {
+		test(`zvýrazněný návrh má obrys s kontrastem aspoň 3:1 (${theme})`, async ({ page }) => {
+			await setPrefs(page, { theme });
+			await openApp(page, '/compose');
+			const to = page.locator('#compose-to');
+			await to.fill('jan');
+			const options = page.getByRole('listbox', { name: 'Návrhy adres' }).getByRole('option');
+			await expect(options.first()).toHaveAttribute('aria-selected', 'true');
+
+			await expect(options.first()).toHaveCSS('outline-style', 'solid');
+			await expect(options.first()).toHaveCSS('outline-width', '2px');
+			await expect(options.nth(1)).toHaveCSS('outline-style', 'none');
+			expect(await insetOutlineContrast(options.first())).toBeGreaterThanOrEqual(3);
+
+			await to.press('ArrowDown');
+			await expect(options.nth(1)).toHaveAttribute('aria-selected', 'true');
+			await expect(options.nth(1)).toHaveCSS('outline-style', 'solid');
+			await expect(options.first()).toHaveCSS('outline-style', 'none');
+		});
+	}
+
+	test('ve vynucených barvách má obrys jen zvýrazněný návrh', async ({ page }) => {
+		await page.emulateMedia({ forcedColors: 'active' });
+		await openApp(page, '/compose');
+		await page.locator('#compose-to').fill('jan');
+		const listbox = page.getByRole('listbox', { name: 'Návrhy adres' });
+		await expect(listbox.locator('[role="option"][aria-selected="true"]')).toHaveCSS(
+			'outline-width',
+			'2px'
+		);
+
+		const others = await listbox
+			.locator('[role="option"][aria-selected="false"]')
+			.evaluateAll((options) => options.map((option) => getComputedStyle(option).outlineWidth));
+		expect(others.length).toBeGreaterThan(0);
+		expect([...new Set(others)]).toEqual(['0px']);
 	});
 });

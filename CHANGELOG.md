@@ -21,6 +21,17 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- Menus show which item the keyboard is on with an outline, not only a faint
+  tint. In the row actions menu and its Move submenu, the detail toolbar's
+  Move and More, and both bulk bars, the focused item was marked by a
+  background 1.11:1 against the other items on the light theme and 1.09:1 on
+  the dark one, 1.20:1 and 1.14:1 for Delete's red. The outline measures
+  3.76:1 against the item's fill on the light theme and 6.30:1 on the dark one
+  (Delete 3.47:1 and 6.05:1), and under Windows high contrast it is the only
+  outlined item, where every item used to be outlined and the focused one
+  differed only in colour. A menu opened with a click keeps the tint alone
+  until a key is pressed. The address suggestions under To, Cc and Bcc had the
+  same tint and get the outline the command palette got in #849 (#850).
 - The command palette works for someone who sees the screen and uses the
   keyboard or zoom, not only with a screen reader. The command Enter runs has
   an outline, 3.76:1 against its fill on the light theme and 6.3:1 on the dark

@@ -50,11 +50,31 @@ export const focusRingScrollArea =
 	'outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-ring';
 
 /**
+ * For an item of a dropdown menu. bits-ui moves real DOM focus from item to
+ * item, for the arrows and the pointer alike, so the ring follows
+ * `:focus-visible` like every other one here: a menu opened with the keyboard
+ * draws it from the first item on, and one opened with a click shows the
+ * item's tint alone until a key is pressed. It sits inside the edge, where a
+ * scrolling folder list does not clip it.
+ *
+ * Before it the highlighted item was that tint alone, 1.11:1 against the other
+ * items on the light theme and 1.09:1 on the dark one, 1.20:1 and 1.14:1 for
+ * Delete's red. Under forced colors every item kept `outline-hidden`'s
+ * outline, and the focused one differed from the rest only in its system
+ * colour, 1.44:1 in Chromium's emulation. The others drop it, as the
+ * options below do.
+ */
+export const focusRingMenuItem =
+	'outline-hidden forced-colors:outline-0 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-ring';
+
+/**
  * For an option that holds the focus through `aria-activedescendant`, as the
- * command palette's results do: DOM focus stays in the search field, and the
- * option it names is the one Enter runs. The option itself is never focused,
- * so the ring follows bits-ui's `data-selected` rather than `:focus-visible`,
- * and sits inside the edge, where the scrolling list does not clip it.
+ * command palette's results and the address field's suggestions do: DOM focus
+ * stays in the text field, and the option it names is the one Enter takes.
+ * The option itself is never focused, so the ring follows `data-selected`
+ * rather than `:focus-visible` (bits-ui sets it in the palette, the address
+ * field by hand), and sits inside the edge, where the scrolling list does not
+ * clip it.
  *
  * Before it the selection was a background tint, 1.11:1 against the other
  * options on the light theme and 1.09:1 on the dark one. Under forced colors it

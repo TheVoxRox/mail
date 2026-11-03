@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
-import { openApp, setPrefs, waitForFocus } from '../e2e-helpers';
+import { expect, test, type Locator, type Page } from '@playwright/test';
+import { insetOutlineContrast, openApp, setPrefs, waitForFocus } from '../e2e-helpers';
 
 /**
  * Row actions menu ("Akce pro zprávu …") in the message list. Delete removes
@@ -394,5 +394,73 @@ test.describe('Řádkové menu Akce', () => {
 		// The name is the other half: a container a screen reader may still
 		// reach some other way must not be nameless.
 		await expect(menu).toHaveAccessibleName(`Akce pro zprávu ${fixture.subject}`);
+	});
+});
+
+/*
+ * Every menu in the app takes its items from `menuItemVariants`, so this one
+ * stands for all of them: the detail toolbar's Move and More, both bulk bars,
+ * and this menu's own Move submenu measured the same before the fix.
+ */
+test.describe('Řádkové menu Akce – viditelnost položky pod fokusem', () => {
+	async function openMenuWithKeyboard(page: Page): Promise<Locator> {
+		await openApp(page, `/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}`);
+		const row = page.locator(`[role="row"][data-stable-id="${fixture.stableId}"]`);
+		await row.getByRole('button', { name: `Akce pro zprávu ${fixture.subject}` }).press('Enter');
+		const menu = page.getByRole('menu');
+		await expect(menu.getByRole('menuitem', { name: FIRST_ITEM, exact: true })).toBeFocused();
+		return menu;
+	}
+
+	/*
+	 * The focused item used to be a background tint alone: 1.11:1 against the
+	 * other items on the light theme and 1.09:1 on the dark one, and Delete's
+	 * red 1.20:1 and 1.14:1, where WCAG 1.4.11 asks 3:1 of the indicator of the
+	 * item Enter runs.
+	 */
+	for (const theme of ['light', 'dark'] as const) {
+		test(`položka pod fokusem má obrys s kontrastem aspoň 3:1, i červená Smazat (${theme})`, async ({
+			page
+		}) => {
+			await setPrefs(page, { theme });
+			const menu = await openMenuWithKeyboard(page);
+			const first = menu.getByRole('menuitem', { name: FIRST_ITEM, exact: true });
+			const remove = menu.getByRole('menuitem', { name: 'Smazat' });
+
+			await expect(first).toHaveCSS('outline-style', 'solid');
+			await expect(first).toHaveCSS('outline-width', '2px');
+			await expect(remove).toHaveCSS('outline-style', 'none');
+			expect(await insetOutlineContrast(first)).toBeGreaterThanOrEqual(3);
+
+			await page.waitForTimeout(KEY_PACE_MS);
+			await page.keyboard.press('ArrowUp');
+			await expect(remove).toBeFocused();
+			await expect(remove).toHaveCSS('outline-style', 'solid');
+			await expect(first).toHaveCSS('outline-style', 'none');
+			expect(await insetOutlineContrast(remove)).toBeGreaterThanOrEqual(3);
+		});
+	}
+
+	/*
+	 * Under forced colors `outline-hidden` keeps an outline on every item, and
+	 * the focused one differed from the rest only in its system colour, 1.44:1
+	 * in Chromium's emulation.
+	 */
+	test('ve vynucených barvách má obrys jen položka pod fokusem', async ({ page }) => {
+		await page.emulateMedia({ forcedColors: 'active' });
+		const menu = await openMenuWithKeyboard(page);
+		const first = menu.getByRole('menuitem', { name: FIRST_ITEM, exact: true });
+
+		await expect(first).toHaveCSS('outline-style', 'solid');
+		await expect(first).toHaveCSS('outline-width', '2px');
+		const others = await menu
+			.getByRole('menuitem')
+			.evaluateAll((items) =>
+				items
+					.filter((item) => item !== document.activeElement)
+					.map((item) => getComputedStyle(item).outlineWidth)
+			);
+		expect(others.length).toBeGreaterThan(0);
+		expect([...new Set(others)]).toEqual(['0px']);
 	});
 });
