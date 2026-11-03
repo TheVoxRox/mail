@@ -16,16 +16,17 @@ on:
 
 # Two jobs, split by what they may run and what they may hold (U-2 in
 # docs/UPDATER_AUDIT.md). The build runs code this repository does not own:
-# npm ci runs the install scripts of the whole dependency tree, Maven runs its
-# plugins, and the Tauri build runs vite's plugins and every crate's build
-# script. So it holds no updater key and no write permission. The publish job
-# holds the updater signing key, the OIDC token behind the provenance
-# attestation and the token that writes the release, on a fresh runner that
-# runs none of that code. Until 2026-11-02 one job held all of it, the key in
-# its env; scoping the key to one step would not have been enough, because an
-# earlier step on the same runner can plant what that step then runs — a
-# NODE_OPTIONS in GITHUB_ENV, a node on GITHUB_PATH, an edited signer under
-# node_modules.
+# Maven runs its plugins, the Tauri build runs vite's plugins and every
+# crate's build script, and npm ci the install scripts that allowScripts in
+# frontend/package.json allows (frontend/.npmrc fails the install on one it
+# does not name). So it holds no updater key and no write permission. The
+# publish job holds the updater signing key, the OIDC token behind the
+# provenance attestation and the token that writes the release, on a fresh
+# runner that runs none of that code. Until 2026-11-02 one job held all of
+# it, the key in its env; scoping the key to one step would not have been
+# enough, because an earlier step on the same runner can plant what that step
+# then runs — a NODE_OPTIONS in GITHUB_ENV, a node on GITHUB_PATH, an edited
+# signer under node_modules.
 permissions:
   contents: read
 

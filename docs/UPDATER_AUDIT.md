@@ -2,8 +2,8 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.24                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| **Date**           | 2026-11-02                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **Version**        | 1.25                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| **Date**           | 2026-11-03                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **Applies to**     | The app side (§1, §3–§5) to VoxRox Mail V0.2.0-beta.1 (`648a438`), which under `Code paths` differs from the audited commit only in the release pipeline (#828 to #831) and the base config's pubkey (#829); the pipeline (§2) to the next release built from `main` at or after the audited commit, since `v0.2.0-beta.1` and `v0.1.0` (`0d84ec6`) were built and signed by the single-job workflow with the retired key (U-2)                                                                                                                                                                                                                                                                                                                                                                                                  |
 | **Audited commit** | `c8b09a6` (re-verified 2026-11-02, clearing seven acknowledgements; v1.19–1.23 anchor: `246b2ba`, re-verified 2026-10-25, clearing seven; v1.18 anchor: `5def679`, re-verified 2026-10-12, clearing seven; v1.16/1.17 anchor: `a2e6d43`, re-verified 2026-09-16, clearing seven; v1.5–1.15 anchor: `0165149`, itself a re-verification on 2026-09-07 clearing five; v1.10/1.11 anchor: `3e71529`; v1.5–v1.9 anchor: `c6744a1`; v1.4 anchor: `cad05cb`, recorded pre-squash as `5799e8b`; v1.2/1.3 anchor: `3162e6a` (#144), v1.0/1.1 baseline: `d55b753`)                                                                                                                                                                                                                                                                        |
 | **Code paths**     | `frontend/src-tauri/src`, `frontend/src-tauri/tauri.conf.json`, `frontend/src-tauri/capabilities`, `frontend/src/lib/updates.ts`, `frontend/src/lib/nativeShell.ts`, `frontend/src/lib/bootstrap.ts`, `frontend/src/lib/components/boot/BootErrorView.svelte`, `frontend/src/lib/components/UpdatePromptDialog.svelte`, `frontend/src/lib/components/UpdateFailureDialog.svelte`, `frontend/src/lib/components/settings/AboutSettings.svelte`, `.github/workflows/windows-signed-release.yml`, `.github/workflows/beta-channel.yml`, `frontend/scripts/beta-channel-guard.mjs`, `frontend/scripts/generate-tauri-latest-windows.mjs`, `frontend/scripts/verify-updater-signature.mjs`, `frontend/scripts/lib/minisign.mjs`, `frontend/scripts/prepare-tauri-windows-release-config.mjs`, `frontend/scripts/lib/tauri-config.mjs` |
@@ -220,6 +220,16 @@ generated by [prepare-tauri-windows-release-config.mjs](../frontend/scripts/prep
   `signer sign --app-version`, the version binding `tauri build` applies when it
   signs. A missing `.sig` still stops the release, since the manifest generator
   below selects only an artifact that has one.
+  Since 1.25 the build's `npm ci` runs only the install scripts that
+  `allowScripts` in `frontend/package.json` allows, and `strict-allow-scripts`
+  in `frontend/.npmrc` fails the install on a dependency script that
+  `allowScripts` does not name. Measured on npm 11.20: without the setting an
+  unnamed `postinstall` runs and npm only warns, a `false` entry skips the
+  script, and the project's own `prepare` still runs. It narrows what runs in
+  the build; it is not what keeps the key out of it, which is the split, and
+  no verdict rests on it: neither file is under `Code paths`
+  ([DECISIONS.md](DECISIONS.md), "Dependency manifests are not part of an
+  audit's `Code paths`").
 - **Only a commit `main` has been through is built and signed** (v1.22). The
   build job's tag gate fails a run whose tag is missing on origin or names
   another commit than the one being built, and the step after it fails when
@@ -532,8 +542,8 @@ renders through `{message}` in a `<span>` — Svelte text interpolation, no
   sat in the job-level `env:` of
   [windows-signed-release.yml](../.github/workflows/windows-signed-release.yml),
   so every step could read them, and most steps run code the repository does
-  not own: `npm ci` runs the install scripts of the whole npm tree, Maven runs
-  its plugins, and `tauri build` runs vite's plugins and every crate's build
+  not own: `npm ci` ran the install scripts of the whole npm tree (until 1.25,
+  §2), Maven runs its plugins, and `tauri build` runs vite's plugins and every crate's build
   script. One compromised package among them, the shape of the npm worms that
   harvested CI secrets in 2025, could take the key and sign an update every
   installation accepts; no later release can revoke it, because the pubkey is
@@ -670,6 +680,17 @@ renders through `{message}` in a `<span>` — Svelte text interpolation, no
 
 ## 8. Change log
 
+- **1.25** (2026-11-03) — **the build's `npm ci` runs only the dependency
+  install scripts `allowScripts` allows; verdict stays PASS.** §2: both the
+  tree has (`es5-ext`, a notice, and `esbuild`, whose binary comes from its
+  platform package) are denied, and `strict-allow-scripts` fails an install
+  that meets one not named; `npm run build` passes with both denied. The
+  workflow changes by its header comment only, and U-2's description says what
+  `npm ci` ran when it was found. The v0.2.0-beta.2 sheet asked for that
+  comment to be corrected on the belief that npm 11.20 already skipped unnamed
+  scripts; measured, it does not, which is why the policy is set rather than
+  the comment reworded. The `Audited commit` stays `c8b09a6`, the drift
+  recorded in [audit-freshness.json](audit-freshness.json).
 - **1.24** (2026-11-02) — **re-verified against `c8b09a6`, clearing the seven
   acknowledgements recorded since 2026-10-25; U-3 (Low) found and fixed;
   verdict stays PASS.** By a session that wrote none of the delta, #780 to
