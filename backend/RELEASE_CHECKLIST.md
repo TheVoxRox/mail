@@ -396,6 +396,34 @@ Findings:
 - <what went wrong or stays open, and what to do before the next run>
 ````
 
+### Candidate 2026-11-03 — tag `v0.2.0-beta.3` (see the object ids below)
+
+```text
+Platform:  Windows 11 Pro x64, machine lacina-hp-650 (§0–§2)
+Tester:    machine half automated; §3–§9 are the maintainer's
+```
+
+| path                         | object id      |
+| ---------------------------- | -------------- |
+| `backend/src`                | `481890fb4ad1` |
+| `backend/pom.xml`            | `49483b973bdf` |
+| `backend/scripts`            | `8a0fe4f8bdc1` |
+| `frontend/src`               | `d31f9644aa92` |
+| `frontend/src-tauri`         | `92b385ec185f` |
+| `frontend/package.json`      | `9db5a16da5e7` |
+| `frontend/package-lock.json` | `838523a45cd3` |
+
+- [x] **§0 Version** — `npm run bump:version 0.2.0-beta.3` and `npm run check:versions` OK on all seven files.
+- [x] **§1 Backend build** — `clean verify` on the tree this cut tags, the version already bumped: 0 failures and 0 errors on surefire and failsafe; the one skip is `MailSyncQresyncDovecotIT` without Docker, which CI runs. SpotBugs reports no bug instance. `mail-backend-0.2.0-beta.3.jar` produced. Sidecar packaged by `npm run sidecar:rebuild:windows` with the OAuth values from `backend/.env`: the application jar and 107 libraries in `lib\`, "Google client-id baked into the launcher; no placeholder", all 10 JVM options present in the launcher, "A copy of the image outside target\ started to ready and exited", 14 of 14 modules declared for the runtime, and the packaged sidecar smoke passed. `regen:licenses:all` after `npm ci` and the packaging changed nothing: #844 to #846 had already caught the inventories and `NOTICE.txt` up. The run without a system JDK is taken on the installed candidate.
+- [x] **§2 Frontend automation** — on the same tree: `generate:api` (no drift in `schema.d.ts`), `check:i18n`, `build`, `test:unit`, and `test:e2e`, the functional project and then the a11y suite, all passed with no flake and no re-run.
+
+Findings:
+
+- **The first candidate the §3a updater item can be taken on (#836).** Installations of `v0.2.0-beta.2` are the first to trust `068F68E532BCF6DC`, the key this candidate is signed with. Once it is published as a prerelease, an installation of `v0.2.0-beta.2` switched to the beta channel takes it through the updater: the check, the download, the signature, the hand-over to the installer. That is the evidence for §3a and for #836, which blocks the promotion to 0.2.0. Installations of `v0.1.0` and `v0.2.0-beta.1` still install by hand.
+- **The shell's crates moved under no section's input.** #844 takes `wry` 0.57.1, `tao` 0.37.2 and `tokio` 1.54.1, the webview, the window and the runtime the shell runs on, and #845 moves the shell to `dirs` 7, which resolves the data folder. `Cargo.lock` is not in the table, so `npm run release:status` reports nothing for them; Release Candidate Smoke's starts, its kill and the update over a running installation run on them. Whether §3 or §6 take them by hand is the maintainer's decision.
+- **The UI moved where §3a, §4, §5 and §7 rest.** #842 and #843 change the markup of the account form, `AboutSettings.svelte` and other form controls, and #849 and #850 the command palette and every menu. Which items are re-taken is `npm run release:status`'s report and the maintainer's decision.
+- **This cut takes everything merged since `v0.2.0-beta.2` (`f66d8f0`):** #834 (the beta.2 release decision and notes); #824 (tailwind-variants 4.0.0); #835 and #841 (`todo.md` closed and retired); #842, #843, #848, #849 and #850 (checkboxes in NVDA, form control names, the start that pulled back into the mailbox, the command palette, menu focus); #844, #845 and #846 (the shell's lockfile, `dirs` 7, license lists from `cargo tree`); and #847 (install scripts only where `allowScripts` allows, updater audit 1.25), which also made the docs-only correction the 2026-11-02 sheet left waiting. Each fix that merges from here adds its number to the next item.
+
 ### Candidate 2026-11-02 — tag `v0.2.0-beta.2` (see the object ids below)
 
 ```text

@@ -19,6 +19,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+## [0.2.0-beta.3] - 2026-11-03
+
 ### Frontend
 
 - Menus show which item the keyboard is on with an outline, not only a faint
@@ -99,13 +101,35 @@ Entries before 2026-09-17 predate that split and are left as written.
   rest of the tree had stayed where the last bump of a named crate left it.
   `Cargo.toml` does not change, and `webview2-com`, `windows-core` and
   `windows-registry`, which move only with Tauri, keep their versions. The
-  fixes `wry` 0.57.1 lists are for Android, Linux and macOS. The shell's license
-  list and `NOTICE.txt` follow, with the same set of license groups. Eight of
-  the new entries (`jiff` and `defmt` with their parts, `bs58`, `bitflags`
-  1.3.2) arrive with `serde_with` 3.24 and are not compiled into the Windows
-  build: the list is read from `cargo metadata`, which also counts optional
-  dependencies the build never turns on, as it already did for about twenty
-  entries such as `quinn` and `rand` (#844).
+  fixes `wry` 0.57.1 lists are for Android, Linux and macOS (#844).
+
+### Known issues
+
+Provisional until §9 of the 2026-11-03 candidate sheet, per
+[RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) step 2. Unchanged from
+0.2.0-beta.2:
+
+- **A transient IMAP hiccup, `failed to create new store connection`, appears
+  in the log a couple of times a day.** A bounded retry with backoff recovers it
+  on the next attempt.
+- **Google sign-in works only for accounts on the test list.** The OAuth
+  consent screen stays in `Testing`.
+- **A hostile mail server can still run the mail service out of memory when
+  two such accounts sync at once.** What one account keeps is bounded by an
+  account budget, so a single hostile server costs only its own account. Three
+  restarts in a row still pause that account's sync.
+
+### Manual steps
+
+- **For the user:** an installation of 0.2.0-beta.2 switched to the beta
+  channel takes this release through the updater. An installation of 0.1.0 or
+  0.2.0-beta.1 trusts only the retired key and installs this release by hand:
+  run its installer over the existing installation, which keeps mail, accounts
+  and settings.
+- **For the operator:** this is the first release the RELEASE_CHECKLIST §3a
+  updater item can be taken on. Take it from an installation of 0.2.0-beta.2
+  switched to the beta channel once this release is published as a prerelease,
+  and before 0.2.0 is promoted (#836).
 
 ### Repo
 
@@ -129,6 +153,8 @@ Entries before 2026-09-17 predate that split and are left as written.
   settle: the `update` job of the v0.2.0-beta.2 candidate smoke went from 0.1.0
   over a running shell and sidecar and left no file of the previous release
   (#835).
+- The `0.2.0-beta.3` cut: the version in the seven files `bump:version` writes,
+  and the 2026-11-03 candidate sheet with §0 to §2 ticked (#851).
 
 ## [0.2.0-beta.2] - 2026-11-02
 
