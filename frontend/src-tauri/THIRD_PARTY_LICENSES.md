@@ -4,9 +4,9 @@ The Tauri runtime that ships with VoxRox Mail compiles in the following Rust cra
 
 Dual-licensed crates (e.g. `MIT OR Apache-2.0`) are listed under their canonical license expression — pick either license when redistributing.
 
-Counts: 303 crates total. 148 MIT OR Apache-2.0, 58 MIT, 31 Apache-2.0 OR MIT, 18 Unicode-3.0, 8 Unlicense OR MIT, 6 MIT/Apache-2.0, 5 MPL-2.0, 3 BSD-3-Clause, 2 Apache-2.0, 2 Apache-2.0 OR ISC OR MIT, 2 ISC, 2 MIT OR Apache-2.0 OR Zlib, 2 MIT OR Zlib OR Apache-2.0, 2 Unlicense/MIT, 2 Zlib, 1 (Apache-2.0 OR MIT) AND BSD-3-Clause, 1 (MIT OR Apache-2.0) AND Unicode-3.0, 1 0BSD OR MIT OR Apache-2.0, 1 Apache-2.0 / MIT, 1 Apache-2.0 AND ISC, 1 Apache-2.0 AND MIT, 1 Apache-2.0 OR BSL-1.0, 1 BSD-3-Clause AND MIT, 1 BSD-3-Clause/MIT, 1 CC0-1.0 OR MIT-0 OR Apache-2.0, 1 CDLA-Permissive-2.0, 1 Zlib OR Apache-2.0 OR MIT.
+Counts: 302 crates total. 147 MIT OR Apache-2.0, 58 MIT, 31 Apache-2.0 OR MIT, 18 Unicode-3.0, 8 Unlicense OR MIT, 6 MIT/Apache-2.0, 5 MPL-2.0, 3 BSD-3-Clause, 2 Apache-2.0, 2 Apache-2.0 OR ISC OR MIT, 2 ISC, 2 MIT OR Apache-2.0 OR Zlib, 2 MIT OR Zlib OR Apache-2.0, 2 Unlicense/MIT, 2 Zlib, 1 (Apache-2.0 OR MIT) AND BSD-3-Clause, 1 (MIT OR Apache-2.0) AND Unicode-3.0, 1 0BSD OR MIT OR Apache-2.0, 1 Apache-2.0 / MIT, 1 Apache-2.0 AND ISC, 1 Apache-2.0 AND MIT, 1 Apache-2.0 OR BSL-1.0, 1 BSD-3-Clause AND MIT, 1 BSD-3-Clause/MIT, 1 CC0-1.0 OR MIT-0 OR Apache-2.0, 1 CDLA-Permissive-2.0, 1 Zlib OR Apache-2.0 OR MIT.
 
-## MIT OR Apache-2.0 (148)
+## MIT OR Apache-2.0 (147)
 
 - **anyhow** 1.0.104 — [https://github.com/dtolnay/anyhow](https://github.com/dtolnay/anyhow)
 - **base64** 0.23.1 — [https://github.com/marshallpierce/rust-base64](https://github.com/marshallpierce/rust-base64)
@@ -29,7 +29,6 @@ Counts: 303 crates total. 148 MIT OR Apache-2.0, 58 MIT, 31 Apache-2.0 OR MIT, 1
 - **defmt-parser** 1.1.0 — [https://github.com/knurling-rs/defmt](https://github.com/knurling-rs/defmt)
 - **deranged** 0.5.9 — [https://github.com/jhpratt/deranged](https://github.com/jhpratt/deranged)
 - **digest** 0.10.7 — [https://github.com/RustCrypto/traits](https://github.com/RustCrypto/traits)
-- **dirs** 6.0.0 — [https://github.com/soc/dirs-rs](https://github.com/soc/dirs-rs)
 - **dirs** 7.0.0 — [https://codeberg.org/dirs/dirs-rs](https://codeberg.org/dirs/dirs-rs)
 - **dirs-sys** 0.5.0 — [https://github.com/dirs-dev/dirs-sys-rs](https://github.com/dirs-dev/dirs-sys-rs)
 - **displaydoc** 0.2.7 — [https://github.com/yaahc/displaydoc](https://github.com/yaahc/displaydoc)

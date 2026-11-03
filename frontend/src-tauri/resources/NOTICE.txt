@@ -8,10 +8,10 @@ attached to the component. The product itself is licensed under
 the terms of the LICENSE file shipped alongside this notice in the
 installation directory.
 
-Total third-party components: 538
+Total third-party components: 537
   npm    110
   maven  106
-  cargo  322
+  cargo  321
 
 Generated: 2026-11-03
 
@@ -20,7 +20,7 @@ published alongside the installer on the GitHub Releases page.
 
 ------------------------------------------------------------------
 
-## MIT OR Apache-2.0  —  164 component(s)
+## MIT OR Apache-2.0  —  163 component(s)
 
 License text: see https://spdx.org/licenses/MIT%20OR%20Apache-2.0.html
 
@@ -125,10 +125,6 @@ Components and their copyright notices:
   * digest 0.10.7  [cargo]
       RustCrypto Developers
       https://github.com/RustCrypto/traits
-
-  * dirs 6.0.0  [cargo]
-      Simon Ochsenreither <simon@ochsenreither.de>
-      https://github.com/soc/dirs-rs
 
   * dirs 7.0.0  [cargo]
       Simon Ochsenreither <simon@ochsenreither.de>

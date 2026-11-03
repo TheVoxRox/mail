@@ -46,6 +46,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Tauri / Release
 
+- The shell asks for `dirs` 7, the version Tauri itself now brings, so the
+  build links one copy of the crate instead of two and the license list and
+  `NOTICE.txt` lose the second entry. Dependabot's bump was closed in #484 until
+  Tauri moved. Version 7 changes only `preference_dir` on Windows, which the
+  shell does not call: it reads `data_local_dir` for the data folder and
+  `download_dir` for exported logs, and both stay where they were (#845).
 - The shell's lockfile catches up with what its dependencies allow, among them
   `wry` 0.57.1, `tao` 0.37.2, `tokio` 1.54.1, `hyper` 1.12.0, `reqwest` 0.13.5
   and `zip` 9.3.0. Dependabot moves only the crates `Cargo.toml` names, so the
