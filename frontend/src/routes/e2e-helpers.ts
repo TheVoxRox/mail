@@ -365,6 +365,27 @@ function meetsContrastOverOwnBackground(selector: unknown): boolean {
 	return ratio >= (large ? 3 : 4.5);
 }
 
+/**
+ * Whether the element at `selector` lies wholly outside the visible box of its
+ * nearest vertically scrolling ancestor: scrolled away, not shown. Runs in the
+ * page through `page.evaluate`, so it refers to nothing outside itself.
+ *
+ * Strict the same way: an element still partly inside that box, or with no
+ * scrolling ancestor at all, answers false and stays undecided.
+ */
+function scrolledOutOfItsScrollArea(selector: unknown): boolean {
+	const el = typeof selector === 'string' ? document.querySelector(selector) : null;
+	if (!el) return false;
+	const box = el.getBoundingClientRect();
+	for (let node = el.parentElement; node; node = node.parentElement) {
+		const { overflowY } = getComputedStyle(node);
+		if (overflowY !== 'auto' && overflowY !== 'scroll') continue;
+		const view = node.getBoundingClientRect();
+		return box.bottom <= view.top || box.top >= view.bottom;
+	}
+	return false;
+}
+
 /** The axe check data of a node, by check: what `messageKey` it carries. */
 const messageKeys = (node: AxeNode): string[] =>
 	[...node.any, ...node.all, ...node.none].flatMap((check) => {
@@ -395,6 +416,19 @@ const REVIEWED_INCOMPLETE: ReadonlyArray<{
 		covers: (page, node) =>
 			messageKeys(node).includes('elmPartiallyObscuring')
 				? page.evaluate(meetsContrastOverOwnBackground, node.target[0])
+				: Promise.resolve(false)
+	},
+	{
+		rule: 'color-contrast',
+		reason:
+			'The text is scrolled out of the scroll area it sits in, so it is not on screen and ' +
+			'there is no contrast to judge: axe counts only overflow: hidden as clipping, and found ' +
+			"whatever lies under that spot instead, the command palette's overlay for its results " +
+			'once the dialog itself could scroll. Decided in the page instead: the element must lie ' +
+			'wholly outside the visible box of its nearest scrolling ancestor.',
+		covers: (page, node) =>
+			messageKeys(node).includes('elmPartiallyObscured')
+				? page.evaluate(scrolledOutOfItsScrollArea, node.target[0])
 				: Promise.resolve(false)
 	},
 	{

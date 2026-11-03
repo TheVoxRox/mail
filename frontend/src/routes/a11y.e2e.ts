@@ -1758,6 +1758,24 @@ test.describe('Přístupnost', () => {
 		await expectNoFindings(page, results);
 	});
 
+	/*
+	 * The empty result was the one state of the palette this suite did not scan,
+	 * and the one that failed: the sentence saying nothing matched sat inside the
+	 * listbox, which then owned no option (aria-required-children).
+	 */
+	test('command palette bez výsledků nemá a11y porušení', async ({ page }) => {
+		await openApp(page, '/mail/1/INBOX');
+		await openPalette(page);
+		await page.locator('#command-palette-input').fill('nenajitelnypovel');
+		await expect(page.getByRole('dialog').locator('[aria-live]')).toHaveText(
+			'Nebyl nalezen žádný odpovídající příkaz.'
+		);
+
+		const results = await wcagScan(page).include('[role="dialog"]').analyze();
+
+		await expectNoFindings(page, results);
+	});
+
 	test('command palette drží fokus ve vyhledávání a aktivní příkaz předává přes combobox', async ({
 		page
 	}) => {

@@ -12,6 +12,28 @@ const fixture = {
 	}
 };
 
+/**
+ * Whether the option `holder` names through `aria-activedescendant` is wholly
+ * on screen: inside the results list's scrolled view and inside the window.
+ */
+async function activeOptionOnScreen(
+	page: Page,
+	holder = '#command-palette-input'
+): Promise<boolean> {
+	return page.evaluate((selector) => {
+		const id = document.querySelector(selector)?.getAttribute('aria-activedescendant');
+		const option = id ? document.getElementById(id) : null;
+		const list = option?.closest('[role="listbox"]');
+		if (!option || !list) return false;
+		const shown = option.getBoundingClientRect();
+		const view = list.getBoundingClientRect();
+		return (
+			shown.top >= Math.max(view.top, 0) - 1 &&
+			shown.bottom <= Math.min(view.bottom, window.innerHeight) + 1
+		);
+	}, holder);
+}
+
 async function openPalette(page: Page): Promise<void> {
 	await page.waitForFunction(() => typeof window.__MAIL_E2E__?.openPalette === 'function');
 	await page.evaluate(() => {
@@ -294,9 +316,15 @@ test.describe('Command palette', () => {
 		const setSize = Number(await visibleOptions.first().getAttribute('aria-setsize'));
 		expect(setSize).toBeGreaterThanOrEqual(visibleOptionCount);
 
+		// With nothing to list the listbox goes, and the sentence that says so sits
+		// beside it: a listbox holding only that sentence owns no option, which
+		// axe reports as aria-required-children.
 		await input.fill('nenajitelnypovel');
-		await expect(results.getByText('Nebyl nalezen žádný odpovídající příkaz.')).toBeVisible();
-		await expect(results.getByRole('option')).toHaveCount(0);
+		await expect(
+			page.getByRole('dialog').locator('p', { hasText: 'Nebyl nalezen žádný odpovídající příkaz.' })
+		).toBeVisible();
+		await expect(results).toBeHidden();
+		await expect(page.getByRole('dialog').getByRole('option')).toHaveCount(0);
 		await expect(input).not.toHaveAttribute('aria-activedescendant', /.+/);
 	});
 
@@ -452,5 +480,176 @@ test.describe('Command palette', () => {
 		await expect(
 			page.locator(`[role="row"][data-stable-id="${fixture.moveStableId}"]`)
 		).toBeVisible();
+	});
+});
+
+test.describe('Command palette – viditelnost výběru a přiblížení', () => {
+	const mailbox = `/mail/${fixture.accountId}/${fixture.folderName}`;
+
+	/*
+	 * The palette moves the selection itself rather than through bits-ui, so
+	 * bits-ui's own scrolling never ran: End, or the eighth ArrowDown, left the
+	 * option Enter runs below the list's edge (WCAG 2.4.11).
+	 */
+	test('vybraný příkaz zůstane vidět, i když ho šipky nebo End posunou pod okraj seznamu', async ({
+		page
+	}) => {
+		await openApp(page, mailbox);
+		await openPalette(page);
+		const input = page.locator('#command-palette-input');
+
+		await input.press('End');
+		await expect.poll(() => activeOptionOnScreen(page)).toBe(true);
+
+		await input.press('Home');
+		await expect.poll(() => activeOptionOnScreen(page)).toBe(true);
+		for (let step = 0; step < 10; step++) await input.press('ArrowDown');
+		await expect.poll(() => activeOptionOnScreen(page)).toBe(true);
+	});
+
+	/*
+	 * The selection used to be a background tint alone, 1.11:1 against the
+	 * other options on the light theme and 1.09:1 on the dark one, where WCAG
+	 * 1.4.11 asks 3:1 of the indicator of the focus Enter acts on.
+	 */
+	for (const theme of ['light', 'dark'] as const) {
+		test(`vybraný příkaz má obrys fokusu s kontrastem aspoň 3:1 (${theme})`, async ({ page }) => {
+			await setPrefs(page, { theme });
+			await openApp(page, mailbox);
+			await openPalette(page);
+			const dialog = page.getByRole('dialog');
+			const selected = dialog.locator('[role="option"][aria-selected="true"]');
+			const other = dialog.locator('[role="option"][aria-selected="false"]').first();
+
+			await expect(selected).toHaveCSS('outline-style', 'solid');
+			await expect(selected).toHaveCSS('outline-width', '2px');
+			await expect(other).toHaveCSS('outline-style', 'none');
+
+			const ratio = await selected.evaluate((option) => {
+				const rgb = (color: string): number[] => {
+					const canvas = document.createElement('canvas');
+					canvas.width = canvas.height = 1;
+					const context = canvas.getContext('2d')!;
+					context.fillStyle = color;
+					context.fillRect(0, 0, 1, 1);
+					return [...context.getImageData(0, 0, 1, 1).data.slice(0, 3)];
+				};
+				const luminance = (channels: number[]): number => {
+					const [r, g, b] = channels.map((value) => {
+						const unit = value / 255;
+						return unit <= 0.03928 ? unit / 12.92 : ((unit + 0.055) / 1.055) ** 2.4;
+					});
+					return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+				};
+				let behind: Element | null = option;
+				while (behind && getComputedStyle(behind).backgroundColor === 'rgba(0, 0, 0, 0)') {
+					behind = behind.parentElement;
+				}
+				const ring = luminance(rgb(getComputedStyle(option).outlineColor));
+				const fill = luminance(rgb(getComputedStyle(behind ?? document.body).backgroundColor));
+				return (Math.max(ring, fill) + 0.05) / (Math.min(ring, fill) + 0.05);
+			});
+			expect(ratio).toBeGreaterThanOrEqual(3);
+		});
+	}
+
+	/*
+	 * Under forced colors `outline-hidden` keeps an outline on every option, so
+	 * the tint was gone and all of them were outlined alike: the selection could
+	 * not be told apart at all.
+	 */
+	test('ve vynucených barvách má obrys jen vybraný příkaz', async ({ page }) => {
+		await page.emulateMedia({ forcedColors: 'active' });
+		await openApp(page, mailbox);
+		await openPalette(page);
+		const dialog = page.getByRole('dialog');
+
+		await expect(dialog.locator('[role="option"][aria-selected="true"]')).toHaveCSS(
+			'outline-style',
+			'solid'
+		);
+		await expect(dialog.locator('[role="option"][aria-selected="false"]').first()).toHaveCSS(
+			'outline-width',
+			'0px'
+		);
+	});
+
+	/*
+	 * The list is a tab stop of its own, because it scrolls. Focused, it named
+	 * no option, and the arrows did nothing there: a screen reader heard an
+	 * empty list.
+	 */
+	test('seznam výsledků jako zastávka Tabu jmenuje vybraný příkaz a ovládá se šipkami i Enterem', async ({
+		page
+	}) => {
+		await openApp(page, mailbox);
+		await openPalette(page);
+		const input = page.locator('#command-palette-input');
+		const list = page.getByRole('listbox', { name: 'Výsledky příkazů' });
+		const first = await input.getAttribute('aria-activedescendant');
+		expect(first).toBeTruthy();
+
+		await input.press('Tab');
+		await expect(list).toBeFocused();
+		await expect(list).toHaveAttribute('aria-activedescendant', first!);
+		await list.press('ArrowDown');
+		await expect(list).not.toHaveAttribute('aria-activedescendant', first!);
+		await expect.poll(() => activeOptionOnScreen(page, '[role="listbox"]')).toBe(true);
+		await list.press('ArrowUp');
+		await expect(list).toHaveAttribute('aria-activedescendant', first!);
+
+		await list.press('Shift+Tab');
+		await expect(input).toBeFocused();
+		await input.fill('Přepnout na Nastavení');
+		await expect(list.getByRole('option').first()).toHaveAccessibleName(/^Přepnout na Nastavení/);
+		await input.press('Tab');
+		await expect(list).toBeFocused();
+		await list.press('Enter');
+		await page.waitForURL('**/settings/appearance');
+	});
+
+	/*
+	 * The dialog is fixed 4rem from the top and did not scroll: at 200% zoom on
+	 * a 1366×768 screen its last four results could never be brought on screen,
+	 * and at 400% on a 1280×1024 one most of the list lay below the window
+	 * (WCAG 1.4.10).
+	 */
+	for (const size of [
+		{ width: 683, height: 384 },
+		{ width: 320, height: 256 }
+	]) {
+		test(`při ${size.width}×${size.height} jde každý výsledek dostat na obrazovku`, async ({
+			page
+		}) => {
+			await page.setViewportSize(size);
+			await openApp(page, mailbox);
+			await openPalette(page);
+			const box = await page.getByRole('dialog').boundingBox();
+			expect(box!.y + box!.height).toBeLessThanOrEqual(size.height);
+
+			await page.locator('#command-palette-input').press('End');
+			await expect.poll(() => activeOptionOnScreen(page)).toBe(true);
+		});
+	}
+
+	test('na šířce 320 px se názvy příkazů nezkracují', async ({ page }) => {
+		await page.setViewportSize({ width: 320, height: 640 });
+		await openApp(page, mailbox);
+		await openPalette(page);
+
+		const cut = await page
+			.getByRole('dialog')
+			.getByRole('option')
+			.evaluateAll((options) =>
+				options.flatMap((option) =>
+					[...option.querySelectorAll('span')]
+						.filter((span) => span.children.length === 0 && span.scrollWidth > span.clientWidth)
+						.map((span) => span.textContent?.trim())
+				)
+			);
+		expect(cut).toEqual([]);
+		expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+			320
+		);
 	});
 });

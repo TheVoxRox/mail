@@ -1,1 +1,7 @@
-export { focusRing, focusRingInset, focusRingScrollArea, focusRingWithin } from './focus-ring.js';
+export {
+	focusRing,
+	focusRingActiveOption,
+	focusRingInset,
+	focusRingScrollArea,
+	focusRingWithin
+} from './focus-ring.js';

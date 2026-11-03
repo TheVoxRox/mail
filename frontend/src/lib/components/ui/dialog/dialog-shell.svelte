@@ -45,6 +45,19 @@
 				false: ''
 			}
 		},
+		compoundVariants: [
+			{
+				/*
+				 * A top-anchored panel starts 4rem down, so 90vh of it runs past the
+				 * bottom edge whenever the window is short: at 200% zoom on a
+				 * 1366×768 screen the palette's last results could not be brought on
+				 * screen at all. It keeps 1rem below it instead.
+				 */
+				placement: 'top',
+				scroll: true,
+				class: 'max-h-[calc(100dvh-5rem)]'
+			}
+		],
 		defaultVariants: {
 			size: 'md',
 			placement: 'center',
