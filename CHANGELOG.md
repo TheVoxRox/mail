@@ -105,8 +105,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Known issues
 
-Provisional until §9 of the 2026-11-03 candidate sheet, per
-[RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) step 2. Unchanged from
+Reconciled with §9 of the 2026-11-03 candidate sheet, per
+[RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) step 6. Unchanged from
 0.2.0-beta.2:
 
 - **A transient IMAP hiccup, `failed to create new store connection`, appears
@@ -155,6 +155,12 @@ Provisional until §9 of the 2026-11-03 candidate sheet, per
   (#835).
 - The `0.2.0-beta.3` cut: the version in the seven files `bump:version` writes,
   and the 2026-11-03 candidate sheet with §0 to §2 ticked (#851).
+- The release decision for `v0.2.0-beta.3`: §3 to §9 of the 2026-11-03 sheet,
+  which the cut had left out. The machine half is from Release Candidate Smoke;
+  §3, §6 and §8 carry from the 2026-11-02 sheet. §9 approves publishing before
+  §3a, §4, §5 and §7 are re-taken, so that they and the updater item (#836) are
+  taken in one sitting on an installation the updater has brought from beta.2.
+  The release notes are in `docs/release-notes/` (#853).
 
 ## [0.2.0-beta.2] - 2026-11-02
 
