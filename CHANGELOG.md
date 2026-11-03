@@ -32,6 +32,13 @@ Entries before 2026-09-17 predate that split and are left as written.
   of losing their ends. Tab into the results list now names the selected
   command, and the arrows and Enter work there. With nothing found, the
   sentence saying so no longer sits inside an empty list (#849).
+- Going elsewhere while Mail is still opening no longer pulls you back into the
+  mailbox. On a start with no folder list loaded yet, Mail waits for the list
+  and then opens a folder; it did that even after you had moved on, with
+  Ctrl+3 or the command palette for instance, so Settings snapped back to
+  "Doručené" a moment after it appeared, or the way there was cancelled. The
+  list can take seconds while a sync holds the connection. The palette's test
+  of the way to Settings failed on this once under a full run (#848).
 - Three more controls are named the way the W3C forms tutorial prefers. The
   pager's page-jump field ("Přejít na stranu") is named through `<label for>`
   and its own id, the association WCAG technique H44 describes, instead of only

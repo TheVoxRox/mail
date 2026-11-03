@@ -762,4 +762,44 @@ test.describe('Vstup do Pošty', () => {
 		expect(recorded.landmarks.filter((name) => STOP_NAMES.includes(name))).toEqual([]);
 		expect(recorded.landmarks).toContain('Pošta – Doručené');
 	});
+
+	test('kdo z / odejde dřív, než dorazí složky, v Poště neskončí', async ({ page }) => {
+		/*
+		 * The same cold start, with the user not waiting for it: while `/` waits
+		 * for the folder list they go to Settings, and the list arriving afterwards
+		 * opened the mailbox over it. The command palette's way to Settings failed
+		 * that way once under a full suite. Here the list is held back until
+		 * Settings has loaded. The case where the list arrives while the navigation
+		 * away is still running is root-redirect.svelte.test.ts's, since it needs a
+		 * route chunk held, and the mock service worker serves those.
+		 */
+		type HeldWindow = Window & { __releaseFolders: () => void; __foldersDelivered: boolean };
+		await page.addInitScript(() => {
+			const w = window as unknown as HeldWindow;
+			const held = new Promise<void>((resolve) => (w.__releaseFolders = resolve));
+			w.__foldersDelivered = false;
+			const origFetch = window.fetch;
+			window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+				const url =
+					typeof input === 'string' ? input : input instanceof Request ? input.url : String(input);
+				if (!/\/api\/v1\/accounts\/\d+\/folders$/.test(url)) return origFetch(input, init);
+				await held;
+				const response = await origFetch(input, init);
+				w.__foldersDelivered = true;
+				return response;
+			};
+		});
+		await openApp(page, '/');
+		await page.getByRole('link', { name: 'Nastavení (Ctrl+3)' }).click();
+		await page.waitForURL('**/settings/appearance');
+
+		await page.evaluate(() => (window as unknown as HeldWindow).__releaseFolders());
+		await page.waitForFunction(() => (window as unknown as HeldWindow).__foldersDelivered);
+		// Proving a non-event needs a settle: the redirect landed some 40 ms after
+		// the list (measured 5 of 5 before the fix), so after this the Settings URL
+		// must still hold.
+		await page.waitForTimeout(500);
+		await expect(page).toHaveURL(/\/settings\/appearance$/);
+		await expect(page.locator('main h1')).toHaveText('Vzhled');
+	});
 });
