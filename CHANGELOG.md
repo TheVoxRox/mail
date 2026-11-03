@@ -80,6 +80,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- A dependency's npm install script runs only where `allowScripts` in
+  `frontend/package.json` allows it, and `strict-allow-scripts` in
+  `frontend/.npmrc` fails an install on one it does not name; until now npm ran
+  every one and only warned. Both the tree has, `es5-ext` and `esbuild`, are
+  denied, since neither needs its script; why, and what to do on
+  `ESTRICTALLOWSCRIPTS`, is in `docs/DECISIONS.md` (updater audit 1.25, #847).
 - The Tauri SBOM is generated for `x86_64-pc-windows-msvc` wherever it runs.
   Without a target cargo-cyclonedx describes the host, so the `ubuntu-latest`
   runner in `vuln-scan.yml` produced a Linux tree, and Trivy scanned gtk and

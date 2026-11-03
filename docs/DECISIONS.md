@@ -328,6 +328,56 @@ directly as the content-rendering audit rests on jsoup. The OAuth audit (on
 Spring Security) and the IMAP/SMTP audit (on jakarta.mail) do not: their claims
 target our configuration, which tests cover directly.
 
+### Dependency install scripts are denied
+
+**Decided 2026-11-03** (#847). In `frontend/`, an install runs a dependency's
+install script (`preinstall`, `install`, `postinstall`) only if `allowScripts`
+in `frontend/package.json` allows it, and `strict-allow-scripts=true` in
+`frontend/.npmrc` fails the install on a script `allowScripts` does not name.
+Install scripts are how the npm worms of 2025 spread: they run by themselves at
+install time, on a developer's machine and in CI, for any package in the tree,
+one that nothing imports included, before anyone has read the new version.
+Deny by default with an allowlist is what pnpm 10 and Bun already do, and where
+npm says it is going: in npm 11.20 the field is advisory, and a later release is
+to block unreviewed scripts.
+
+Measured on npm 11.20 (2026-11-03):
+
+- Without `strict-allow-scripts`, a script `allowScripts` does not name still
+  runs and npm only warns, so the field alone stops nothing new.
+- A `false` entry skips the script, although npm's own `deny-scripts`
+  documentation says deny entries take effect only in a later release.
+- The project's own `prepare` (`svelte-kit sync`) still runs, unlike under
+  `--ignore-scripts`.
+- `--ignore-scripts` skips the check as well as the scripts, so the release
+  workflow's publish job, which installs that way, is not affected. A
+  lockfile-only install without it is checked.
+
+Both packages with an install script at the time are denied: `es5-ext`, whose
+`postinstall` prints a notice, and `esbuild`, whose `postinstall` checks the
+binary that its platform package already provides. With it denied, esbuild's
+API, its CLI and `npm run build` work. Denies are name-only (`npm deny-scripts`
+writes them that way), so a version bump needs no new entry.
+
+**When an install fails with `ESTRICTALLOWSCRIPTS`:** a dependency, usually
+one a bump brought in, has an install script, and on a dependabot PR the
+maintainer resolves it with a commit on that PR. Read the script, then run
+`npm deny-scripts <pkg>` if the package works without it (most do: the script
+builds or fetches what a prebuilt package already carries) or
+`npm approve-scripts <pkg>` if it does not. An approval is pinned to the
+version, so the next bump of that package asks again.
+`--dangerously-allow-all-scripts` is not a way through.
+
+What it does not cover: a compromised package's code still runs wherever the
+build or the tests import it (vite and its plugins, vitest), and Maven plugins
+and crate build scripts run as before. It closes the path that needs nothing to
+import the package.
+
+**Revisit when:** npm blocks unnamed scripts by default (then check whether the
+default fails the install or skips the script, and whether
+`strict-allow-scripts` still adds anything); or a dependency turns out to need
+its install script (then it gets a pinned approval, and its reason goes here).
+
 ### No `distributionSha256Sum` in the Maven wrapper
 
 **Decided 2026-08-17** while reviewing #279; **reasoning rewritten

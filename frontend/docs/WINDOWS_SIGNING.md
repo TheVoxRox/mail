@@ -9,8 +9,9 @@ second job then signs the finished installer for the updater, generates
 uploads the signed bundle artifacts to the target GitHub Release.
 
 The split is by what each job runs. The build runs code the repository does
-not own (npm install scripts, Maven plugins, vite plugins, crate build
-scripts), so it holds no updater key and can only read the repository. The
+not own (Maven plugins, vite plugins, crate build scripts, and the npm install
+scripts that `allowScripts` in `frontend/package.json` allows), so it holds no
+updater key and can only read the repository. The
 publish job runs in the `release` environment and holds the updater signing key
 from it, on its signing step only, along with
 the attestation's OIDC token and the right to write the release, on a fresh
