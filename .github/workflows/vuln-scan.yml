@@ -21,9 +21,9 @@ jobs:
     # 2026-09-15. A cold pull is ~391,000 CVE records; measured on the 09-15 run
     # it moved at ~3,200/min and stood at 300,000 (77%) when the 90-minute kill
     # landed, about half an hour short. Nothing was wrong with it — it was cut
-    # off. And a cancelled job never runs its cache post-step, so the next night
-    # started cold too: the budget that could not finish once was what kept it
-    # from ever being warm.
+    # off. And a cancelled job saves no database (see the save step below), so
+    # the next night started cold too: the budget that could not finish once was
+    # what kept it from ever being warm.
     #
     # The cap is per night, not per pull: the download resumes from the cached
     # DB, so it only has to fit once. It has, when it was let to — 2026-09-10
@@ -44,6 +44,11 @@ jobs:
     permissions:
       contents: read
       security-events: write
+    # Whether the CVE gate actually ran. A transient NVD outage ends the job
+    # green without evaluating anything, and close-failure-issue must not read
+    # that as a pass.
+    outputs:
+      evaluated: ${{ steps.dependency-check.outputs.evaluated }}
     defaults:
       run:
         working-directory: backend
@@ -58,8 +63,16 @@ jobs:
           java-version: 25
           cache: maven
 
-      - name: Cache OWASP NVD data
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      # Restore and save are two steps, not one `actions/cache`, because the
+      # combined action saves in a post-step that runs only when the job
+      # succeeds. A job whose gate trips is a failed job, so a night that found
+      # a CVE threw its database away and the next night pulled ~420,000 records
+      # cold again: 2026-11-04 spent 111 minutes on the pull, failed on the
+      # sqlite-jdbc finding, and its "Post Cache OWASP NVD data" step reads
+      # skipped. A real finding stays until someone fixes it, so every night of
+      # it paid the cold pull, inside the 180-minute cap.
+      - name: Restore OWASP NVD data
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.m2/repository/org/owasp/dependency-check-data
           # v2: bumped to discard the corrupt H2 DB that earlier 429-failed runs
@@ -91,6 +104,7 @@ jobs:
           fi
 
       - name: Run OWASP Dependency-Check
+        id: dependency-check
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
@@ -109,6 +123,7 @@ jobs:
             mvn --batch-mode org.owasp:dependency-check-maven:12.2.2:check \
               -DnvdApiKey="$NVD_API_KEY" \
               -DfailBuildOnCVSS=8 \
+              -DsuppressionFile=dependency-check-suppressions.xml \
               -DskipTests \
               -Dformats=HTML,JSON,SARIF 2>&1 | tee "$log"
             rc=${PIPESTATUS[0]}
@@ -125,11 +140,26 @@ jobs:
             if grep -qiE "Error updating the NVD Data|NVD Returned Status Code|Unable to continue dependency-check analysis" "$log" \
                && ! grep -qiE "dependencies were identified with vulnerabilities|Failed conditions" "$log"; then
               echo "::warning::NVD data update failed (transient NVD outage); scheduled scan skipped this run — CVE gating was NOT evaluated. It catches up once NVD is reachable."
+              echo "evaluated=false" >> "$GITHUB_OUTPUT"
               exit 0
             fi
             echo "::error::dependency-check failed (exit $rc)"
             exit "$rc"
           fi
+          echo "evaluated=true" >> "$GITHUB_OUTPUT"
+
+      # Saved whenever the analysis ran to the end, the gate tripped or not. The
+      # report exists only then, so it marks a database that finished updating;
+      # a run cut off mid-pull (NVD outage, timeout) leaves no report and saves
+      # nothing. That keeps out the half-written H2 file the v2 key above had to
+      # discard once, and costs nothing: 2026-11-05 cached one from a 503, and
+      # 2026-11-06 pulled all 420,179 records over it from the first.
+      - name: Save OWASP NVD data
+        if: always() && hashFiles('backend/target/dependency-check-report.json') != ''
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.m2/repository/org/owasp/dependency-check-data
+          key: nvd-v2-${{ runner.os }}-${{ github.run_id }}
 
       - name: Upload Dependency-Check report
         if: always()
@@ -406,7 +436,7 @@ jobs:
             "" \
             "Run: $RUN_URL" \
             "" \
-            "cancelled = the OWASP NVD pull hit the job timeout (the Trivy SBOM job still gated the backend that day); failure = a gate tripped or a step errored — open the run to see which. This issue auto-closes once a scheduled scan passes.")
+            "cancelled = the OWASP NVD pull hit the job timeout (the Trivy SBOM job still gated the backend that day); failure = a gate tripped or a step errored — open the run to see which. This issue auto-closes once a scheduled scan passes with the OWASP gate evaluated.")
 
           existing=$(gh issue list --state open --label "$label" --json number --jq '.[0].number // empty')
           if [ -n "$existing" ]; then
@@ -420,7 +450,7 @@ jobs:
     name: Prune caches nothing will restore
     needs: owasp-backend
     # Runs whatever the scan did, and on a manual run too. The entry worth
-    # keeping is written by the post-step of a job that may well have failed its
+    # keeping is written by the save step of a job that may well have failed its
     # gate, and which trigger fired has nothing to do with cache hygiene. The
     # `github.event_name == 'schedule'` this started with was copied from
     # report-failure, where it earns its place — that job must not open an issue
@@ -513,10 +543,15 @@ jobs:
             done
           done
 
+  # Green is not enough on its own: an NVD outage ends the OWASP job green with
+  # nothing evaluated. On 2026-11-05 that closed #852 as "passed" while the
+  # sqlite-jdbc finding it tracked was still there, and the next scan that did
+  # evaluate opened #856 for the same finding. Such a night leaves the issue
+  # open, and the next scan that evaluates decides it.
   close-failure-issue:
     name: Close tracking issue on green scan
     needs: [owasp-backend, npm-audit-frontend, cargo-audit-tauri, generate-sboms]
-    if: ${{ success() && github.event_name == 'schedule' }}
+    if: ${{ success() && github.event_name == 'schedule' && needs.owasp-backend.outputs.evaluated == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       issues: write

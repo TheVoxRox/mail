@@ -33,6 +33,25 @@ Entries before 2026-09-17 predate that split and are left as written.
   SBOM job failed on 2026-11-03 and took the backend's Trivy gate with it; a
   warm `npx` cache installs nothing, which is why the cut did not see it
   (#855).
+- The scheduled vulnerability scan keeps its NVD database on a night the
+  OWASP gate trips, and closes its tracking issue only after a scan that
+  evaluated that gate. `actions/cache` saves only when the job succeeds, so
+  every night with a finding pulled ~420,000 records cold (111 minutes on
+  2026-11-04), and an NVD outage on 2026-11-05 ended the job green with nothing
+  evaluated, which closed #852 while its finding stood. The scan's one
+  suppression, the `sqlite3` shell CVE that NVD matches to the driver, lives
+  in `backend/dependency-check-suppressions.xml` with its reason (#857).
+
+### Backend
+
+- The backend runs on SQLite 3.54.1 (`sqlite-jdbc` 3.54.1.0) instead of the
+  3.53.4 that Spring Boot 4.1.2 brings, because 3.54.0 fixes ten flaws
+  published as CVEs, two of them heap overflows in FTS5, the full-text engine
+  message search runs on. None is reachable through the app's own schema and
+  queries as the CVEs describe them: the search index uses neither
+  `detail=none` nor secure-delete, and the rest need SQL the app does not run
+  or a database file someone else wrote. The nightly vulnerability scan has
+  failed on them since 2026-11-04 (#856, #857).
 
 ## [0.2.0-beta.3] - 2026-11-03
 

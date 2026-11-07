@@ -13,7 +13,7 @@ Total third-party components: 490
   maven  106
   cargo  274
 
-Generated: 2026-11-03
+Generated: 2026-11-07
 
 Machine-readable CycloneDX SBOM files for each ecosystem are
 published alongside the installer on the GitHub Releases page.
@@ -1679,7 +1679,7 @@ Components and their copyright notices:
       Spring IO
       https://github.com/spring-projects/spring-framework
 
-  * sqlite-jdbc 3.53.4.0  [maven]
+  * sqlite-jdbc 3.54.1.0  [maven]
       (copyright not declared)
       https://github.com/xerial/sqlite-jdbc
 
