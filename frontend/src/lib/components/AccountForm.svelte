@@ -181,9 +181,13 @@
 	const PASSWORD_CHANGE_ID = 'acc-password-change';
 
 	/*
-	 * An account a provider sign-in owns has no password to change: the backend
-	 * refuses one (validation.account.oauth2CredentialsReadOnly). The field was
-	 * offered there anyway, with a note about keeping a password it never had.
+	 * An account a provider sign-in owns has no credentials to edit here: the
+	 * backend refuses a password (validation.account.oauth2CredentialsReadOnly),
+	 * and the username is the address the provider vouched for, written again by
+	 * every sign-in. Both fields were offered anyway, the password with a note
+	 * about keeping one it never had. A sentence names the sign-in and the
+	 * username instead, so neither looks editable; the form still sends the
+	 * stored username back unchanged.
 	 */
 	let isOAuthAccount = $derived(mode === 'edit' && initial?.authType === 'OAUTH2');
 	let oauthProviderName = $derived(
@@ -866,7 +870,7 @@
 		{/if}
 	{/if}
 
-	{#if !compact}
+	{#if !compact && !isOAuthAccount}
 		<Field
 			for="acc-username"
 			label={$_('accounts.form.username')}
@@ -894,7 +898,9 @@
 
 	{#if isOAuthAccount}
 		<p class="text-sm text-muted-foreground">
-			{$_('accounts.form.oauthPasswordNote', { values: { provider: oauthProviderName } })}
+			{$_('accounts.form.oauthCredentialsNote', {
+				values: { provider: oauthProviderName, username: username || email }
+			})}
 		</p>
 	{:else if passwordField === 'stored'}
 		<!--

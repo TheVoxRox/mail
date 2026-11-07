@@ -783,20 +783,42 @@ test.describe('Accounts', () => {
 		await expect(form.getByLabel('Heslo', { exact: true })).toHaveCount(0);
 	});
 
-	test('účet s přihlášením přes Google nenabízí heslo', async ({ page }) => {
+	test('účet s přihlášením přes Google nenabízí uživatelské jméno ani heslo', async ({ page }) => {
 		await setMockFlags(page, { oauthAccount: true });
+
+		const putBodies: unknown[] = [];
+		page.on('request', (request) => {
+			if (request.method() === 'PUT' && /\/api\/v1\/accounts\/3$/.test(request.url())) {
+				putBodies.push(request.postDataJSON());
+			}
+		});
+
 		await openApp(page, '/settings/accounts/3');
 
+		const note =
+			'K tomuto účtu se přihlašujete přes Google jako oauth.user@gmail.com. ' +
+			'Uživatelské jméno ani heslo se tu nemění.';
 		const form = page.getByRole('form', { name: 'Účet' });
-		await expect(
-			form.getByText('K tomuto účtu se přihlašujete přes Google, heslo se tu nezadává.')
-		).toBeVisible();
+		await expect(form.getByText(note)).toBeVisible();
+		await expect(form.getByLabel('Uživatelské jméno', { exact: true })).toHaveCount(0);
 		await expect(form.getByRole('button', { name: 'Změnit heslo' })).toHaveCount(0);
 		await expect(form.getByLabel('Heslo', { exact: true })).toHaveCount(0);
 		// A paragraph of its own, not run together with the checkbox label after it.
 		await expect(form).toMatchAriaSnapshot(`
-			- paragraph: K tomuto účtu se přihlašujete přes Google, heslo se tu nezadává.
+			- paragraph: ${note}
 			- checkbox "Účet je aktivní (synchronizuje se)"
 		`);
+
+		// The rest of the account still saves, with the stored username sent back
+		// as it was: the backend does not take a different one for such an account.
+		await form.getByLabel('Název účtu', { exact: true }).fill('Gmail – přejmenovaný');
+		await form.getByRole('button', { name: 'Uložit změny' }).click();
+		await page.waitForURL('**/settings/accounts');
+		expect(putBodies).toHaveLength(1);
+		expect(putBodies[0]).toMatchObject({
+			accountName: 'Gmail – přejmenovaný',
+			username: 'oauth.user@gmail.com',
+			password: null
+		});
 	});
 });

@@ -61,9 +61,11 @@ Entries before 2026-09-17 predate that split and are left as written.
   button opens the field, required from then on, and "Ponechat uložené heslo"
   closes it and drops what was typed. When the server rejects the stored
   password, say after a change of username, focus goes to the button. An
-  account that signs in through Google or Microsoft shows a sentence saying so
-  instead: it has no password, and the backend refused one typed there
-  (#863).
+  account that signs in through Google or Microsoft shows neither Username nor
+  Password, but a sentence that names the sign-in and the username ("K tomuto
+  účtu se přihlašujete přes Google jako …"): it has no password, the backend
+  refused one typed there, and the username is the address the provider
+  vouched for, which the backend did not take from the form (#863).
 - On the account edit page the signature stands apart from the account's
   settings: below a rule, in a group named "Podpis" that holds the signature
   text and the auto-insert option, and "Účet je aktivní" moved up to the
