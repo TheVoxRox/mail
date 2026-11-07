@@ -93,6 +93,16 @@ pub fn run() {
                 // itself, and $lib/fileDropGuard.ts keeps a stray one from
                 // opening the file in place of the app.
                 .disable_drag_drop_handler()
+                // WebView2's own form suggestions ("autofill") offered the
+                // addresses typed into the account form before, in a popup
+                // the browser draws outside the page: a screen reader read
+                // nothing of it on the New account page, and the page cannot
+                // give it a name or a role. The app has no field such a list
+                // helps with — compose has its own address suggestions — so
+                // it goes, and the profile stops recording what is typed into
+                // forms. Passwords are a separate WebView2 setting that is off
+                // by default.
+                .general_autofill_enabled(false)
                 .build()?;
             #[cfg(windows)]
             webview_defaults::install(&main_window);

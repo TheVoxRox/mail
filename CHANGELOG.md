@@ -51,6 +51,19 @@ Entries before 2026-09-17 predate that split and are left as written.
   or a database file someone else wrote. The nightly vulnerability scan has
   failed on them since 2026-11-04 (#856, #857).
 
+### Tauri / Release
+
+- The e-mail field of the New account page no longer opens a suggestion list
+  a screen reader cannot read. WebView2's own form autofill offered the
+  addresses typed into the account forms before, in a popup the browser draws
+  outside the page, so the page cannot give it a name or a role. The window is
+  now built with general autofill off: no suggestions appear, and the webview
+  profile stops storing what is typed into form fields. Checked in
+  `tauri:dev`: an address submitted on the wizard was added to the profile's
+  autofill table without the setting and was not with it. Compose keeps its
+  own address suggestions, which the page draws itself; saving passwords is a
+  separate WebView2 setting, off by default (#858).
+
 ## [0.2.0-beta.3] - 2026-11-03
 
 ### Frontend
