@@ -38,9 +38,10 @@
 			which the search index is (CVE-2026-119373, CVE-2026-119374); a third
 			at 8.5, CVE-2026-119379, is in the session extension, which the driver
 			is not compiled with. 3.54.1.0 is the first driver past 3.54.0, and
-			`select sqlite_version()` on it returns 3.54.1. The eleventh CVE the
-			scan matches is the sqlite3 shell's, which the driver does not carry;
-			it is suppressed in dependency-check-suppressions.xml with the reason.
+			`select sqlite_version()` on it returns 3.54.1. The eleventh,
+			CVE-2026-119586, is the sqlite3 shell's, which the driver does not
+			carry; NVD's range for it ends at 3.54.1, and Dependency-Check does not
+			match it to 3.54.1.0.
 
 			Drop this once Boot's BOM manages 3.54.1.0 or later. The dependency
 			and the sqlite-natives-* profiles read the property already, so the

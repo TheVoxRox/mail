@@ -123,7 +123,6 @@ jobs:
             mvn --batch-mode org.owasp:dependency-check-maven:12.2.2:check \
               -DnvdApiKey="$NVD_API_KEY" \
               -DfailBuildOnCVSS=8 \
-              -DsuppressionFile=dependency-check-suppressions.xml \
               -DskipTests \
               -Dformats=HTML,JSON,SARIF 2>&1 | tee "$log"
             rc=${PIPESTATUS[0]}

@@ -38,9 +38,7 @@ Entries before 2026-09-17 predate that split and are left as written.
   evaluated that gate. `actions/cache` saves only when the job succeeds, so
   every night with a finding pulled ~420,000 records cold (111 minutes on
   2026-11-04), and an NVD outage on 2026-11-05 ended the job green with nothing
-  evaluated, which closed #852 while its finding stood. The scan's one
-  suppression, the `sqlite3` shell CVE that NVD matches to the driver, lives
-  in `backend/dependency-check-suppressions.xml` with its reason (#857).
+  evaluated, which closed #852 while its finding stood (#857).
 
 ### Backend
 
