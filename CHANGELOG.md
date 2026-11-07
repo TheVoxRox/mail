@@ -62,7 +62,8 @@ Entries before 2026-09-17 predate that split and are left as written.
   closes it and drops what was typed. When the server rejects the stored
   password, say after a change of username, focus goes to the button. An
   account that signs in through Google or Microsoft shows a sentence saying so
-  instead: it has no password, and the backend refused one typed there.
+  instead: it has no password, and the backend refused one typed there
+  (#863).
 - On the account edit page the signature stands apart from the account's
   settings: below a rule, in a group named "Podpis" that holds the signature
   text and the auto-insert option, and "Účet je aktivní" moved up to the
