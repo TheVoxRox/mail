@@ -211,28 +211,28 @@ test.describe('Tisk zprávy', () => {
  * paper at the moment the dialog opened, and closing the dialog is the
  * afterprint event the browser sends for a print and a cancel alike.
  */
+type PrintRecord = { printing: string | null; ids: string[] };
+
+const recordPrints = async (page: Page) =>
+	page.evaluate(() => {
+		const w = window as unknown as { __prints: PrintRecord[] };
+		w.__prints = [];
+		window.print = () => {
+			w.__prints.push({
+				printing: document.documentElement.dataset.printing ?? null,
+				ids: [...document.querySelectorAll<HTMLElement>('[data-print="selection"] article')].map(
+					(article) => article.dataset.stableId ?? ''
+				)
+			});
+		};
+	});
+const prints = async (page: Page) =>
+	page.evaluate(() => (window as unknown as { __prints: PrintRecord[] }).__prints);
+const closePrintDialog = async (page: Page) =>
+	page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+const sheet = (page: Page) => page.locator('[data-print="selection"]');
+
 test.describe('Tisk vybraných zpráv', () => {
-	type PrintRecord = { printing: string | null; ids: string[] };
-
-	const recordPrints = async (page: Page) =>
-		page.evaluate(() => {
-			const w = window as unknown as { __prints: PrintRecord[] };
-			w.__prints = [];
-			window.print = () => {
-				w.__prints.push({
-					printing: document.documentElement.dataset.printing ?? null,
-					ids: [...document.querySelectorAll<HTMLElement>('[data-print="selection"] article')].map(
-						(article) => article.dataset.stableId ?? ''
-					)
-				});
-			};
-		});
-	const prints = async (page: Page) =>
-		page.evaluate(() => (window as unknown as { __prints: PrintRecord[] }).__prints);
-	const closePrintDialog = async (page: Page) =>
-		page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
-	const sheet = (page: Page) => page.locator('[data-print="selection"]');
-
 	test('tlačítko v hromadném panelu vytiskne zaškrtnuté zprávy v pořadí seznamu, každou na svůj list', async ({
 		page
 	}) => {
@@ -465,5 +465,79 @@ test.describe('Tisk vybraných zpráv', () => {
 		await expect(
 			page.getByRole('option', { name: /Print selection: 1 selected message/ })
 		).toBeVisible();
+	});
+});
+
+/*
+ * The row's own menu prints that row, whatever is ticked. The menu is named
+ * after one message (or one conversation), so printing the selection from it
+ * would put on paper what the user did not point at; the ticked rows are the
+ * bulk bar's and Ctrl+P's. It goes through the same sheet as the ticked rows,
+ * since the row has nothing on screen to print either.
+ */
+test.describe('Tisk z řádkového menu', () => {
+	const printItem = (page: Page) =>
+		page.getByRole('menu').getByRole('menuitem', { name: 'Print', exact: true });
+
+	test('Vytisknout v menu řádku vytiskne ten řádek, ne zaškrtnuté, a fokus vrátí na tlačítko Akce', async ({
+		page
+	}) => {
+		await openApp(page, '/mail/1/INBOX');
+		await recordPrints(page);
+		await page.getByRole('checkbox', { name: 'Select message Projektové podklady' }).check();
+		const actions = page
+			.locator('[role="row"][data-stable-id="msg-04"]')
+			.getByRole('button', { name: /^Actions for message / });
+
+		await actions.click();
+		await printItem(page).click();
+
+		await expect.poll(async () => (await prints(page)).length).toBe(1);
+		const [printed] = await prints(page);
+		expect(printed?.printing).toBe('selection');
+		expect(printed?.ids).toEqual(['msg-04']);
+
+		await closePrintDialog(page);
+		await expect(sheet(page)).toHaveCount(0);
+		await expect(actions).toBeFocused();
+		// The selection is left as it was, ticked row and all.
+		await expect(page.getByText('1 selected message')).toBeVisible();
+	});
+
+	test('Vytisknout v menu konverzace vytiskne celou konverzaci od nejstarší zprávy', async ({
+		page
+	}) => {
+		await setPrefs(page, { messageGrouping: 'grouped' });
+		await openApp(page, '/mail/1/ARCHIVE');
+		await recordPrints(page);
+
+		await page
+			.locator('[role="row"][data-row-kind="conversation"][data-stable-id="arch-03"]')
+			.getByRole('button', { name: /^Actions for conversation / })
+			.click();
+		await printItem(page).click();
+
+		// The set the ticked conversation prints, in the same order.
+		await expect.poll(async () => (await prints(page)).length).toBe(1);
+		expect((await prints(page))[0]?.ids).toEqual(['arch-01', 'arch-02', 'arch-03']);
+	});
+
+	test('Vytisknout v menu člena vlákna vytiskne jen tu zprávu', async ({ page }) => {
+		await setPrefs(page, { messageGrouping: 'grouped' });
+		await openApp(page, '/mail/1/ARCHIVE');
+		await recordPrints(page);
+		await page
+			.locator('[role="row"][data-row-kind="conversation"][data-stable-id="arch-03"]')
+			.locator('[data-expand-toggle]')
+			.click();
+
+		await page
+			.locator('[role="row"][data-row-kind="member"][data-stable-id="arch-01"]')
+			.getByRole('button', { name: /^Actions for the message / })
+			.click();
+		await printItem(page).click();
+
+		await expect.poll(async () => (await prints(page)).length).toBe(1);
+		expect((await prints(page))[0]?.ids).toEqual(['arch-01']);
 	});
 });

@@ -653,11 +653,14 @@
 	async function resolvePrintSelection(): Promise<string[] | null> {
 		const resolvedAll = await resolveSelectedConversations();
 		if (!resolvedAll) return null;
-		return resolvedAll.flatMap((resolved) =>
-			[...resolved.messages]
-				.sort((a, b) => Date.parse(a.receivedAt) - Date.parse(b.receivedAt))
-				.map((message) => message.stableId)
-		);
+		return resolvedAll.flatMap((resolved) => printOrder(resolved.messages));
+	}
+
+	/** One conversation's messages as they go on paper: oldest first. */
+	function printOrder(messages: readonly MailSummaryResponse[]): string[] {
+		return [...messages]
+			.sort((a, b) => Date.parse(a.receivedAt) - Date.parse(b.receivedAt))
+			.map((message) => message.stableId);
 	}
 
 	/**
@@ -1033,10 +1036,34 @@
 				),
 			toggleSeen: () =>
 				void runRowAction(row, (ids, ctx) => markConversationMembersSeen(ids, !rowSeen(row), ctx)),
+			print: () => void printRow(row),
 			moveTo: (folderRef) =>
 				void runRowAction(row, (ids, ctx) => moveConversationMembers(ids, folderRef, ctx)),
 			remove: () => void runRowAction(row, (ids, ctx) => deleteConversationMembers(ids, ctx))
 		};
+	}
+
+	/**
+	 * Print from the row menu: the same set the row's read, move and delete
+	 * take — every member in this folder for a conversation, the one message for
+	 * a member row — in the order a ticked conversation prints. Not through
+	 * runRowAction: nothing reloads, so the trigger the menu hands focus back to
+	 * survives and there is no focus to restore.
+	 */
+	async function printRow(row: VisibleRow): Promise<void> {
+		// Before resolving: that loads thread members, for a job that cannot start.
+		if (refusePrintWhileBusy()) return;
+		bulkError = null;
+		if (row.kind === 'member') {
+			await printMessages([row.message.stableId]);
+			return;
+		}
+		const resolved = await resolveConversationMembers(row.conversation, () => true);
+		if (!resolved) {
+			bulkError = $_('messages.grouping.bulkResolveFailed');
+			return;
+		}
+		await printMessages(printOrder(resolved.messages));
 	}
 
 	/**
