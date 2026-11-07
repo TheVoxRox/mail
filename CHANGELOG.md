@@ -51,6 +51,14 @@ Entries before 2026-09-17 predate that split and are left as written.
   or a database file someone else wrote. The nightly vulnerability scan has
   failed on them since 2026-11-04 (#856, #857).
 
+### Frontend
+
+- The note under Password on the account edit page reads as a sentence, like
+  the other notes on that page: "Pokud heslo měnit nechcete, nechte pole
+  prázdné." It began with a dash and a lowercase word, written to follow the
+  label on one line, but it shows on its own line under the field, and a
+  screen reader reads it as the field's description (#859).
+
 ### Tauri / Release
 
 - The e-mail field of the New account page no longer opens a suggestion list
