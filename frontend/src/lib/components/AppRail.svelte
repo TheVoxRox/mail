@@ -46,44 +46,18 @@
 	}
 </script>
 
-<nav
+<!--
+	The rail is a column, not a landmark: the landmark is the workspace links
+	alone, and the pane toggle stands below it, outside. Only the links switch
+	workspaces, so only they are in the landmark named for that.
+-->
+<div
 	data-print="chrome"
-	aria-label={$_('workspace.railLandmark')}
 	class="flex h-full w-16 shrink-0 flex-col items-center border-r border-sidebar-border bg-sidebar px-2 py-3"
 >
-	<div class="flex w-full flex-col items-center gap-2">
+	<nav aria-label={$_('workspace.railLandmark')} class="flex w-full flex-col items-center gap-2">
 		<!--
-			Shows and hides the pane (stores/workspacePane.ts): slides it in over
-			the content in a narrow window, docks it or folds it away in a wide one.
-			Named after what a press does, with the state in aria-expanded rather
-			than in a name that changes, so the reader hears "sbaleno" / "rozbaleno".
-			The name was the pane's alone, which said what the button is about but
-			not what it does. Ctrl+Y is not in it, unlike the links below: the key
-			goes to the pane and never hides it, so the name would have promised a
-			toggle the key is not. The name comes from the title alone: beside an
-			aria-label, the title counts as the description too, even with the same
-			words, and is offered to the reader a second time.
-
-			The icon draws a window with a side pane, not a hamburger, and a rule
-			sets it apart from the links: testers took a hamburger heading the same
-			column of buttons for a menu holding them, and the toggle for a fourth
-			workspace. The rule is drawing only; a separator role would read out an
-			item the eye does not need named.
-		-->
-		<button
-			type="button"
-			id={WORKSPACE_PANE_TOGGLE_ID}
-			class={railItemClass(false)}
-			aria-expanded={$paneShown}
-			aria-controls={WORKSPACE_PANE_ID}
-			title={paneToggleLabel}
-			onclick={togglePane}
-		>
-			<Icon name="panel-left" size={20} />
-		</button>
-		<div class="my-1 h-px w-8 bg-sidebar-border" aria-hidden="true"></div>
-		<!--
-			Named by the title alone, as the toggle above is: an aria-label beside
+			Named by the title alone, as the toggle below is: an aria-label beside
 			the same title made Chromium expose the name a second time as the
 			description. The link carries no text either, which would outrank the
 			title for the name and leave the title to be read as the description.
@@ -105,5 +79,38 @@
 				<Icon name={item.icon} size={20} />
 			</a>
 		{/each}
-	</div>
-</nav>
+	</nav>
+	<!--
+		Shows and hides the pane (stores/workspacePane.ts): slides it in over the
+		content in a narrow window, docks it or folds it away in a wide one.
+		Named after what a press does, with the state in aria-expanded rather than
+		in a name that changes, so the reader hears "sbaleno" / "rozbaleno". The
+		name was the pane's alone, which said what the button is about but not
+		what it does. Ctrl+Y is not in it, unlike the links above: the key goes to
+		the pane and never hides it, so the name would have promised a toggle the
+		key is not. The name comes from the title alone: beside an aria-label, the
+		title counts as the description too, even with the same words, and is
+		offered to the reader a second time.
+
+		At the foot of the rail, outside the landmark and after it in reading
+		order (docs/DECISIONS.md). At the head of the column, inside the
+		landmark, testers took it for one of the workspaces even with its own
+		icon and a rule under it (#772), a screen reader entering the landmark
+		met a button that switches nothing, and three links stood between it and
+		the pane it controls. Here the next thing after it is that pane, as after
+		any disclosure button, in the Tab order and in browse mode. The icon draws
+		a window with a side pane, not a hamburger, which testers read as a menu
+		holding the links.
+	-->
+	<button
+		type="button"
+		id={WORKSPACE_PANE_TOGGLE_ID}
+		class={cn(railItemClass(false), 'mt-auto')}
+		aria-expanded={$paneShown}
+		aria-controls={WORKSPACE_PANE_ID}
+		title={paneToggleLabel}
+		onclick={togglePane}
+	>
+		<Icon name="panel-left" size={20} />
+	</button>
+</div>

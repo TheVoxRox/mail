@@ -164,6 +164,37 @@ test.describe('Podokno v úzkém okně', () => {
 		await waitForFocus(pane(page).getByRole('link', { name: /^Doručené/ }));
 	});
 
+	/*
+	 * The toggle stands below the workspace links and outside their landmark,
+	 * so the pane it controls is the next thing after it, as after any
+	 * disclosure button. At the head of the rail, inside the landmark, three
+	 * links stood between the two, and a reader entering the landmark met a
+	 * button that switches nothing first (docs/DECISIONS.md).
+	 */
+	for (const [path, name] of [
+		['/mail/1/INBOX', 'Podokno pošty'],
+		['/contacts', 'Podokno kontaktů'],
+		['/settings/appearance', 'Podokno nastavení']
+	] as const) {
+		test(`tlačítko podokna stojí mezi přepínačem prostředí a podoknem (${name})`, async ({
+			page
+		}) => {
+			await openAt(page, path, 1280, 720);
+			// The page's heading takes focus once it lands; a press before then
+			// would have its focus taken away between the focus and the key.
+			await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
+			const rail = page.getByRole('navigation', { name: 'Přepínač prostředí' });
+			await expect(rail.getByRole('button')).toHaveCount(0);
+
+			await rail.getByRole('link').last().press('Tab');
+			await expect(toggle(page, name)).toBeFocused();
+			await toggle(page, name).press('Tab');
+			await expect
+				.poll(() => pane(page, name).evaluate((el) => el.contains(document.activeElement)))
+				.toBe(true);
+		});
+	}
+
 	test('v širokém okně tlačítko podokno skryje, zapamatuje si to a zase ho ukotví', async ({
 		page
 	}) => {

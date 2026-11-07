@@ -124,6 +124,35 @@ on voxrox.org.
 **Revisit when:** the default `closeAction` changes, or users turn out to leave
 the app running for days.
 
+### The pane toggle stands at the foot of the rail, outside its landmark
+
+**Decided 2026-11-07** (#861), after testers took the toggle at the head of the
+rail for part of the workspace switcher a second time: #772 had already given
+it its own icon and a rule under it. The rail in
+[AppRail.svelte](../frontend/src/lib/components/AppRail.svelte) is a column
+holding the `<nav>` "Přepínač prostředí" with the three workspace links and,
+below it at the foot, the toggle. Outside the landmark, because it switches
+no workspace and a screen reader entering the landmark should meet only what
+the name promises; at the foot, because it is then the last thing before the
+pane it controls, in the Tab order and in browse mode, as after any disclosure
+button.
+
+Two other places were weighed. The pane's own header, where classic Outlook
+puts its folder pane's fold: a folded pane is `hidden`, so showing it again
+would need a second control elsewhere, two controls for one state with focus
+passed between them. The head of the content: every workspace has a different
+one, and a control of the window's layout would sit in `<main>`. A palette
+command alone is not enough either, since a narrow window needs a visible
+trigger for the pointer (WCAG 1.4.10).
+
+Outside a landmark is not a WCAG failure; axe's `region` rule is a best
+practice, and the suite runs the WCAG tags only
+([a11y-target.ts](../frontend/src/routes/a11y-target.ts)).
+
+**Revisit when:** the app gets a command bar across the top of the window,
+which would be a place for the toggle that stays put whether the pane is
+shown or not, or the foot of the rail is wanted for something else.
+
 ## Release process
 
 ### Everything ships through beta

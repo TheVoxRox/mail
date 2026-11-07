@@ -802,8 +802,10 @@ test.describe('Přístupnost', () => {
 			// The title alone names every rail control: beside an aria-label,
 			// Chromium exposes the same title as the description and the name is
 			// offered twice. Playwright reads the title as the description either
-			// way, so the attribute is what can be checked.
-			await expect(rail.locator('a, button')).toHaveCount(4);
+			// way, so the attribute is what can be checked. The landmark holds the
+			// three workspace links and nothing else: the pane toggle switches no
+			// workspace and stands outside it (viewport.functional.e2e.ts).
+			await expect(rail.locator('a, button')).toHaveCount(3);
 			for (const control of await rail.locator('a, button').all()) {
 				await expect(control).not.toHaveAttribute('aria-label');
 			}
