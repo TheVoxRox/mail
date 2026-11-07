@@ -1155,6 +1155,24 @@ test.describe('Přístupnost', () => {
 		}
 	});
 
+	test('podpis je vlastní skupina a aktivní účet zůstává u nastavení účtu', async ({ page }) => {
+		// "Účet je aktivní" followed the signature and read as part of it; the
+		// signature now has a group of its own, after everything about the account.
+		await openApp(page, '/settings/accounts/1');
+		const form = page.getByRole('form', { name: 'Účet' });
+		const signature = form.getByRole('group', { name: 'Podpis', exact: true });
+		await expect(signature.getByRole('textbox', { name: 'Text podpisu' })).toBeVisible();
+		await expect(
+			signature.getByRole('checkbox', { name: 'Vkládat podpis automaticky do nových zpráv' })
+		).toBeVisible();
+		await expect(signature.getByRole('checkbox', { name: /Účet je aktivní/ })).toHaveCount(0);
+		await expect(form).toMatchAriaSnapshot(`
+			- textbox "Heslo"
+			- checkbox "Účet je aktivní (synchronizuje se)"
+			- group "Podpis"
+		`);
+	});
+
 	test('servery poskytovatele popisují výběr a nesplývají s dalším popiskem', async ({ page }) => {
 		// Chromium drops the divs around the servers line, so left in the tree
 		// it and the next label made one line in browse mode: "IMAP …, SMTP …

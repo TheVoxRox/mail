@@ -348,6 +348,7 @@
 			"displayName": "Zobrazované jméno",
 			"displayNameHint": "Zobrazí se příjemcům jako odesílatel.",
 			"signature": "Podpis",
+			"signatureText": "Text podpisu",
 			"signatureHint": "Vloží se na konec nové zprávy. Před odesláním ho můžete upravit.",
 			"signaturePlaceholder": "S pozdravem, Jan Novák",
 			"signatureAutoInsert": "Vkládat podpis automaticky do nových zpráv",

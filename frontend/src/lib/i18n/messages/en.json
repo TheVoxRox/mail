@@ -348,6 +348,7 @@
 			"displayName": "Display name",
 			"displayNameHint": "Shown to recipients as the sender.",
 			"signature": "Signature",
+			"signatureText": "Signature text",
 			"signatureHint": "Added to the end of new messages. You can edit it before sending.",
 			"signaturePlaceholder": "Best regards, Jane Doe",
 			"signatureAutoInsert": "Insert the signature automatically into new messages",

@@ -58,6 +58,12 @@ Entries before 2026-09-17 predate that split and are left as written.
   prázdné." It began with a dash and a lowercase word, written to follow the
   label on one line, but it shows on its own line under the field, and a
   screen reader reads it as the field's description (#859).
+- On the account edit page the signature stands apart from the account's
+  settings: below a rule, in a group named "Podpis" that holds the signature
+  text and the auto-insert option, and "Účet je aktivní" moved up to the
+  settings, under the password. It used to follow the signature and look like
+  one of its options. The text box is now "Text podpisu", so entering the group
+  a screen reader no longer says "Podpis" twice (#860).
 
 ### Tauri / Release
 
