@@ -57,7 +57,7 @@ Entries before 2026-09-17 predate that split and are left as written.
   test the page runs before saving passed, because it logs in with the new
   username and the stored password. An OAuth2 account now refuses a username
   change with an error instead of dropping it: its logins use the account
-  address, and every sign-in writes the username again (#863).
+  address, and every sign-in writes the username again (#864).
 
 ### Frontend
 
