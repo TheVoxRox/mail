@@ -9,6 +9,7 @@
 		toggleMessageFlag,
 		toggleMessageSeen
 	} from '#lib/mail/mailbox.js';
+	import { printMessages } from '#lib/mail/printMessages.js';
 	import { folders } from '#lib/stores/folders.js';
 	import { messagesState } from '#lib/stores/messages.js';
 	import { moveTargetsFor } from '#lib/mail/moveTargets.js';
@@ -44,7 +45,8 @@
 		/**
 		 * Fired after a list-mutating action (flag/seen/move/delete) settles, so
 		 * a caller whose list is not driven by `messagesState` (e.g. search) can
-		 * refresh. Reply/forward navigate away and do not fire it.
+		 * refresh. Reply/forward navigate away and do not fire it, and print
+		 * changes nothing in the list.
 		 */
 		onAfterAction?: () => void;
 		/** Overrides the default flat-store wiring — see `mail/rowActions.ts`. */
@@ -111,6 +113,7 @@
 			forward: () => run(forwardMessage),
 			toggleFlag: () => run(toggleMessageFlag, { refresh: true }),
 			toggleSeen: () => run(toggleMessageSeen, { refresh: true }),
+			print: () => run((id) => printMessages([id])),
 			moveTo: (folderRef) => run((id) => moveMessages([id], folderRef), { refresh: true }),
 			remove: () => run((id) => deleteMessages([id]), { refresh: true })
 		}
@@ -157,6 +160,14 @@
 		</DropdownMenu.Item>
 		<DropdownMenu.Item class={defaultItemClass} onSelect={() => effectiveActions.toggleSeen()}>
 			{seenLabel}
+		</DropdownMenu.Item>
+		<!--
+			In the open message's toolbar order: after the read state, before Move
+			and Delete. No aria-keyshortcuts: Ctrl+P in the list prints the ticked
+			rows, not the row this menu belongs to.
+		-->
+		<DropdownMenu.Item class={defaultItemClass} onSelect={() => effectiveActions.print()}>
+			{$_('toolbar.print')}
 		</DropdownMenu.Item>
 
 		{#if moveTargets.length > 0}

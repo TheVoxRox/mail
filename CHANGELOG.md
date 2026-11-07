@@ -71,6 +71,12 @@ Entries before 2026-09-17 predate that split and are left as written.
   met it first, though it switches nothing; and three links stood between it
   and the pane it controls. The pane now comes right after it, on Tab and in
   browse mode (#861).
+- The row actions menu in the message list ("Akce pro zprávu …") offers
+  "Vytisknout", after the read state, where the open message's toolbar has it.
+  Printing a message from the list used to mean opening it or ticking it
+  first. The menu prints its own row whatever else is ticked, and on a
+  conversation row the whole conversation in the folder, oldest first, the way
+  a ticked conversation prints (#862).
 
 ### Tauri / Release
 

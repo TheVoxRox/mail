@@ -16,6 +16,11 @@ export type RowActions = {
 	forward: () => void;
 	toggleFlag: () => void;
 	toggleSeen: () => void;
+	/**
+	 * The row, not the selection: what the ticked rows print is the bulk bar's
+	 * and Ctrl+P's to decide. A conversation row prints what it stands for.
+	 */
+	print: () => void;
 	moveTo: (folderRef: string) => void;
 	/** Delete — named `remove` so call sites do not read as the `delete` operator. */
 	remove: () => void;
