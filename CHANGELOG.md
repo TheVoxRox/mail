@@ -64,6 +64,13 @@ Entries before 2026-09-17 predate that split and are left as written.
   settings, under the password. It used to follow the signature and look like
   one of its options. The text box is now "Text podpisu", so entering the group
   a screen reader no longer says "Podpis" twice (#860).
+- The button that shows and hides the side pane moved from the top of the
+  left rail to its foot, out of the "Přepínač prostředí" landmark. At the top
+  it read as a fourth workspace beside Pošta, Kontakty and Nastavení, even
+  with its own icon and a rule under it; a screen reader entering the landmark
+  met it first, though it switches nothing; and three links stood between it
+  and the pane it controls. The pane now comes right after it, on Tab and in
+  browse mode (#861).
 
 ### Tauri / Release
 

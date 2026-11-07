@@ -7,7 +7,7 @@
  * a 1280px one at 200% — that left the content too little room, and at the
  * 320 CSS px of 400% zoom none at all. Below it the pane leaves the row and
  * slides in over the content on demand, as Outlook's folder pane does in a
- * narrow window: the toggle at the top of the rail, or Ctrl+Y, opens it.
+ * narrow window: the toggle at the foot of the rail, or Ctrl+Y, opens it.
  *
  * In a wide window the same toggle folds the pane away by choice and docks it
  * again, as Outlook's does, and the choice is remembered. A pane folded that
@@ -108,7 +108,7 @@ export function closePane(options?: { returnFocus?: boolean }): void {
 }
 
 /**
- * The toggle at the top of the rail. In a narrow window it slides the pane in
+ * The toggle at the foot of the rail. In a narrow window it slides the pane in
  * and out. In a wide one it docks the pane or folds it away, and remembers
  * which; folding it while focus is in it hands focus to the toggle rather than
  * hiding the focused control.
