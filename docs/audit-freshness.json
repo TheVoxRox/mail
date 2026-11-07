@@ -153,7 +153,8 @@
     "reviewedTrees": {
       "frontend/src-tauri/tauri.conf.json": "83dc89c9108fa682527af7a52fb1c9b66b525293",
       "frontend/src/lib/components/settings/AboutSettings.svelte": "b282710648cfa025cd4566873263dcc529970682",
-      ".github/workflows/windows-signed-release.yml": "77f306b502b1b8cf7591eed23c8ea4c60b40a6a2"
+      ".github/workflows/windows-signed-release.yml": "77f306b502b1b8cf7591eed23c8ea4c60b40a6a2",
+      "frontend/src-tauri/src": "21ffca8b4140234e40d8e3afc7f8231d97eda797"
     },
     "acknowledgements": [
       {
@@ -171,6 +172,10 @@
       {
         "date": "2026-11-03",
         "note": "#851, the v0.2.0-beta.3 cut. The one change in tauri.conf.json is the top-level version, 0.2.0-beta.2 to 0.2.0-beta.3, written by bump:version. plugins.updater (endpoints, pubkey 068F68E532BCF6DC) and bundle (the NSIS template, installMode) are untouched. No claim of the audit rests on the value: the build gate compares the tag with this field, the version pin compares the manifest with the version the prompt named, and beta.3 orders after beta.2 and before 0.2.0 under semver, which is the order the beta channel and the later promotion need. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-07",
+        "note": "The one change under frontend/src-tauri/src is in lib.rs: the main window's WebviewWindowBuilder gains general_autofill_enabled(false) and a comment saying why (WebView2's form-suggestion popup was unreadable to a screen reader on the New account page). It switches off a WebView2 setting and nothing else: generate_handler! is untouched, so the renderer can invoke the same commands; no updater command, endpoint, channel map, pinned pubkey, pending slot or capability changes; webview_defaults.rs and the browser arguments are byte-identical. Verdict unchanged."
       }
     ]
   }
