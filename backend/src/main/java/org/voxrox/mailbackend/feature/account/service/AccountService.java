@@ -94,9 +94,16 @@ public class AccountService {
 
         ensureEmailNotTaken(account, request.email(), accountId);
 
-        boolean wouldRotateCredentials = request.password() != null && !request.password().isBlank();
-        ensureCredentialsNotMutatedForOAuth2(accountId, wouldRotateCredentials, LogMasker.maskEmail(account.getEmail()),
-                "PUT");
+        /*
+         * The username lives on the credentials row, not on the account, so a change to
+         * it is a credentials change of its own — the edit page sends one with an empty
+         * password whenever the user corrects only the login name.
+         */
+        AccountCredentialEntity credentials = credentialService.getCredentials(accountId);
+        boolean wouldRotateSecret = request.password() != null && !request.password().isBlank();
+        boolean wouldChangeUsername = !Objects.equals(credentials.getUsername(), request.username());
+        ensureCredentialsNotMutatedForOAuth2(accountId, credentials, wouldRotateSecret || wouldChangeUsername,
+                LogMasker.maskEmail(account.getEmail()), "PUT");
 
         account.setAccountName(request.accountName());
         account.setDisplayName(request.displayName());
@@ -117,12 +124,18 @@ public class AccountService {
 
         /*
          * Password is optional in PUT semantics (see AccountUpdateRequest.password
-         * javadoc): empty/null leaves existing credentials untouched. Without this
-         * guard saveCredentials would overwrite encryptedPassword with null and the
-         * user would silently lose access to the PASSWORD account.
+         * javadoc): empty/null leaves the stored secret untouched. saveCredentials is
+         * therefore for a new password only — given an empty one it would overwrite
+         * encryptedPassword with "" and the user would silently lose access to the
+         * PASSWORD account. A username change without a new password goes through
+         * changeUsername, which keeps the secret. It used to go nowhere: the edit
+         * answered 200 and the old username came back, while the page's connection
+         * probe had just logged in with the new one and the stored secret.
          */
-        if (wouldRotateCredentials) {
+        if (wouldRotateSecret) {
             credentialService.saveCredentials(saved, request.username(), request.password(), AuthType.PASSWORD);
+        } else if (wouldChangeUsername) {
+            credentialService.changeUsername(saved, request.username());
         }
 
         /*
@@ -142,7 +155,7 @@ public class AccountService {
         }
 
         AuditLog.success("account_update", LogMasker.maskEmail(saved.getEmail()),
-                "id=" + saved.getId() + " credentials_rotated=" + wouldRotateCredentials);
+                "id=" + saved.getId() + " credentials_rotated=" + wouldRotateSecret);
         return accountMapper.toResponse(saved);
     }
 
@@ -209,14 +222,20 @@ public class AccountService {
      * {@code /oauth2/authorization/{provider}} and the callback into
      * {@code processExternalProviderLogin}. CRUD on {@code /api/v1/accounts/{id}}
      * may only change metadata (account name, displayName, provider, active flag) —
-     * credentials stay read-only.
+     * credentials stay read-only. That includes the username. The sign-in writes
+     * the address the provider vouched for into it, and every later sign-in writes
+     * it again, while the IMAP and SMTP logins of an OAuth2 account present the
+     * account address, not the username. A username stored from this form would
+     * therefore be shown in Settings, used by nothing, and undone by the next
+     * sign-in. The form sends the stored username back unchanged, so a metadata
+     * edit passes; a differing one is refused rather than dropped, as it used to
+     * be.
      */
-    private void ensureCredentialsNotMutatedForOAuth2(Long accountId, boolean wouldMutate, String maskedEmail,
-            String via) {
+    private void ensureCredentialsNotMutatedForOAuth2(Long accountId, AccountCredentialEntity existing,
+            boolean wouldMutate, String maskedEmail, String via) {
         if (!wouldMutate) {
             return;
         }
-        AccountCredentialEntity existing = credentialService.getCredentials(accountId);
         if (existing.getAuthType() == AuthType.OAUTH2) {
             /*
              * Subtle security event: someone (FE bug or malicious client) is attempting to

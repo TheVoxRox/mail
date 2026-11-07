@@ -106,6 +106,27 @@ public class AccountCredentialService {
     }
 
     /**
+     * Changes only the username, keeping the stored secret and the auth type as
+     * they are. {@link #saveCredentials} cannot do this: it rewrites the secret
+     * from its argument and clears it when that is blank, which is the right thing
+     * for a secret rotation and the wrong thing for an edit that corrects the login
+     * name and leaves the password field empty. No cache eviction either — the
+     * crypto cache holds the derived key of the account, which the username does
+     * not enter.
+     */
+    @Transactional
+    public void changeUsername(AccountEntity account, String username) {
+        AccountCredentialEntity credentials = getCredentials(account.getId());
+        if (java.util.Objects.equals(credentials.getUsername(), username)) {
+            return;
+        }
+        credentials.setUsername(username);
+        credentialRepository.save(credentials);
+        AuditLog.success("credentials_update", LogMasker.maskEmail(account.getEmail()),
+                "id=" + account.getId() + " username_changed");
+    }
+
+    /**
      * Returns the decrypted secret (password or refresh token).
      */
     @Transactional(readOnly = true)

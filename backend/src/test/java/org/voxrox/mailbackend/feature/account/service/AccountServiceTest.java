@@ -55,8 +55,9 @@ import ch.qos.logback.core.read.ListAppender;
  * Coverage: - listAllAccounts: empty list, multiple accounts - getAccountById:
  * found, missing - createAccount: provider, custom, non-existing providerId,
  * duplicate email - updateAccount: PUT from provider -> custom and back,
- * ProviderNotFound, missing account, duplicate email, password=null/blank guard
- * - deleteAccount. The OAuth2 provider-login provisioning
+ * ProviderNotFound, missing account, duplicate email, password=null/blank
+ * guard, username change without a password, OAuth2 credentials guard -
+ * deleteAccount. The OAuth2 provider-login provisioning
  * (markRequiresReauthIfExists, processExternalProviderLogin) lives in
  * {@link ExternalProviderLoginService} and is covered by its own test.
  */
@@ -151,9 +152,15 @@ class AccountServiceTest {
         return new MailServerSettings("smtp.custom.cz", 587, false);
     }
 
+    /** Stored credentials whose username is the "user" most requests here send. */
     private void stubExistingCredentials(AuthType authType) {
+        stubExistingCredentials(authType, "user");
+    }
+
+    private void stubExistingCredentials(AuthType authType, String username) {
         AccountCredentialEntity creds = new AccountCredentialEntity();
         creds.setAuthType(authType);
+        creds.setUsername(username);
         when(credentialService.getCredentials(ACCOUNT_ID)).thenReturn(creds);
     }
 
@@ -471,9 +478,10 @@ class AccountServiceTest {
             AccountEntity existing = createAccountEntity();
 
             AccountUpdateRequest request = new AccountUpdateRequest("Updated Name", "new@example.com", "New Display",
-                    null, true, 10L, null, null, "newuser", null, false);
+                    null, true, 10L, null, null, "user", null, false);
 
             when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(existing));
+            stubExistingCredentials(AuthType.PASSWORD);
             when(providerService.loadProviderById(10L)).thenReturn(createProvider());
             when(accountRepository.save(existing)).thenReturn(existing);
             when(accountMapper.toResponse(existing)).thenReturn(dummyResponse());
@@ -483,6 +491,7 @@ class AccountServiceTest {
             assertThat(existing.getAccountName()).isEqualTo("Updated Name");
             assertThat(existing.getEmail()).isEqualTo("new@example.com");
             verify(credentialService, never()).saveCredentials(any(), any(), any(), any());
+            verify(credentialService, never()).changeUsername(any(), any());
         }
 
         @Test
@@ -493,12 +502,39 @@ class AccountServiceTest {
                     null, null, "user", "   ", true);
 
             when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(existing));
+            stubExistingCredentials(AuthType.PASSWORD);
             when(providerService.loadProviderById(10L)).thenReturn(createProvider());
             when(accountRepository.save(existing)).thenReturn(existing);
             when(accountMapper.toResponse(existing)).thenReturn(dummyResponse());
 
             service.updateAccount(ACCOUNT_ID, request);
 
+            verify(credentialService, never()).saveCredentials(any(), any(), any(), any());
+            verify(credentialService, never()).changeUsername(any(), any());
+        }
+
+        /*
+         * The username lives on the credentials row. Before changeUsername existed,
+         * this request answered 200 and stored nothing: saveCredentials, the only
+         * writer of that row, ran only with a new password.
+         */
+        @Test
+        @DisplayName("PUT with a changed username and no password -> username changed, secret left alone")
+        void changedUsernameWithoutPasswordGoesToChangeUsername() {
+            AccountEntity existing = createAccountEntity();
+
+            AccountUpdateRequest request = new AccountUpdateRequest(ACCOUNT_NAME, EMAIL, DISPLAY_NAME, null, true, 10L,
+                    null, null, "jan.novak", null, true);
+
+            when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(existing));
+            stubExistingCredentials(AuthType.PASSWORD, "user");
+            when(providerService.loadProviderById(10L)).thenReturn(createProvider());
+            when(accountRepository.save(existing)).thenReturn(existing);
+            when(accountMapper.toResponse(existing)).thenReturn(dummyResponse());
+
+            service.updateAccount(ACCOUNT_ID, request);
+
+            verify(credentialService).changeUsername(existing, "jan.novak");
             verify(credentialService, never()).saveCredentials(any(), any(), any(), any());
         }
 
@@ -511,6 +547,7 @@ class AccountServiceTest {
                     true, 10L, null, null, "user", null, true);
 
             when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(existing));
+            stubExistingCredentials(AuthType.PASSWORD);
             when(providerService.loadProviderById(10L)).thenReturn(createProvider());
             when(accountRepository.save(existing)).thenReturn(existing);
             when(accountMapper.toResponse(existing)).thenReturn(dummyResponse());
@@ -529,6 +566,7 @@ class AccountServiceTest {
                     false, 10L, null, null, "user", null, true);
 
             when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(existing));
+            stubExistingCredentials(AuthType.PASSWORD);
             when(providerService.loadProviderById(10L)).thenReturn(createProvider());
             when(accountRepository.save(existing)).thenReturn(existing);
             when(accountMapper.toResponse(existing)).thenReturn(dummyResponse());
@@ -553,6 +591,7 @@ class AccountServiceTest {
                     null, null, "user", null, false);
 
             when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(existing));
+            stubExistingCredentials(AuthType.PASSWORD);
             when(providerService.loadProviderById(10L)).thenReturn(createProvider());
             when(accountRepository.save(existing)).thenReturn(existing);
             when(accountMapper.toResponse(existing)).thenReturn(dummyResponse());
@@ -572,6 +611,7 @@ class AccountServiceTest {
                     null, null, "user", null, true);
 
             when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(existing));
+            stubExistingCredentials(AuthType.PASSWORD);
             when(providerService.loadProviderById(10L)).thenReturn(createProvider());
             when(accountRepository.save(existing)).thenReturn(existing);
             when(accountMapper.toResponse(existing)).thenReturn(dummyResponse());
@@ -597,6 +637,7 @@ class AccountServiceTest {
                     null, null, "user", null, false);
 
             when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(existing));
+            stubExistingCredentials(AuthType.PASSWORD);
             when(providerService.loadProviderById(10L)).thenReturn(createProvider());
             when(accountRepository.save(existing)).thenReturn(existing);
             when(accountMapper.toResponse(existing)).thenReturn(dummyResponse());
@@ -619,7 +660,7 @@ class AccountServiceTest {
                     null, null, EMAIL, "stolenpassword", true);
 
             when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(existing));
-            stubExistingCredentials(AuthType.OAUTH2);
+            stubExistingCredentials(AuthType.OAUTH2, EMAIL);
 
             assertThatThrownBy(() -> service.updateAccount(ACCOUNT_ID, request)).isInstanceOf(ValidationException.class)
                     .hasMessageContaining("OAuth2");
@@ -630,8 +671,34 @@ class AccountServiceTest {
             assertAuditFailure("oauth2_credentials_mutation_blocked", "via=PUT");
         }
 
+        /*
+         * An OAuth2 login presents the account address, and every sign-in writes the
+         * username again, so a stored username edit would be shown, unused and later
+         * undone. It used to be dropped without a word; now it is refused.
+         */
         @Test
-        @DisplayName("PUT on an OAuth2 account without password -> passes (metadata only)")
+        @DisplayName("PUT on an OAuth2 account with a changed username -> ValidationException, no mutation")
+        void putWithChangedUsernameOnOAuth2RejectedWithValidationException() {
+            AccountEntity existing = createAccountEntity();
+            AccountUpdateRequest request = new AccountUpdateRequest(ACCOUNT_NAME, EMAIL, DISPLAY_NAME, null, true, 10L,
+                    null, null, "someone.else@example.com", null, true);
+
+            when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(existing));
+            stubExistingCredentials(AuthType.OAUTH2, EMAIL);
+
+            assertThatThrownBy(() -> service.updateAccount(ACCOUNT_ID, request)).isInstanceOfSatisfying(
+                    ValidationException.class,
+                    e -> assertThat(e.getMessageKey()).isEqualTo("validation.account.oauth2CredentialsReadOnly"));
+
+            verify(accountRepository, never()).save(any(AccountEntity.class));
+            verify(credentialService, never()).changeUsername(any(), any());
+            verify(credentialService, never()).saveCredentials(any(), any(), any(), any());
+
+            assertAuditFailure("oauth2_credentials_mutation_blocked", "via=PUT");
+        }
+
+        @Test
+        @DisplayName("PUT on an OAuth2 account without password and with its username -> passes (metadata only)")
         void putWithoutPasswordOnOAuth2Allowed() {
             AccountEntity existing = createAccountEntity();
             existing.setProvider(createProvider());
@@ -639,6 +706,7 @@ class AccountServiceTest {
                     null, null, EMAIL, null, true);
 
             when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(existing));
+            stubExistingCredentials(AuthType.OAUTH2, EMAIL);
             when(providerService.loadProviderById(10L)).thenReturn(createProvider());
             when(accountRepository.save(existing)).thenReturn(existing);
             when(accountMapper.toResponse(existing)).thenReturn(dummyResponse());
@@ -647,7 +715,7 @@ class AccountServiceTest {
 
             assertThat(existing.getAccountName()).isEqualTo("Renamed");
             assertThat(existing.getDisplayName()).isEqualTo("New Display");
-            verify(credentialService, never()).getCredentials(any());
+            verify(credentialService, never()).changeUsername(any(), any());
             verify(credentialService, never()).saveCredentials(any(), any(), any(), any());
         }
 

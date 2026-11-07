@@ -50,6 +50,14 @@ Entries before 2026-09-17 predate that split and are left as written.
   `detail=none` nor secure-delete, and the rest need SQL the app does not run
   or a database file someone else wrote. The nightly vulnerability scan has
   failed on them since 2026-11-04 (#856, #857).
+- A change to "Uživatelské jméno" on the account edit page is saved when the
+  password field is left empty. The username is stored with the password, and
+  the update wrote both only when a new password came with it, so the page
+  said "Změny účtu uloženy." and the old username came back. The connection
+  test the page runs before saving passed, because it logs in with the new
+  username and the stored password. An OAuth2 account now refuses a username
+  change with an error instead of dropping it: its logins use the account
+  address, and every sign-in writes the username again (#864).
 
 ### Frontend
 

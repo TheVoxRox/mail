@@ -5,10 +5,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.Optional;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -18,11 +20,16 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 import org.voxrox.mailbackend.core.security.CryptoService;
 import org.voxrox.mailbackend.feature.account.entity.AccountCredentialEntity;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.account.repository.AccountCredentialRepository;
 import org.voxrox.mailbackend.feature.auth.dto.AuthType;
+
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 
 /**
  * Security-critical: this service encrypts and decrypts IMAP passwords + OAuth
@@ -178,6 +185,67 @@ class AccountCredentialServiceTest {
             // calling with a blank secret if they want to keep the password).
             assertThat(existing.getEncryptedPassword()).isEmpty();
             verify(credentialRepository).save(existing);
+        }
+    }
+
+    /*
+     * The path an account edit takes when the user corrects the username and leaves
+     * the password field empty. saveCredentials would clear the secret on that call
+     * (see noOpCallStillPersists above), which is why it has its own.
+     */
+    @Nested
+    @DisplayName("changeUsername")
+    class ChangeUsername {
+
+        private AccountCredentialEntity existing;
+        private ListAppender<ILoggingEvent> auditAppender;
+        private Logger auditLogger;
+
+        @BeforeEach
+        void setUpExisting() {
+            existing = new AccountCredentialEntity();
+            existing.setAccount(account);
+            existing.setUsername("old-user");
+            existing.setAuthType(AuthType.PASSWORD);
+            existing.setEncryptedPassword("ENC:old");
+
+            auditLogger = (Logger) LoggerFactory.getLogger("AUDIT");
+            auditAppender = new ListAppender<>();
+            auditAppender.start();
+            auditLogger.addAppender(auditAppender);
+        }
+
+        @AfterEach
+        void tearDown() {
+            auditLogger.detachAppender(auditAppender);
+        }
+
+        @Test
+        @DisplayName("stores the new username and keeps the secret and the auth type")
+        void keepsSecretAndAuthType() {
+            when(credentialRepository.findById(42L)).thenReturn(Optional.of(existing));
+
+            service.changeUsername(account, "new-user");
+
+            assertThat(existing.getUsername()).isEqualTo("new-user");
+            assertThat(existing.getEncryptedPassword()).isEqualTo("ENC:old");
+            assertThat(existing.getAuthType()).isEqualTo(AuthType.PASSWORD);
+            verify(credentialRepository).save(existing);
+            verifyNoInteractions(cryptoService);
+            assertThat(auditAppender.list).extracting(ILoggingEvent::getFormattedMessage)
+                    .anySatisfy(message -> assertThat(message).contains("action=credentials_update")
+                            .contains("id=42 username_changed"));
+        }
+
+        @Test
+        @DisplayName("the same username writes nothing and audits nothing")
+        void sameUsernameIsANoOp() {
+            when(credentialRepository.findById(42L)).thenReturn(Optional.of(existing));
+
+            service.changeUsername(account, "old-user");
+
+            verify(credentialRepository, never()).save(org.mockito.ArgumentMatchers.any());
+            assertThat(auditAppender.list).isEmpty();
         }
     }
 
