@@ -1,7 +1,11 @@
 <script lang="ts">
 	import { listProviders } from '#lib/api/providers.js';
 	import { testAccountConnection } from '#lib/api/accounts.js';
-	import { presetForProvider, type ProviderPreset } from '#lib/accounts/providerPresets.js';
+	import {
+		KNOWN_PRESETS,
+		presetForProvider,
+		type ProviderPreset
+	} from '#lib/accounts/providerPresets.js';
 	import { createProviderResolver, type ProviderResolver } from '#lib/accounts/providerResolver.js';
 	import {
 		FIELD_INPUT_IDS,
@@ -162,6 +166,36 @@
 	let providerUnmatched = $state(false);
 	let showAdvancedProvider = $state(false);
 
+	/*
+	 * An edit offers "Change password" where a new account shows the field. The
+	 * field used to be there on an edit too, empty, with a note under it saying
+	 * that empty keeps the stored password: an account that has a password read
+	 * as one missing it until the note was reached, and the note was an
+	 * instruction for leaving the field alone. Opening the field makes it
+	 * required; "Keep the stored password" closes it and drops what was typed.
+	 */
+	let changingPassword = $state(false);
+	let passwordField = $derived<'new' | 'change' | 'stored'>(
+		mode === 'create' ? 'new' : changingPassword ? 'change' : 'stored'
+	);
+	const PASSWORD_CHANGE_ID = 'acc-password-change';
+
+	/*
+	 * An account a provider sign-in owns has no credentials to edit here: the
+	 * backend refuses a password (validation.account.oauth2CredentialsReadOnly),
+	 * and the username is the address the provider vouched for, written again by
+	 * every sign-in. Both fields were offered anyway, the password with a note
+	 * about keeping one it never had. A sentence names the sign-in and the
+	 * username instead, so neither looks editable; the form still sends the
+	 * stored username back unchanged.
+	 */
+	let isOAuthAccount = $derived(mode === 'edit' && initial?.authType === 'OAUTH2');
+	let oauthProviderName = $derived(
+		KNOWN_PRESETS.find((p) => p.oauth2RegistrationId === initial?.oauth2Provider)?.backendName ??
+			initial?.oauth2Provider ??
+			''
+	);
+
 	function clearFieldErrors(): void {
 		fieldErrors = {};
 		announcedField = null;
@@ -310,6 +344,19 @@
 		if (oauthCtaPreset) onUseOAuth?.(oauthCtaPreset, email.trim());
 	}
 
+	function startPasswordChange(): void {
+		changingPassword = true;
+		focusFieldById(FIELD_INPUT_IDS.password);
+	}
+
+	function keepStoredPassword(): void {
+		changingPassword = false;
+		password = '';
+		fieldErrors = { ...fieldErrors, password: undefined };
+		if (announcedField === 'password') announcedField = null;
+		focusFieldById(PASSWORD_CHANGE_ID);
+	}
+
 	function switchServerMode(next: ServerMode) {
 		if (next === serverMode) return;
 		errorMessage = '';
@@ -343,7 +390,7 @@
 		return validateAccountForm({
 			purpose,
 			compact,
-			passwordRequired: mode === 'create',
+			passwordField,
 			serverMode,
 			providerId,
 			email,
@@ -509,11 +556,16 @@
 	 * error text alone leaves a keyboard or screen-reader user to hunt for the
 	 * field); anything else — an unreachable host, a refused port — is about the
 	 * server config, so focus stays put and the alert does the talking.
+	 *
+	 * When the stored password was the one rejected (an edit that changed the
+	 * username or the server), the field is still closed, and focus goes to
+	 * "Change password" rather than opening it: the fix may as well be the
+	 * username, and an opened field would demand a password either way.
 	 */
 	function focusFieldForError(err: unknown): void {
 		const code = err instanceof ApiError ? err.problem?.errorCode : undefined;
 		if (code === 'MAIL_AUTHENTICATION_FAILED') {
-			focusFieldById('acc-password');
+			focusFieldById(passwordField === 'stored' ? PASSWORD_CHANGE_ID : FIELD_INPUT_IDS.password);
 		}
 	}
 
@@ -818,7 +870,7 @@
 		{/if}
 	{/if}
 
-	{#if !compact}
+	{#if !compact && !isOAuthAccount}
 		<Field
 			for="acc-username"
 			label={$_('accounts.form.username')}
@@ -844,30 +896,65 @@
 		<AccountAppPasswordNotice preset={activePreset} />
 	{/if}
 
-	<Field
-		for="acc-password"
-		label={$_('accounts.form.password')}
-		hint={mode === 'edit' ? $_('accounts.form.passwordEditHint') : null}
-		error={fieldErrors.password}
-		errorId={errorIdOf('password')}
-		announce={announcedField === 'password'}
-	>
-		{#snippet children(control)}
-			<!--
-				The mail account's existing password, not a new one: WCAG 1.3.5 asks the
-				field to say which, as the e-mail, name and username fields above do.
-			-->
-			<Input
-				id="acc-password"
-				type="password"
-				bind:value={password}
-				bind:ref={passwordInputEl}
-				required={mode === 'create'}
-				autocomplete="current-password"
-				{...control}
-			/>
-		{/snippet}
-	</Field>
+	{#if isOAuthAccount}
+		<p class="text-sm text-muted-foreground">
+			{$_('accounts.form.oauthCredentialsNote', {
+				values: { provider: oauthProviderName, username: username || email }
+			})}
+		</p>
+	{:else if passwordField === 'stored'}
+		<!--
+			No label of its own: the button says what it does, and the hint, which
+			describes it, says what happens without it.
+		-->
+		<Field for={PASSWORD_CHANGE_ID} hint={$_('accounts.form.passwordStoredHint')}>
+			{#snippet children(control)}
+				<Button
+					id={PASSWORD_CHANGE_ID}
+					type="button"
+					variant="outline"
+					size="sm"
+					onclick={startPasswordChange}
+					{...control}
+				>
+					{$_('accounts.form.changePassword')}
+				</Button>
+			{/snippet}
+		</Field>
+	{:else}
+		<div class="space-y-1">
+			<Field
+				for="acc-password"
+				label={$_('accounts.form.password')}
+				error={fieldErrors.password}
+				errorId={errorIdOf('password')}
+				announce={announcedField === 'password'}
+			>
+				{#snippet children(control)}
+					<!--
+						The mail account's existing password, not a new one: WCAG 1.3.5 asks
+						the field to say which, as the e-mail, name and username fields above
+						do. That holds after "Change password" too: it replaces what the app
+						stores with what the mail server already accepts.
+					-->
+					<Input
+						id="acc-password"
+						type="password"
+						bind:value={password}
+						bind:ref={passwordInputEl}
+						required
+						autocomplete="current-password"
+						{...control}
+					/>
+				{/snippet}
+			</Field>
+			{#if passwordField === 'change'}
+				<Button type="button" variant="link" size="sm" class="px-0" onclick={keepStoredPassword}>
+					{$_('accounts.form.keepStoredPassword')}
+				</Button>
+			{/if}
+		</div>
+	{/if}
 
 	{#if mode === 'edit'}
 		<label for="acc-active" class={checkboxCardClass}>

@@ -53,11 +53,19 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
-- The note under Password on the account edit page reads as a sentence, like
-  the other notes on that page: "Pokud heslo měnit nechcete, nechte pole
-  prázdné." It began with a dash and a lowercase word, written to follow the
-  label on one line, but it shows on its own line under the field, and a
-  screen reader reads it as the field's description (#859).
+- On the account edit page the password is a "Změnit heslo" button, not an
+  empty field. The field used to be there with a note under it saying that
+  leaving it empty keeps the stored password (reworded as a sentence in #859):
+  until the note was reached, an account with a password looked like one
+  without, and the note only told the user how to leave the field alone. The
+  button opens the field, required from then on, and "Ponechat uložené heslo"
+  closes it and drops what was typed. When the server rejects the stored
+  password, say after a change of username, focus goes to the button. An
+  account that signs in through Google or Microsoft shows neither Username nor
+  Password, but a sentence that names the sign-in and the username ("K tomuto
+  účtu se přihlašujete přes Google jako …"): it has no password, the backend
+  refused one typed there, and the username is the address the provider
+  vouched for, which the backend did not take from the form (#863).
 - On the account edit page the signature stands apart from the account's
   settings: below a rule, in a group named "Podpis" that holds the signature
   text and the auto-insert option, and "Účet je aktivní" moved up to the

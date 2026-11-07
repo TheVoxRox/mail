@@ -1144,6 +1144,8 @@ test.describe('Přístupnost', () => {
 		await openApp(page, '/settings/accounts/1');
 		const form = page.getByRole('form', { name: 'Účet' });
 		await expect(form).toBeVisible();
+		// An edit shows the password field once asked to change it.
+		await form.getByRole('button', { name: 'Změnit heslo' }).click();
 		for (const [label, purpose] of [
 			['E-mail', 'email'],
 			['Zobrazované jméno', 'name'],
@@ -1169,7 +1171,7 @@ test.describe('Přístupnost', () => {
 		).toBeVisible();
 		await expect(signature.getByRole('checkbox', { name: /Účet je aktivní/ })).toHaveCount(0);
 		await expect(form).toMatchAriaSnapshot(`
-			- textbox "Heslo"
+			- button "Změnit heslo"
 			- checkbox "Účet je aktivní (synchronizuje se)"
 			- group "Podpis"
 		`);
