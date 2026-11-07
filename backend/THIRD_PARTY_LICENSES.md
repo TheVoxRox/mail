@@ -86,7 +86,7 @@ Counts: 106 artifacts total. 84 Apache-2.0, 10 EDL-1.0 (BSD-3-Clause), 5 EPL-2.0
 - **spring-security-oauth2-core** `org.springframework.security:spring-security-oauth2-core:7.1.2` — [https://spring.io/projects/spring-security](https://spring.io/projects/spring-security)
 - **spring-security-oauth2-jose** `org.springframework.security:spring-security-oauth2-jose:7.1.2` — [https://spring.io/projects/spring-security](https://spring.io/projects/spring-security)
 - **spring-security-web** `org.springframework.security:spring-security-web:7.1.2` — [https://spring.io/projects/spring-security](https://spring.io/projects/spring-security)
-- **SQLite JDBC** `org.xerial:sqlite-jdbc:3.53.4.0 (natives-windows, without-natives)` — [https://github.com/xerial/sqlite-jdbc](https://github.com/xerial/sqlite-jdbc)
+- **SQLite JDBC** `org.xerial:sqlite-jdbc:3.54.1.0 (natives-windows, without-natives)` — [https://github.com/xerial/sqlite-jdbc](https://github.com/xerial/sqlite-jdbc)
 - **tomcat-embed-core** `org.apache.tomcat.embed:tomcat-embed-core:11.0.27` — [https://tomcat.apache.org/](https://tomcat.apache.org/)
 - **tomcat-embed-el** `org.apache.tomcat.embed:tomcat-embed-el:11.0.27` — [https://tomcat.apache.org/](https://tomcat.apache.org/)
 - **tomcat-embed-websocket** `org.apache.tomcat.embed:tomcat-embed-websocket:11.0.27` — [https://tomcat.apache.org/](https://tomcat.apache.org/)

@@ -32,6 +32,23 @@
 		<archunit.version>1.5.1</archunit.version>
 		<greenmail.version>2.1.15</greenmail.version>
 		<!--
+			Overrides the sqlite-jdbc Spring Boot 4.1.2 manages, 3.53.4.0, which
+			carries SQLite 3.53.4. SQLite 3.54.0 fixes ten CVEs the nightly OWASP
+			scan reports against it. Two are heap overflows at CVSS 8.5 in FTS5,
+			which the search index is (CVE-2026-119373, CVE-2026-119374); a third
+			at 8.5, CVE-2026-119379, is in the session extension, which the driver
+			is not compiled with. 3.54.1.0 is the first driver past 3.54.0, and
+			`select sqlite_version()` on it returns 3.54.1. The eleventh,
+			CVE-2026-119586, is the sqlite3 shell's, which the driver does not
+			carry; NVD's range for it ends at 3.54.1, and Dependency-Check does not
+			match it to 3.54.1.0.
+
+			Drop this once Boot's BOM manages 3.54.1.0 or later. The dependency
+			and the sqlite-natives-* profiles read the property already, so the
+			line is the whole override.
+		-->
+		<sqlite-jdbc.version>3.54.1.0</sqlite-jdbc.version>
+		<!--
 			JaCoCo injects its coverage agent into these (prepare-agent ->
 			surefireArgLine, prepare-agent-integration -> failsafeArgLine). Surefire
 			and Failsafe combine them with the Mockito javaagent via @{...} late
@@ -82,7 +99,8 @@
 				the classifier as well, so the entry Spring Boot's BOM manages
 				(org.xerial:sqlite-jdbc:jar, no classifier) does not apply to
 				these. ${sqlite-jdbc.version} is that same BOM's property, so a
-				Boot bump still moves all three in step.
+				Boot bump still moves all three in step - except while
+				<properties> overrides it, as it does for SQLite 3.54.
 			-->
 			<groupId>org.xerial</groupId>
 			<artifactId>sqlite-jdbc</artifactId>
