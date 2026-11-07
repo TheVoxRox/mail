@@ -869,39 +869,6 @@
 		{/snippet}
 	</Field>
 
-	{#if mode === 'edit' && !compact}
-		<Field
-			for="acc-signature"
-			label={$_('accounts.form.signature')}
-			hint={$_('accounts.form.signatureHint')}
-		>
-			{#snippet children(control)}
-				<Textarea
-					id="acc-signature"
-					bind:value={signature}
-					rows={4}
-					maxlength={10000}
-					disabled={busy}
-					placeholder={$_('accounts.form.signaturePlaceholder')}
-					{...control}
-				/>
-			{/snippet}
-		</Field>
-
-		<label for="acc-signatureAutoInsert" class={checkboxCardClass}>
-			<span class={nativeChoiceClass}>
-				<input
-					id="acc-signatureAutoInsert"
-					type="checkbox"
-					bind:checked={signatureAutoInsert}
-					disabled={busy}
-					class={nativeChoiceControlClass}
-				/>
-				<span class="text-foreground">{$_('accounts.form.signatureAutoInsert')}</span>
-			</span>
-		</label>
-	{/if}
-
 	{#if mode === 'edit'}
 		<label for="acc-active" class={checkboxCardClass}>
 			<span class={nativeChoiceClass}>
@@ -914,6 +881,56 @@
 				<span class="text-foreground">{$_('accounts.form.activeCheckbox')}</span>
 			</span>
 		</label>
+	{/if}
+
+	{#if mode === 'edit' && !compact}
+		<!--
+			The signature is about the messages the account writes, not about
+			reaching the server, so it stands apart from the account's settings: a
+			rule above it and a group of its own, which the legend names. "Account is
+			active" used to follow it and read as part of it.
+
+			The text box is "Signature text" rather than "Signature" a second time:
+			entering a group already called that, a screen reader said the one word
+			twice and nothing else.
+		-->
+		<div class="border-t border-border pt-4">
+			<fieldset class="space-y-4">
+				<legend class="text-sm font-semibold text-foreground">
+					{$_('accounts.form.signature')}
+				</legend>
+				<Field
+					for="acc-signature"
+					label={$_('accounts.form.signatureText')}
+					hint={$_('accounts.form.signatureHint')}
+				>
+					{#snippet children(control)}
+						<Textarea
+							id="acc-signature"
+							bind:value={signature}
+							rows={4}
+							maxlength={10000}
+							disabled={busy}
+							placeholder={$_('accounts.form.signaturePlaceholder')}
+							{...control}
+						/>
+					{/snippet}
+				</Field>
+
+				<label for="acc-signatureAutoInsert" class={checkboxCardClass}>
+					<span class={nativeChoiceClass}>
+						<input
+							id="acc-signatureAutoInsert"
+							type="checkbox"
+							bind:checked={signatureAutoInsert}
+							disabled={busy}
+							class={nativeChoiceControlClass}
+						/>
+						<span class="text-foreground">{$_('accounts.form.signatureAutoInsert')}</span>
+					</span>
+				</label>
+			</fieldset>
+		</div>
 	{/if}
 
 	{#if errorMessage}
