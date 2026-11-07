@@ -70,7 +70,7 @@ describe('validateAccountForm', () => {
 		...valid,
 		purpose: 'save',
 		compact: false,
-		passwordRequired: true,
+		passwordField: 'new',
 		serverMode: 'provider',
 		providerId: 1,
 		email: 'jan@example.com',
@@ -118,7 +118,14 @@ describe('validateAccountForm', () => {
 	});
 
 	it('lets an edit keep the stored password', () => {
-		expect(validateAccountForm({ ...filled, passwordRequired: false, password: '' })).toEqual([]);
+		expect(validateAccountForm({ ...filled, passwordField: 'stored', password: '' })).toEqual([]);
+	});
+
+	it('asks an edit that opened the field for the new password, test or save', () => {
+		const change = { ...filled, passwordField: 'change' as const, password: '' };
+		const expected = [{ field: 'password', messageKey: 'accounts.form.errorPasswordRequired' }];
+		expect(validateAccountForm(change)).toEqual(expected);
+		expect(validateAccountForm({ ...change, purpose: 'test' })).toEqual(expected);
 	});
 
 	it('asks a connection test for what it sends, not for the account name', () => {

@@ -648,6 +648,7 @@ test.describe('Accounts', () => {
 
 		await openApp(page, '/settings/accounts/2');
 
+		await page.getByRole('button', { name: 'Změnit heslo' }).click();
 		await page.locator('#acc-password').fill('spatne-heslo');
 
 		const probeRequest = page.waitForRequest(
@@ -681,6 +682,7 @@ test.describe('Accounts', () => {
 
 		// A password the server rejects, plus the account switched off: the point
 		// of unticking is to stop a failing account, so the probe must not gate it.
+		await page.getByRole('button', { name: 'Změnit heslo' }).click();
 		await page.locator('#acc-password').fill('spatne-heslo');
 		await page.getByRole('checkbox', { name: 'Účet je aktivní (synchronizuje se)' }).uncheck();
 
@@ -690,5 +692,111 @@ test.describe('Accounts', () => {
 		expect(probeRequests).toHaveLength(0);
 		expect(putBodies).toHaveLength(1);
 		expect(putBodies[0]).toMatchObject({ active: false });
+	});
+
+	test('heslo se v editaci otevírá tlačítkem Změnit heslo a jde ho zase ponechat', async ({
+		page
+	}) => {
+		const putBodies: unknown[] = [];
+		const probeRequests: string[] = [];
+		page.on('request', (request) => {
+			if (request.method() === 'PUT' && /\/api\/v1\/accounts\/2$/.test(request.url())) {
+				putBodies.push(request.postDataJSON());
+			}
+			if (request.url().endsWith('/api/v1/accounts/test-connection')) {
+				probeRequests.push(request.url());
+			}
+		});
+
+		await openApp(page, '/settings/accounts/2');
+
+		// The stored password is a state, not an empty box with a note under it.
+		const form = page.getByRole('form', { name: 'Účet' });
+		const change = form.getByRole('button', { name: 'Změnit heslo' });
+		await expect(change).toHaveAccessibleDescription('Uložené heslo zůstane, dokud ho nezměníte.');
+		await expect(form.getByLabel('Heslo', { exact: true })).toHaveCount(0);
+
+		await change.click();
+		const passwordInput = form.getByLabel('Heslo', { exact: true });
+		await expect(passwordInput).toBeFocused();
+		await passwordInput.fill('rozepsane-heslo');
+
+		await form.getByRole('button', { name: 'Ponechat uložené heslo' }).click();
+		await expect(change).toBeFocused();
+		await expect(form.getByLabel('Heslo', { exact: true })).toHaveCount(0);
+
+		await form.getByRole('button', { name: 'Uložit změny' }).click();
+		await page.waitForURL('**/settings/accounts');
+		// What was typed before "keep" went with the field: nothing to send, nothing to probe.
+		expect(putBodies).toHaveLength(1);
+		expect(putBodies[0]).toMatchObject({ password: null });
+		expect(probeRequests).toHaveLength(0);
+	});
+
+	test('otevřené pole pro nové heslo nejde uložit prázdné', async ({ page }) => {
+		const putRequests: string[] = [];
+		page.on('request', (request) => {
+			if (request.method() === 'PUT' && /\/api\/v1\/accounts\/2$/.test(request.url())) {
+				putRequests.push(request.url());
+			}
+		});
+
+		await openApp(page, '/settings/accounts/2');
+		const form = page.getByRole('form', { name: 'Účet' });
+		await form.getByRole('button', { name: 'Změnit heslo' }).click();
+		await form.getByRole('button', { name: 'Uložit změny' }).click();
+
+		const passwordInput = form.getByLabel('Heslo', { exact: true });
+		await expect(passwordInput).toBeFocused();
+		await expect(passwordInput).toHaveAccessibleDescription('Vyplňte heslo.');
+		expect(putRequests).toHaveLength(0);
+	});
+
+	test('odmítnuté uložené heslo pošle fokus na Změnit heslo', async ({ page }) => {
+		await setMockFlags(page, { connectionTestAuthFailure: true });
+
+		const putRequests: string[] = [];
+		page.on('request', (request) => {
+			if (request.method() === 'PUT' && /\/api\/v1\/accounts\/2$/.test(request.url())) {
+				putRequests.push(request.url());
+			}
+		});
+
+		await openApp(page, '/settings/accounts/2');
+
+		// A new username is probed with the stored password. When the server
+		// refuses it, the fix may be either, so focus goes to the password's
+		// control without opening a field that would then insist on a password.
+		const form = page.getByRole('form', { name: 'Účet' });
+		await form.getByLabel('Uživatelské jméno', { exact: true }).fill('jiny@another.test');
+
+		const probeRequest = page.waitForRequest(
+			(request) =>
+				request.url().endsWith('/api/v1/accounts/test-connection') && request.method() === 'POST'
+		);
+		await form.getByRole('button', { name: 'Uložit změny' }).click();
+		await probeRequest;
+
+		await expect(page.getByRole('alert')).toContainText('Chybné přihlašovací údaje k e-mailu.');
+		expect(putRequests).toHaveLength(0);
+		await expect(form.getByRole('button', { name: 'Změnit heslo' })).toBeFocused();
+		await expect(form.getByLabel('Heslo', { exact: true })).toHaveCount(0);
+	});
+
+	test('účet s přihlášením přes Google nenabízí heslo', async ({ page }) => {
+		await setMockFlags(page, { oauthAccount: true });
+		await openApp(page, '/settings/accounts/3');
+
+		const form = page.getByRole('form', { name: 'Účet' });
+		await expect(
+			form.getByText('K tomuto účtu se přihlašujete přes Google, heslo se tu nezadává.')
+		).toBeVisible();
+		await expect(form.getByRole('button', { name: 'Změnit heslo' })).toHaveCount(0);
+		await expect(form.getByLabel('Heslo', { exact: true })).toHaveCount(0);
+		// A paragraph of its own, not run together with the checkbox label after it.
+		await expect(form).toMatchAriaSnapshot(`
+			- paragraph: K tomuto účtu se přihlašujete přes Google, heslo se tu nezadává.
+			- checkbox "Účet je aktivní (synchronizuje se)"
+		`);
 	});
 });

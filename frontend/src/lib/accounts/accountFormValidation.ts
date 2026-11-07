@@ -34,8 +34,13 @@ export interface AccountFormInput extends CustomServerInput {
 	purpose: 'save' | 'test';
 	/** The wizard's compact form shows the password and nothing else to fill in. */
 	compact: boolean;
-	/** An edit keeps the stored password when the field is left empty. */
-	passwordRequired: boolean;
+	/**
+	 * What the password field is for: a new account's password, the replacement
+	 * for a stored one (an edit after "Change password"), or nothing — an edit
+	 * that did not open the field keeps the stored password, so there is nothing
+	 * to check.
+	 */
+	passwordField: 'new' | 'change' | 'stored';
 	serverMode: 'provider' | 'custom';
 	providerId: number | null;
 	email: string;
@@ -94,10 +99,10 @@ export function validateAccountForm(input: AccountFormInput): AccountFieldError[
 	if (!input.compact && !input.username.trim()) {
 		add('username', 'accounts.form.errorUsernameRequired');
 	}
-	if (input.passwordRequired && !input.password) {
+	if (input.passwordField !== 'stored' && !input.password) {
 		add(
 			'password',
-			input.purpose === 'test'
+			input.purpose === 'test' && input.passwordField === 'new'
 				? 'accounts.form.errorPasswordRequiredForTest'
 				: 'accounts.form.errorPasswordRequired'
 		);
