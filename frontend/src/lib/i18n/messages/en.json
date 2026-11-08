@@ -387,7 +387,6 @@
 			"changePassword": "Change password",
 			"passwordStoredHint": "The stored password stays until you change it.",
 			"keepStoredPassword": "Keep the stored password",
-			"oauthCredentialsNote": "You sign in to this account with {provider} as {username}. The username and password are not changed here.",
 			"appPasswordWarning": "Enter an app password for {provider}, not your main account password.",
 			"appPasswordTwoFactorNote": "Enter your {provider} account password. If two-factor authentication is on there, use an app password instead.",
 			"appPasswordHelp": "How to create an app password for {provider}",

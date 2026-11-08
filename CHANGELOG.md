@@ -72,6 +72,11 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- The edit page of an account that signs in through Google or Microsoft no
+  longer shows a sentence where Username and Password would be. The address it
+  named is already in the E-mail field above, and its second half, "Uživatelské
+  jméno ani heslo se tu nemění.", suggested a password the app keeps somewhere
+  else, when only the provider knows it (#868).
 - The note on which password to enter for Seznam.cz, Google and Microsoft is
   now the Password field's own description, under the field, where it was a box
   of its own above it. Nothing linked the box to the field: tabbing went from

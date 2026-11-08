@@ -387,7 +387,6 @@
 			"changePassword": "Změnit heslo",
 			"passwordStoredHint": "Uložené heslo zůstane, dokud ho nezměníte.",
 			"keepStoredPassword": "Ponechat uložené heslo",
-			"oauthCredentialsNote": "K tomuto účtu se přihlašujete přes {provider} jako {username}. Uživatelské jméno ani heslo se tu nemění.",
 			"appPasswordWarning": "Zadejte heslo aplikace pro {provider}, ne hlavní heslo k účtu.",
 			"appPasswordTwoFactorNote": "Zadejte heslo k účtu na {provider}. Máte-li tam zapnuté dvoufázové ověření, použijte místo něj heslo aplikace.",
 			"appPasswordHelp": "Jak vytvořit heslo aplikace pro {provider}",
