@@ -72,7 +72,7 @@ Entries before 2026-09-17 predate that split and are left as written.
   it leads with what to enter: "Zadejte heslo k účtu na Seznam.cz. Máte-li tam
   zapnuté dvoufázové ověření, použijte místo něj heslo aplikace." An edit of a
   Google or Microsoft account set up over IMAP gets the app-password
-  description too, which it was left without.
+  description too, which it was left without (#865).
 - On the account edit page the password is a "Změnit heslo" button, not an
   empty field. The field used to be there with a note under it saying that
   leaving it empty keeps the stored password (reworded as a sentence in #859):
