@@ -77,6 +77,16 @@ drift under `git log` and correctly reads as none here. `Audited commit` stays
 the human anchor into history and the range the failure message prints for
 context; it is no longer what the pass/fail decision hangs on.
 
+**A change only in comments is not drift.** When every file that changed under
+a path differs from the reviewed state only in comments and layout, the path
+has not drifted and needs no acknowledgement; the green run names it instead.
+[comment-only.mjs](../frontend/scripts/lib/comment-only.mjs) decides that for
+Java, TypeScript, JavaScript and `.properties`. It answers "cannot tell",
+which counts as drift, for every other language, for a file added or deleted,
+and for a source it cannot read exactly. The baseline does not move with such
+a change, so the next real change is diffed against the state that was
+reviewed, comment edits included.
+
 ## 3. Method statement (required)
 
 State what was done **and what was not**: static trace vs. dynamic testing,

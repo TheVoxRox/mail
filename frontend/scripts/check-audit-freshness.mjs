@@ -2,7 +2,8 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
-import { resolveObjects } from './lib/git-objects.mjs';
+import { differsOnlyInComments } from './lib/comment-only.mjs';
+import { readBlobs, resolveObjects } from './lib/git-objects.mjs';
 
 /*
  * Fails when a per-subsystem security audit falls behind the code it audits.
@@ -74,6 +75,22 @@ import { resolveObjects } from './lib/git-objects.mjs';
  * `Audited commit` stays in the audit document. It is the human anchor into
  * history and the range this script prints for context — it is just no longer
  * what the pass/fail decision hangs on.
+ *
+ * ---
+ *
+ * Content, though not every byte of it. A change that leaves the code as its
+ * compiler reads it the same, such as a javadoc sentence or a re-wrapped
+ * comment, used to cost what a code change costs: a dated paragraph in the
+ * ledger arguing that a comment cannot move a verdict, counted against the
+ * caps like any other. On 2026-11-08 three of the twenty standing
+ * acknowledgements were exactly that. So when every file that changed under a
+ * path differs only in comments and layout, the path has not drifted.
+ * lib/comment-only.mjs says per language what that means, and it answers
+ * "cannot tell" for anything it does not read exactly: a file added or
+ * deleted, a language it does not cover, a source it cannot lex. All of those
+ * still count as drift. The recorded baseline stays where it was, so the next
+ * real change is diffed against the state somebody actually reviewed, and the
+ * green run names every path it let through this way.
  */
 
 const repoRoot = path.join(process.cwd(), '..');
@@ -104,8 +121,9 @@ const todayUtc = Math.floor(Date.now() / DAY_MS) * DAY_MS;
 const daysSince = (isoDate) => Math.floor((todayUtc - Date.parse(isoDate)) / DAY_MS);
 
 /*
- * Only the drift report's commit list still shells out per call, and only on a
- * run that is already failing — every object id goes through resolveObjects.
+ * Only two things still shell out per path, and only for a path whose object
+ * id has already moved: the comment-only comparison and the drift report's
+ * commit list. Every object id goes through resolveObjects.
  */
 function git(args) {
 	return execFileSync('git', args, { cwd: repoRoot, encoding: 'utf8' }).trim();
@@ -285,6 +303,53 @@ const isCommit = (sha) => resolved.get(sha)?.type === 'commit';
  */
 const objectIdAt = (rev, filePath) => resolved.get(`${rev}:${filePath}`)?.oid ?? null;
 
+/**
+ * Whether `codePath` went from object `baseline` to object `current` through
+ * changes to comments and layout only. Runs only for a path whose id already
+ * differs, so a green run with nothing drifted never pays for it.
+ *
+ * Every answer short of a confident yes is no: a baseline this clone does not
+ * have (an id recorded from a merge commit that never landed), a file added,
+ * deleted or with a changed mode, a submodule, a language the library does
+ * not cover.
+ */
+function changedOnlyInComments(codePath, baseline, current) {
+	const objects = resolveObjects(repoRoot, [baseline, current]);
+	const before = objects.get(baseline);
+	const after = objects.get(current);
+	if (!before || !after || before.type !== after.type) return false;
+
+	const pairs = [];
+	if (before.type === 'blob') {
+		pairs.push({ file: codePath, from: baseline, to: current });
+	} else if (before.type === 'tree') {
+		// `-z` output: ":<mode> <mode> <oid> <oid> <status>" NUL "<path>" NUL, per file.
+		const fields = execFileSync(
+			'git',
+			['diff-tree', '-r', '-z', '--no-renames', baseline, current],
+			{ cwd: repoRoot, encoding: 'utf8' }
+		).split('\0');
+		for (let index = 0; index + 1 < fields.length; index += 2) {
+			const [fromMode, toMode, from, to, status] = fields[index].replace(/^:/, '').split(' ');
+			if (status !== 'M' || fromMode !== toMode) return false;
+			pairs.push({ file: `${codePath}/${fields[index + 1]}`, from, to });
+		}
+	} else {
+		return false;
+	}
+	if (pairs.length === 0) return false;
+
+	const blobs = readBlobs(
+		repoRoot,
+		pairs.flatMap(({ from, to }) => [from, to])
+	);
+	return pairs.every(({ file, from, to }) => {
+		const left = blobs.get(from);
+		const right = blobs.get(to);
+		return left != null && right != null && differsOnlyInComments(file, left, right);
+	});
+}
+
 for (const { rel, auditedCommit, codePaths } of audits) {
 	const hasEntry = Object.hasOwn(ledger, rel);
 	const entry = ledger[rel] ?? {};
@@ -365,6 +430,7 @@ for (const { rel, auditedCommit, codePaths } of audits) {
 	}
 
 	const drifted = [];
+	const commentOnly = [];
 	for (const p of codePaths) {
 		// Baseline: what the reviewer signed off on, or failing that the state
 		// the audit itself was written against.
@@ -377,14 +443,27 @@ for (const { rel, auditedCommit, codePaths } of audits) {
 			continue;
 		}
 		const current = objectIdAt('HEAD', p);
-		if (current !== baseline) drifted.push(p);
+		if (current === baseline) continue;
+		if (current && changedOnlyInComments(p, baseline, current)) commentOnly.push(p);
+		else drifted.push(p);
 	}
 
-	const totalDrift = auditedCommitResolves
-		? codePaths.filter((p) => objectIdAt(auditedCommit, p) !== objectIdAt('HEAD', p)).length
-		: codePaths.length;
+	/*
+	 * What the green run reports as carried: paths whose reviewed state is not
+	 * the audit's own. Counted from the ledger rather than from HEAD, because a
+	 * path that moved only in comments differs from `Audited commit` without
+	 * anybody having acknowledged anything, and is reported on its own.
+	 */
+	const acknowledged = codePaths.filter(
+		(p) => reviewed[p] && (!auditedCommitResolves || reviewed[p] !== objectIdAt(auditedCommit, p))
+	).length;
 
-	rows.push({ rel, totalDrift, acknowledgements: acknowledgements.length });
+	rows.push({
+		rel,
+		acknowledged,
+		commentOnly: commentOnly.length,
+		acknowledgements: acknowledgements.length
+	});
 
 	if (drifted.length > 0) {
 		// The object ids decide; the commit list is there so a reviewer knows
@@ -419,11 +498,14 @@ if (problems.length > 0) {
 	for (const problem of problems) console.error(`  - ${problem}`);
 	process.exitCode = 1;
 } else {
-	const behind = rows.filter((r) => r.totalDrift > 0);
+	const behind = rows.filter((r) => r.acknowledged > 0);
+	const commented = rows.filter((r) => r.commentOnly > 0);
 	/*
 	 * The acknowledgement count is printed on the GREEN run too. The failure
 	 * this gate now guards against grew invisibly for seventeen days precisely
 	 * because a passing run said nothing about how much was being carried.
+	 * Paths let through as comment-only are named for the same reason: a pass
+	 * that hides what it chose not to count is a pass nobody can check.
 	 */
 	console.log(
 		`Audit freshness OK: ${auditFiles.length} audits, no unreviewed drift` +
@@ -432,11 +514,15 @@ if (problems.length > 0) {
 					behind
 						.map(
 							(r) =>
-								`${path.basename(r.rel)} ${r.totalDrift} path(s), ` +
+								`${path.basename(r.rel)} ${r.acknowledged} path(s), ` +
 								`${r.acknowledgements}/${MAX_ACKNOWLEDGEMENTS} acks`
 						)
 						.join('; ') +
 					')'
+				: '') +
+			(commented.length > 0
+				? `; changed only in comments since the last review, not counted as drift: ` +
+					commented.map((r) => `${path.basename(r.rel)} ${r.commentOnly} path(s)`).join('; ')
 				: '')
 	);
 }

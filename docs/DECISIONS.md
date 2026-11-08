@@ -390,6 +390,35 @@ directly as the content-rendering audit rests on jsoup. The OAuth audit (on
 Spring Security) and the IMAP/SMTP audit (on jakarta.mail) do not: their claims
 target our configuration, which tests cover directly.
 
+### A change only in comments is not audit drift
+
+**Decided 2026-11-08** (#867). `check:audits` does not count a path as drifted
+when every file that changed under it differs from the reviewed state only in
+comments and layout, as `frontend/scripts/lib/comment-only.mjs` reads it: Java
+with a lexer, TypeScript and JavaScript with the TypeScript parser and printer,
+`.properties` line by line. Before this, a javadoc sentence cost a dated
+acknowledgement and counted against the caps like a code change. Three of the
+twenty acknowledgements standing on the day were that. Replaying `main` from
+2026-08-09 to 2026-11-08, 22 of 374 changes to a current `Code paths` entry
+were comment-only, all of them in Java.
+
+The library errs one way only. Anything it cannot read exactly counts as
+drift: Svelte, Rust, YAML, HTML and JSON, a file added or deleted, a Java file
+with a unicode escape that javac decodes into a quote, slash or line break, a
+TypeScript file that does not parse or carries a compiler pragma. The scanner
+in `frontend/scripts/lib/source-text.mjs` is not used, because it errs the
+other way: it reads the `//` inside a regex literal as a comment.
+
+YAML is left out on purpose. The release workflow's header comment cost one
+acknowledgement in three months (#847, one of its 11 changes), and telling a
+YAML comment from a `#` line inside a `run: |` block takes a YAML parser,
+which `frontend/` has only as a transitive dependency.
+
+**Revisit when:** comment-only changes in a language compared byte for byte
+keep costing acknowledgements (then add that language with a parser, not a
+scanner); or an audit's verdict turns out to rest on what a comment says
+rather than on the code.
+
 ### Dependency install scripts are denied
 
 **Decided 2026-11-03** (#847). In `frontend/`, an install runs a dependency's

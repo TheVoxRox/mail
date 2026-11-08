@@ -544,4 +544,132 @@ describe('check-audit-freshness', () => {
 			expect(result.stderr).toContain('is in the future');
 		});
 	});
+
+	/*
+	 * A change the compiler cannot see is not drift. Before this, a javadoc
+	 * sentence cost the same dated acknowledgement as a code change and counted
+	 * against the same caps. What these cases hold is the plumbing around
+	 * lib/comment-only.mjs, whose own suite holds the languages: a directory
+	 * and a single file both judged, and every shape of change the library is
+	 * not asked about still counted as drift.
+	 */
+	describe('changes only in comments', () => {
+		it('does not count a comment edit under an audited directory, and says so', () => {
+			seedAudit();
+			repo.write('src/audited/service.ts', '/** Why v is one. */\nexport const v = 1;\n');
+			repo.commit('document the audited code');
+
+			const result = repo.run('check-audit-freshness.mjs');
+
+			expect(result.status).toBe(0);
+			expect(result.stdout).toContain('changed only in comments since the last review');
+			expect(result.stdout).toContain('FIXTURE_AUDIT.md 1 path(s)');
+		});
+
+		it('judges a single-file Code path the same way', () => {
+			repo.write('src/Service.java', 'class Service {\n  int limit = 1;\n}\n');
+			repo.write(
+				'docs/FIXTURE_AUDIT.md',
+				auditDoc({ auditedCommit: 'PLACEHOLDER', codePaths: ['src/Service.java'] })
+			);
+			const sha = repo.commit('seed');
+			repo.write(
+				'docs/FIXTURE_AUDIT.md',
+				auditDoc({ auditedCommit: sha, codePaths: ['src/Service.java'] })
+			);
+			repo.commit('anchor the audit');
+			repo.write(
+				'src/Service.java',
+				'/** The audited service. */\nclass Service {\n  int limit = 1; // per account\n}\n'
+			);
+			repo.commit('javadoc only');
+
+			expect(repo.run('check-audit-freshness.mjs').status).toBe(0);
+
+			repo.write(
+				'src/Service.java',
+				'/** The audited service. */\nclass Service {\n  int limit = 9;\n}\n'
+			);
+			repo.commit('a real change');
+
+			expect(repo.run('check-audit-freshness.mjs').status).toBe(1);
+		});
+
+		it('counts the directory as drifted when one file changed in code', () => {
+			seedAudit();
+			repo.write('src/audited/helper.ts', 'export const h = 1;\n');
+			repo.commit('a second audited file');
+			const oid = repo.git(['rev-parse', 'HEAD:src/audited']);
+			writeLedger({ reviewedTrees: { 'src/audited': oid }, acknowledgements: acknowledgements(1) });
+
+			repo.write('src/audited/service.ts', '// a comment\nexport const v = 1;\n');
+			repo.write('src/audited/helper.ts', 'export const h = 2;\n');
+			repo.commit('a comment in one file, code in the other');
+
+			const result = repo.run('check-audit-freshness.mjs');
+
+			expect(result.status).toBe(1);
+			expect(result.stderr).toContain('1 audited path(s) changed since the last review');
+		});
+
+		it('counts a file added under the audited directory, even one holding only a comment', () => {
+			seedAudit();
+			repo.write('src/audited/notes.ts', '// Only a comment.\n');
+			repo.commit('add a file');
+
+			expect(repo.run('check-audit-freshness.mjs').status).toBe(1);
+		});
+
+		it('counts a comment edit in a language the library does not read', () => {
+			seedAudit();
+			repo.write('src/audited/View.svelte', '<!-- old -->\n<p>x</p>\n');
+			repo.commit('a component');
+			const oid = repo.git(['rev-parse', 'HEAD:src/audited']);
+			writeLedger({ reviewedTrees: { 'src/audited': oid }, acknowledgements: acknowledgements(1) });
+
+			repo.write('src/audited/View.svelte', '<!-- new -->\n<p>x</p>\n');
+			repo.commit('edit its comment');
+
+			expect(repo.run('check-audit-freshness.mjs').status).toBe(1);
+		});
+
+		/*
+		 * The baseline does not move when a comment-only change goes through, so
+		 * a later code change is diffed against what was actually reviewed, and
+		 * the comment change rides along in the diff the reviewer reads.
+		 */
+		it('diffs the next code change against the reviewed state, not the comment edit', () => {
+			seedAudit();
+			repo.write('src/audited/service.ts', '// why\nexport const v = 1;\n');
+			repo.commit('comment only');
+			expect(repo.run('check-audit-freshness.mjs').status).toBe(0);
+
+			repo.write('src/audited/service.ts', '// why\nexport const v = 2;\n');
+			repo.commit('code');
+
+			const result = repo.run('check-audit-freshness.mjs');
+
+			expect(result.status).toBe(1);
+			expect(result.stderr).toContain('comment only');
+			expect(result.stderr).toContain('code');
+		});
+
+		/*
+		 * An id recorded from a PR's merge commit names a tree that never lands
+		 * when main moved in between, so a fresh clone does not have it. That is
+		 * drift to report, not an object to crash on.
+		 */
+		it('counts a baseline this clone does not have as drift', () => {
+			seedAudit();
+			writeLedger({
+				reviewedTrees: { 'src/audited': '0123456789abcdef0123456789abcdef01234567' },
+				acknowledgements: acknowledgements(1)
+			});
+
+			const result = repo.run('check-audit-freshness.mjs');
+
+			expect(result.status).toBe(1);
+			expect(result.stderr).toContain('changed since the last review');
+		});
+	});
 });
