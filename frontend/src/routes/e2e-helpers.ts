@@ -128,6 +128,8 @@ export interface MockFlags {
 	oauthAccount?: boolean;
 	/** Adds a password account on hand-typed servers, id 4, with no provider. */
 	customAccount?: boolean;
+	/** Adds a password account on the Seznam provider, id 5 (`jana@seznam.cz`). */
+	seznamAccount?: boolean;
 	readinessDelayMs?: number;
 	readinessFailures?: number;
 	sessionDelayMs?: number;

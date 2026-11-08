@@ -61,6 +61,18 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- The note on which password to enter for Seznam.cz, Google and Microsoft is
+  now the Password field's own description, under the field, where it was a box
+  of its own above it. Nothing linked the box to the field: tabbing went from
+  Username to its "Otevřít návod" link and on, so the sentence itself was never
+  read in focus mode and the link did not say which guide. A screen reader now
+  reads it on entering the field; the link follows the field as "Jak vytvořit
+  heslo aplikace pro Seznam.cz". It shows only while there is a field to type
+  into, so an edit no longer speaks of one "Změnit heslo" has not opened, and
+  it leads with what to enter: "Zadejte heslo k účtu na Seznam.cz. Máte-li tam
+  zapnuté dvoufázové ověření, použijte místo něj heslo aplikace." An edit of a
+  Google or Microsoft account set up over IMAP gets the app-password
+  description too, which it was left without.
 - On the account edit page the password is a "Změnit heslo" button, not an
   empty field. The field used to be there with a note under it saying that
   leaving it empty keeps the stored password (reworded as a sentence in #859):

@@ -13,7 +13,6 @@
 		type AccountFieldError,
 		type AccountFieldKey
 	} from '#lib/accounts/accountFormValidation.js';
-	import AccountAppPasswordNotice from '#lib/components/AccountAppPasswordNotice.svelte';
 	import CustomServerFields from '#lib/components/account-form/CustomServerFields.svelte';
 	import { badgeVariants } from '#lib/components/ui/badge/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
@@ -239,11 +238,46 @@
 			? activePreset
 			: null
 	);
-	let showAppPasswordWarning = $derived(
-		activePreset != null &&
-			activePreset.appPassword !== 'never' &&
-			(activePreset.flow !== 'oauth' || mode === 'create')
+	/*
+	 * The provider whose password field needs a word on what to type: an app
+	 * password always for Google and Microsoft over IMAP, one only with
+	 * two-factor authentication on Seznam. The word is the password field's
+	 * description, heard on entering the field and shown only while there is a
+	 * field. It used to be a box of its own above the field, linked to nothing:
+	 * tabbing met only its "Open guide" link, and on an edit it spoke of a field
+	 * "Change password" had not opened.
+	 *
+	 * An edit of a Google or Microsoft account no longer has to be left out: one
+	 * that signs in through the provider shows no password field at all, so the
+	 * field an edit opens belongs to an IMAP account, which takes an app password.
+	 */
+	let appPasswordPreset = $derived(
+		activePreset != null && activePreset.appPassword !== 'never' && serverMode === 'provider'
+			? activePreset
+			: null
 	);
+	/*
+	 * Where the app password is only for accounts with two-factor
+	 * authentication, the description leads with the case that needs nothing and
+	 * is not a warning: it used to tell every Seznam user their account password
+	 * would not work, and for most of them it does.
+	 */
+	let appPasswordHint = $derived.by(() => {
+		if (!appPasswordPreset) return null;
+		const provider = $_(`accounts.wizard.presets.${appPasswordPreset.key}`);
+		const twoFactorOnly = appPasswordPreset.appPassword === 'twoFactor';
+		return {
+			text: $_(
+				twoFactorOnly
+					? 'accounts.form.appPasswordTwoFactorNote'
+					: 'accounts.form.appPasswordWarning',
+				{ values: { provider } }
+			),
+			warning: !twoFactorOnly,
+			helpUrl: appPasswordPreset.appPasswordHelpUrl ?? null,
+			helpLabel: $_('accounts.form.appPasswordHelp', { values: { provider } })
+		};
+	});
 	let providerDropdownHidden = $derived(
 		preset != null && preset.backendName != null && !showAdvancedProvider
 	);
@@ -892,10 +926,6 @@
 		</Field>
 	{/if}
 
-	{#if showAppPasswordWarning && activePreset && serverMode === 'provider'}
-		<AccountAppPasswordNotice preset={activePreset} />
-	{/if}
-
 	{#if isOAuthAccount}
 		<p class="text-sm text-muted-foreground">
 			{$_('accounts.form.oauthCredentialsNote', {
@@ -926,6 +956,8 @@
 			<Field
 				for="acc-password"
 				label={$_('accounts.form.password')}
+				hint={appPasswordHint?.text ?? null}
+				hintClass={appPasswordHint?.warning ? 'text-warning-foreground' : undefined}
 				error={fieldErrors.password}
 				errorId={errorIdOf('password')}
 				announce={announcedField === 'password'}
@@ -948,6 +980,25 @@
 					/>
 				{/snippet}
 			</Field>
+			{#if appPasswordHint?.helpUrl}
+				<!--
+					After the field, not inside its description: the description is hidden
+					where it stands (it is read with the field), and a link in it would be
+					a tab stop a screen reader cannot see. Its name says which guide, since
+					a links list shows it without the sentence it used to end.
+				-->
+				<Button
+					variant="link"
+					size="sm"
+					class="flex w-fit px-0 underline"
+					href={appPasswordHint.helpUrl}
+					target="_blank"
+					rel="noopener noreferrer"
+				>
+					{appPasswordHint.helpLabel}
+					<span class="sr-only">{$_('common.opensInNewWindow')}</span>
+				</Button>
+			{/if}
 			{#if passwordField === 'change'}
 				<Button type="button" variant="link" size="sm" class="px-0" onclick={keepStoredPassword}>
 					{$_('accounts.form.keepStoredPassword')}
