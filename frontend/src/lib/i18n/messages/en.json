@@ -401,10 +401,8 @@
 			"submitCreate": "Create",
 			"submitSave": "Save"
 		},
-		"newPageDescription": "Enter your e-mail. If we know the domain, we'll set up the account automatically.",
 		"wizard": {
-			"emailHeading": "Let's start with your e-mail",
-			"emailFormLabel": "Provider detection by e-mail",
+			"emailHint": "If we know the domain, we'll set up the account automatically.",
 			"emailPlaceholder": "name@example.com",
 			"continue": "Continue",
 			"detecting": "Looking up provider…",

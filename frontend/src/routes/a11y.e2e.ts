@@ -77,7 +77,7 @@ const routes: ReadonlyArray<{
 	{
 		path: '/settings/accounts/new',
 		name: 'Nový účet',
-		ready: (page) => page.getByRole('form', { name: 'Detekce poskytovatele podle e-mailu' })
+		ready: (page) => page.getByRole('textbox', { name: 'E-mail' })
 	},
 	{
 		path: '/settings/accounts/1',
@@ -1048,15 +1048,36 @@ test.describe('Přístupnost', () => {
 		await openApp(page, '/settings/accounts/new');
 		const email = page.getByRole('textbox', { name: 'E-mail' });
 		await expect(email).toBeFocused();
+		// The error comes after the field's hint.
+		const hint = 'Když doménu známe, nastavíme účet automaticky.';
 
 		await email.press('Enter');
 		await expect(email).toHaveAttribute('aria-invalid', 'true');
-		await expect(email).toHaveAccessibleDescription('Vyplňte e-mail.');
+		await expect(email).toHaveAccessibleDescription(`${hint} Vyplňte e-mail.`);
 
 		await email.fill('jan');
 		await page.getByRole('button', { name: 'Pokračovat' }).click();
-		await expect(email).toHaveAccessibleDescription('Zadejte e-mail ve tvaru jmeno@domena.cz.');
+		await expect(email).toHaveAccessibleDescription(
+			`${hint} Zadejte e-mail ve tvaru jmeno@domena.cz.`
+		);
 		await expect(email).toBeFocused();
+	});
+
+	test('první krok průvodce účtem řekne, co udělá, u pole samotného', async ({ page }) => {
+		// Focus lands in the address field on arrival, so the sentence saying
+		// what the step does sat in the page header where a screen reader passed
+		// it by. A heading and a form name asked for the e-mail again besides,
+		// each in its own words, on top of the field's label.
+		await openApp(page, '/settings/accounts/new');
+		const email = page.getByRole('textbox', { name: 'E-mail', exact: true });
+		await expect(email).toBeFocused();
+		const hint = 'Když doménu známe, nastavíme účet automaticky.';
+		await expect(email).toHaveAccessibleDescription(hint);
+
+		const main = page.locator('#main-content');
+		await expect(main.getByText(hint)).toHaveCount(1);
+		await expect(main.getByRole('heading', { level: 2 })).toHaveCount(0);
+		await expect(main.getByRole('form')).toHaveCount(0);
 	});
 
 	test('dialog štítků řekne, že chybí název, místo zakázaného tlačítka (3.3.1)', async ({

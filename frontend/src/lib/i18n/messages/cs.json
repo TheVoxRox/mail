@@ -401,10 +401,8 @@
 			"submitCreate": "Vytvořit",
 			"submitSave": "Uložit"
 		},
-		"newPageDescription": "Zadejte e-mail. Když doménu známe, nastavíme účet automaticky.",
 		"wizard": {
-			"emailHeading": "Začněme vaším e-mailem",
-			"emailFormLabel": "Detekce poskytovatele podle e-mailu",
+			"emailHint": "Když doménu známe, nastavíme účet automaticky.",
 			"emailPlaceholder": "jmeno@domena.cz",
 			"continue": "Pokračovat",
 			"detecting": "Hledám poskytovatele…",

@@ -75,9 +75,14 @@
 		step.kind === 'form' && step.preset.backendName != null && !showAdvanced
 	);
 
+	/**
+	 * None on the e-mail step: what that step says is the address field's
+	 * hint. Focus lands in the field on arrival, so a sentence up here was
+	 * skipped by a screen reader, and repeated the field's label besides.
+	 */
 	let pageDescription = $derived.by(() => {
 		if (step.kind === 'email' || step.kind === 'detecting') {
-			return $_('accounts.newPageDescription');
+			return null;
 		}
 		if (step.kind === 'oauth') {
 			return $_('accounts.wizard.oauthPageDescription');
@@ -278,18 +283,16 @@
 	{/snippet}
 
 	{#if step.kind === 'email' || step.kind === 'detecting'}
+		<!--
+			No heading and no form name: the step asks for one address, and the
+			field's label says so. Each used to say it again in its own words.
+		-->
 		<Surface as="section" class="max-w-2xl">
-			<h2 class="mb-4 text-sm font-semibold">{$_('accounts.wizard.emailHeading')}</h2>
-
-			<form
-				novalidate
-				onsubmit={handleEmailSubmit}
-				class="space-y-3"
-				aria-label={$_('accounts.wizard.emailFormLabel')}
-			>
+			<form novalidate onsubmit={handleEmailSubmit} class="space-y-3">
 				<Field
 					for="wizard-email"
 					label={$_('accounts.form.email')}
+					hint={$_('accounts.wizard.emailHint')}
 					error={emailError}
 					errorId="wizard-email-error"
 				>
