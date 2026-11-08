@@ -125,6 +125,10 @@ test.describe('Accounts', () => {
 		await page.getByRole('button', { name: 'Pokračovat' }).click();
 
 		await expect(page.getByRole('heading', { name: 'Detekováno: Seznam.cz' })).toBeVisible();
+		// The page header used to add "Zkontrolujte údaje k účtu a doplňte
+		// přihlášení k poštovnímu serveru.", which the heading and the fields
+		// below already say, and which focus in the password field passed by.
+		await expect(page.getByText('Zkontrolujte údaje k účtu')).toHaveCount(0);
 		const passwordInput = page.locator('#acc-password');
 		await expect(passwordInput).toBeFocused();
 		await expect(passwordInput).toHaveAccessibleDescription(
