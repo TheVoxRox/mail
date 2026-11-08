@@ -62,6 +62,7 @@
 
 	let emailInputEl = $state<HTMLInputElement | null>(null);
 	let googleButtonEl = $state<HTMLButtonElement | null>(null);
+	let cancelWaitingButtonEl = $state<HTMLButtonElement | null>(null);
 
 	let canSubmitEmail = $derived(isValidEmailAddress(email));
 	/**
@@ -80,6 +81,11 @@
 			emailInputEl?.focus();
 		} else if (step.kind === 'oauth') {
 			googleButtonEl?.focus();
+		} else if (step.kind === 'oauth-waiting') {
+			// The sign-in button goes away with its step, and focus fell to the
+			// body with it. Here it is what a screen reader reads on the way
+			// back from the browser, with the status as the button's description.
+			cancelWaitingButtonEl?.focus();
 		}
 	});
 
@@ -344,14 +350,21 @@
 	{:else if step.kind === 'oauth-waiting'}
 		<Surface as="section" class="max-w-2xl">
 			<div class="flex flex-wrap items-start justify-between gap-3">
-				<div class="flex min-w-0 items-start gap-3" role="status" aria-live="polite">
+				<!--
+					No live region: it was inserted with its text already in it, which
+					screen readers do not reliably announce, and nothing in it changes
+					while it waits. Focus on Cancel carries the status instead.
+				-->
+				<div class="flex min-w-0 items-start gap-3">
 					<span
 						aria-hidden="true"
 						class="mt-0.5 inline-block size-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent text-primary"
 					></span>
 					<div class="min-w-0 space-y-1">
-						<p class="text-sm font-semibold">{$_('accounts.wizard.oauthWaitingHeading')}</p>
-						<p class="text-xs text-muted-foreground">
+						<h2 id="wizard-oauth-waiting-heading" class="text-sm font-semibold">
+							{$_('accounts.wizard.oauthWaitingHeading')}
+						</h2>
+						<p id="wizard-oauth-waiting-hint" class="text-xs text-muted-foreground">
 							{$_('accounts.wizard.oauthWaitingHint', { values: { email: step.email } })}
 						</p>
 					</div>
@@ -361,7 +374,13 @@
 				</Button>
 			</div>
 			<div class="mt-4">
-				<Button variant="outline" size="sm" onclick={cancelOauthWaiting}>
+				<Button
+					variant="outline"
+					size="sm"
+					onclick={cancelOauthWaiting}
+					bind:ref={cancelWaitingButtonEl}
+					aria-describedby="wizard-oauth-waiting-heading wizard-oauth-waiting-hint"
+				>
 					{$_('accounts.wizard.cancel')}
 				</Button>
 			</div>

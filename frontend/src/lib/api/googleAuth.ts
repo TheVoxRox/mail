@@ -25,6 +25,11 @@ async function oauthAuthStartUrl(provider: string): Promise<string> {
  */
 export async function startOAuthLogin(provider: string): Promise<void> {
 	const url = await oauthAuthStartUrl(provider);
+	// The mocked e2e build runs in a browser with no shell to open another one
+	// with, and the open failed there, so the wizard's waiting step was out of
+	// the suite's reach. Opening is all that is skipped. Build-time flag: Vite
+	// drops the branch from the real bundle.
+	if (import.meta.env.VITE_E2E_MOCK === '1') return;
 	const { open } = await import('@tauri-apps/plugin-shell');
 	await open(url);
 }
