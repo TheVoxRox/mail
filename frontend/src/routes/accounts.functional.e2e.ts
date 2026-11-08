@@ -818,19 +818,13 @@ test.describe('Accounts', () => {
 
 		await openApp(page, '/settings/accounts/3');
 
-		const note =
-			'K tomuto účtu se přihlašujete přes Google jako oauth.user@gmail.com. ' +
-			'Uživatelské jméno ani heslo se tu nemění.';
+		// The address the account signs in with is the E-mail field's; nothing
+		// stands in for Username and Password to say it a second time.
 		const form = page.getByRole('form', { name: 'Účet' });
-		await expect(form.getByText(note)).toBeVisible();
+		await expect(form.getByLabel('E-mail', { exact: true })).toHaveValue('oauth.user@gmail.com');
 		await expect(form.getByLabel('Uživatelské jméno', { exact: true })).toHaveCount(0);
 		await expect(form.getByRole('button', { name: 'Změnit heslo' })).toHaveCount(0);
 		await expect(form.getByLabel('Heslo', { exact: true })).toHaveCount(0);
-		// A paragraph of its own, not run together with the checkbox label after it.
-		await expect(form).toMatchAriaSnapshot(`
-			- paragraph: ${note}
-			- checkbox "Účet je aktivní (synchronizuje se)"
-		`);
 
 		// The rest of the account still saves, with the stored username sent back
 		// as it was: the backend does not take a different one for such an account.

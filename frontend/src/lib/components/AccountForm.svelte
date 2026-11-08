@@ -1,11 +1,7 @@
 <script lang="ts">
 	import { listProviders } from '#lib/api/providers.js';
 	import { testAccountConnection } from '#lib/api/accounts.js';
-	import {
-		KNOWN_PRESETS,
-		presetForProvider,
-		type ProviderPreset
-	} from '#lib/accounts/providerPresets.js';
+	import { presetForProvider, type ProviderPreset } from '#lib/accounts/providerPresets.js';
 	import { createProviderResolver, type ProviderResolver } from '#lib/accounts/providerResolver.js';
 	import {
 		FIELD_INPUT_IDS,
@@ -184,16 +180,13 @@
 	 * backend refuses a password (validation.account.oauth2CredentialsReadOnly),
 	 * and the username is the address the provider vouched for, written again by
 	 * every sign-in. Both fields were offered anyway, the password with a note
-	 * about keeping one it never had. A sentence names the sign-in and the
-	 * username instead, so neither looks editable; the form still sends the
-	 * stored username back unchanged.
+	 * about keeping one it never had. Neither is shown now, and nothing stands in
+	 * their place: the E-mail field above already gives the address, and a
+	 * sentence that named the sign-in (#863) said only that, plus a "not changed
+	 * here" that implied somewhere else. The form still sends the stored username
+	 * back unchanged.
 	 */
 	let isOAuthAccount = $derived(mode === 'edit' && initial?.authType === 'OAUTH2');
-	let oauthProviderName = $derived(
-		KNOWN_PRESETS.find((p) => p.oauth2RegistrationId === initial?.oauth2Provider)?.backendName ??
-			initial?.oauth2Provider ??
-			''
-	);
 
 	function clearFieldErrors(): void {
 		fieldErrors = {};
@@ -927,11 +920,7 @@
 	{/if}
 
 	{#if isOAuthAccount}
-		<p class="text-sm text-muted-foreground">
-			{$_('accounts.form.oauthCredentialsNote', {
-				values: { provider: oauthProviderName, username: username || email }
-			})}
-		</p>
+		<!-- No password to change: see isOAuthAccount. -->
 	{:else if passwordField === 'stored'}
 		<!--
 			No label of its own: the button says what it does, and the hint, which
