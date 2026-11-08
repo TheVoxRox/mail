@@ -78,7 +78,10 @@ Entries before 2026-09-17 predate that split and are left as written.
   screen reader passed it by, since focus goes straight into the field. A
   heading, "Začněme vaším e-mailem", and the form's name, "Detekce
   poskytovatele podle e-mailu", asked for the address again in their own
-  words; both are gone, and the field's label asks once (#869).
+  words; both are gone, and the field's label asks once. The sign-in step
+  that follows for Google and Microsoft lost its page description too,
+  "Přihlášení dokončete u poskytovatele.": its heading and the provider's own
+  description already say so, and focus goes to the sign-in button (#869).
 - The edit page of an account that signs in through Google or Microsoft no
   longer shows a sentence where Username and Password would be. The address it
   named is already in the E-mail field above, and its second half, "Uživatelské

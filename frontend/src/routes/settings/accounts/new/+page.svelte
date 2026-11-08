@@ -76,16 +76,14 @@
 	);
 
 	/**
-	 * None on the e-mail step: what that step says is the address field's
-	 * hint. Focus lands in the field on arrival, so a sentence up here was
-	 * skipped by a screen reader, and repeated the field's label besides.
+	 * None on the e-mail and sign-in steps. Focus lands in the step's own
+	 * control on arrival, so a screen reader skipped a sentence up here, and
+	 * each one repeated what the step says itself: the address field's label
+	 * and hint, or the sign-in step's heading and its provider's description.
 	 */
 	let pageDescription = $derived.by(() => {
-		if (step.kind === 'email' || step.kind === 'detecting') {
+		if (step.kind === 'email' || step.kind === 'detecting' || step.kind === 'oauth') {
 			return null;
-		}
-		if (step.kind === 'oauth') {
-			return $_('accounts.wizard.oauthPageDescription');
 		}
 		if (step.kind === 'oauth-waiting') {
 			return $_('accounts.wizard.oauthWaitingPageDescription');

@@ -409,7 +409,6 @@
 			"manualSetup": "Set up manually",
 			"useImapInstead": "Use IMAP and an app password",
 			"backToEmail": "Enter a different e-mail",
-			"oauthPageDescription": "Finish signing in with your provider.",
 			"oauthConfirmHeading": "Sign in to {email}",
 			"oauthWaitingPageDescription": "Finish signing in in your browser — we'll pick up here when you're done.",
 			"oauthWaitingHeading": "Waiting for the browser to finish…",

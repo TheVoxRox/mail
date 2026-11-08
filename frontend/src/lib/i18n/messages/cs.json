@@ -409,7 +409,6 @@
 			"manualSetup": "Nastavit ručně",
 			"useImapInstead": "Použít IMAP a heslo aplikace",
 			"backToEmail": "Zadat jiný e-mail",
-			"oauthPageDescription": "Přihlášení dokončete u poskytovatele.",
 			"oauthConfirmHeading": "Přihlášení k účtu {email}",
 			"oauthWaitingPageDescription": "Dokončete přihlášení v prohlížeči. Až to uděláte, vrátíme se sem.",
 			"oauthWaitingHeading": "Čekám na dokončení v prohlížeči…",
