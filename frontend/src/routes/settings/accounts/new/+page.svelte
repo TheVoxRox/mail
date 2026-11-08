@@ -75,22 +75,6 @@
 		step.kind === 'form' && step.preset.backendName != null && !showAdvanced
 	);
 
-	/**
-	 * None on the e-mail and sign-in steps. Focus lands in the step's own
-	 * control on arrival, so a screen reader skipped a sentence up here, and
-	 * each one repeated what the step says itself: the address field's label
-	 * and hint, or the sign-in step's heading and its provider's description.
-	 */
-	let pageDescription = $derived.by(() => {
-		if (step.kind === 'email' || step.kind === 'detecting' || step.kind === 'oauth') {
-			return null;
-		}
-		if (step.kind === 'oauth-waiting') {
-			return $_('accounts.wizard.oauthWaitingPageDescription');
-		}
-		return $_('accounts.wizard.formPageDescription');
-	});
-
 	$effect(() => {
 		if (step.kind === 'email') {
 			emailInputEl?.focus();
@@ -269,11 +253,13 @@
 	<title>{$_('accounts.newPageTitle')}</title>
 </svelte:head>
 
-<PageShell
-	title={$_('accounts.headingNew')}
-	description={pageDescription}
-	contentClass="max-w-4xl space-y-4"
->
+<!--
+	No page description on any step. Each one repeated what its step says
+	itself (the address field's label and hint, the sign-in step's heading and
+	provider description, the account form's heading and fields, the waiting
+	step's status), and focus moving into the step passed it by.
+-->
+<PageShell title={$_('accounts.headingNew')} contentClass="max-w-4xl space-y-4">
 	{#snippet actions()}
 		<Button variant="link" size="sm" href={resolve('settings/accounts')}
 			>{$_('accounts.backToList')}</Button

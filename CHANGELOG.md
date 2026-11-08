@@ -72,6 +72,15 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- No step of adding an account has a page description any more. The account
+  form's, "Zkontrolujte údaje k účtu a doplňte přihlášení k poštovnímu
+  serveru.", repeated its heading ("Detekováno: …" or "Vlastní IMAP/SMTP") and
+  the fields under it, and focus goes into the form, past the header. The
+  waiting step's, "Dokončete přihlášení v prohlížeči. Až to uděláte, vrátíme
+  se sem.", said again what the status under it says, "Čekám na dokončení v
+  prohlížeči…" and "Až se přihlásíte k účtu …, automaticky ho přidáme.", and
+  its "vrátíme se sem" was not so: a finished sign-in opens the account list
+  (#870).
 - The first step of adding an account says what it does in the E-mail field's
   own description: "Když doménu známe, nastavíme účet automaticky." The
   sentence used to sit in the page header behind "Zadejte e-mail.", where a
