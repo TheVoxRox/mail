@@ -27,6 +27,8 @@
 		 */
 		announce?: boolean;
 		labelClass?: string;
+		/** Merged over the hint's muted text, e.g. a warning colour for a hint that must not be missed. */
+		hintClass?: string;
 		/**
 		 * Receives the `aria-describedby` / `aria-invalid` the control needs to
 		 * be described by the hint and error above. Spread it:
@@ -44,6 +46,7 @@
 		errorId,
 		announce = true,
 		labelClass,
+		hintClass,
 		children
 	}: Props = $props();
 
@@ -60,7 +63,13 @@
 	{@render children?.(control)}
 
 	{#if hint}
-		<p id={fieldHintId(forId)} aria-hidden="true" class="text-xs text-muted-foreground">{hint}</p>
+		<p
+			id={fieldHintId(forId)}
+			aria-hidden="true"
+			class={cn('text-xs text-muted-foreground', hintClass)}
+		>
+			{hint}
+		</p>
 	{/if}
 	{#if error}
 		<p

@@ -110,26 +110,49 @@ test.describe('Accounts', () => {
 		await expect(page.locator('#acc-imap-host')).toHaveCount(0);
 	});
 
-	test('Seznam e-mail otevře provider flow s poznámkou o hesle aplikace při 2FA a odkazem', async ({
-		page
-	}) => {
+	test('Seznam e-mail otevře provider flow s popisem hesla při 2FA a odkazem', async ({ page }) => {
 		// Seznam takes the account password unless two-factor authentication is
-		// on; the note used to say an app password was needed regardless.
+		// on; the note used to say an app password was needed regardless. It is
+		// the password field's description now, read on entering the field, not
+		// a box above it that tabbing passed by.
 		await openApp(page, '/settings/accounts/new');
 
 		await page.locator('#wizard-email').fill('user@seznam.cz');
 		await page.getByRole('button', { name: 'Pokračovat' }).click();
 
 		await expect(page.getByRole('heading', { name: 'Detekováno: Seznam.cz' })).toBeVisible();
-		await expect(page.getByRole('note')).toContainText(
-			'Stačí běžné heslo k účtu. Máte-li na Seznam.cz zapnuté dvoufázové ověření, zadejte místo něj heslo aplikace.'
+		const passwordInput = page.locator('#acc-password');
+		await expect(passwordInput).toBeFocused();
+		await expect(passwordInput).toHaveAccessibleDescription(
+			'Zadejte heslo k účtu na Seznam.cz. Máte-li tam zapnuté dvoufázové ověření, použijte místo něj heslo aplikace.'
 		);
-		await expect(page.getByText('potřebujete heslo aplikace')).toHaveCount(0);
-		await expect(page.getByRole('link', { name: 'Otevřít návod' })).toHaveAttribute(
+		await expect(page.getByRole('note')).toHaveCount(0);
+		await expect(page.getByText('Zadejte heslo aplikace pro')).toHaveCount(0);
+		await expect(
+			page.getByRole('link', {
+				name: 'Jak vytvořit heslo aplikace pro Seznam.cz (otevírá se v novém okně)',
+				exact: true
+			})
+		).toHaveAttribute(
 			'href',
 			'https://o-seznam.cz/napoveda/ucet/dvoufazove-overeni/postovni-programy/'
 		);
-		await expect(page.locator('#acc-password')).toBeFocused();
+	});
+
+	test('Gmail přes IMAP popíše heslo jako heslo aplikace', async ({ page }) => {
+		await openApp(page, '/settings/accounts/new');
+
+		await page.locator('#wizard-email').fill('jana@gmail.com');
+		await page.getByRole('button', { name: 'Pokračovat' }).click();
+		await page.getByRole('button', { name: 'Použít IMAP a heslo aplikace' }).click();
+
+		const form = page.getByRole('form', { name: 'Účet' });
+		await expect(form.getByLabel('Heslo', { exact: true })).toHaveAccessibleDescription(
+			'Zadejte heslo aplikace pro Google, ne hlavní heslo k účtu.'
+		);
+		await expect(
+			form.getByRole('link', { name: 'Jak vytvořit heslo aplikace pro Google' })
+		).toHaveAttribute('href', 'https://support.google.com/accounts/answer/185833');
 	});
 
 	test('auto-resolve providera reaguje i na změnu e-mailové domény', async ({ page }) => {
@@ -820,5 +843,33 @@ test.describe('Accounts', () => {
 			username: 'oauth.user@gmail.com',
 			password: null
 		});
+	});
+
+	test('poznámka o hesle aplikace u Seznamu patří k otevřenému poli hesla', async ({ page }) => {
+		// On an edit the note used to stand above "Změnit heslo" and talk about a
+		// field that was not there. It now comes with the field, as its
+		// description, and the guide link follows the field.
+		await setMockFlags(page, { seznamAccount: true });
+		await openApp(page, '/settings/accounts/5');
+
+		const form = page.getByRole('form', { name: 'Účet' });
+		const change = form.getByRole('button', { name: 'Změnit heslo' });
+		await expect(change).toBeVisible();
+		await expect(form.getByText('dvoufázové ověření')).toHaveCount(0);
+		await expect(form.getByRole('link', { name: /Jak vytvořit heslo aplikace/ })).toHaveCount(0);
+
+		await change.click();
+		const passwordInput = form.getByLabel('Heslo', { exact: true });
+		await expect(passwordInput).toBeFocused();
+		await expect(passwordInput).toHaveAccessibleDescription(
+			'Zadejte heslo k účtu na Seznam.cz. Máte-li tam zapnuté dvoufázové ověření, použijte místo něj heslo aplikace.'
+		);
+		// The description is read with the field and hidden where it stands, so
+		// browse mode does not read it twice; the guide link is the next stop.
+		await expect(form).toMatchAriaSnapshot(`
+			- textbox "Heslo"
+			- link "Jak vytvořit heslo aplikace pro Seznam.cz (otevírá se v novém okně)"
+			- button "Ponechat uložené heslo"
+		`);
 	});
 });

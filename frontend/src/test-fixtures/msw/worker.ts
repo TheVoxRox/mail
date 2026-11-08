@@ -34,6 +34,7 @@ import {
 	seedCustomAccount,
 	seedInboxThreadMember,
 	seedOAuthAccount,
+	seedSeznamAccount,
 	seedTrashThreadMembers
 } from './fixtures.js';
 import type { SessionPayload } from '#lib/api/session.js';
@@ -77,6 +78,9 @@ function applyFixtureFlags(): void {
 	}
 	if (window.localStorage.getItem('mail.e2e.customAccount') === '1') {
 		seedCustomAccount();
+	}
+	if (window.localStorage.getItem('mail.e2e.seznamAccount') === '1') {
+		seedSeznamAccount();
 	}
 	/*
 	 * Response-shape flags, unlike the failure switches above, are read here

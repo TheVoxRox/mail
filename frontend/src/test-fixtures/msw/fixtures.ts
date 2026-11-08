@@ -719,6 +719,43 @@ export function seedCustomAccount(): E2EFixtureState {
 	return fixtureState;
 }
 
+/**
+ * A password account on the Seznam provider, whose password field explains
+ * when an app password is needed (only with two-factor authentication). No
+ * other fixture account has a provider with an app-password rule.
+ */
+export function seedSeznamAccount(): E2EFixtureState {
+	fixtureState.accounts = [
+		...fixtureState.accounts,
+		{
+			id: 5,
+			accountName: 'Seznam',
+			email: 'jana@seznam.cz',
+			displayName: null,
+			signature: null,
+			signatureAutoInsert: true,
+			providerId: 5,
+			providerName: 'Seznam',
+			imapHost: 'imap.seznam.cz',
+			imapPort: 993,
+			imapUseSsl: true,
+			smtpHost: 'smtp.seznam.cz',
+			smtpPort: 465,
+			smtpUseSsl: true,
+			username: 'jana@seznam.cz',
+			authType: 'PASSWORD',
+			oauth2Provider: null,
+			active: true,
+			requiresReauth: false,
+			lastSyncAt: null,
+			lastError: null,
+			lastErrorCode: null,
+			lastErrorArgs: {}
+		}
+	];
+	return fixtureState;
+}
+
 export function clearAccounts(): E2EFixtureState {
 	fixtureState.accounts = [];
 	fixtureState.foldersByAccount = {};
