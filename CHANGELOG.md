@@ -21,6 +21,11 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- `check:audits` no longer counts a change to comments and layout as audit
+  drift, so a javadoc edit under an audit's `Code paths` needs no
+  acknowledgement in `docs/audit-freshness.json`. Java, TypeScript, JavaScript
+  and `.properties` are read exactly, with a lexer or the TypeScript parser;
+  every other file is still compared byte for byte (#867).
 - The JEP 483 AOT class cache, which release builds stopped shipping on
   2026-11-01, does not come back once the runtime has the JDK-8376576 fix: the
   extracted layout starts faster without it than the executable jar did with

@@ -84,6 +84,11 @@ someone a rework at least once. For the human-facing versions see
     (bump `Audited commit`, change-log entry, delete the ledger entry). Do not
     raise the cap to get a change through — the cap is the point, and the
     ledger grew seven run-together reviews in seventeen days without it.
+    A change only to comments and layout is not drift and needs no
+    acknowledgement, in the languages `frontend/scripts/lib/comment-only.mjs`
+    reads exactly (Java, TS/JS, `.properties`). Do not widen it with a scanner:
+    its one forbidden error is calling code a comment, so whatever it cannot
+    read exactly must stay drift.
   - `check:refs` — every repo path and `npm run` script named in prose or in a
     comment exists.
   - `check:npm-callers` — the other direction of that pair: an entry in
