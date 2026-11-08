@@ -72,6 +72,15 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- While the wizard waits for a Google or Microsoft sign-in in the browser,
+  focus is on "Zrušit", described by the status: "Čekám na dokončení v
+  prohlížeči… Až se přihlásíte k účtu …, automaticky ho přidáme." The sign-in
+  button went away with its step and focus fell to the page body, so coming
+  back from the browser a screen reader had nothing to read, and the status
+  was a live region inserted with its text already in it, which screen readers
+  do not reliably announce. The status line is now the step's heading, as on
+  the other steps. The mocked e2e build no longer tries to open a browser, which
+  put this step within the suite's reach (#871).
 - No step of adding an account has a page description any more. The account
   form's, "Zkontrolujte údaje k účtu a doplňte přihlášení k poštovnímu
   serveru.", repeated its heading ("Detekováno: …" or "Vlastní IMAP/SMTP") and

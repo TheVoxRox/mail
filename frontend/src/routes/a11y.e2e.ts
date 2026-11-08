@@ -1080,6 +1080,41 @@ test.describe('Přístupnost', () => {
 		await expect(main.getByRole('form')).toHaveCount(0);
 	});
 
+	test('čekání na přihlášení v prohlížeči drží fokus na Zrušit a řekne stav u něj', async ({
+		page
+	}) => {
+		// The sign-in button goes away with its step, and focus went with it to
+		// the page body: back from the browser, a screen reader had nothing to
+		// read. The status was a live region inserted with its text already in
+		// it, which screen readers do not reliably announce, so focus carries it.
+		await openApp(page, '/settings/accounts/new');
+		await page.locator('#wizard-email').fill('jana@gmail.com');
+		await page.getByRole('button', { name: 'Pokračovat' }).click();
+		await page.getByRole('button', { name: 'Přihlásit přes Google' }).click();
+
+		const cancel = page.getByRole('button', { name: 'Zrušit', exact: true });
+		await expect(cancel).toBeFocused();
+		await expect(cancel).toHaveAccessibleDescription(
+			'Čekám na dokončení v prohlížeči… Až se přihlásíte k účtu jana@gmail.com, automaticky ho přidáme.'
+		);
+		// It looked like the step's heading and was a paragraph; the other steps
+		// open with a heading of this level.
+		const status = page.getByRole('heading', {
+			level: 2,
+			name: 'Čekám na dokončení v prohlížeči…'
+		});
+		await expect(status).toBeVisible();
+		// Said once, by focus: a live region around it as well would say it twice.
+		await expect(
+			status.locator('xpath=ancestor-or-self::*[@aria-live or @role="status"]')
+		).toHaveCount(0);
+		// Out of the suite's reach until the e2e build stopped trying to open a browser.
+		await expectNoFindings(page, await wcagScan(page).analyze());
+
+		await cancel.click();
+		await expect(page.getByRole('button', { name: 'Přihlásit přes Google' })).toBeFocused();
+	});
+
 	test('dialog štítků řekne, že chybí název, místo zakázaného tlačítka (3.3.1)', async ({
 		page
 	}) => {
