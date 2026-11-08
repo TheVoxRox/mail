@@ -75,12 +75,15 @@
 		step.kind === 'form' && step.preset.backendName != null && !showAdvanced
 	);
 
+	/**
+	 * None on the e-mail and sign-in steps. Focus lands in the step's own
+	 * control on arrival, so a screen reader skipped a sentence up here, and
+	 * each one repeated what the step says itself: the address field's label
+	 * and hint, or the sign-in step's heading and its provider's description.
+	 */
 	let pageDescription = $derived.by(() => {
-		if (step.kind === 'email' || step.kind === 'detecting') {
-			return $_('accounts.newPageDescription');
-		}
-		if (step.kind === 'oauth') {
-			return $_('accounts.wizard.oauthPageDescription');
+		if (step.kind === 'email' || step.kind === 'detecting' || step.kind === 'oauth') {
+			return null;
 		}
 		if (step.kind === 'oauth-waiting') {
 			return $_('accounts.wizard.oauthWaitingPageDescription');
@@ -278,18 +281,16 @@
 	{/snippet}
 
 	{#if step.kind === 'email' || step.kind === 'detecting'}
+		<!--
+			No heading and no form name: the step asks for one address, and the
+			field's label says so. Each used to say it again in its own words.
+		-->
 		<Surface as="section" class="max-w-2xl">
-			<h2 class="mb-4 text-sm font-semibold">{$_('accounts.wizard.emailHeading')}</h2>
-
-			<form
-				novalidate
-				onsubmit={handleEmailSubmit}
-				class="space-y-3"
-				aria-label={$_('accounts.wizard.emailFormLabel')}
-			>
+			<form novalidate onsubmit={handleEmailSubmit} class="space-y-3">
 				<Field
 					for="wizard-email"
 					label={$_('accounts.form.email')}
+					hint={$_('accounts.wizard.emailHint')}
 					error={emailError}
 					errorId="wizard-email-error"
 				>

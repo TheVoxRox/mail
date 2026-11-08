@@ -69,6 +69,10 @@ test.describe('Accounts', () => {
 		).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Přihlásit přes Google' })).toBeVisible();
 		await expect(page.locator('#acc-imap-host')).toHaveCount(0);
+		// The page header said it again, "Přihlášení dokončete u poskytovatele.",
+		// above the heading and the provider's own description, where focus on
+		// the sign-in button passed it by.
+		await expect(page.getByText('Přihlášení dokončete u poskytovatele')).toHaveCount(0);
 	});
 
 	/*
