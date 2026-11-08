@@ -357,11 +357,13 @@ Invoke-Step "Creating Windows app-image sidecar with jpackage" {
     # it broke the start: on JDK 25 a class the cache loads takes its CodeSource
     # from the path the cache was trained at, and on any other machine that path
     # does not exist, so the location is null (JDK-8376576, fixed in JDK 28, no
-    # 25 update). The cache comes back once the runtime has that fix, trained
-    # on this extracted layout, and with a packaging check that starts the
-    # image while the training directory is gone: a check on the build machine
-    # passes either way, which is how this reached a release candidate.
-    # backend/scripts/generate-aot-cache-windows.ps1 keeps the training.
+    # 25 update). It does not come back (docs/DECISIONS.md): this extracted
+    # layout starts faster without a cache than the executable jar did with
+    # one. Were that ever revisited, the packaging check would have to start
+    # the image while the training directory is gone: a check on the build
+    # machine passes either way, which is how this reached a release candidate.
+    # backend/scripts/generate-aot-cache-windows.ps1 keeps the training, for
+    # measurement.
 
     # jlink options. --include-locales is the reason jdk.localedata can stay:
     # the module costs 10 MB whole and nothing once cut to the two locales this

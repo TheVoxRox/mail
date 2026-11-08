@@ -262,13 +262,15 @@ A standalone `mvn spring-boot:run` keeps springdoc on the classpath, but serves
 and `MAIL_SWAGGER_UI_ENABLED=true`; both default to `false` in
 `application.properties`.
 
-### JEP 483 AOT class cache (off until the runtime has JDK-8376576)
+### JEP 483 AOT class cache (not shipped)
 
 Java 25+ supports "ahead-of-time class loading & linking": a training run
 writes a binary cache of class loading and linking metadata, which a later
 start maps instead of rebuilding it from the jars. Release builds shipped such
 a cache, trained on the build machine, from 0.1.0 to the first `0.2.0-beta.1`
-candidate. **Since 2026-11-01 they do not**; bringing it back is #839.
+candidate. **Since 2026-11-01 they do not, and the cache does not come back**
+([DECISIONS.md](../docs/DECISIONS.md), "The backend ships without a JEP 483
+AOT class cache", which says what reopens it).
 
 On JDK 25 a class the JVM loads from the cache takes its `CodeSource` from the
 path the cache was trained at. On any other machine that path does not exist
@@ -291,7 +293,7 @@ three starts of each: the extracted layout without a cache reaches ready in
 about 2.7 s, against 3.0 s for the executable jar with its cache and 4.3 s
 without (PERFORMANCE_BASELINE.md, 2026-11-01).
 
-Bringing the cache back takes all of:
+Should that decision be reopened, bringing the cache back takes all of:
 
 - a runtime with the JDK-8376576 fix;
 - training on the extracted layout, not the executable jar: Spring Boot

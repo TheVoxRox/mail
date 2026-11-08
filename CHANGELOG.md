@@ -21,6 +21,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The JEP 483 AOT class cache, which release builds stopped shipping on
+  2026-11-01, does not come back once the runtime has the JDK-8376576 fix: the
+  extracted layout starts faster without it than the executable jar did with
+  it. Recorded in `docs/DECISIONS.md` with what reopens it, and the runbook
+  and the packaging script that promised its return point at it (#866).
+
 - The `v0.2.0-beta.3` sheet records what was taken after publishing, as its §9
   approved: the first update through the updater itself, from 0.2.0-beta.2 on
   the beta channel (#836), and §3a, §4 and §7 re-taken on the installation it

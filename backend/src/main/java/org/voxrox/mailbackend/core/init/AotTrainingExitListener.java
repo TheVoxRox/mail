@@ -26,8 +26,8 @@ import org.voxrox.mailbackend.util.LogCategory;
  * on 2026-11-01: on JDK 25 a cache trained on the build machine breaks the
  * start everywhere else (JDK-8376576, see
  * {@code backend/scripts/package-sidecar-windows.ps1}). The training script
- * stays for measurement and for when the cache returns, and packaging's start
- * check sets the same variable to end its run once the application is ready.
+ * stays for measurement, and packaging's start check sets the same variable to
+ * end its run once the application is ready.
  *
  * <p>
  * Order {@code LOWEST_PRECEDENCE} guarantees that all other

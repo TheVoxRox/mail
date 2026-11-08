@@ -264,6 +264,39 @@ action without a PFX, so the workflow needs two signing steps — the sidecar
 before the bundle, the installer after it — and the updater `.sig` must be
 computed from the signed installer.
 
+### The backend ships without a JEP 483 AOT class cache
+
+**Decided 2026-11-08** (closes #839). Release builds stopped shipping the cache
+on 2026-11-01 (#819): on JDK 25 a cache trained on the build machine stops the
+backend from starting on any other machine (JDK-8376576, fixed in JDK 28 with
+no JDK 25 update). #839 was to bring it back once the runtime had the fix. It
+does not come back, even then.
+
+The reason the cache was built has gone. It cut the start of the executable
+jar from 4.1 s to 3.0 s, and the extracted layout that #819 moved to reaches
+ready in about 2.7 s without one, on the same desktop machine
+([PERFORMANCE_BASELINE.md](../backend/PERFORMANCE_BASELINE.md), 2026-10-17
+and 2026-11-01). What a cache would add on top of the extracted layout was not
+measured. Against that unmeasured gain stand known costs: a cache file of about
+130 MB in the installation and in the installer every update downloads; a
+training step in packaging, with file times rounded to the installer's two
+seconds and checks that the cache maps; and two failures in two releases that
+no green check caught — the 0.1.0 cache never mapped on an installation
+(#756), and the first `0.2.0-beta.1` candidate's broke the start everywhere
+but the build machine. The fix itself is in JDK 28, which is not an LTS
+release, and moving the runtime off JDK 25 for it is not worth it.
+
+What stays: `backend/scripts/generate-aot-cache-windows.ps1`, for measuring
+against the system JDK, and `AotTrainingExitListener`, because packaging's
+start check uses it to end its run once the backend is ready. What bringing the
+cache back would take is in [OPERATIONS.md](../backend/OPERATIONS.md) "JEP 483
+AOT class cache".
+
+**Revisit when:** the start is reported as slow and the runtime the sidecar
+ships has the JDK-8376576 fix, whether from a JDK 25 update or a move to a
+later JDK for reasons of its own. Then measure the extracted layout with and
+without a cache on one machine before building anything.
+
 ### The Cargo license list counts what the build compiles, procedural macros included
 
 **Decided 2026-11-03** (#846). `frontend/src-tauri/THIRD_PARTY_LICENSES.md`
