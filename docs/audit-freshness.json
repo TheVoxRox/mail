@@ -83,7 +83,7 @@
   },
   "docs/CRYPTO_STORAGE_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/core/init": "96baf2153a6d1d709bd0e54b0c28ccb50b5880e9",
+      "backend/src/main/java/org/voxrox/mailbackend/core/init": "5311d17a08ad546baa36ada6fab205f4db7541be",
       "backend/src/main/java/org/voxrox/mailbackend/core/security/CryptoService.java": "df4472da20af9ad59377f11b282535b75dbb5b17",
       "backend/src/main/java/org/voxrox/mailbackend/core/security/CryptoProperties.java": "3595302c4b8c43f9dda3f35d0e59373b2aa7a7e6",
       "backend/src/main/java/org/voxrox/mailbackend/core/backup": "72c0ffc003a6ce3537170d9d6a43a3538825933c"
@@ -104,6 +104,10 @@
       {
         "date": "2026-11-01",
         "note": "#819. The only change under core/init is the javadoc of AotTrainingExitListener, which now says release builds stopped shipping the AOT class cache (JDK-8376576) and that packaging's start check sets MAIL_AOT_TRAINING_RUN to end its run once ready. Comment only: the listener's code, its env variable and its ordering are byte-identical, and StorageContextInitializer, crypto.bin, DPAPI and the fingerprint comparison are untouched. The image now ships the jar extracted into app\\lib, which changes where classes are read from, not what the backend writes or with which permissions. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-08",
+        "note": "#866. The only change under core/init is one sentence of the javadoc of AotTrainingExitListener: the training script stays for measurement, no longer also for when the cache returns, since the AOT class cache does not come back (docs/DECISIONS.md). Comment only: the listener's code, its env variable and its ordering are byte-identical, and StorageContextInitializer, crypto.bin, DPAPI and the fingerprint comparison are untouched. Verdict unchanged."
       }
     ]
   },
