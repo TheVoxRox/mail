@@ -8,6 +8,7 @@
 
 import { get, writable } from 'svelte/store';
 import { _ } from 'svelte-i18n';
+import { accountShortLabel } from '#lib/accounts/accountLabel.js';
 import { SseClient } from '#lib/api/notifications.js';
 import { triggerAccountSync } from '#lib/api/mailAction.js';
 import { folderLabel } from '#lib/mail/folderLabel.js';
@@ -333,7 +334,14 @@ function handleSyncCompleted(event: SyncNotification): void {
 	 */
 	const refreshedFolders = refreshFolders(event.accountId).catch((): FolderResponse[] => []);
 
-	if (event.newMessagesCount > 0) {
+	/*
+	 * Only mail that arrived is news. Every other download — a first sync's
+	 * window, the copy of a sent message mirrored into Sent, a hole refilled —
+	 * reloads the list above and stays quiet: "1 new message" in Sent for what
+	 * the user just wrote, or a first sync read out folder by folder, is noise
+	 * that buries the announcements that matter.
+	 */
+	if (event.arrivedMessagesCount > 0) {
 		void announceNewMessages(event, refreshedFolders);
 	}
 }
@@ -366,16 +374,15 @@ async function announceNewMessages(
 	foldersPromise: Promise<FolderResponse[]>
 ): Promise<void> {
 	const folder = (await foldersPromise).find((f) => f.folderRef === event.folderName);
-	const accounts = get(accountsState);
-	const accountLabel =
-		(accounts.status === 'ready'
-			? accounts.accounts.find((a) => a.id === event.accountId)?.email
-			: null) ?? `#${event.accountId}`;
+	const accountsNow = get(accountsState);
+	const known = accountsNow.status === 'ready' ? accountsNow.accounts : [];
+	const account = known.find((a) => a.id === event.accountId);
+	const accountLabel = account ? accountShortLabel(account, known) : `#${event.accountId}`;
 	const translate = get(_);
 	const folderName = folder ? folderLabel(folder, translate) : event.folderName;
 	const message = translate('toast.newMessages', {
 		values: {
-			count: event.newMessagesCount,
+			count: event.arrivedMessagesCount,
 			account: accountLabel,
 			folder: folderName
 		}
@@ -383,10 +390,9 @@ async function announceNewMessages(
 	pushToast(message, { tone: 'success', ttl: 6000 });
 
 	/*
-	 * The toast above reaches only someone looking at the window. Outside it,
-	 * only mail that has arrived is announced — a first sync's window or a
-	 * mirror of Sent is a download, not news, and the count the toast uses
-	 * includes both. Rust drops it again if the window has the focus.
+	 * The toast above reaches only someone looking at the window; the same
+	 * sentence goes to Windows for whoever is not. Rust drops it if the window
+	 * has the focus, since the toast was just read out there.
 	 */
 	await notifyArrivedMail(
 		{ count: event.arrivedMessagesCount, account: accountLabel, folder: folderName },

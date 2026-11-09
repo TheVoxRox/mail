@@ -479,8 +479,8 @@ export interface SyncNotification {
 	/**
 	 * The part of `newMessagesCount` that has just arrived for the user:
 	 * downloaded above the folder's existing mirror, into Inbox or Newsletters.
-	 * Zero for a first sync. The only count that may be announced outside the
-	 * app (`#lib/newMailNotifications.ts`).
+	 * Zero for a first sync. The only count announced as new mail: the in-app
+	 * toast and the Windows notification (`#lib/newMailNotifications.ts`).
 	 */
 	arrivedMessagesCount: number;
 	/** ISO-8601 Instant, e.g. `2026-04-17T08:30:00Z`. */

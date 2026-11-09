@@ -21,6 +21,9 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The updater audit acknowledges the one line #887 changes in
+  `AboutSettings.svelte`, the count on the "Poslední synchronizace" line, which
+  no claim of the audit rests on (#887).
 - [DECISIONS.md](docs/DECISIONS.md) records why new mail is announced with a
   Windows notification, when, and what it may say. The updater, API-surface and
   IMAP/SMTP audits acknowledge the drift it brings under their code paths
@@ -140,6 +143,17 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- The new-mail toast announces only mail that arrived, the count the Windows
+  notification already used. It announced every folder that downloaded
+  something: the copy of a message the user had just sent came back with the
+  next sync as "1 nová zpráva" in Sent, and a first sync read the mailbox out
+  folder by folder, each time into the screen reader's queue. Those folders
+  still refresh on screen, and Settings → About → "Poslední synchronizace"
+  counts the same way. The toast and the Windows notification also name the
+  account by its name rather than its address, which is added only when
+  another account has the same name (two Gmail accounts both start as "Gmail")
+  or the name merely repeats it; PRIVACY.md says so, here and on voxrox.org
+  (#887).
 - Menus, dialogs and the command palette run on bits-ui 2.20.6 instead of
   2.20.2, and the styles are built with Tailwind CSS 4.3.4 and
   tailwind-variants 4.0.1. Of the bits-ui fixes, these reach what the app uses:

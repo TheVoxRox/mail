@@ -66,7 +66,9 @@ installer writes it, and so does the setting in Settings → About.
 While the application's window is not active or is hidden in the notification
 area, newly delivered mail (into the Inbox and Newsletters) is announced with
 a Windows notification. It holds the number of new messages, the account's
-address and the folder's name — **never the sender or the subject**. Windows,
+name and the folder's name — **never the sender or the subject**. It adds the
+account's address only when another account has the same name, or when the
+name merely repeats the address. Windows,
 not the application, shows and keeps it: it stays in the Windows notification
 centre, in your user profile, until you dismiss it, and depending on your
 Windows settings it may also be shown on the lock screen. Windows also keeps
