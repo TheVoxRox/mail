@@ -36,6 +36,10 @@ Entries before 2026-09-17 predate that split and are left as written.
   acknowledgement in `docs/audit-freshness.json`. Java, TypeScript, JavaScript
   and `.properties` are read exactly, with a lexer or the TypeScript parser;
   every other file is still compared byte for byte (#867).
+- Development tools move up a patch or a minor: Playwright 1.65, Vitest 5.1,
+  ESLint 10.14, eslint-plugin-svelte 3.24 and Vite 8.3.6, with patches to knip,
+  msw, svelte-check and globals. Their fixes are to nothing the app is known to
+  have hit; the license list follows the tree (#873).
 - The JEP 483 AOT class cache, which release builds stopped shipping on
   2026-11-01, does not come back once the runtime has the JDK-8376576 fix: the
   extracted layout starts faster without it than the executable jar did with
