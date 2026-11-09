@@ -21,6 +21,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- Tests now pin the OAuth audit claims a PIT sweep found no test held (#883):
+  the identity a new OAuth account is bound to, the line between a permanent
+  and a transient refresh rejection (a throttling 429 must not lock the
+  account), and every audit-log entry the threat model's Boundary 2
+  repudiation row rests on. The audit moves to 1.9 with its anchor unchanged
+  (#884).
 - The OAuth audit is re-verified against `0ea4017` (1.8), which clears its four
   ledger acknowledgements before the 90-day cap. There is no finding. One claim
   is corrected: Spring Security already gives the Google sign-in PKCE by

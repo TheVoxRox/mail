@@ -2,12 +2,12 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Version**        | 1.8                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| **Version**        | 1.9                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | **Date**           | 2026-11-09                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | **Applies to**     | VoxRox Mail V0.2.0-beta.3 (`63159d4`), whose files under `Code paths` are the anchor's                                                                                                                                                                                                                                                                                                                                                                                   |
 | **Audited commit** | `0ea4017` (every claim re-verified 2026-11-09, clearing four acknowledgements; 1.5 to 1.7: `55f4afa`, the delta since `64633fe`, B2-1's fix, verified 2026-10-05; 1.3: `64633fe`, every claim re-verified 2026-10-04; 1.1 and 1.2: `cad05cb`, recorded pre-squash as `5799e8b`; 1.0 baseline: `d55b753`)                                                                                                                                                                 |
 | **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/auth`, `backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/OAuth2CompletedStateTracker.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/account/service/ExternalProviderLoginService.java`, `backend/src/main/resources/static`                                                                                  |
-| **Auditor**        | Claude (Fable 5) + owner review; 1.3 re-verified by Claude Opus 5.5; 1.5 the verification pass over B2-1's fix, by Claude Opus 5.5, a separate agent from the author of 1.4; 1.8 re-verified by Claude Opus 5.5, a session that wrote none of the delta it read (#636, #640, #679, #763)                                                                                                                                                                                 |
+| **Auditor**        | Claude (Fable 5) + owner review; 1.3 re-verified by Claude Opus 5.5; 1.5 the verification pass over B2-1's fix, by Claude Opus 5.5, a separate agent from the author of 1.4; 1.8 re-verified by Claude Opus 5.5, a session that wrote none of the delta it read (#636, #640, #679, #763); 1.9 the test cover #883 asked for, by Claude Opus 5.5                                                                                                                          |
 | **Subsystem**      | OAuth handshake — Boundary 2 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                  |
 | **Verdict**        | **Security: PASS** — **B2-1** (High) **fixed** 2026-10-05 and confirmed by the independent verification pass of AUDIT_GUIDE §5 (1.5): the session an OAuth sign-in leaves in the system browser passed the sidecar API's default-deny without the `X-API-KEY`; the API now requires the key's own authority, and `/success` ends the session (§3). Every claim re-verified at 1.8 against `0ea4017`, where the one naming the source of Google's PKCE is corrected (§1). |
 
@@ -57,6 +57,25 @@ regression test's unreproduced failure 1.5 left on the author's run (§3).
 Removing the PKCE customizer failed nothing, which is what led to the §1
 correction: the real Google authorization redirect, driven through the filter
 chain without it, still carried `code_challenge_method=S256`.
+
+**Test cover (1.9).** A PIT sweep over `Code paths` on 2026-11-09 (#883) found
+mutants no test killed where the code backs a claim here or in the threat
+model: the identity a new account is bound to (§2, §4), the 400/401 line of a
+refresh rejection (§2), the audit entries (§2, the Boundary 2 **R** row), the
+invalidation and the clearing of the last error after a re-login (§2), and
+the target of the `/start` redirect (§1). Each now has a test. The two the
+issue named were reverted by hand and the tests watched: without
+`setExternalId` the second sign-in of the same identity fails in
+`ExternalProviderLoginServiceIT` with `AccountAlreadyExistsException`, and with
+every 4xx treated as permanent the 403 and 429 cases of `GoogleTokenServiceTest`
+fail, and nothing else does. Re-run with the new tests, the sweep kills every
+mutant behind a claim but the token-cache invalidation §2 explains. What still
+survives backs no claim: the metrics calls, the scope log line, the refresh
+client's read timeout, a string `expires_in`, Microsoft's display name, the
+boundaries of the default account name, and `setActive(true)` on a new
+account, whose field already defaults to true. The sweep needs `mvn clean`
+first: a class glob also matches the `__BeanDefinitions` classes an AOT build
+leaves in `target/`, and PIT then fails writing their report.
 
 `Code paths` knowingly leaves out what the sections cite but which changes for
 other reasons: `backend/src/main/resources/application.properties` (the
@@ -167,11 +186,20 @@ path, Boundary 5), `ApiKeyFilter` (Boundary 3) and the client's
   but for Google only when the revoke call succeeds. A failed Google revoke
   leaves the entry until LRU eviction or the end of the process; nothing can
   reach it, since account ids are never reused (`AUTOINCREMENT`), and the token
-  itself expires within the hour. A transient refresh failure (5xx, network)
-  leaves the stale entry, which `isFresh` never returns.
+  itself expires within the hour. A transient refresh failure (any 4xx other
+  than 400 and 401, a 5xx, network) leaves the stale entry, which `isFresh`
+  never returns. The invalidation on a permanent rejection has no effect a
+  caller can see: a refresh runs only when the cache holds no fresh entry for
+  the account, and under that account's lock, so what it drops is such a stale
+  entry. Its only trace is a count one lower in the diagnostic dump
+  (`totalCachedTokens`). The PIT sweep of #883 finds that removing it fails no
+  test; it stays listed because the code does it, not because anything depends
+  on it.
 - **Refresh failure → `requires_reauth`**
   ([OAuth2TokenService](../backend/src/main/java/org/voxrox/mailbackend/feature/auth/service/OAuth2TokenService.java)):
-  a permanent rejection flags the account, records the last error and publishes
+  a permanent rejection (400 or 401; any other 4xx, a throttling 429 among
+  them, is transient like a 5xx and leaves the account alone) flags the
+  account, records the last error and publishes
   `AccountRequiresReauthEvent`, which closes its pooled IMAP connections; the
   sync scheduler stops picking it up (`findByActiveTrueAndRequiresReauthFalse`),
   and the accounts page offers a sign-in-again button that restarts the
@@ -203,7 +231,9 @@ path, Boundary 5), `ApiKeyFilter` (Boundary 3) and the client's
   `account_reauth_cleared` and `account_create`, the last of which carries the
   provider's stable user id (`sub` or `oid`) beside the masked email — an
   identifier, not a credential. Cross-checked with the 2026-06-13 log hygiene
-  audit.
+  audit. Until 1.9 no test asserted any of these entries, so removing one
+  failed nothing (#883); each write under `Code paths` is now asserted by the
+  test of the path that writes it, through `AuditLogCapture`.
 
 ## 3. Findings
 
@@ -413,6 +443,14 @@ confirmed at 1.5.
 
 ## 6. Change log
 
+- **1.9** (2026-11-09) — **test cover for the claims a PIT sweep found no test
+  held** (#883); the method is its own paragraph above. Nothing under
+  `Code paths` changed, so the anchor stays at `0ea4017`, and no claim was
+  false. Two are made precise in §2: only 400 and 401 are a permanent refresh
+  rejection, any other 4xx is transient; and the token-cache invalidation on a
+  permanent rejection drops only a stale entry, so it has no effect a caller
+  can see. The audit entries of §2 are asserted for the first time. Verdict
+  unchanged (**PASS**).
 - **1.8** (2026-11-09) — **re-verified against `0ea4017`**, clearing the four
   acknowledgements recorded since `55f4afa` (#636, #640, #679, #763) before the
   ledger's 90-day cap, which the oldest would have reached on 2027-01-03. Held

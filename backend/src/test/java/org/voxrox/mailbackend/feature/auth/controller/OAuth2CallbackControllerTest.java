@@ -16,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.security.config.oauth2.client.CommonOAuth2Provider;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
@@ -52,6 +53,20 @@ class OAuth2CallbackControllerTest {
         when(clientRegistrationRepository.findByRegistrationId("evil")).thenReturn(null);
 
         assertThatThrownBy(() -> controller.start("evil")).isInstanceOf(ValidationException.class);
+    }
+
+    /**
+     * OAuth audit §1: the redirect {@code /start} issues goes to Spring's own
+     * authorization endpoint, which builds the request to the provider (state,
+     * PKCE) — never to a target taken from the request.
+     */
+    @Test
+    @DisplayName("start — a known provider -> redirect to Spring's authorization endpoint for it")
+    void startRedirectsToSpringAuthorizationEndpoint() {
+        when(clientRegistrationRepository.findByRegistrationId("google"))
+                .thenReturn(CommonOAuth2Provider.GOOGLE.getBuilder("google").clientId("client-id").build());
+
+        assertThat(controller.start("google")).isEqualTo("redirect:/oauth2/authorization/google");
     }
 
     @Test

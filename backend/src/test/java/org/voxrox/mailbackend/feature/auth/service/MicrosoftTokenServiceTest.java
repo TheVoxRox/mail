@@ -23,6 +23,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
@@ -32,6 +33,7 @@ import org.voxrox.mailbackend.exception.MailOperationException;
 import org.voxrox.mailbackend.feature.account.AccountLastError;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
+import org.voxrox.mailbackend.util.AuditLogCapture;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
@@ -61,6 +63,9 @@ class MicrosoftTokenServiceTest {
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
+
+    @RegisterExtension
+    final AuditLogCapture audit = new AuditLogCapture();
 
     private MicrosoftTokenService service;
 
@@ -201,6 +206,9 @@ class MicrosoftTokenServiceTest {
 
             verify(accountRepository).updateRequiresReauth(42L, true);
             verify(accountRepository).updateLastError(eq(42L), any(AccountLastError.class), any(LocalDateTime.class));
+            // The entry names the provider by its registration key, the one accounts
+            // carry in oauth2_provider.
+            audit.assertFailure("token_refresh", "microsoft_rejected_400");
         }
 
         @Test
@@ -383,6 +391,10 @@ class MicrosoftTokenServiceTest {
             stubTokenSuccess("new", 3600);
             service.getAccessToken(5L, "rt", EMAIL);
             wireMock.verify(1, postRequestedFor(urlEqualTo(TOKEN_PATH)));
+
+            // The grant stays live at Microsoft; the entry says so, for whoever has to
+            // revoke it by hand (backend/OPERATIONS.md).
+            audit.assertSuccess("token_revoke", "provider=microsoft revoke=local_cache_only");
         }
 
         @Test
