@@ -277,7 +277,8 @@
 					{$_('settings.about.connection.lastSyncValue', {
 						values: {
 							folder: lastSyncFolder ? folderLabel(lastSyncFolder, $_) : $lastSync.folderName,
-							count: $lastSync.newMessagesCount
+							// The same count the toast announced; a download that is not news reads "none".
+							count: $lastSync.arrivedMessagesCount
 						}
 					})}
 				{:else}

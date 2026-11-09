@@ -64,8 +64,9 @@ instalátor a přepínač v Nastavení → O aplikaci.
 
 Když okno aplikace není aktivní nebo je skryté v oznamovací oblasti, ohlásí
 aplikace nově doručenou poštu (do Doručených a Hromadných) oznámením systému
-Windows. Oznámení obsahuje počet nových zpráv, adresu účtu a název složky —
-**nikdy odesílatele ani předmět**. Zobrazuje a uchovává ho Windows, ne
+Windows. Oznámení obsahuje počet nových zpráv, název účtu a název složky —
+**nikdy odesílatele ani předmět**. Adresu účtu přidá jen tehdy, když stejný
+název má i jiný účet, nebo když název jen opakuje adresu. Zobrazuje a uchovává ho Windows, ne
 aplikace: zůstane v centru oznámení Windows ve vašem uživatelském profilu,
 dokud ho nezavřete, a podle nastavení Windows se může ukázat i na zamykací
 obrazovce. Windows si také v registru vede vlastní záznam o nastavení oznámení

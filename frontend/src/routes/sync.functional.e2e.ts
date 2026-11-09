@@ -24,9 +24,7 @@ test.describe('Sync notifications', () => {
 		});
 
 		const notifications = page.getByRole('region', { name: 'Oznámení' });
-		await expect(
-			notifications.getByText('2 nové zprávy, tester@example.com, Doručené')
-		).toBeVisible();
+		await expect(notifications.getByText('2 nové zprávy, Pracovní účet, Doručené')).toBeVisible();
 		await expect(inbox.getByText('5')).toBeVisible();
 
 		await page.getByRole('link', { name: 'Nastavení (Ctrl+3)' }).click();
@@ -57,9 +55,7 @@ test.describe('Sync notifications', () => {
 		});
 
 		const notifications = page.getByRole('region', { name: 'Oznámení' });
-		await expect(
-			notifications.getByText('4 nové zprávy, tester@example.com, Doručené')
-		).toBeVisible();
+		await expect(notifications.getByText('4 nové zprávy, Pracovní účet, Doručené')).toBeVisible();
 		await expect(inbox.getByText('7')).toBeVisible();
 	});
 
@@ -132,7 +128,7 @@ test.describe('Sync notifications', () => {
 		const liveRegion = page.locator('#live-region');
 		// The folder toast names the count and the folder; the completion only
 		// closes the operation, so the screen reader hears the number once.
-		await expect(liveRegion).toContainText('2 nové zprávy, tester@example.com, Doručené');
+		await expect(liveRegion).toContainText('2 nové zprávy, Pracovní účet, Doručené');
 		await expect(liveRegion).toContainText('Synchronizace dokončena.');
 		await expect(liveRegion).not.toContainText('Synchronizace dokončena, 2');
 		await expect(page.getByRole('button', { name: 'Synchronizovat' })).toBeEnabled();

@@ -149,10 +149,17 @@ tray kept announcing new messages.
   whose stored role delivers new mail (`FolderRole.deliversNewMail`: Inbox,
   Newsletters). Never a first sync's window or the rebuild after a UIDVALIDITY
   change, a mirror of Sent, Drafts, Junk or Trash, or holes refilled inside the
-  mirror. The in-app toast keeps counting every download, as before.
-- **What it says:** the count, the account and the folder; no sender, no
-  subject. Windows keeps a notification in its notification centre and may
-  show it on the lock screen, which [PRIVACY.md](../PRIVACY.md) now says.
+  mirror. The in-app toast counted every download until the follow-up the
+  same day, and now counts the same: inside the window it said "1 nová
+  zpráva" in Sent for the message the user had just sent, and read a first
+  sync out folder by folder.
+- **What it says:** the count, the account's name and the folder; no sender,
+  no subject. The account's address is added only where another account has
+  the same name — the default name is the capitalised domain, so two Gmail
+  accounts both start as "Gmail" — or where the name merely repeats the
+  address. The toast says the same sentence. Windows keeps a notification in
+  its notification centre and may show it on the lock screen, which
+  [PRIVACY.md](../PRIVACY.md) now says.
 - **Default:** on, switched off in Settings → Appearance next to the close
   action (`mail.newMailNotifications`); Windows' own per-app notification
   setting applies on top. The sound is Windows' default for the app — without

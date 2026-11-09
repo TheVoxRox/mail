@@ -3,6 +3,7 @@ import { addMessages, init } from 'svelte-i18n';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import csMessages from '#lib/i18n/messages/cs.json';
 import { listAccounts } from '#lib/api/accounts.js';
+import { listFolders } from '#lib/api/folders.js';
 import { notifyArrivedMail } from '#lib/newMailNotifications.js';
 import {
 	announcePausedSyncs,
@@ -24,6 +25,7 @@ import type {
 } from '#lib/types.js';
 
 vi.mock('#lib/api/accounts.js', () => ({ listAccounts: vi.fn() }));
+vi.mock('#lib/api/folders.js', () => ({ listFolders: vi.fn(() => Promise.resolve([])) }));
 // The Windows side has its own suite (newMailNotifications.test.ts); here only
 // what the store hands it matters.
 vi.mock('#lib/newMailNotifications.js', () => ({
@@ -178,23 +180,42 @@ describe('sync cycle completion', () => {
 });
 
 describe('new mail in a folder', () => {
+	function account(id: number, accountName: string, email: string): AccountResponse {
+		return { ...({} as AccountResponse), id, accountName, email };
+	}
+
 	beforeEach(() => {
 		toasts.set([]);
+		lastSync.set(null);
 		vi.mocked(notifyArrivedMail).mockClear();
+		vi.mocked(listFolders).mockClear();
+		accountsState.set({
+			status: 'ready',
+			accounts: [account(3, 'Work', 'jana@example.com')]
+		});
 	});
 
-	function synced(newMessagesCount: number, arrivedMessagesCount: number): SyncNotification {
+	function synced(
+		newMessagesCount: number,
+		arrivedMessagesCount: number,
+		folderName = 'INBOX'
+	): SyncNotification {
 		return {
 			type: 'sync_completed',
 			accountId: 3,
-			folderName: 'INBOX',
+			folderName,
 			newMessagesCount,
 			arrivedMessagesCount,
 			timestamp: '2026-11-09T10:00:00Z'
 		};
 	}
 
-	it('offers Windows only the mail that arrived, while the toast reports every download', async () => {
+	/** Lets the folder refresh resolve, which is what the announcement waits on. */
+	async function settle(): Promise<void> {
+		await new Promise((resolve) => setTimeout(resolve, 0));
+	}
+
+	it('announces only the mail that arrived, in the toast and to Windows alike', async () => {
 		// Five downloaded, two of them new mail: three were holes refilled
 		// inside the mirror, which reload the list but are no news.
 		handleStreamNotification(synced(5, 2));
@@ -204,7 +225,43 @@ describe('new mail in a folder', () => {
 			expect.objectContaining({ count: 2, folder: 'INBOX' })
 		);
 		expect(get(toasts)).toHaveLength(1);
-		expect(get(toasts)[0]?.message).toMatch(/^5 /);
+		expect(get(toasts)[0]?.message).toMatch(/^2 /);
+	});
+
+	it('keeps a download that is not news quiet, while the folder still refreshes', async () => {
+		// The copy of a message the user just sent, mirrored into Sent with the
+		// next cycle: the folder changed, nothing arrived.
+		handleStreamNotification(synced(1, 0, '[Gmail]/Sent'));
+		await settle();
+
+		expect(listFolders).toHaveBeenCalledWith(3);
+		expect(get(lastSync)?.folderName).toBe('[Gmail]/Sent');
+		expect(get(toasts)).toEqual([]);
+		expect(notifyArrivedMail).not.toHaveBeenCalled();
+	});
+
+	it('names the account by its name, not its address', async () => {
+		handleStreamNotification(synced(2, 2));
+
+		await vi.waitFor(() => expect(get(toasts)).toHaveLength(1));
+		expect(get(toasts)[0]?.message).toMatch(/, Work, INBOX$/);
+		expect(vi.mocked(notifyArrivedMail).mock.calls[0]?.[0]).toEqual(
+			expect.objectContaining({ account: 'Work' })
+		);
+	});
+
+	it('adds the address where another account carries the same name', async () => {
+		// The default name is the capitalised domain, so two Gmail accounts both
+		// start as "Gmail" and the name alone would not say which one.
+		accountsState.set({
+			status: 'ready',
+			accounts: [account(3, 'Gmail', 'jana@gmail.com'), account(8, 'Gmail', 'petr@gmail.com')]
+		});
+
+		handleStreamNotification(synced(1, 1));
+
+		await vi.waitFor(() => expect(get(toasts)).toHaveLength(1));
+		expect(get(toasts)[0]?.message).toMatch(/, Gmail: jana@gmail\.com, INBOX$/);
 	});
 });
 
