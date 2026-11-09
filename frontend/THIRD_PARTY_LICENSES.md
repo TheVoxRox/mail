@@ -2,10 +2,13 @@
 
 VoxRox Mail bundles or transitively depends on the following npm packages. All listed packages are runtime / production dependencies (npm `dependencies`, not `devDependencies`). Development tooling that does not ship code to end users (vitest, playwright, eslint, etc.) is excluded.
 
-Counts: 115 packages total. 83 MIT, 14 ISC, 6 Apache-2.0, 4 MPL-2.0, 3 MIT OR Apache-2.0, 2 BSD-3-Clause, 1 0BSD, 1 Apache-2.0 OR MIT, 1 MIT*.
+Counts: 120 packages total. 90 MIT, 14 ISC, 6 Apache-2.0, 3 MIT OR Apache-2.0, 2 BSD-3-Clause, 2 MPL-2.0, 1 0BSD, 1 Apache-2.0 OR MIT, 1 MIT*.
 
-## MIT (83)
+## MIT (90)
 
+- **@emnapi/core** 1.11.3 — [https://github.com/toyobayashi/emnapi](https://github.com/toyobayashi/emnapi)
+- **@emnapi/runtime** 1.11.3 — [https://github.com/toyobayashi/emnapi](https://github.com/toyobayashi/emnapi)
+- **@emnapi/wasi-threads** 1.2.3 — [https://github.com/toyobayashi/emnapi](https://github.com/toyobayashi/emnapi)
 - **@esbuild/win32-x64** 0.28.1 — [https://github.com/evanw/esbuild](https://github.com/evanw/esbuild)
 - **@floating-ui/core** 1.8.0 — [https://github.com/floating-ui/floating-ui](https://github.com/floating-ui/floating-ui)
 - **@floating-ui/dom** 1.8.0 — [https://github.com/floating-ui/floating-ui](https://github.com/floating-ui/floating-ui)
@@ -20,6 +23,7 @@ Counts: 115 packages total. 83 MIT, 14 ISC, 6 Apache-2.0, 4 MPL-2.0, 3 MIT OR Ap
 - **@jridgewell/resolve-uri** 3.1.2 — [https://github.com/jridgewell/resolve-uri](https://github.com/jridgewell/resolve-uri)
 - **@jridgewell/sourcemap-codec** 1.6.0 — [https://github.com/jridgewell/sourcemaps](https://github.com/jridgewell/sourcemaps)
 - **@jridgewell/trace-mapping** 0.3.31 — [https://github.com/jridgewell/sourcemaps](https://github.com/jridgewell/sourcemaps)
+- **@napi-rs/wasm-runtime** 1.2.2 — [https://github.com/napi-rs/napi-rs](https://github.com/napi-rs/napi-rs)
 - **@oxc-project/types** 0.155.0 — [https://github.com/oxc-project/oxc](https://github.com/oxc-project/oxc)
 - **@polka/url** 1.0.0-next.29 — [https://github.com/lukeed/polka](https://github.com/lukeed/polka)
 - **@rolldown/binding-win32-x64-msvc** 1.2.15 — [https://github.com/rolldown/rolldown](https://github.com/rolldown/rolldown)
@@ -28,22 +32,24 @@ Counts: 115 packages total. 83 MIT, 14 ISC, 6 Apache-2.0, 4 MPL-2.0, 3 MIT OR Ap
 - **@sveltejs/acorn-typescript** 1.0.13 — [https://github.com/sveltejs/acorn-typescript](https://github.com/sveltejs/acorn-typescript)
 - **@sveltejs/kit** 3.1.1 — [https://github.com/sveltejs/kit](https://github.com/sveltejs/kit)
 - **@sveltejs/vite-plugin-svelte** 7.3.1 — [https://github.com/sveltejs/vite-plugin-svelte](https://github.com/sveltejs/vite-plugin-svelte)
-- **@tailwindcss/node** 4.3.3 — [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
-- **@tailwindcss/oxide** 4.3.3 — [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
-- **@tailwindcss/oxide-win32-x64-msvc** 4.3.3 — [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
-- **@tailwindcss/vite** 4.3.3 — [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
+- **@tailwindcss/node** 4.3.4 — [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
+- **@tailwindcss/oxide** 4.3.4 — [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
+- **@tailwindcss/oxide-wasm32-wasi** 4.3.4 — [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
+- **@tailwindcss/oxide-win32-x64-msvc** 4.3.4 — [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
+- **@tailwindcss/vite** 4.3.4 — [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
+- **@tybys/wasm-util** 0.10.3 — [https://github.com/toyobayashi/wasm-util](https://github.com/toyobayashi/wasm-util)
 - **@types/estree** 1.0.9 — [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
 - **@types/node** 25.9.1 — [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
 - **@typescript-eslint/types** 8.72.1 — [https://github.com/typescript-eslint/typescript-eslint](https://github.com/typescript-eslint/typescript-eslint)
 - **acorn** 8.18.0 — [https://github.com/acornjs/acorn](https://github.com/acornjs/acorn)
-- **bits-ui** 2.20.2 — [https://github.com/huntabyte/bits-ui](https://github.com/huntabyte/bits-ui)
+- **bits-ui** 2.20.6 — [https://github.com/huntabyte/bits-ui](https://github.com/huntabyte/bits-ui)
 - **clsx** 2.1.1 — [https://github.com/lukeed/clsx](https://github.com/lukeed/clsx)
 - **cookie** 2.0.1 — [https://github.com/jshttp/cookie](https://github.com/jshttp/cookie)
 - **decimal.js** 10.6.0 — [https://github.com/MikeMcl/decimal.js](https://github.com/MikeMcl/decimal.js)
 - **deepmerge** 4.3.1 — [https://github.com/TehShrike/deepmerge](https://github.com/TehShrike/deepmerge)
 - **dequal** 2.0.3 — [https://github.com/lukeed/dequal](https://github.com/lukeed/dequal)
 - **devalue** 5.9.4 — [https://github.com/sveltejs/devalue](https://github.com/sveltejs/devalue)
-- **enhanced-resolve** 5.24.3 — [https://github.com/webpack/enhanced-resolve](https://github.com/webpack/enhanced-resolve)
+- **enhanced-resolve** 5.26.1 — [https://github.com/webpack/enhanced-resolve](https://github.com/webpack/enhanced-resolve)
 - **es6-iterator** 2.0.3 — [https://github.com/medikoo/es6-iterator](https://github.com/medikoo/es6-iterator)
 - **esbuild** 0.28.1 — [https://github.com/evanw/esbuild](https://github.com/evanw/esbuild)
 - **esm-env** 1.2.2 — [https://github.com/benmccann/esm-env](https://github.com/benmccann/esm-env)
@@ -63,6 +69,7 @@ Counts: 115 packages total. 83 MIT, 14 ISC, 6 Apache-2.0, 4 MPL-2.0, 3 MIT OR Ap
 - **magic-string** 0.30.21 — [https://github.com/Rich-Harris/magic-string](https://github.com/Rich-Harris/magic-string)
 - **magic-string** 1.2.0 — [https://github.com/Rich-Harris/magic-string](https://github.com/Rich-Harris/magic-string)
 - **magic-string** 1.4.3 — [https://github.com/Rich-Harris/magic-string](https://github.com/Rich-Harris/magic-string)
+- **magic-string** 1.4.5 — [https://github.com/Rich-Harris/magic-string](https://github.com/Rich-Harris/magic-string)
 - **mri** 1.2.0 — [https://github.com/lukeed/mri](https://github.com/lukeed/mri)
 - **mrmime** 2.0.1 — [https://github.com/lukeed/mrmime](https://github.com/lukeed/mrmime)
 - **nanoid** 3.3.20 — [https://github.com/ai/nanoid](https://github.com/ai/nanoid)
@@ -76,10 +83,10 @@ Counts: 115 packages total. 83 MIT, 14 ISC, 6 Apache-2.0, 4 MPL-2.0, 3 MIT OR Ap
 - **style-to-object** 1.0.14 — [https://github.com/remarkablemark/style-to-object](https://github.com/remarkablemark/style-to-object)
 - **svelte** 5.57.3 — [https://github.com/sveltejs/svelte](https://github.com/sveltejs/svelte)
 - **svelte-i18n** 4.0.1 — [https://github.com/kaisermann/svelte-i18n](https://github.com/kaisermann/svelte-i18n)
-- **tabbable** 6.5.0 — [https://github.com/focus-trap/tabbable](https://github.com/focus-trap/tabbable)
+- **tabbable** 6.5.1 — [https://github.com/focus-trap/tabbable](https://github.com/focus-trap/tabbable)
 - **tailwind-merge** 3.7.0 — [https://github.com/dcastil/tailwind-merge](https://github.com/dcastil/tailwind-merge)
-- **tailwind-variants** 4.0.0 — [https://github.com/heroui-inc/tailwind-variants](https://github.com/heroui-inc/tailwind-variants)
-- **tailwindcss** 4.3.3 — [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
+- **tailwind-variants** 4.0.1 — [https://github.com/heroui-inc/tailwind-variants](https://github.com/heroui-inc/tailwind-variants)
+- **tailwindcss** 4.3.4 — [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
 - **tapable** 2.3.3 — [https://github.com/webpack/tapable](https://github.com/webpack/tapable)
 - **tiny-glob** 0.2.9 — [https://github.com/terkelg/tiny-glob](https://github.com/terkelg/tiny-glob)
 - **tinyglobby** 0.2.17 — [https://github.com/SuperchupuDev/tinyglobby](https://github.com/SuperchupuDev/tinyglobby)
@@ -116,13 +123,6 @@ Counts: 115 packages total. 83 MIT, 14 ISC, 6 Apache-2.0, 4 MPL-2.0, 3 MIT OR Ap
 - **detect-libc** 2.1.2 — [https://github.com/lovell/detect-libc](https://github.com/lovell/detect-libc)
 - **typescript** 6.0.3 — [https://github.com/microsoft/TypeScript](https://github.com/microsoft/TypeScript)
 
-## MPL-2.0 (4)
-
-- **lightningcss** 1.32.0 — [https://github.com/parcel-bundler/lightningcss](https://github.com/parcel-bundler/lightningcss)
-- **lightningcss** 1.33.0 — [https://github.com/parcel-bundler/lightningcss](https://github.com/parcel-bundler/lightningcss)
-- **lightningcss-win32-x64-msvc** 1.32.0 — [https://github.com/parcel-bundler/lightningcss](https://github.com/parcel-bundler/lightningcss)
-- **lightningcss-win32-x64-msvc** 1.33.0 — [https://github.com/parcel-bundler/lightningcss](https://github.com/parcel-bundler/lightningcss)
-
 ## MIT OR Apache-2.0 (3)
 
 - **@tauri-apps/plugin-fs** 2.7.1 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
@@ -134,6 +134,11 @@ Counts: 115 packages total. 83 MIT, 14 ISC, 6 Apache-2.0, 4 MPL-2.0, 3 MIT OR Ap
 - **intl-messageformat** 10.7.18 — [https://github.com/formatjs/formatjs](https://github.com/formatjs/formatjs)
 - **source-map-js** 1.2.2 — [https://github.com/7rulnik/source-map-js](https://github.com/7rulnik/source-map-js)
 
+## MPL-2.0 (2)
+
+- **lightningcss** 1.33.0 — [https://github.com/parcel-bundler/lightningcss](https://github.com/parcel-bundler/lightningcss)
+- **lightningcss-win32-x64-msvc** 1.33.0 — [https://github.com/parcel-bundler/lightningcss](https://github.com/parcel-bundler/lightningcss)
+
 ## 0BSD (1)
 
 - **tslib** 2.8.1 — [https://github.com/Microsoft/tslib](https://github.com/Microsoft/tslib)
@@ -144,4 +149,4 @@ Counts: 115 packages total. 83 MIT, 14 ISC, 6 Apache-2.0, 4 MPL-2.0, 3 MIT OR Ap
 
 ## MIT* (1)
 
-- **svelte-toolbelt** 0.10.6
+- **svelte-toolbelt** 0.10.7 — [https://github.com/huntabyte/svelte-toolbelt](https://github.com/huntabyte/svelte-toolbelt)
