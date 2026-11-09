@@ -21,6 +21,10 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The updater audit is re-verified against `721bc6e` (1.26), which clears the
+  six acknowledgements its ledger held, two short of the cap. No finding; the
+  two releases the two-job release workflow has signed so far carry the new
+  updater key (#880).
 - `npm run tauri:build` checks the sidecar before it builds, through the
   function `npm run tauri:dev` uses, so an installer is no longer built around
   a sidecar packaged from other backend sources. `MAIL_ALLOW_STALE_SIDECAR=1`
