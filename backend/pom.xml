@@ -746,7 +746,7 @@
 			<plugin>
 				<groupId>com.diffplug.spotless</groupId>
 				<artifactId>spotless-maven-plugin</artifactId>
-				<version>3.10.4</version>
+				<version>3.11.0</version>
 				<configuration>
 					<lineEndings>UNIX</lineEndings>
 					<java>
@@ -904,7 +904,7 @@
 					<plugin>
 						<groupId>org.pitest</groupId>
 						<artifactId>pitest-maven</artifactId>
-						<version>1.30.1</version>
+						<version>1.30.2</version>
 						<dependencies>
 							<dependency>
 								<!-- Bez tohohle PIT sadu JUnit 5 vubec nenajde a nahlasi 0 testu. -->
