@@ -87,7 +87,13 @@ export function fixtureHasDependencies() {
 	return dependenciesAvailable;
 }
 
-export function createGateRepo() {
+/**
+ * @param {{ linkDependencies?: boolean }} [options] `linkDependencies: false`
+ *   leaves `frontend/node_modules` out, for a test that puts a stand-in for a
+ *   package there itself: with the link in place, anything written under it
+ *   lands in the real `node_modules`.
+ */
+export function createGateRepo({ linkDependencies = true } = {}) {
 	const root = mkdtempSync(path.join(os.tmpdir(), 'voxrox-gate-'));
 	const frontend = path.join(root, 'frontend');
 	mkdirSync(frontend, { recursive: true });
@@ -119,7 +125,7 @@ export function createGateRepo() {
 		'utf8'
 	);
 
-	linkNodeModules(frontend);
+	if (linkDependencies) linkNodeModules(frontend);
 
 	const installed = new Set();
 	function install(scriptName) {

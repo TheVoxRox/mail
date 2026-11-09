@@ -2,7 +2,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { envForDesktopSidecar, loadBackendEnv } from './lib/dotenv.mjs';
 import { run } from './lib/run.mjs';
-import { checkSidecarFreshness, describeStaleness } from './lib/sidecar-staleness.mjs';
+import { requireUsableSidecar } from './lib/sidecar-staleness.mjs';
 
 const rootDir = process.cwd();
 const tauriCliPath = path.join(rootDir, 'node_modules', '@tauri-apps', 'cli', 'tauri.js');
@@ -34,38 +34,10 @@ function withDevTauriConfig(env) {
 	};
 }
 
-/*
- * Fails closed, with an opt-out, like the packaging script does for a
- * placeholder OAuth client: a run against a stale backend does not look broken,
- * it looks slow or empty, and the cost of finding that out the hard way is an
- * afternoon.
- */
-async function assertSidecarIsFresh() {
-	const repoRoot = path.resolve(rootDir, '..');
-	const result = await checkSidecarFreshness(repoRoot);
-	const report = describeStaleness(result);
-	if (!report) return;
-	/*
-	 * The opt-out is per result, not per run: the check decides which of its
-	 * verdicts the variable may wave through, next to the message that offers
-	 * it. Skipping the whole check here meant the variable also switched off
-	 * the launcher-name check, which advertises no opt-out because there is
-	 * nothing to opt into — tauri-build simply cannot find the resource.
-	 */
-	if (report.optOut && process.env.MAIL_ALLOW_STALE_SIDECAR === '1') {
-		console.log('[tauri-dev] MAIL_ALLOW_STALE_SIDECAR=1 — running the mismatched pair anyway.');
-		return;
-	}
-	if (!report.fatal) {
-		console.warn(`\n[tauri-dev] ${report.text}\n`);
-		return;
-	}
-	console.error(`\n[tauri-dev] ${report.text}\n`);
-	throw new Error('Sidecar does not match the checked-out backend (see above).');
-}
-
 async function main() {
-	await assertSidecarIsFresh();
+	// The policy, its opt-out and why are in lib/sidecar-staleness.mjs, shared
+	// with tauri-build.mjs.
+	await requireUsableSidecar(path.resolve(rootDir, '..'), 'tauri-dev');
 	const backendEnv = await loadBackendEnv(
 		'Copy backend/.env.example to backend/.env and fill in the values.'
 	);
