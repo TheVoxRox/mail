@@ -88,36 +88,6 @@
       }
     ]
   },
-  "docs/CRYPTO_STORAGE_AUDIT.md": {
-    "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/core/init": "5311d17a08ad546baa36ada6fab205f4db7541be",
-      "backend/src/main/java/org/voxrox/mailbackend/core/security/CryptoService.java": "df4472da20af9ad59377f11b282535b75dbb5b17",
-      "backend/src/main/java/org/voxrox/mailbackend/core/security/CryptoProperties.java": "3595302c4b8c43f9dda3f35d0e59373b2aa7a7e6",
-      "backend/src/main/java/org/voxrox/mailbackend/core/backup": "72c0ffc003a6ce3537170d9d6a43a3538825933c"
-    },
-    "acknowledgements": [
-      {
-        "date": "2026-09-11",
-        "note": "Change under this path, read rather than waved through as a timing tweak. StartupTimingService swapped its reference clock: the anchor for processStartedAt and for every phase's startedAfterProcessMs moved from an Instant.now() taken in the class's own static initialiser to ManagementFactory.getRuntimeMXBean().getStartTime(), with a wall-clock constant recording how much boot had already passed when the class loaded. Section 1 is untouched by it: the diff does not enter StorageContextInitializer, reads or writes no crypto.bin, touches neither the VOXSEC1 format, the DPAPI USER-scope call, the buffer zeroing, the atomic private-permissioned write, nor the constant-time crypto.fingerprint comparison, and adds no path by which any of them could be reached earlier or skipped. The class holds no secret and opens no file. Section 2 holds: CryptoService is not in the diff, and the one place where boot timing and that section intersect - the self-test \"warmed off the boot path\" claim - is about when the self-test runs, which this change does not move; it only changes what a later dump reports about the time that had already elapsed. The new dependency is java.management, read-only and already in the sidecar's --add-modules list; it is an MXBean read, not a JNI or FFM call, so the \"pure Java FFM (no JNI)\" hygiene claim of section 1 is about a path this does not join. Section 3 residuals are unaffected - nothing about mail.db plaintext at rest or the same-user-malware exclusion turns on a clock source. The one observable effect outside the boundary is that startup-timings.json in the diagnostic dump now reports a start roughly four seconds earlier and correspondingly larger phase offsets: the same data category as before, no new field and no new value class, and the dump's privacy check is RELEASE_CHECKLIST section 7, which is flagged for a re-take on this candidate for exactly this reason."
-      },
-      {
-        "date": "2026-10-11",
-        "note": "Recorded in the audit itself as v1.2: the PBKDF2 iteration count moves from CryptoProperties (mail.crypto.pbkdf2-iterations, @Min 1000, default 600000) to a private constant PBKDF2_ITERATIONS = 600_000 in CryptoService, and CryptoProperties.java joins Code paths with this entry, so a format value cannot come back as a property unseen. The bean constructor is now @Autowired and passes the constant to a package-private constructor that takes the count, which CryptoServiceTest uses with 1000; getOrDeriveKey reads the field where it read the property. Section 2 holds with the same values: AES/GCM, 12-byte IV, 128-bit tag, PBKDF2WithHmacSHA256 at 600,000 over global salt || accountId to 256 bits, accountId as AAD, the self-test, the LRU and the shutdown hygiene are byte-identical, and a ciphertext pinned in CryptoServiceTest from the production constructor decrypts (changing the constant to 700_000 fails it, run and seen). Section 1 is untouched: core/init and core/security/secret did not change. Verdict stays PASS."
-      },
-      {
-        "date": "2026-11-01",
-        "note": "#816. DatabaseBackupService.previousAppVersion skips the file named after the current version (backup-pre-v<appVersion>) before taking the newest backup by modification time; createPreMigrationBackup runs before Flyway and wrote that file first, so the app_started audit record named the running version instead of the one updated from. The method only reads directory entries and returns a version string for the audit log. The backup itself is unchanged: VACUUM INTO through a bound parameter, the idempotent per-version name, the partial-file cleanup on failure, the retention prune and the backup's plaintext status as a copy of mail.db (AR-1 in section 3) are all as audited. No key material, crypto.bin path or file permission is touched. Verdict unchanged."
-      },
-      {
-        "date": "2026-11-01",
-        "note": "#819. The only change under core/init is the javadoc of AotTrainingExitListener, which now says release builds stopped shipping the AOT class cache (JDK-8376576) and that packaging's start check sets MAIL_AOT_TRAINING_RUN to end its run once ready. Comment only: the listener's code, its env variable and its ordering are byte-identical, and StorageContextInitializer, crypto.bin, DPAPI and the fingerprint comparison are untouched. The image now ships the jar extracted into app\\lib, which changes where classes are read from, not what the backend writes or with which permissions. Verdict unchanged."
-      },
-      {
-        "date": "2026-11-08",
-        "note": "#866. The only change under core/init is one sentence of the javadoc of AotTrainingExitListener: the training script stays for measurement, no longer also for when the cache returns, since the AOT class cache does not come back (docs/DECISIONS.md). Comment only: the listener's code, its env variable and its ordering are byte-identical, and StorageContextInitializer, crypto.bin, DPAPI and the fingerprint comparison are untouched. Verdict unchanged."
-      }
-    ]
-  },
   "docs/CONTENT_RENDERING_AUDIT.md": {
     "reviewedTrees": {
       "frontend/src/lib/mail/mailFrame.ts": "875223ca3f842040b69aa178afd2060dcc89cc5e",

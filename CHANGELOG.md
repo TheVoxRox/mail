@@ -21,6 +21,11 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The crypto and local-storage audit is re-verified against `dc44cd5` (1.3),
+  which clears its five ledger acknowledgements a month before the 90-day cap.
+  No finding; three of its claims are corrected, the main one being that a
+  `crypto.fingerprint` mismatch stops the app only when the key comes from the
+  environment, while the desktop default rewrites it from `crypto.bin` (#881).
 - The updater audit is re-verified against `721bc6e` (1.26), which clears the
   six acknowledgements its ledger held, two short of the cap. No finding; the
   two releases the two-job release workflow has signed so far carry the new
