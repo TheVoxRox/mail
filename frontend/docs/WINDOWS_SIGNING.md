@@ -84,6 +84,12 @@ npm run tauri:build -- --config src-tauri/tauri.release.conf.json
 .\scripts\verify-windows-signatures.ps1
 ```
 
+The rebuild comes first because `tauri:build` checks the sidecar before it
+starts, as the workflow's build does after its own packaging, and stops on one
+not packaged from the backend that is checked out: change nothing under
+`backend/src/main` or `backend/pom.xml` between the two. Signing the launcher
+does not count; the check reads its name, not its bytes.
+
 The build produces no updater `.sig`. To sign the installer for the updater as
 the workflow does, set `TAURI_SIGNING_PRIVATE_KEY` (and
 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` if the key has one) only for this command,
