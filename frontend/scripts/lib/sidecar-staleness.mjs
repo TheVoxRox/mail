@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
+import process from 'node:process';
 
 /**
  * Does the packaged sidecar carry the backend sources that are checked out now?
@@ -11,6 +12,9 @@ import path from 'node:path';
  * about it, so the two halves drift apart silently and the app breaks far from
  * the cause: a response missing a field the frontend now requires reads as "the
  * list is stuck loading", not as "your backend is old" (#252, #253).
+ * `npm run tauri:build` has the same blind spot with more at stake: it builds
+ * the frontend from the working tree and bundles whatever sidecar sits in
+ * binaries/ into an installer. Both ask through requireUsableSidecar below.
  *
  * The comparison is over **content**, not modification times. A checkout, a
  * pull or a branch switch rewrites mtimes without changing a byte, so an
@@ -196,7 +200,8 @@ const REBUILD = '  npm run sidecar:rebuild:windows   (from frontend/)';
 /**
  * Human-readable report, plus whether it should stop the run. `unknown` warns
  * without blocking: it means the bookkeeping file is absent, not that the
- * sidecar is wrong.
+ * sidecar is wrong. The text serves `tauri:dev` and `tauri:build` alike, so it
+ * says nothing only one of them would be true of.
  *
  * `optOut` says whether MAIL_ALLOW_STALE_SIDECAR may wave this result through,
  * and it lives here because this is where the message that advertises the
@@ -255,12 +260,65 @@ export function describeStaleness(result) {
 					`  built from: ${result.recorded.slice(0, 12)}…`,
 					`  checked out: ${result.expected.slice(0, 12)}…`,
 					'',
-					'vite always serves the current frontend, so this pair disagrees about the API —',
-					'which surfaces as data that never arrives, not as an error. Rebuild it:',
+					'The frontend always comes from the working tree, so this pair disagrees about the',
+					'API — which surfaces as data that never arrives, not as an error. Rebuild it:',
 					REBUILD,
 					'',
 					'To run the mismatched pair anyway: MAIL_ALLOW_STALE_SIDECAR=1'
 				].join('\n')
 			};
 	}
+}
+
+/**
+ * The check `npm run tauri:dev` and `npm run tauri:build` both make before
+ * they start anything: one policy, called by both, so that what a dev run
+ * accepts and what an installer is built around cannot drift apart. It
+ * reports under `[label]`, and throws when the run has to stop, so the caller
+ * stops before it has spent anything.
+ *
+ * Fails closed, with an opt-out, like the packaging script does for a
+ * placeholder OAuth client: a run against a stale backend does not look
+ * broken, it looks slow or empty, and the cost of finding that out the hard
+ * way is an afternoon.
+ *
+ * The opt-out is per result, not per run: describeStaleness decides which of
+ * its verdicts MAIL_ALLOW_STALE_SIDECAR may wave through, next to the message
+ * that offers it. Skipping the whole check meant the variable also switched
+ * off the launcher-name check, which advertises no opt-out because there is
+ * nothing to opt into — tauri-build simply cannot find the resource.
+ *
+ * Taking the opt-out prints the whole report as a warning. A variable set
+ * once in a shell outlives the reason it was set, and the report is what says
+ * which pair is about to run, or to be built into an installer.
+ *
+ * @param {string} repoRoot
+ * @param {string} label prefix of every line it prints, e.g. `tauri-dev`
+ * @returns {Promise<'ok'|'unknown'|'stale'>} what it let through; `stale`
+ *   only when the opt-out waved it through
+ */
+export async function requireUsableSidecar(repoRoot, label) {
+	const result = await checkSidecarFreshness(repoRoot);
+	const report = describeStaleness(result);
+	if (!report) {
+		// Said, not left silent: a log without this line cannot tell a check
+		// that passed from one that never ran.
+		console.log(
+			`[${label}] The sidecar was packaged from the checked-out backend (${result.expected.slice(0, 12)}…).`
+		);
+		return result.status;
+	}
+	if (report.optOut && process.env.MAIL_ALLOW_STALE_SIDECAR === '1') {
+		console.warn(`\n[${label}] ${report.text}\n`);
+		console.warn(
+			`[${label}] WARNING: MAIL_ALLOW_STALE_SIDECAR=1 is set — going ahead with the mismatched pair anyway.\n`
+		);
+		return result.status;
+	}
+	if (!report.fatal) {
+		console.warn(`\n[${label}] ${report.text}\n`);
+		return result.status;
+	}
+	console.error(`\n[${label}] ${report.text}\n`);
+	throw new Error('Sidecar does not match the checked-out backend (see above).');
 }

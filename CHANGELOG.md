@@ -21,6 +21,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- `npm run tauri:build` checks the sidecar before it builds, through the
+  function `npm run tauri:dev` uses, so an installer is no longer built around
+  a sidecar packaged from other backend sources. `MAIL_ALLOW_STALE_SIDECAR=1`
+  lets a local build through by the dev run's rule, with a warning before and
+  after; why is in `docs/DECISIONS.md`. The release workflow packages and syncs
+  in the same job and passes unchanged (#879).
 - `check:audits` no longer counts a change to comments and layout as audit
   drift, so a javadoc edit under an audit's `Code paths` needs no
   acknowledgement in `docs/audit-freshness.json`. Java, TypeScript, JavaScript

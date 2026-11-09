@@ -98,8 +98,10 @@ build inject that hash by different paths, so a clean dev console proves nothing
 about the installer. The smoke launches the release binary with WebView2 remote
 debugging, listens for `securitypolicyviolation` from document start, and
 asserts both that nothing was blocked and that the SPA actually mounted. Build
-the binary first (`npm run tauri:build:with-sidecar`); if the injection ever
-breaks, the packaged app opens on a blank window and nothing else catches it.
+the binary first: `npm run sidecar:rebuild:windows`, then `npm run tauri:build`,
+which stops on a sidecar not packaged from the checked-out backend. If the
+injection ever breaks, the packaged app opens on a blank window and nothing else
+catches it.
 
 ### Git hooks (one-time activation)
 

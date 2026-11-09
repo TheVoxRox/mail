@@ -1,10 +1,11 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { expect, it } from 'vitest';
+import { createGateRepo } from './gate-repo.mjs';
 
 /*
  * The pre-push hook of a linked worktree exports GIT_DIR, and test:unit runs
@@ -61,5 +62,23 @@ it('a fixture ignores a GIT_DIR the process inherited', () => {
 		expect(config).not.toContain('gate-test@example.com');
 	} finally {
 		rmSync(outside, { recursive: true, force: true });
+	}
+});
+
+it('leaves node_modules out when asked, so a stand-in written there stays in the fixture', () => {
+	// tauri-build.test.mjs writes a stand-in Tauri CLI under node_modules. Through
+	// the link, that write would replace the real CLI.
+	const repo = createGateRepo({ linkDependencies: false });
+	try {
+		expect(existsSync(path.join(repo.frontend, 'node_modules'))).toBe(false);
+
+		repo.write('frontend/node_modules/@tauri-apps/cli/tauri.js', '');
+
+		// A real directory inside the fixture, not a link resolving elsewhere.
+		expect(realpathSync(path.join(repo.frontend, 'node_modules'))).toBe(
+			path.join(realpathSync(repo.frontend), 'node_modules')
+		);
+	} finally {
+		repo.cleanup();
 	}
 });

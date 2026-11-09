@@ -59,8 +59,8 @@ try {
 /*
  * What this image was built from came with it: packaging wrote the digest of
  * the backend sources into app/ (see lib/sidecar-staleness.mjs), and the copy
- * of app/ above brought it along, for `tauri:dev` to compare with the
- * checked-out backend. Nothing is hashed here. This script copies whatever
+ * of app/ above brought it along, for `tauri:dev` and `tauri:build` to compare
+ * with the checked-out backend. Nothing is hashed here. This script copies whatever
  * image backend/target/sidecar holds, which only packaging rebuilds and
  * `mvn clean` leaves alone, so a digest of the working tree taken at sync time
  * described the tree rather than the image — a sync after a backend change
@@ -68,8 +68,8 @@ try {
  *
  * Carried rather than checked, although the image's digest and the tree could
  * be compared here and the copy refused. A verdict at sync time is the wrong
- * moment: the tree moves on after a sync, so `tauri:dev` has to compare at
- * launch regardless, and a second verdict here would need a way past it of
+ * moment: the tree moves on after a sync, so `tauri:dev` and `tauri:build`
+ * have to compare when they start regardless, and a second verdict here would need a way past it of
  * its own for the run MAIL_ALLOW_STALE_SIDECAR exists for, an older backend on
  * purpose. Carrying also leaves the copy a function of its source and
  * destination alone: the release workflow passes both, and the digest goes
@@ -89,7 +89,7 @@ if (packagedFrom) {
 } else {
 	console.warn(
 		`The image carries no ${HASH_FILE_NAME}: it was packaged before packaging recorded one, ` +
-			'so tauri:dev cannot tell whether it matches the checked-out backend. Package it again ' +
-			'to switch the check on.'
+			'so tauri:dev and tauri:build cannot tell whether it matches the checked-out backend. ' +
+			'Package it again to switch the check on.'
 	);
 }
