@@ -195,7 +195,7 @@ Counts: 274 crates total. 130 MIT OR Apache-2.0, 56 MIT, 31 Apache-2.0 OR MIT, 1
 - **webview2-com-macros** 0.8.1 — [https://github.com/wravery/webview2-rs](https://github.com/wravery/webview2-rs)
 - **webview2-com-sys** 0.39.1 — [https://github.com/wravery/webview2-rs](https://github.com/wravery/webview2-rs)
 - **winnow** 1.0.4 — [https://github.com/winnow-rs/winnow](https://github.com/winnow-rs/winnow)
-- **zip** 9.3.0 — [https://github.com/zip-rs/zip2](https://github.com/zip-rs/zip2)
+- **zip** 9.4.1 — [https://github.com/zip-rs/zip2](https://github.com/zip-rs/zip2)
 - **zmij** 1.0.23 — [https://github.com/dtolnay/zmij](https://github.com/dtolnay/zmij)
 
 ## Apache-2.0 OR MIT (31)

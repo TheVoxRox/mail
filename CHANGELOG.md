@@ -158,6 +158,10 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Tauri / Release
 
+- Save logs writes its archive with the `zip` crate 9.4.1 instead of 9.3.0.
+  The 9.4 releases add an owned entry type and a reader iterator and box a few
+  internal buffers; none of it is the writer the shell uses, so nothing in the
+  archive is meant to change. The shell's license list follows (#875).
 - The e-mail field of the New account page no longer opens a suggestion list
   a screen reader cannot read. WebView2's own form autofill offered the
   addresses typed into the account forms before, in a popup the browser draws
