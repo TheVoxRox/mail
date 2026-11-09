@@ -36,8 +36,9 @@ import org.springframework.web.cors.CorsConfigurationSource;
  *
  * <p>
  * Also verifies that {@code pkceAuthorizationRequestResolver} adds PKCE to the
- * authorization request even though the clients are confidential (Spring
- * Security would otherwise send no {@code code_challenge}).
+ * authorization request of a confidential client whose registration does not
+ * require a proof key, where Spring Security on its own would send no
+ * {@code code_challenge}.
  *
  * <p>
  * No Spring context — both beans are exercised directly with mock inputs.
@@ -182,10 +183,16 @@ class SecurityConfigTest {
     }
 
     @Test
-    @DisplayName("Authorization request carries PKCE (S256) even for a confidential client")
+    @DisplayName("Authorization request carries PKCE (S256) even for a confidential client that requires no proof key")
     void authorizationRequestIncludesPkceForConfidentialClient() {
+        /*
+         * requireProofKey defaults to true in Spring Security 7.1, which gives every
+         * registration PKCE on its own; turned off here, only the customizer can add
+         * it, so this is what fails if the customizer goes.
+         */
         ClientRegistration registration = ClientRegistration.withRegistrationId("microsoft").clientId("test-client-id")
                 .clientSecret("test-secret").clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
+                .clientSettings(ClientRegistration.ClientSettings.builder().requireProofKey(false).build())
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                 .redirectUri("{baseUrl}/login/oauth2/code/{registrationId}").scope("openid", "email")
                 .authorizationUri("https://login.microsoftonline.com/common/oauth2/v2.0/authorize")

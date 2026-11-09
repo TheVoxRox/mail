@@ -103,31 +103,5 @@
         "note": "The only change under message-detail is the remote-image banner in MessageContent.svelte, for testers who could not tell what it was for: its text moves from a muted span to a paragraph that says why the images are held back (the message holds images from the internet that were not loaded, and loading them can tell the sender it was opened), and the i18n strings behind it, the region name and both announcements say 'images from the internet' instead of 'remote images'; the second button is now named 'Always load images from this sender'. The banner is still shown only while renderAsHtml, the count is non-zero and loadRemoteImages is false; the two buttons call the same revealRemoteImages and trustSender, which still send the same allow-list PUT; loadRemoteImages is still seeded per stableId from remoteImagesAllowedForSender; the iframe's sandbox, srcdoc, CSP and the mailFrame message handling are byte-identical. Section 1's tracking-pixel claim holds: no path loads a remote image without one of the two presses. The 2026-07-08 finding record still quotes the button's old English label, which is that date's record and not a claim about the current text. Verdict unchanged."
       }
     ]
-  },
-  "docs/OAUTH_AUDIT.md": {
-    "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java": "69fc4c0197c480dc39ba3c38dece6874faec8d17",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/auth": "4c2a4d33b484b310cd2d8600a85cf35b0eb15c69",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/account/service/ExternalProviderLoginService.java": "e1376242113357e89c46a48b72681f55eef9266c",
-      "backend/src/main/resources/static": "1166bfbda92e49253a54485f349cbb7911c6dac7"
-    },
-    "acknowledgements": [
-      {
-        "date": "2026-10-05",
-        "note": "A javadoc in SecurityConfig.pkceAuthorizationRequestResolver now names client_secret_basic, Spring's default for the google registration, where it said client_secret_post (OAUTH_AUDIT.md section 4 note). Comment only: the filter chain, PKCE, CORS and the handlers are unchanged. Verdict unchanged."
-      },
-      {
-        "date": "2026-10-05",
-        "note": "Two section 4 notes acted on, recorded in the audit itself as v1.6. ExternalProviderLoginService: findOrCreateExternalAccount still looks up (oauth2_provider, external_id) first, then the address, but the address now takes only a row with no oauth2_provider and no external_id (the password upgrade the fallback was written for); a row another identity owns makes the sign-in throw AccountAlreadyExistsException (409, error.account.alreadyExists) before any write, so the row, its binding and its token stay as they are, inside the same transaction that rolls back. markRequiresReauthIfExists takes (providerName, externalId, reason) and finds the account by findByOauth2ProviderAndExternalId instead of findByEmail, and the audit line carries the reason. Under feature/auth only OAuth2LoginService changes: its two callers pass providerName, externalId (validated non-blank by the guard before them) and missing_refresh_token or missing_scope. The four guards, their order, the flag's one clearing path, PKCE, the redirect handling, the session end at /success and the token storage are untouched. What moves narrows what a sign-in may touch: an account another identity owns can no longer be re-bound or flagged by it. Verdict stays PASS."
-      },
-      {
-        "date": "2026-10-10",
-        "note": "auth-finished.html and auth-failed.html, the pages the system browser shows after a sign-in, change for WCAG 2.2 only: the English half of each is marked lang=\"en\" (3.1.2), the reason line on the failure page is #4b5563 instead of #6b7280 on #f3f4f6 (4.39:1 to 1.4.3's 4.5:1), and its Czech text uses the en dash. Markup and CSS only: the inline script that writes ?reason= with textContent, the redirect targets and the public-endpoint list are unchanged. Verdict unchanged."
-      },
-      {
-        "date": "2026-10-20",
-        "note": "ExternalProviderLoginService takes the provider template from the OAuth registration the sign-in went through (AccountProviderService.resolveOAuthProvider, a lookup by mail_providers.oauth2_registration_id) instead of from the domain of the address the provider returned, so a Microsoft 365 or Google Workspace account at an organization's own domain gets an account instead of ProviderNotFoundException. The template only fills a new row's server settings: the lookup order of findOrCreateExternalAccount, the refusal of an address another identity owns, the credential write, the after-commit invalidation and the reauth clear are unchanged, and a missing template still throws before any write. What a sign-in can reach narrows rather than widens: an address at another provider's domain no longer gives a new row that provider's servers, so a token is only ever presented to the servers of the provider that issued it. Under feature/auth nothing changes. Verdict unchanged."
-      }
-    ]
   }
 }
