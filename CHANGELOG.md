@@ -21,6 +21,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The OAuth audit is re-verified against `0ea4017` (1.8), which clears its four
+  ledger acknowledgements before the 90-day cap. There is no finding. One claim
+  is corrected: Spring Security already gives the Google sign-in PKCE by
+  default, and the `SecurityConfig` customizer is a second layer, which
+  `SecurityConfigTest` now pins. B2-1's regression test is also seen failing
+  against the unfixed code at last (#882).
 - The crypto and local-storage audit is re-verified against `dc44cd5` (1.3),
   which clears its five ledger acknowledgements a month before the 90-day cap.
   No finding; three of its claims are corrected, the main one being that a

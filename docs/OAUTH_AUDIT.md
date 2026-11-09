@@ -1,15 +1,15 @@
 # VoxRox Mail — OAuth Handshake Audit
 
-|                    |                                                                                                                                                                                                                                                                                                                                                                                          |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 1.7                                                                                                                                                                                                                                                                                                                                                                                      |
-| **Date**           | 2026-10-11                                                                                                                                                                                                                                                                                                                                                                               |
-| **Applies to**     | VoxRox Mail V0.1.0                                                                                                                                                                                                                                                                                                                                                                       |
-| **Audited commit** | `55f4afa` (the delta since `64633fe`, B2-1's fix, verified 2026-10-05; the code under `Code paths` is otherwise byte-identical to `64633fe`, where every claim was re-verified 2026-10-04; 1.1 and 1.2: `cad05cb`, recorded pre-squash as `5799e8b`; 1.0 baseline: `d55b753`)                                                                                                            |
-| **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/auth`, `backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/OAuth2CompletedStateTracker.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/account/service/ExternalProviderLoginService.java`, `backend/src/main/resources/static`  |
-| **Auditor**        | Claude (Fable 5) + owner review; 1.3 re-verified by Claude Opus 5.5; 1.5 the verification pass over B2-1's fix, by Claude Opus 5.5, a separate agent from the author of 1.4                                                                                                                                                                                                              |
-| **Subsystem**      | OAuth handshake — Boundary 2 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                  |
-| **Verdict**        | **Security: PASS** — **B2-1** (High) **fixed** 2026-10-05 and confirmed by the independent verification pass of AUDIT_GUIDE §5 (1.5): the session an OAuth sign-in leaves in the system browser passed the sidecar API's default-deny without the `X-API-KEY`; the API now requires the key's own authority, and `/success` ends the session (§3). Every other claim re-verified at 1.3. |
+|                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Version**        | 1.8                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| **Date**           | 2026-11-09                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| **Applies to**     | VoxRox Mail V0.2.0-beta.3 (`63159d4`), whose files under `Code paths` are the anchor's                                                                                                                                                                                                                                                                                                                                                                                   |
+| **Audited commit** | `0ea4017` (every claim re-verified 2026-11-09, clearing four acknowledgements; 1.5 to 1.7: `55f4afa`, the delta since `64633fe`, B2-1's fix, verified 2026-10-05; 1.3: `64633fe`, every claim re-verified 2026-10-04; 1.1 and 1.2: `cad05cb`, recorded pre-squash as `5799e8b`; 1.0 baseline: `d55b753`)                                                                                                                                                                 |
+| **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/auth`, `backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/OAuth2CompletedStateTracker.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/account/service/ExternalProviderLoginService.java`, `backend/src/main/resources/static`                                                                                  |
+| **Auditor**        | Claude (Fable 5) + owner review; 1.3 re-verified by Claude Opus 5.5; 1.5 the verification pass over B2-1's fix, by Claude Opus 5.5, a separate agent from the author of 1.4; 1.8 re-verified by Claude Opus 5.5, a session that wrote none of the delta it read (#636, #640, #679, #763)                                                                                                                                                                                 |
+| **Subsystem**      | OAuth handshake — Boundary 2 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                  |
+| **Verdict**        | **Security: PASS** — **B2-1** (High) **fixed** 2026-10-05 and confirmed by the independent verification pass of AUDIT_GUIDE §5 (1.5): the session an OAuth sign-in leaves in the system browser passed the sidecar API's default-deny without the `X-API-KEY`; the API now requires the key's own authority, and `/success` ends the session (§3). Every claim re-verified at 1.8 against `0ea4017`, where the one naming the source of Google's PKCE is corrected (§1). |
 
 Focused verification audit of the boundary **"OAuth provider ↔ system browser ↔
 sidecar"**: every mitigation claimed by the Boundary 2 STRIDE rows was traced to
@@ -42,6 +42,22 @@ which origin is reasoned from the browsers' documented defaults in §3, not
 measured; and the provider consoles (redirect-URI registrations, consent-screen
 status), which no file in the repository can show.
 
+**Method (1.8).** The same trace against `0ea4017`: every file under
+`Code paths` re-read, and the delta since `55f4afa` (#636, #640, #679, #763)
+read as one change rather than as its four acknowledgements. The Spring
+Security behaviour is read from the 7.1.2 jar the build now resolves, compared
+with 7.1.0 and 7.1.1. Re-run rather than read: the tests named above, with
+`ApiKeyFilterTest`, `OAuth2SignInSessionTest` and `AccountRepositoryIT`, pass
+with none skipped. Then each mitigation was reverted on its own and the suite
+watched: `anyRequest().authenticated()` in place of the key's authority fails
+`OAuth2SignInSessionTest` with 200 where 403 is expected, a `/success` that
+leaves the session valid fails it too, and widening the benign-callback gate
+from `&&` to `||` fails three `SecurityConfigTest` cases. That closes the
+regression test's unreproduced failure 1.5 left on the author's run (§3).
+Removing the PKCE customizer failed nothing, which is what led to the §1
+correction: the real Google authorization redirect, driven through the filter
+chain without it, still carried `code_challenge_method=S256`.
+
 `Code paths` knowingly leaves out what the sections cite but which changes for
 other reasons: `backend/src/main/resources/application.properties` (the
 registrations and scopes of §1; it is in B3's `Code paths`, so a change there
@@ -51,15 +67,26 @@ path, Boundary 5), `ApiKeyFilter` (Boundary 3) and the client's
 
 ## 1. Authorization flow (confirmed, two claims corrected)
 
-- **PKCE (S256) for both providers.** Spring Security 7.1.1 adds PKCE by
-  default only to a registration with `client-authentication-method=none` or
-  the `requireProofKey` client setting. Microsoft is the first; Google, a
-  confidential client (`client_secret_basic`, Spring's default for the
-  `google` registration), is neither.
+- **PKCE (S256) for both providers, twice over (corrected in 1.8).** Spring
+  Security 7.1 adds PKCE to a registration whose
+  `client-authentication-method` is `none` or whose `requireProofKey` client
+  setting is on, and that setting defaults to on (`ClientSettings.Builder`, the
+  same in 7.1.0, 7.1.1 and 7.1.2). Nothing here turns it off: neither
+  `application.properties`, nor Spring Boot's property mapper, nor the `google`
+  template of `CommonOAuth2Provider` sets client settings. So both
+  registrations get PKCE from Spring itself, the confidential Google client
+  (`client_secret_basic`, Spring's default for the `google` registration)
+  included.
   [SecurityConfig.pkceAuthorizationRequestResolver](../backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java)
-  installs `OAuth2AuthorizationRequestCustomizers.withPkce()` as the resolver's
-  customizer, which runs on every authorization request, so the Google flow
-  carries `code_challenge_method=S256` too (OAuth 2.1 / Security BCP posture).
+  also installs `OAuth2AuthorizationRequestCustomizers.withPkce()` as the
+  resolver's customizer, which runs on every authorization request whatever the
+  setting, so the Google flow keeps `code_challenge_method=S256` if that default
+  changes or a registration turns it off (OAuth 2.1 / Security BCP posture).
+  1.3 said Spring's default reached the public Microsoft client only and the
+  customizer was what gave Google PKCE; the default was already on at 7.1.1.
+  Since 1.8 `SecurityConfigTest` pins the customizer with a confidential
+  registration that sets `requireProofKey(false)`, and removing `withPkce()`
+  fails it (run and seen); before, it passed without the customizer.
   Microsoft is a public client — no secret exists for it anywhere: not in
   `application.properties`, and `backend/scripts/package-sidecar-windows.ps1`
   maps only its client id into the build.
@@ -292,7 +319,10 @@ CORS preflight from `http://tauri.localhost` 200; every call in
 `frontend/src/lib/api` sends the key as a header. `OAuth2SignInSessionTest`,
 `ApiKeyFilterTest` and `OAuth2CallbackControllerTest` pass. Not reproduced:
 the regression test's failure against the unfixed code, which the pass did
-not run, so that sentence above rests on the author's run.
+not run, so that sentence above rests on the author's run. **Reproduced at
+1.8**, one half at a time: with `anyRequest().authenticated()` back,
+`signedInSessionIsRefusedByTheApi` fails with 200 where 403 is expected; with
+the session left valid, `successEndsTheSession` fails.
 
 **Status.** Fixed in code, 2026-10-05. Recorded at 1.3, fixed at 1.4,
 confirmed at 1.5.
@@ -301,14 +331,18 @@ confirmed at 1.5.
 
 - **Microsoft verified publisher** is deferred (decided 2026-06-20, no legal
   entity yet) — it blocks foreign organizational (B2B) tenants only, not the
-  consumer flow. The Google project stays in Testing for V0.1.0, the closed
-  beta, so its consent screen is unverified as well
-  ([RELEASE_CHECKLIST.md](../backend/RELEASE_CHECKLIST.md)). Both tracked in
-  todo.
+  consumer flow. The Google project stays in Testing for the closed beta, so
+  its consent screen is unverified as well
+  ([RELEASE_CHECKLIST.md](../backend/RELEASE_CHECKLIST.md)). The publisher
+  stays deferred in that checklist; Google's publishing and CASA are GitHub
+  issue #838, with the decision and its trigger in
+  [DECISIONS.md](DECISIONS.md). (1.7 said both were tracked in `todo.md`,
+  retired on 2026-11-02.)
 - **Placeholder client-ids** (`mail-local-google-client-id`, …) are non-secret
   defaults; real values come from env, and the release packaging refuses a
-  missing or placeholder value. The historic placeholder boot trap was fixed
-  (a failed start now ends the JVM with exit code 1).
+  missing or placeholder value. The historic placeholder boot trap was fixed:
+  a failed start now ends the JVM, with the exit code of a failure the client
+  can name (`StartupFailure`) or 1 (1.7 said 1 alone).
 - **The authorized client outlives a rejected sign-in** (new in 1.3). The
   in-memory store holds the access and refresh token in clear, and
   `OAuth2CallbackController.success` removes them only after `processLogin`
@@ -379,6 +413,24 @@ confirmed at 1.5.
 
 ## 6. Change log
 
+- **1.8** (2026-11-09) — **re-verified against `0ea4017`**, clearing the four
+  acknowledgements recorded since `55f4afa` (#636, #640, #679, #763) before the
+  ledger's 90-day cap, which the oldest would have reached on 2027-01-03. Held
+  to the default stopping rule of AUDIT_GUIDE §5: a claim false at the anchor
+  blocks the record and is corrected here; nothing else was chased. The method
+  is in its own paragraph above: the delta read as one change, every file
+  re-read, the suite re-run, and four mitigations reverted one at a time. That
+  reproduces B2-1's regression test failing against the unfixed code, which 1.5
+  left on the author's run. **One claim was false since 1.3** and is corrected:
+  Spring Security 7.1 gives every registration PKCE by default, because
+  `requireProofKey` defaults to on, so Google's PKCE comes from Spring and the
+  customizer is a second layer, not the only one. Security is unchanged, since
+  PKCE was always applied. The `SecurityConfig` javadoc and comment that said
+  the same are corrected (comment only), and `SecurityConfigTest` now pins the
+  customizer with a registration that turns the setting off. Two §4 notes are
+  brought up to date: the trackers are no longer `todo.md`, and a failed start
+  exits with a named code or 1. The threat model's Boundary 2 **S** row follows,
+  as does its **T** row's "for V0.1.0". Verdict unchanged (**PASS**).
 - **1.7** (2026-10-11) — **one §4 claim corrected and made true.** "The address
   is unique across accounts" rested on `ux_accounts_email`, which compared case
   by case, so a provider spelling the address in other case found no row and
