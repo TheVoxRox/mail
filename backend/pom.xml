@@ -17,8 +17,8 @@
 	<properties>
 		<java.version>25</java.version>
 		<spring-retry.version>2.0.13</spring-retry.version>
-		<jsoup.version>1.23.2</jsoup.version>
-		<commonmark.version>0.31.0</commonmark.version>
+		<jsoup.version>1.24.1</jsoup.version>
+		<commonmark.version>0.32.0</commonmark.version>
 		<springdoc.version>3.2.0</springdoc.version>
 		<!--
 			Single source of truth for the swagger-ui webjar: the dependency pin below
@@ -27,7 +27,7 @@
 		-->
 		<swagger-ui.version>5.34.1</swagger-ui.version>
 		<wiremock.version>3.13.2</wiremock.version>
-		<error-prone.version>2.51.0</error-prone.version>
+		<error-prone.version>2.52.0</error-prone.version>
 		<nullaway.version>0.14.3</nullaway.version>
 		<archunit.version>1.5.1</archunit.version>
 		<greenmail.version>2.1.15</greenmail.version>
