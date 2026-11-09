@@ -51,6 +51,10 @@ Entries before 2026-09-17 predate that split and are left as written.
   the beta channel (#836), and §3a, §4 and §7 re-taken on the installation it
   updated; §5 carries by the maintainer's decision, and its hand-run items over
   the reworked palette and menus are named as not taken (#854).
+- The unit tests run on jsdom 31. It replaces its CSS parsing and selector
+  matching with its own engine and its canvas backend with `@napi-rs/canvas`;
+  the suite installs neither canvas package and passes unchanged, and the tree
+  loses the CSS libraries the old engine needed (#874).
 - The scheduled vulnerability scan generates the npm SBOM again. Since #847,
   `npx` installed cyclonedx-npm under `frontend/.npmrc` and stopped on the
   build script of libxmljs2, which the tool brings for XML validation the JSON
