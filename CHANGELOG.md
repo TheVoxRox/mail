@@ -21,6 +21,10 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The AOT step of the sidecar build (`mvn -Paot package`) now runs with
+  `--enable-native-access=ALL-UNNAMED`, the flag the packaged sidecar already
+  had, so the DPAPI secret store's native lookup no longer warns there, and a
+  JDK that blocks the lookup by default will not fail the build (#885).
 - Tests now pin the OAuth audit claims a PIT sweep found no test held (#883):
   the identity a new OAuth account is bound to, the line between a permanent
   and a transient refresh rejection (a throttling 429 must not lock the
