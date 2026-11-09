@@ -113,9 +113,12 @@ work.
 
 Packaging records the digest of the backend sources it built from beside the
 jar, in `app/packaged-backend-source.sha256`, and the sync carries it along
-unchanged. `npm run tauri:dev` compares it with the checked-out backend and
-refuses a sidecar packaged from other sources, so after a backend change run the
-rebuild again: a sync alone copies the old image, digest and all.
+unchanged. `npm run tauri:dev` and `npm run tauri:build` compare it with the
+checked-out backend before they start and refuse a sidecar packaged from other
+sources, so after a backend change run the rebuild again: a sync alone copies
+the old image, digest and all. `MAIL_ALLOW_STALE_SIDECAR=1` lets either go
+ahead over such a sidecar, with a warning; nothing lets them past a missing
+sidecar or a launcher named other than `tauri.conf.json` expects.
 
 Then build the desktop app:
 
@@ -124,8 +127,9 @@ npm run tauri:build
 ```
 
 `npm run tauri:build:with-sidecar` syncs and builds in one go, without
-packaging: it bundles whatever image `backend/target/sidecar/` holds, such as
-one packaged by hand with options the rebuild does not pass.
+packaging: it bundles the image `backend/target/sidecar/` holds, such as one
+packaged by hand with options the rebuild does not pass, and stops as
+`tauri:build` does when that image was packaged from other sources.
 
 The sync copies the sidecar executable plus its `app/` and `runtime/`
 directories into `src-tauri/binaries/`. Those generated artifacts are ignored by

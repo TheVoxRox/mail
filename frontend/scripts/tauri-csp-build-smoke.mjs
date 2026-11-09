@@ -23,7 +23,8 @@
  * content div has children).
  *
  * Usage:
- *   npm run tauri:build:with-sidecar      # produce the binary first
+ *   npm run sidecar:rebuild:windows       # produce the binary first:
+ *   npm run tauri:build                   #   a sidecar, then the build
  *   node scripts/tauri-csp-build-smoke.mjs [--exe=…] [--port=9222]
  *                                          [--timeout-ms=60000] [--settle-ms=4000]
  *                                          [--include-backend-env-crypto] [--keep-open]
@@ -184,7 +185,7 @@ await mkdir(targetDir, { recursive: true });
 
 if (!existsSync(exePath)) {
 	throw new Error(
-		`Release executable not found: ${exePath}. Run npm run tauri:build:with-sidecar first.`
+		`Release executable not found: ${exePath}. Run npm run sidecar:rebuild:windows and npm run tauri:build first.`
 	);
 }
 

@@ -297,6 +297,33 @@ ships has the JDK-8376576 fix, whether from a JDK 25 update or a move to a
 later JDK for reasons of its own. Then measure the extracted layout with and
 without a cache on one machine before building anything.
 
+### A local `tauri:build` may go ahead over a stale sidecar, loudly
+
+**Decided 2026-11-09** (#879). `npm run tauri:build` checks the sidecar before
+it builds, through the function `npm run tauri:dev` uses (`requireUsableSidecar`
+in `frontend/scripts/lib/sidecar-staleness.mjs`), and honours the same opt-out
+by the same rule: `MAIL_ALLOW_STALE_SIDECAR=1` waves through a sidecar packaged
+from other backend sources, never a missing sidecar or a misnamed launcher.
+
+An installer is not a dev run. It outlives the shell it was built in, and a
+mismatched pair inside it surfaces far from the cause, as a list that never
+loads. The opt-out is honoured anyway. No installer that reaches a user is
+built locally: `windows-signed-release.yml` packages and syncs the sidecar
+from the checkout it builds, a few steps before the build, so the digest
+matches there and the variable has nothing to do, and §3a of
+[RELEASE_CHECKLIST.md](../backend/RELEASE_CHECKLIST.md) refuses a locally
+assembled installer. A local one is built to try the installer, the updater or
+the shell, where a backend carrying an unrelated edit is the same tradeoff it
+is in a dev run. And refusing would not stop such a build, only move it to
+`npm run tauri -- build`, which checks nothing. The opt-out costs noise
+instead: the whole report before the build, and a warning after it, where the
+build's own output has scrolled the first one away.
+
+**Revisit when:** a locally built installer is handed to anyone but the person
+who built it, or the release workflow stops packaging the sidecar in the job
+that builds the installer. Then the build refuses the opt-out, at least where
+`CI` is set.
+
 ### The Cargo license list counts what the build compiles, procedural macros included
 
 **Decided 2026-11-03** (#846). `frontend/src-tauri/THIRD_PARTY_LICENSES.md`
