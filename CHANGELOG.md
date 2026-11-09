@@ -78,6 +78,14 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- Menus, dialogs and the command palette run on bits-ui 2.20.6 instead of
+  2.20.2, and the styles are built with Tailwind CSS 4.3.4 and
+  tailwind-variants 4.0.1. Of the bits-ui fixes, these reach what the app uses:
+  focus that a menu selection moved elsewhere stays there when the pointer
+  leaves an item while the menu closes, and arrowing onto the first item of a
+  palette group scrolls it into view with its heading instead of leaving it
+  below the list. Tailwind 4.3.4 now installs its WebAssembly fallback on every
+  platform, so the license list gains it and the packages it runs on (#872).
 - While the wizard waits for a Google or Microsoft sign-in in the browser,
   focus is on "Zrušit", described by the status: "Čekám na dokončení v
   prohlížeči… Až se přihlásíte k účtu …, automaticky ho přidáme." The sign-in
