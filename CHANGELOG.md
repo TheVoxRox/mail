@@ -27,6 +27,10 @@ Entries before 2026-09-17 predate that split and are left as written.
   lets a local build through by the dev run's rule, with a warning before and
   after; why is in `docs/DECISIONS.md`. The release workflow packages and syncs
   in the same job and passes unchanged (#879).
+- CI actions move up a patch or a minor, each still pinned to a commit:
+  `actions/setup-java` 6.2.0 and the CodeQL action 4.39.3, which takes CodeQL
+  2.27.4. The signed-release workflow lies under the updater audit's code paths
+  and its ledger acknowledges the change, now at 6 of 8 (#878).
 - `check:audits` no longer counts a change to comments and layout as audit
   drift, so a javadoc edit under an audit's `Code paths` needs no
   acknowledgement in `docs/audit-freshness.json`. Java, TypeScript, JavaScript
