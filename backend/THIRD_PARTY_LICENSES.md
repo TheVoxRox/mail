@@ -114,13 +114,13 @@ Counts: 106 artifacts total. 84 Apache-2.0, 10 EDL-1.0 (BSD-3-Clause), 5 EPL-2.0
 
 ## MIT (3)
 
-- **jsoup Java HTML Parser** `org.jsoup:jsoup:1.23.2` — [https://jsoup.org/](https://jsoup.org/)
+- **jsoup Java HTML Parser** `org.jsoup:jsoup:1.24.1` — [https://jsoup.org/](https://jsoup.org/)
 - **JUL to SLF4J bridge** `org.slf4j:jul-to-slf4j:2.0.20` — [http://www.slf4j.org](http://www.slf4j.org)
 - **SLF4J API Module** `org.slf4j:slf4j-api:2.0.20` — [http://www.slf4j.org](http://www.slf4j.org)
 
 ## BSD-2-Clause (2)
 
-- **commonmark-java core** `org.commonmark:commonmark:0.31.0` — [https://github.com/commonmark/commonmark-java/commonmark](https://github.com/commonmark/commonmark-java/commonmark)
+- **commonmark-java core** `org.commonmark:commonmark:0.32.0` — [https://github.com/commonmark/commonmark-java/commonmark](https://github.com/commonmark/commonmark-java/commonmark)
 - **HdrHistogram** `org.hdrhistogram:HdrHistogram:2.2.2` — [http://hdrhistogram.github.io/HdrHistogram/](http://hdrhistogram.github.io/HdrHistogram/)
 
 ## BSD-3-Clause (2)
