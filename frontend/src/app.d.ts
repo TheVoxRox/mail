@@ -38,6 +38,7 @@ declare global {
 				accountId: number;
 				folderName: string;
 				newMessagesCount?: number;
+				arrivedMessagesCount?: number;
 				timestamp?: string;
 				type?: string;
 			}) => void;
@@ -45,6 +46,7 @@ declare global {
 				accountId: number;
 				folderName: string;
 				newMessagesCount?: number;
+				arrivedMessagesCount?: number;
 				timestamp?: string;
 				type?: string;
 			}) => void;

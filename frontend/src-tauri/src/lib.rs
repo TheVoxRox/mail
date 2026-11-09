@@ -1,4 +1,5 @@
 mod logs;
+mod new_mail;
 mod redact;
 mod tray;
 mod update_preference;
@@ -34,6 +35,7 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_notification::init())
         .manage(PendingUpdate(Mutex::new(None)))
         .manage(DownloadedUpdate(Mutex::new(None)))
         .manage(tray::CloseBehavior::default())
@@ -47,6 +49,7 @@ pub fn run() {
             tray::configure_tray,
             tray::set_tray_tooltip,
             tray::set_close_behavior,
+            new_mail::notify_new_mail,
             logs::export_logs,
             logs::log_sidecar_stderr,
             logs::log_sidecar_exit
@@ -119,6 +122,7 @@ pub fn run() {
             if let Err(err) = tray::create(app.handle()) {
                 log::error!("Tray icon unavailable, continuing without it: {err}");
             }
+            new_mail::open_window_on_click(app.handle());
 
             Ok(())
         })

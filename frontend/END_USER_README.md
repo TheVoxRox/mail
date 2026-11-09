@@ -25,6 +25,12 @@ IMAP/SMTP servery a poskytuje API pro uživatelské rozhraní.
   Přepnete-li Nastavení → Vzhled → Zavření okna na „nechat běžet", zavření
   okna aplikaci jen skryje a ta dál stahuje poštu a hlásí nové zprávy; ukončit
   ji pak jde přes nabídku ikony v oznamovací oblasti.
+- Oznámení Windows o nové poště: když je okno skryté v oznamovací oblasti nebo
+  pracujete v jiné aplikaci, ohlásí nově doručenou poštu do Doručených a
+  Hromadných oznámení systému Windows s počtem zpráv, účtem a složkou (bez
+  odesílatele a předmětu). Kliknutí na oznámení, dokud je na obrazovce, vrátí
+  okno aplikace. Vypnout ho jde v Nastavení → Vzhled → Oznámení Windows o nové
+  poště, nebo v nastavení oznámení ve Windows.
 - Oznámení v pravém horním rohu: chybová zůstávají, dokud je nezavřete,
   ostatní se po několika sekundách zavřou sama. Dokud je na oznámení ukazatel
   myši nebo fokus, odpočet stojí. V Nastavení → Vzhled → Zavírání oznámení je

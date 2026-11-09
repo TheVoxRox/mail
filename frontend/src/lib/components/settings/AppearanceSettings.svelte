@@ -10,15 +10,18 @@
 		closeAction,
 		messageBodyView,
 		messageGrouping,
+		newMailNotifications,
 		readingPane,
 		setCloseAction,
 		setMessageBodyView,
 		setMessageGrouping,
+		setNewMailNotifications,
 		setReadingPane,
 		setToastDismissal,
 		type CloseAction,
 		type MessageBodyView,
 		type MessageGrouping,
+		type NewMailNotifications,
 		type ReadingPane,
 		toastDismissal,
 		type ToastDismissal
@@ -30,6 +33,7 @@
 	const MESSAGE_BODY_OPTIONS: ReadonlyArray<MessageBodyView> = ['html', 'plain'];
 	const GROUPING_OPTIONS: ReadonlyArray<MessageGrouping> = ['flat', 'grouped'];
 	const CLOSE_ACTION_OPTIONS: ReadonlyArray<CloseAction> = ['tray', 'quit'];
+	const NEW_MAIL_NOTIFICATION_OPTIONS: ReadonlyArray<NewMailNotifications> = ['on', 'off'];
 	const TOAST_DISMISSAL_OPTIONS: ReadonlyArray<ToastDismissal> = ['auto', 'manual'];
 
 	function handleThemeChange(event: Event) {
@@ -76,6 +80,11 @@
 	function handleCloseActionChange(event: Event) {
 		const value = (event.target as HTMLSelectElement).value as CloseAction;
 		setCloseAction(value);
+	}
+
+	function handleNewMailNotificationsChange(event: Event) {
+		const value = (event.target as HTMLSelectElement).value as NewMailNotifications;
+		setNewMailNotifications(value);
 	}
 
 	function handleToastDismissalChange(event: Event) {
@@ -186,6 +195,18 @@
 		value: $closeAction,
 		onchange: handleCloseActionChange,
 		options: CLOSE_ACTION_OPTIONS
+	})}
+	<!--
+		Next to the close action because the two belong together: the tray keeps
+		the app syncing, and this is what tells anyone about it. Desktop-only in
+		effect, shown everywhere for the reason given above.
+	-->
+	{@render selectCard({
+		id: 'new-mail-notifications-select',
+		section: 'newMailNotifications',
+		value: $newMailNotifications,
+		onchange: handleNewMailNotificationsChange,
+		options: NEW_MAIL_NOTIFICATION_OPTIONS
 	})}
 	{@render selectCard({
 		id: 'message-body-select',

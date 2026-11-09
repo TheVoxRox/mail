@@ -43,6 +43,11 @@ tauri-plugin-shell = "2"
 # directory and the backend port, so a second launch has to surface the running
 # window instead of starting a sidecar that exits 78 "already running".
 tauri-plugin-single-instance = "2"
+# Windows notifications for new mail while the window is hidden or unfocused
+# (src/new_mail.rs). Used from Rust only: capabilities/default.json grants the
+# page none of its commands. 2.6 is the first to report a click on a desktop
+# notification, which is what brings the window back.
+tauri-plugin-notification = "2.6"
 # default-features without "zip": that feature only lets the Windows updater
 # unpack a Tauri v1 `.zip` bundle (extract_zip in the plugin's updater.rs). The
 # release config sets createUpdaterArtifacts: true, not "v1Compatible", so the

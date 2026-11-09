@@ -1,6 +1,6 @@
 # Privacy Policy — VoxRox Mail
 
-_Version: 2026-10-12 (draft, pre-first-release). This version is preliminary
+_Version: 2026-11-09 (draft, pre-first-release). This version is preliminary
 and has not yet been reviewed by a lawyer — see "Open items" at the bottom._
 
 _Česká verze: [PRIVACY.md](PRIVACY.md)._
@@ -60,6 +60,21 @@ Outside that directory the application writes a single value to the Windows
 registry, `HKEY_CURRENT_USER\Software\VoxRox\Mail\UpdateStartupCheck`: your
 answer to whether it should check for updates at startup (point 3 below). The
 installer writes it, and so does the setting in Settings → About.
+
+### Windows notifications for new mail
+
+While the application's window is not active or is hidden in the notification
+area, newly delivered mail (into the Inbox and Newsletters) is announced with
+a Windows notification. It holds the number of new messages, the account's
+address and the folder's name — **never the sender or the subject**. Windows,
+not the application, shows and keeps it: it stays in the Windows notification
+centre, in your user profile, until you dismiss it, and depending on your
+Windows settings it may also be shown on the lock screen. Windows also keeps
+its own record of this application's notification settings in the registry.
+Removing an account or uninstalling the application does not delete
+notifications already shown; clear them in the notification centre. Turn them
+off in **Settings → Appearance → Windows notifications for new mail**, or in
+Windows' notification settings.
 
 ### What is encrypted
 
@@ -132,7 +147,8 @@ By default closing the window quits the application, and the network traffic
 stops with it. If you switch **Settings → Appearance → Closing the window** to
 "keep running in the notification area", points 1 and 2 above continue after you
 close the window: the application is only hidden, so it can keep fetching mail
-and announcing new messages, which means it is still running and still
+and announcing new messages (with a Windows notification, see "Windows
+notifications for new mail" above), which means it is still running and still
 connecting to your e-mail server at regular intervals. **The update check
 (point 3) is not among them** — it runs at most once at startup (and not at
 all if you turned it off) and does not repeat while the application runs,
@@ -234,7 +250,8 @@ respective server.
 - **Complete data removal** — uninstall the application and then **manually
   delete** the `%LOCALAPPDATA%\VoxRox\Mail\` directory. The installer
   deliberately does not delete the data directory (so reinstall does not
-  lose your mail).
+  lose your mail). Clear any new-mail notifications Windows still holds in
+  its notification centre.
 - **Data export** — contacts can be exported to vCard via Settings >
   Contacts. Full database export is not available from the UI in the 0.x
   releases; advanced users may copy `db/mail.db` directly and open it in

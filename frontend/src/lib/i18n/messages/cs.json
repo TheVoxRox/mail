@@ -671,6 +671,14 @@
 					"quit": "Ukončit aplikaci"
 				}
 			},
+			"newMailNotifications": {
+				"heading": "Oznámení Windows o nové poště",
+				"hint": "Když je okno skryté v oznamovací oblasti nebo je aktivní jiná aplikace, ohlásí nově doručenou poštu oznámení systému Windows: počet zpráv, účet a složku, bez odesílatele a předmětu. Windows ho uchová v centru oznámení a podle svého nastavení ho může ukázat i na zamykací obrazovce.",
+				"options": {
+					"on": "Zobrazovat",
+					"off": "Nezobrazovat"
+				}
+			},
 			"toastDismissal": {
 				"heading": "Zavírání oznámení",
 				"hint": "Chybová oznámení zůstávají vždy, dokud je nezavřete. Ostatní se zavřou samy po několika sekundách, pokud tu nevyberete jinak; dokud je na nich ukazatel myši nebo fokus, odpočet stojí.",
@@ -955,5 +963,9 @@
 		"menuQuit": "Ukončit",
 		"tooltip": "VoxRox Mail",
 		"tooltipUnread": "VoxRox Mail – {count, plural, one {{count} nepřečtená zpráva} few {{count} nepřečtené zprávy} other {{count} nepřečtených zpráv}} v Doručených"
+	},
+	"newMailNotification": {
+		"title": "Nová pošta",
+		"body": "{count, plural, one {{count} nová zpráva} few {{count} nové zprávy} other {{count} nových zpráv}}, {account}, {folder}"
 	}
 }

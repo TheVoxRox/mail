@@ -1417,10 +1417,16 @@
             "format" : "int64",
             "type" : "integer"
           },
+          "arrivedMessagesCount" : {
+            "description" : "The part of newMessagesCount that has just arrived for the user: downloaded above the folder's existing mirror into Inbox or Newsletters. Zero for a first sync; what may be announced outside the app.",
+            "format" : "int32",
+            "type" : "integer"
+          },
           "folderName" : {
             "type" : "string"
           },
           "newMessagesCount" : {
+            "description" : "Every message the folder's cycle downloaded, a first sync's window and a mirror of Sent included: what the client has to reload.",
             "format" : "int32",
             "type" : "integer"
           },

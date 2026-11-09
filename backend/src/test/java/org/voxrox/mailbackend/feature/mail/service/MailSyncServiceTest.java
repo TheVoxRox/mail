@@ -57,6 +57,7 @@ import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.mail.dto.FolderResponse;
 import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 import org.voxrox.mailbackend.feature.mail.entity.FolderSyncStateEntity;
+import org.voxrox.mailbackend.feature.mail.event.MailSyncCompletedEvent;
 import org.voxrox.mailbackend.feature.mail.event.MailSyncCycleCompletedEvent;
 import org.voxrox.mailbackend.feature.mail.event.MailSyncErrorStateChangedEvent;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
@@ -1433,6 +1434,106 @@ class MailSyncServiceTest {
             ArgumentCaptor<AccountLastError> captor = ArgumentCaptor.forClass(AccountLastError.class);
             verify(accountRepository).updateLastError(eq(ACCOUNT_ID), captor.capture(), any(LocalDateTime.class));
             assertThat(captor.getValue().code()).isEqualTo(AccountLastErrorCode.MAIL_SYNC_FOLDER_FAILED);
+        }
+    }
+
+    /**
+     * What a folder's completion may announce outside the app. Every download
+     * reloads the list, but only mail that has just arrived may become a Windows
+     * notification: a first sync would otherwise announce the mailbox's history,
+     * and a mirror of Sent the user's own messages.
+     */
+    @Nested
+    @DisplayName("performFullSyncCycle — mail that arrived")
+    class ArrivalReporting {
+
+        private static final long MIRRORED_UP_TO = 41L;
+
+        @Test
+        @DisplayName("A first sync downloads its window, and none of it has arrived")
+        void firstSyncWindowHasNotArrived() throws Exception {
+            MailSyncCompletedEvent event = runCycle(state("INBOX", FolderRole.INBOX, 0L), FolderRole.INBOX, 200, 0);
+
+            assertThat(event.newMessagesCount()).isEqualTo(200);
+            assertThat(event.arrivedMessagesCount()).isZero();
+        }
+
+        @Test
+        @DisplayName("Mail downloaded above the inbox's mirror has arrived")
+        void forwardDownloadIntoInboxHasArrived() throws Exception {
+            MailSyncCompletedEvent event = runCycle(state("INBOX", FolderRole.INBOX, MIRRORED_UP_TO), FolderRole.INBOX,
+                    3, 0);
+
+            assertThat(event.newMessagesCount()).isEqualTo(3);
+            assertThat(event.arrivedMessagesCount()).isEqualTo(3);
+        }
+
+        @Test
+        @DisplayName("Newsletters deliver new mail as the inbox does")
+        void forwardDownloadIntoNewslettersHasArrived() throws Exception {
+            MailSyncCompletedEvent event = runCycle(state("newsletters", FolderRole.NEWSLETTERS, MIRRORED_UP_TO),
+                    FolderRole.NEWSLETTERS, 2, 0);
+
+            assertThat(event.arrivedMessagesCount()).isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("A mirror of Sent is the user's own mail, downloaded but not arrived")
+        void sentMirrorHasNotArrived() throws Exception {
+            MailSyncCompletedEvent event = runCycle(state("Sent", FolderRole.SENT, MIRRORED_UP_TO), FolderRole.SENT, 3,
+                    0);
+
+            assertThat(event.newMessagesCount()).isEqualTo(3);
+            assertThat(event.arrivedMessagesCount()).isZero();
+        }
+
+        @Test
+        @DisplayName("Opening a folder syncs it as USER, and the stored role still decides")
+        void readPathGoesByTheStoredRole() throws Exception {
+            // GET /emails runs this cycle with FolderRole.USER. Going by that, mail the
+            // read path happened to download first would never be announced: the next
+            // scheduled pass starts above it.
+            MailSyncCompletedEvent event = runCycle(state("INBOX", FolderRole.INBOX, MIRRORED_UP_TO), FolderRole.USER,
+                    3, 0);
+
+            assertThat(event.arrivedMessagesCount()).isEqualTo(3);
+        }
+
+        @Test
+        @DisplayName("Holes refilled inside the mirror reload the list but have not arrived")
+        void refilledHolesHaveNotArrived() throws Exception {
+            MailSyncCompletedEvent event = runCycle(state("INBOX", FolderRole.INBOX, MIRRORED_UP_TO), FolderRole.INBOX,
+                    1, 4);
+
+            assertThat(event.newMessagesCount()).isEqualTo(5);
+            assertThat(event.arrivedMessagesCount()).isEqualTo(1);
+        }
+
+        private FolderSyncStateEntity state(String folderName, FolderRole storedRole, long lastKnownUid) {
+            FolderSyncStateEntity state = new FolderSyncStateEntity(account, folderName, storedRole);
+            state.setLastKnownUid(lastKnownUid);
+            return state;
+        }
+
+        private MailSyncCompletedEvent runCycle(FolderSyncStateEntity state, FolderRole calledWith, int forward,
+                int refilledHoles) throws Exception {
+            String folderName = state.getFolderName();
+            stubExecuteInFolderRunCallback(mock(Folder.class));
+            stubTransactionTemplateExecuteRunCallback();
+            when(syncStateService.getOrCreateState(ACCOUNT_ID, folderName, calledWith)).thenReturn(state);
+            when(flagSyncService.handleUidValidity(any())).thenReturn(true);
+            when(messageDownloader.syncNewMessages(any())).thenReturn(forward);
+            if (refilledHoles > 0) {
+                when(messageDownloader.reconcileServerOnlyUids(any(), any(), anyInt())).thenReturn(refilledHoles);
+            }
+
+            assertThat(service.performFullSyncCycle(account, folderName, calledWith)).isTrue();
+
+            ArgumentCaptor<Object> events = ArgumentCaptor.forClass(Object.class);
+            verify(eventPublisher, org.mockito.Mockito.atLeastOnce()).publishEvent(events.capture());
+            return events.getAllValues().stream().filter(MailSyncCompletedEvent.class::isInstance)
+                    .map(MailSyncCompletedEvent.class::cast).findFirst()
+                    .orElseThrow(() -> new AssertionError("No MailSyncCompletedEvent was published"));
         }
     }
 

@@ -124,6 +124,54 @@ on voxrox.org.
 **Revisit when:** the default `closeAction` changes, or users turn out to leave
 the app running for days.
 
+### New mail is announced outside the window with a Windows notification
+
+**Decided 2026-11-09** (#886). Until then new mail reached the user as the
+in-app toast and its polite live region only, and both are inside the window:
+with the window in the tray, or another application in front, nobody saw or
+heard it — a screen reader reads the live regions of the foreground window
+only. The tray module, the Settings hint and the privacy policy all said the
+tray kept announcing new messages.
+
+- **Mechanism:** a Windows toast through `tauri-plugin-notification`, driven
+  from Rust only ([new_mail.rs](../frontend/src-tauri/src/new_mail.rs)). The
+  page gets no permission for the plugin's own commands, so it cannot post a
+  notification of its own; the one route is `notify_new_mail`. Version 2.6 was
+  the first to report a click on a desktop notification, which brings the
+  window back. Driving `tauri-winrt-notification` directly was the
+  alternative; the plugin is that crate behind `notify-rust`, with the dev
+  build's app id handled and maintained upstream.
+- **When:** only while the main window is hidden, minimized or without the
+  focus — Rust asks the window, since only it can. A window with the focus has
+  just read the in-app toast out, and the same sentence twice is noise.
+- **What counts:** only mail that has arrived, `arrivedMessagesCount` on
+  `sync_completed`: downloaded above the folder's existing mirror into a folder
+  whose stored role delivers new mail (`FolderRole.deliversNewMail`: Inbox,
+  Newsletters). Never a first sync's window or the rebuild after a UIDVALIDITY
+  change, a mirror of Sent, Drafts, Junk or Trash, or holes refilled inside the
+  mirror. The in-app toast keeps counting every download, as before.
+- **What it says:** the count, the account and the folder; no sender, no
+  subject. Windows keeps a notification in its notification centre and may
+  show it on the lock screen, which [PRIVACY.md](../PRIVACY.md) now says.
+- **Default:** on, switched off in Settings → Appearance next to the close
+  action (`mail.newMailNotifications`); Windows' own per-app notification
+  setting applies on top. The sound is Windows' default for the app — without
+  a named sound the plugin marks the toast silent.
+
+What a screen reader does with it is not yet heard. NVDA reports Windows
+notifications while "Report notifications" is on, and it is on in the
+maintainer's configuration. On 2026-11-09 seven test toasts, built the way the
+plugin builds them, reached the notification centre of the maintainer's
+machine, but no banner window appeared for any of them, so neither the
+announcement nor the click could be observed there; the installed build is
+where to listen. A click is reported only while the banner is on screen; one in
+the notification centre would need a COM activator the installer registers.
+
+**Revisit when:** users want the sender or subject in the notification (an
+opt-in of its own, given the lock screen), the click from the notification
+centre turns out to be needed, or notifications for Newsletters prove
+unwanted.
+
 ### The pane toggle stands at the foot of the rail, outside its landmark
 
 **Decided 2026-11-07** (#861), after testers took the toggle at the head of the

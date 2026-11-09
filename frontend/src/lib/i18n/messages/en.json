@@ -671,6 +671,14 @@
 					"quit": "Quit the application"
 				}
 			},
+			"newMailNotifications": {
+				"heading": "Windows notifications for new mail",
+				"hint": "While the window is hidden in the notification area or another application is active, newly delivered mail is announced with a Windows notification: the number of messages, the account and the folder, without sender or subject. Windows keeps it in the notification centre and, depending on its own settings, may also show it on the lock screen.",
+				"options": {
+					"on": "Show",
+					"off": "Don't show"
+				}
+			},
 			"toastDismissal": {
 				"heading": "Closing notifications",
 				"hint": "Error notifications always stay until you close them. The others close by themselves after a few seconds unless you choose otherwise here; while the pointer or focus is on them, the countdown stops.",
@@ -955,5 +963,9 @@
 		"menuQuit": "Quit",
 		"tooltip": "VoxRox Mail",
 		"tooltipUnread": "VoxRox Mail – {count, plural, one {{count} unread message} other {{count} unread messages}} in the Inbox"
+	},
+	"newMailNotification": {
+		"title": "New mail",
+		"body": "{count, plural, one {{count} new message} other {{count} new messages}}, {account}, {folder}"
 	}
 }

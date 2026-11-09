@@ -3,6 +3,7 @@ import { addMessages, init } from 'svelte-i18n';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import csMessages from '#lib/i18n/messages/cs.json';
 import { listAccounts } from '#lib/api/accounts.js';
+import { notifyArrivedMail } from '#lib/newMailNotifications.js';
 import {
 	announcePausedSyncs,
 	handleStreamNotification,
@@ -17,11 +18,17 @@ import { politeAnnouncements, toasts } from './toasts.js';
 import type {
 	AccountResponse,
 	SendNotification,
+	SyncNotification,
 	SyncStatusNotification,
 	ThreadUpdated
 } from '#lib/types.js';
 
 vi.mock('#lib/api/accounts.js', () => ({ listAccounts: vi.fn() }));
+// The Windows side has its own suite (newMailNotifications.test.ts); here only
+// what the store hands it matters.
+vi.mock('#lib/newMailNotifications.js', () => ({
+	notifyArrivedMail: vi.fn(() => Promise.resolve(false))
+}));
 // Only startNotifications opens a stream; nothing here needs a real one.
 vi.mock('#lib/api/notifications.js', () => ({
 	SseClient: class {
@@ -167,6 +174,37 @@ describe('sync cycle completion', () => {
 		expect(get(politeAnnouncements).map((entry) => entry.message)).toContain(
 			'Synchronizace dokončena, žádné nové zprávy.'
 		);
+	});
+});
+
+describe('new mail in a folder', () => {
+	beforeEach(() => {
+		toasts.set([]);
+		vi.mocked(notifyArrivedMail).mockClear();
+	});
+
+	function synced(newMessagesCount: number, arrivedMessagesCount: number): SyncNotification {
+		return {
+			type: 'sync_completed',
+			accountId: 3,
+			folderName: 'INBOX',
+			newMessagesCount,
+			arrivedMessagesCount,
+			timestamp: '2026-11-09T10:00:00Z'
+		};
+	}
+
+	it('offers Windows only the mail that arrived, while the toast reports every download', async () => {
+		// Five downloaded, two of them new mail: three were holes refilled
+		// inside the mirror, which reload the list but are no news.
+		handleStreamNotification(synced(5, 2));
+
+		await vi.waitFor(() => expect(notifyArrivedMail).toHaveBeenCalledOnce());
+		expect(vi.mocked(notifyArrivedMail).mock.calls[0]?.[0]).toEqual(
+			expect.objectContaining({ count: 2, folder: 'INBOX' })
+		);
+		expect(get(toasts)).toHaveLength(1);
+		expect(get(toasts)[0]?.message).toMatch(/^5 /);
 	});
 });
 

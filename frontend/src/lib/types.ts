@@ -471,7 +471,18 @@ export interface SyncNotification {
 	type: string;
 	accountId: number;
 	folderName: string;
+	/**
+	 * Every message the folder's cycle downloaded — a first sync's window and a
+	 * mirror of Sent included. What the open list has to reload.
+	 */
 	newMessagesCount: number;
+	/**
+	 * The part of `newMessagesCount` that has just arrived for the user:
+	 * downloaded above the folder's existing mirror, into Inbox or Newsletters.
+	 * Zero for a first sync. The only count that may be announced outside the
+	 * app (`#lib/newMailNotifications.ts`).
+	 */
+	arrivedMessagesCount: number;
 	/** ISO-8601 Instant, e.g. `2026-04-17T08:30:00Z`. */
 	timestamp: string;
 }

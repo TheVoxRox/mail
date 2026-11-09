@@ -11,6 +11,7 @@ import { _ } from 'svelte-i18n';
 import { SseClient } from '#lib/api/notifications.js';
 import { triggerAccountSync } from '#lib/api/mailAction.js';
 import { folderLabel } from '#lib/mail/folderLabel.js';
+import { notifyArrivedMail } from '#lib/newMailNotifications.js';
 import type {
 	FolderResponse,
 	SendNotification,
@@ -380,4 +381,15 @@ async function announceNewMessages(
 		}
 	});
 	pushToast(message, { tone: 'success', ttl: 6000 });
+
+	/*
+	 * The toast above reaches only someone looking at the window. Outside it,
+	 * only mail that has arrived is announced — a first sync's window or a
+	 * mirror of Sent is a download, not news, and the count the toast uses
+	 * includes both. Rust drops it again if the window has the focus.
+	 */
+	await notifyArrivedMail(
+		{ count: event.arrivedMessagesCount, account: accountLabel, folder: folderName },
+		translate
+	).catch((err) => console.warn('[notifications] Windows notification failed', err));
 }

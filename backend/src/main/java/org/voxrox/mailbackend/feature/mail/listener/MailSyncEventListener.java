@@ -36,8 +36,9 @@ public class MailSyncEventListener {
     @Async("mailEventExecutor")
     @EventListener
     public void handleSyncCompleted(MailSyncCompletedEvent event) {
-        log.info("{} Synchronization completed: account {}, folder {}, new messages: {}", LogCategory.SYNC,
-                event.accountId(), event.folderName(), event.newMessagesCount());
+        log.info("{} Synchronization completed: account {}, folder {}, new messages: {} (arrived: {})",
+                LogCategory.SYNC, event.accountId(), event.folderName(), event.newMessagesCount(),
+                event.arrivedMessagesCount());
 
         /*
          * Invalidate BEFORE the broadcast: the client reacts to sync_completed with a
@@ -53,7 +54,7 @@ public class MailSyncEventListener {
 
             try {
                 sseNotificationService.broadcast(new SyncNotification("sync_completed", event.accountId(),
-                        event.folderName(), event.newMessagesCount(), event.timestamp()));
+                        event.folderName(), event.newMessagesCount(), event.arrivedMessagesCount(), event.timestamp()));
             } catch (Exception e) {
                 log.warn("{} SSE broadcast failed: {}", LogCategory.SYNC, e.getMessage());
             }

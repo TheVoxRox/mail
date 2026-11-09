@@ -36,7 +36,7 @@ class SseNotificationServiceTest {
     }
 
     private SyncNotification sampleNotification() {
-        return new SyncNotification("sync_completed", 1L, "INBOX", 5, Instant.now());
+        return new SyncNotification("sync_completed", 1L, "INBOX", 5, 5, Instant.now());
     }
 
     @Nested

@@ -100,6 +100,30 @@ test.describe('Settings – appearance', () => {
 		await expectArrowDownOpensSelect(select);
 	});
 
+	/*
+	 * The notification itself is a native Windows toast, out of Playwright's
+	 * reach like the tray. What is testable is that the preference defaults to
+	 * on — the tray exists so that someone hears about new mail — and persists
+	 * under the key `#lib/newMailNotifications.ts` reads.
+	 */
+	test('oznámení Windows o nové poště jsou ve výchozím stavu zapnutá a volba se uloží', async ({
+		page
+	}) => {
+		await openApp(page, '/settings/appearance');
+
+		const select = page.locator('#new-mail-notifications-select');
+		await expect(select).toHaveValue('on');
+		expect(
+			await page.evaluate(() => window.localStorage.getItem('mail.newMailNotifications'))
+		).toBeNull();
+
+		await select.selectOption('off');
+		expect(
+			await page.evaluate(() => window.localStorage.getItem('mail.newMailNotifications'))
+		).toBe('off');
+		await expectArrowDownOpensSelect(select);
+	});
+
 	test('zobrazení obsahu zprávy je rozbalovací seznam a volba se uloží', async ({ page }) => {
 		await openApp(page, '/settings/appearance');
 
