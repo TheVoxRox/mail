@@ -67,6 +67,16 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Backend
 
+- Received HTML is sanitized with jsoup 1.24.1 instead of 1.23.2. It parses
+  malformed markup closer to the HTML standard, as a browser does: text
+  misplaced in a table lands before it, `<main>`, `<search>` and `<dialog>`
+  close an open paragraph, `<select>` keeps the markup inside it, and a
+  double-escaped script no longer ends early, so such a message can lay out
+  differently. Compiled against both versions over the malformed-input corpus
+  and 36 payloads aimed at these changes, the sanitizer kept nothing executable
+  under either. Sent Markdown is rendered with commonmark 0.32.0, which rejects
+  a link definition with unbalanced parentheses, and the build is checked by
+  Error Prone 2.52.0 (#876).
 - The backend runs on SQLite 3.54.1 (`sqlite-jdbc` 3.54.1.0) instead of the
   3.53.4 that Spring Boot 4.1.2 brings, because 3.54.0 fixes ten flaws
   published as CVEs, two of them heap overflows in FTS5, the full-text engine
