@@ -472,11 +472,30 @@ public class MailSyncService {
 
         var sample = metrics.startSync();
         int totalDownloaded = 0;
+        int arrived = 0;
         String outcome = MailMetrics.OUTCOME_SUCCESS;
         try {
             boolean uidValidityOk = flagSyncService.handleUidValidity(ctx);
             if (uidValidityOk) {
+                /*
+                 * Asked before the download, which moves lastKnownUid. Only the forward
+                 * download into a folder that delivers new mail counts as mail that arrived:
+                 * the initial window is old mail the app is seeing for the first time, a mirror
+                 * of Sent or Trash is the user's own, and the holes re-downloaded below sit
+                 * inside the window already mirrored.
+                 *
+                 * The role is the stored one, not the one this cycle was called with. Opening a
+                 * folder syncs it as USER (performFullSyncCycle), and getOrCreateState keeps a
+                 * known role over that; going by the argument, mail the read path happened to
+                 * download first would arrive without ever being announced, since the next pass
+                 * starts above it.
+                 */
+                boolean continuesMirror = !MessageDownloader.takesInitialWindow(ctx.syncState());
+                FolderRole storedRole = ctx.syncState().getRole();
                 totalDownloaded = messageDownloader.syncNewMessages(ctx);
+                if (continuesMirror && storedRole != null && storedRole.deliversNewMail()) {
+                    arrived = totalDownloaded;
+                }
                 List<Long> serverOnlyHoles = syncFlagsAndDeletions(ctx, folder, resyncEvents);
                 /*
                  * The cleanup's UID set also reveals server-only messages sitting in a hole
@@ -508,7 +527,7 @@ public class MailSyncService {
             maintenanceService.enforceLocalWindowLimitAsync(ctx.getAccountId(), ctx.folderName());
 
             eventPublisher.publishEvent(
-                    new MailSyncCompletedEvent(account.getId(), folderName, totalDownloaded, Instant.now()));
+                    new MailSyncCompletedEvent(account.getId(), folderName, totalDownloaded, arrived, Instant.now()));
 
             // Refresh the cached server count — folder is already open, getMessageCount
             // is cheap, and this lets the read path serve paginator totals without an

@@ -30,9 +30,12 @@ function encodeEvent(event: SyncNotification, lineEnding: SseLineEnding = 'lf'):
 export function pushSyncCompleted(
 	event: Partial<SyncNotification> & Pick<SyncNotification, 'accountId' | 'folderName'>
 ): void {
+	const newMessagesCount = event.newMessagesCount ?? 1;
 	const payload: SyncNotification = {
 		type: 'sync_completed',
-		newMessagesCount: 1,
+		newMessagesCount,
+		// Mail the fixture pushes is mail that arrived, unless a test says otherwise.
+		arrivedMessagesCount: newMessagesCount,
 		timestamp: new Date().toISOString(),
 		...event
 	};
@@ -46,9 +49,12 @@ export function pushSyncCompleted(
 export function pushSyncCompletedCrLf(
 	event: Partial<SyncNotification> & Pick<SyncNotification, 'accountId' | 'folderName'>
 ): void {
+	const newMessagesCount = event.newMessagesCount ?? 1;
 	const payload: SyncNotification = {
 		type: 'sync_completed',
-		newMessagesCount: 1,
+		newMessagesCount,
+		// Mail the fixture pushes is mail that arrived, unless a test says otherwise.
+		arrivedMessagesCount: newMessagesCount,
 		timestamp: new Date().toISOString(),
 		...event
 	};

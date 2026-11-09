@@ -1,6 +1,6 @@
 # Zásady ochrany soukromí — VoxRox Mail
 
-_Verze: 2026-10-12 (návrh před prvním vydáním). Tato verze je předběžná a ještě
+_Verze: 2026-11-09 (návrh před prvním vydáním). Tato verze je předběžná a ještě
 nebyla schválena právníkem — viz sekce „Otevřené body" na konci dokumentu._
 
 _English version: [PRIVACY.en.md](PRIVACY.en.md)._
@@ -59,6 +59,19 @@ Mimo tento adresář aplikace zapisuje jedinou hodnotu do registru Windows,
 `HKEY_CURRENT_USER\Software\VoxRox\Mail\UpdateStartupCheck`: vaši odpověď na
 otázku, zda při spuštění kontrolovat aktualizace (bod 3 níže). Zapisuje ji
 instalátor a přepínač v Nastavení → O aplikaci.
+
+### Oznámení Windows o nové poště
+
+Když okno aplikace není aktivní nebo je skryté v oznamovací oblasti, ohlásí
+aplikace nově doručenou poštu (do Doručených a Hromadných) oznámením systému
+Windows. Oznámení obsahuje počet nových zpráv, adresu účtu a název složky —
+**nikdy odesílatele ani předmět**. Zobrazuje a uchovává ho Windows, ne
+aplikace: zůstane v centru oznámení Windows ve vašem uživatelském profilu,
+dokud ho nezavřete, a podle nastavení Windows se může ukázat i na zamykací
+obrazovce. Windows si také v registru vede vlastní záznam o nastavení oznámení
+této aplikace. Odebrání účtu ani odinstalace aplikace už zobrazená oznámení
+nesmaže; vymažete je v centru oznámení. Vypnout je jde v **Nastavení → Vzhled →
+Oznámení Windows o nové poště**, nebo v nastavení oznámení ve Windows.
 
 ### Co je šifrované
 
@@ -129,7 +142,8 @@ ani na žádnou analytickou platformu třetí strany.
 Ve výchozím nastavení zavření okna aplikaci ukončí a síťová komunikace končí
 spolu s ní. Přepnete-li **Nastavení → Vzhled → Zavření okna** na „nechat běžet
 v oznamovací oblasti", probíhají body 1 a 2 výše i po zavření okna: aplikace
-se jen skryje, aby dál stahovala poštu a hlásila nové zprávy — pořád tedy běží
+se jen skryje, aby dál stahovala poštu a hlásila nové zprávy (oznámením
+Windows, viz „Oznámení Windows o nové poště" výše) — pořád tedy běží
 a pořád se v pravidelných intervalech připojuje k vašemu e-mailovému serveru.
 **Kontrola aktualizací (bod 3) mezi ně nepatří** — ta proběhne nanejvýš jednou
 při spuštění (a vůbec ne, pokud ji máte vypnutou) a za běhu se neopakuje, ať je
@@ -225,6 +239,7 @@ Komunikace probíhá přímo mezi vaším počítačem a daným serverem.
 - **Kompletní odstranění dat** — odinstalujte aplikaci a poté **ručně
   smažte** adresář `%LOCALAPPDATA%\VoxRox\Mail\`. Instalátor data adresář
   záměrně nemaže (aby šlo bezpečně přeinstalovat bez ztráty pošty).
+  Oznámení o nové poště, která už drží Windows, vymažte v centru oznámení.
 - **Export dat** — kontakty lze exportovat do vCard přes Nastavení > Kontakty.
   Export celé databáze není ve verzi 0.x dostupný v UI; pokročilí uživatelé
   si mohou zkopírovat `db/mail.db` přímo a otevřít v jakémkoli SQLite

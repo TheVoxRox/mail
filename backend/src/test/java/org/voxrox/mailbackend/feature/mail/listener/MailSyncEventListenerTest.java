@@ -40,7 +40,7 @@ class MailSyncEventListenerTest {
     @Test
     @DisplayName("event with new messages -> broadcast is called")
     void broadcastOnNewMessages() {
-        var event = new MailSyncCompletedEvent(1L, "INBOX", 3, Instant.now());
+        var event = new MailSyncCompletedEvent(1L, "INBOX", 3, 3, Instant.now());
 
         listener.handleSyncCompleted(event);
 
@@ -48,9 +48,24 @@ class MailSyncEventListenerTest {
     }
 
     @Test
+    @DisplayName("a first sync is broadcast for the reload, with nothing in it marked as arrived")
+    void carriesTheArrivedCountApartFromTheDownloadedOne() {
+        // 200 downloaded by a first sync's window: the list must reload, but
+        // nothing of it may be announced outside the app as new mail.
+        var event = new MailSyncCompletedEvent(1L, "INBOX", 200, 0, Instant.now());
+
+        listener.handleSyncCompleted(event);
+
+        var notification = ArgumentCaptor.forClass(SyncNotification.class);
+        verify(sseNotificationService).broadcast(notification.capture());
+        assertThat(notification.getValue().newMessagesCount()).isEqualTo(200);
+        assertThat(notification.getValue().arrivedMessagesCount()).isZero();
+    }
+
+    @Test
     @DisplayName("event with 0 new messages -> broadcast not called, folder cache still invalidated")
     void noBroadcastWhenNoNewMessages() {
-        var event = new MailSyncCompletedEvent(1L, "INBOX", 0, Instant.now());
+        var event = new MailSyncCompletedEvent(1L, "INBOX", 0, 0, Instant.now());
 
         listener.handleSyncCompleted(event);
 
@@ -62,7 +77,7 @@ class MailSyncEventListenerTest {
     @Test
     @DisplayName("folder cache is invalidated before the broadcast — the client refresh must not hit a stale entry")
     void invalidatesCacheBeforeBroadcast() {
-        var event = new MailSyncCompletedEvent(1L, "INBOX", 3, Instant.now());
+        var event = new MailSyncCompletedEvent(1L, "INBOX", 3, 3, Instant.now());
 
         listener.handleSyncCompleted(event);
 
@@ -74,7 +89,7 @@ class MailSyncEventListenerTest {
     @Test
     @DisplayName("broadcast exception does not propagate — isolation")
     void broadcastExceptionIsolated() {
-        var event = new MailSyncCompletedEvent(1L, "INBOX", 5, Instant.now());
+        var event = new MailSyncCompletedEvent(1L, "INBOX", 5, 5, Instant.now());
         doThrow(new RuntimeException("SSE broken")).when(sseNotificationService).broadcast(any());
 
         // Must not throw

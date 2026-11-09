@@ -51,7 +51,7 @@
   "docs/API_SURFACE_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/resources/application.properties": "6f4dcc647382dd679f0ff713b79931a3b92c2d48",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "0fdf83ac3b32d0a646493dd17faaf21b7c1d577a"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "0fcc185c9d021afa2b1bf94d070ccaf60ca9e279"
     },
     "acknowledgements": [
       {
@@ -61,13 +61,17 @@
       {
         "date": "2026-11-01",
         "note": "#815. FolderResponse, the body of GET /api/v1/accounts/{accountId}/folders, gains a nullable parentRef: the folderRef of another folder in the same response, or null. It carries nothing the response did not hold: every value is a folderRef already in that list, and the folder names were in it already as folderRef and displayName. The compact constructor drops a blank parentRef or one equal to the folder's own ref; a four-argument constructor keeps the old shape with parentRef null. No endpoint, request body, validation, authentication or error path changed, and no other DTO in the package moved; the OpenAPI snapshot gains the one field. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-09",
+        "note": "#886. SyncNotification, the payload of the sync_completed SSE event, gains an int arrivedMessagesCount: the part of newMessagesCount that arrived above the folder's existing mirror into Inbox or Newsletters, which the client may announce with a Windows notification. Both counts gain a @Schema description. The event carries no new kind of data, only a second count of messages newMessagesCount already counted, for the account and folder it already names, over the same loopback stream behind the same API key. No endpoint, request body, validation, authentication or error path changed, and no other DTO in the package moved; the OpenAPI snapshot gains the field and the two descriptions. Verdict unchanged."
       }
     ]
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/resources/application.properties": "6f4dcc647382dd679f0ff713b79931a3b92c2d48",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "b8582de9bfdea064114ab217f00d07025e44c7b3"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "715fbf9361767b0220a8c007afe054c30c4cd229"
     },
     "acknowledgements": [
       {
@@ -85,6 +89,10 @@
       {
         "date": "2026-11-01",
         "note": "#815, folder hierarchy. ImapFolderService.listFolders gives each FolderResponse a parentRef: the nearest ancestor, by Folder.getSeparator(), that is in the same listing (an ancestor spelled Inbox finds INBOX), else null. The delimiter is the one Angus holds from the LIST response for every listed folder, so no IMAP command is added and no folder is opened; the walk cuts the folder's own name at each delimiter and looks the prefix up in a map of the listed names, so it is bounded by the name's length and holds nothing beyond the listing. A MessagingException from getSeparator is logged at TRACE and leaves the folder top-level instead of failing the listing. FolderDisplayOrder now orders from parentRef rather than from the delimiter read out of folderRef: roots in the fixed role order, each followed by its subfolders, walked with its own stack so a hierarchy as deep as the server makes it cannot overflow the request thread (FolderDisplayOrderTest places 100,000 levels; the recursive form overflows on it, run and seen). The parentRef it returns is the display one: a system folder is top-level, and on the Courier namespace layout INBOX's children are. Still an in-memory reorder of the list ImapFolderService produced, which the cache and the internal callers keep in the server's order and with the server's parentRef; folders sharing a role keep their relative order. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-09",
+        "note": "#886. MailSyncService.syncFolderOnce labels part of what a folder cycle downloads as arrived, for MailSyncCompletedEvent: the forward download's count when the folder already had a mirror (MessageDownloader.takesInitialWindow, new, asked before the download) and its stored role delivers new mail; zero otherwise, holes refilled by reconcileServerOnlyUids included. syncNewMessages asks the same helper in place of `lastUid <= UID_INITIAL`, the same test, since a null uid already fails the unboxing above it. No IMAP command, bound, timeout, lock, retry, window, persistence step or role decision moved; the count only describes downloads the cycle already made. Verdict unchanged."
       }
     ]
   },
@@ -101,6 +109,17 @@
       {
         "date": "2026-10-31",
         "note": "The only change under message-detail is the remote-image banner in MessageContent.svelte, for testers who could not tell what it was for: its text moves from a muted span to a paragraph that says why the images are held back (the message holds images from the internet that were not loaded, and loading them can tell the sender it was opened), and the i18n strings behind it, the region name and both announcements say 'images from the internet' instead of 'remote images'; the second button is now named 'Always load images from this sender'. The banner is still shown only while renderAsHtml, the count is non-zero and loadRemoteImages is false; the two buttons call the same revealRemoteImages and trustSender, which still send the same allow-list PUT; loadRemoteImages is still seeded per stableId from remoteImagesAllowedForSender; the iframe's sandbox, srcdoc, CSP and the mailFrame message handling are byte-identical. Section 1's tracking-pixel claim holds: no path loads a remote image without one of the two presses. The 2026-07-08 finding record still quotes the button's old English label, which is that date's record and not a claim about the current text. Verdict unchanged."
+      }
+    ]
+  },
+  "docs/UPDATER_AUDIT.md": {
+    "reviewedTrees": {
+      "frontend/src-tauri/src": "c42d02f2cc33f82c9bbfd69e93d256223faba5e7"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-11-09",
+        "note": "#886. src-tauri/src gains new_mail.rs, a Windows notification for new mail through tauri-plugin-notification 2.8, driven from Rust only: capabilities/default.json and tauri.conf.json are unchanged, so the page gets none of the plugin's commands. The new command notify_new_mail takes a title and a body, shows the toast only while the main window is hidden, minimized or unfocused, and returns a boolean; a click handler registered at setup calls tray::show_main_window. lib.rs registers the plugin, the command and the handler; tray.rs changes doc comments only. Nothing on the update path moved: no updater command, state, endpoint, pubkey, signature check, download or install step, and not the startup-check preference. Verdict unchanged."
       }
     ]
   }

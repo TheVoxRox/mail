@@ -4,9 +4,9 @@ The Windows build of the Tauri runtime that ships with VoxRox Mail compiles the 
 
 Dual-licensed crates (e.g. `MIT OR Apache-2.0`) are listed under their canonical license expression — pick either license when redistributing.
 
-Counts: 274 crates total. 130 MIT OR Apache-2.0, 56 MIT, 31 Apache-2.0 OR MIT, 18 Unicode-3.0, 5 MPL-2.0, 4 MIT/Apache-2.0, 4 Unlicense OR MIT, 3 BSD-3-Clause, 2 Apache-2.0, 2 Apache-2.0 OR ISC OR MIT, 2 ISC, 2 MIT OR Zlib OR Apache-2.0, 2 Unlicense/MIT, 1 (Apache-2.0 OR MIT) AND BSD-3-Clause, 1 (MIT OR Apache-2.0) AND Unicode-3.0, 1 0BSD OR MIT OR Apache-2.0, 1 Apache-2.0 / MIT, 1 Apache-2.0 AND ISC, 1 Apache-2.0 AND MIT, 1 Apache-2.0 OR BSL-1.0, 1 BSD-3-Clause AND MIT, 1 BSD-3-Clause/MIT, 1 CC0-1.0 OR MIT-0 OR Apache-2.0, 1 CDLA-Permissive-2.0, 1 MIT OR Apache-2.0 OR Zlib, 1 Zlib.
+Counts: 281 crates total. 136 MIT OR Apache-2.0, 56 MIT, 32 Apache-2.0 OR MIT, 18 Unicode-3.0, 5 MPL-2.0, 4 MIT/Apache-2.0, 4 Unlicense OR MIT, 3 BSD-3-Clause, 2 Apache-2.0, 2 Apache-2.0 OR ISC OR MIT, 2 ISC, 2 MIT OR Zlib OR Apache-2.0, 2 Unlicense/MIT, 1 (Apache-2.0 OR MIT) AND BSD-3-Clause, 1 (MIT OR Apache-2.0) AND Unicode-3.0, 1 0BSD OR MIT OR Apache-2.0, 1 Apache-2.0 / MIT, 1 Apache-2.0 AND ISC, 1 Apache-2.0 AND MIT, 1 Apache-2.0 OR BSL-1.0, 1 BSD-3-Clause AND MIT, 1 BSD-3-Clause/MIT, 1 CC0-1.0 OR MIT-0 OR Apache-2.0, 1 CDLA-Permissive-2.0, 1 MIT OR Apache-2.0 OR Zlib, 1 Zlib.
 
-## MIT OR Apache-2.0 (130)
+## MIT OR Apache-2.0 (136)
 
 - **anyhow** 1.0.104 — [https://github.com/dtolnay/anyhow](https://github.com/dtolnay/anyhow)
 - **base64** 0.22.1 — [https://github.com/marshallpierce/rust-base64](https://github.com/marshallpierce/rust-base64)
@@ -18,6 +18,7 @@ Counts: 274 crates total. 130 MIT OR Apache-2.0, 56 MIT, 31 Apache-2.0 OR MIT, 1
 - **cfg-if** 1.0.5 — [https://github.com/rust-lang/cfg-if](https://github.com/rust-lang/cfg-if)
 - **cookie** 0.18.2 — [https://github.com/SergioBenitez/cookie-rs](https://github.com/SergioBenitez/cookie-rs)
 - **cpufeatures** 0.2.17 — [https://github.com/RustCrypto/utils](https://github.com/RustCrypto/utils)
+- **cpufeatures** 0.3.1 — [https://github.com/RustCrypto/utils](https://github.com/RustCrypto/utils)
 - **crc32fast** 1.5.4 — [https://github.com/srijs/rust-crc32fast](https://github.com/srijs/rust-crc32fast)
 - **crossbeam-channel** 0.5.17 — [https://github.com/crossbeam-rs/crossbeam](https://github.com/crossbeam-rs/crossbeam)
 - **crossbeam-utils** 0.8.23 — [https://github.com/crossbeam-rs/crossbeam](https://github.com/crossbeam-rs/crossbeam)
@@ -50,6 +51,7 @@ Counts: 274 crates total. 130 MIT OR Apache-2.0, 56 MIT, 31 Apache-2.0 OR MIT, 1
 - **html5ever** 0.39.0 — [https://github.com/servo/html5ever](https://github.com/servo/html5ever)
 - **http** 1.5.0 — [https://github.com/hyperium/http](https://github.com/hyperium/http)
 - **httparse** 1.10.1 — [https://github.com/seanmonstar/httparse](https://github.com/seanmonstar/httparse)
+- **chacha20** 0.10.2 — [https://github.com/RustCrypto/stream-ciphers](https://github.com/RustCrypto/stream-ciphers)
 - **idna** 1.1.0 — [https://github.com/servo/rust-url/](https://github.com/servo/rust-url/)
 - **ipnet** 2.12.2 — [https://github.com/krisprice/ipnet](https://github.com/krisprice/ipnet)
 - **itoa** 1.0.18 — [https://github.com/dtolnay/itoa](https://github.com/dtolnay/itoa)
@@ -60,6 +62,7 @@ Counts: 274 crates total. 130 MIT OR Apache-2.0, 56 MIT, 31 Apache-2.0 OR MIT, 1
 - **log** 0.4.35 — [https://github.com/rust-lang/log](https://github.com/rust-lang/log)
 - **markup5ever** 0.39.0 — [https://github.com/servo/html5ever](https://github.com/servo/html5ever)
 - **mime** 0.3.17 — [https://github.com/hyperium/mime](https://github.com/hyperium/mime)
+- **notify-rust** 4.19.0 — [https://github.com/hoodie/notify-rust](https://github.com/hoodie/notify-rust)
 - **num-conv** 0.2.2 — [https://github.com/jhpratt/num-conv](https://github.com/jhpratt/num-conv)
 - **once_cell** 1.21.4 — [https://github.com/matklad/once_cell](https://github.com/matklad/once_cell)
 - **parking_lot** 0.12.5 — [https://github.com/Amanieu/parking_lot](https://github.com/Amanieu/parking_lot)
@@ -69,6 +72,8 @@ Counts: 274 crates total. 130 MIT OR Apache-2.0, 56 MIT, 31 Apache-2.0 OR MIT, 1
 - **powerfmt** 0.2.1 — [https://github.com/jhpratt/powerfmt](https://github.com/jhpratt/powerfmt)
 - **proc-macro2** 1.0.107 — [https://github.com/dtolnay/proc-macro2](https://github.com/dtolnay/proc-macro2)
 - **quote** 1.0.47 — [https://github.com/dtolnay/quote](https://github.com/dtolnay/quote)
+- **rand** 0.10.3 — [https://github.com/rust-random/rand](https://github.com/rust-random/rand)
+- **rand_core** 0.10.1 — [https://github.com/rust-random/rand_core](https://github.com/rust-random/rand_core)
 - **regex** 1.13.1 — [https://github.com/rust-lang/regex](https://github.com/rust-lang/regex)
 - **regex-automata** 0.4.18 — [https://github.com/rust-lang/regex](https://github.com/rust-lang/regex)
 - **regex-syntax** 0.8.11 — [https://github.com/rust-lang/regex](https://github.com/rust-lang/regex)
@@ -101,6 +106,7 @@ Counts: 274 crates total. 130 MIT OR Apache-2.0, 56 MIT, 31 Apache-2.0 OR MIT, 1
 - **string_cache** 0.9.0 — [https://github.com/servo/string-cache](https://github.com/servo/string-cache)
 - **syn** 2.0.119 — [https://github.com/dtolnay/syn](https://github.com/dtolnay/syn)
 - **syn** 3.0.9 — [https://github.com/dtolnay/syn](https://github.com/dtolnay/syn)
+- **tauri-winrt-notification** 0.8.1 — [https://github.com/tauri-apps/winrt-notification](https://github.com/tauri-apps/winrt-notification)
 - **tempfile** 3.27.0 — [https://github.com/Stebalien/tempfile](https://github.com/Stebalien/tempfile)
 - **tendril** 0.5.1 — [https://github.com/servo/html5ever](https://github.com/servo/html5ever)
 - **thiserror** 2.0.21 — [https://github.com/dtolnay/thiserror](https://github.com/dtolnay/thiserror)
@@ -198,7 +204,7 @@ Counts: 274 crates total. 130 MIT OR Apache-2.0, 56 MIT, 31 Apache-2.0 OR MIT, 1
 - **zip** 9.4.1 — [https://github.com/zip-rs/zip2](https://github.com/zip-rs/zip2)
 - **zmij** 1.0.23 — [https://github.com/dtolnay/zmij](https://github.com/dtolnay/zmij)
 
-## Apache-2.0 OR MIT (31)
+## Apache-2.0 OR MIT (32)
 
 - **atomic-waker** 1.1.2 — [https://github.com/smol-rs/atomic-waker](https://github.com/smol-rs/atomic-waker)
 - **bit-set** 0.8.0 — [https://github.com/contain-rs/bit-set](https://github.com/contain-rs/bit-set)
@@ -219,6 +225,7 @@ Counts: 274 crates total. 130 MIT OR Apache-2.0, 56 MIT, 31 Apache-2.0 OR MIT, 1
 - **tauri-plugin-fs** 2.7.1 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
 - **tauri-plugin-http** 2.8.3 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
 - **tauri-plugin-log** 2.10.1 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
+- **tauri-plugin-notification** 2.8.0 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
 - **tauri-plugin-shell** 2.6.0 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
 - **tauri-plugin-single-instance** 2.5.5 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
 - **tauri-plugin-updater** 2.14.1 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)

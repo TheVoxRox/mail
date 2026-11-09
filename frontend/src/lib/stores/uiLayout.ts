@@ -65,6 +65,31 @@ export function setCloseAction(value: CloseAction): void {
 	closeAction.set(value);
 }
 
+export const NEW_MAIL_NOTIFICATIONS = ['on', 'off'] as const;
+export type NewMailNotifications = (typeof NEW_MAIL_NOTIFICATIONS)[number];
+
+/**
+ * Whether mail that arrives while the window is hidden or behind another
+ * application is announced with a Windows notification
+ * (`#lib/newMailNotifications.ts`).
+ *
+ * On by default, because it is what the tray is for: an app that syncs in the
+ * background and tells nobody has kept the mail to itself. And it costs
+ * nothing to a user who is looking — a window with the focus never gets one,
+ * since its own toast has already been read out. Off is for whoever finds
+ * the sound or the screen-reader announcement intrusive; Windows' own
+ * per-app notification setting turns it off as well.
+ */
+export const newMailNotifications = persistedStore<NewMailNotifications>(
+	'mail.newMailNotifications',
+	NEW_MAIL_NOTIFICATIONS,
+	'on'
+);
+
+export function setNewMailNotifications(value: NewMailNotifications): void {
+	newMailNotifications.set(value);
+}
+
 export const TOAST_DISMISSALS = ['auto', 'manual'] as const;
 export type ToastDismissal = (typeof TOAST_DISMISSALS)[number];
 

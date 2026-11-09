@@ -2,9 +2,11 @@
 //! window.
 //!
 //! The app can outlive its window: closing the window can hide it instead of
-//! quitting, so sync and new-mail notifications keep running. That is the
-//! whole point of the tray — a mail client that only notifies while its window
-//! is open is not doing the job — but a close button that does not close is a
+//! quitting, so sync keeps running and new mail is announced with a Windows
+//! notification ([`crate::new_mail`]) — the in-app toast is inside the hidden
+//! window, where nobody sees or hears it. That is the whole point of the tray
+//! — a mail client that only notifies while its window is open is not doing
+//! the job — but a close button that does not close is a
 //! trap, so hiding is the opt-in half of a setting (`mail.closeAction`,
 //! Settings → Appearance) whose default is to quit. The webview owns that
 //! setting and pushes it here via [`set_close_behavior`]; nothing is persisted
@@ -186,8 +188,9 @@ pub fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
 
 /// Hides the window instead of closing it when the user asked for that.
 ///
-/// The webview keeps running while hidden — that is what keeps the SSE stream,
-/// the sync scheduler and the new-mail notifications alive. Nothing here
+/// The webview keeps running while hidden — that is what keeps the SSE stream
+/// and the sync scheduler alive, and what turns a sync that brought new mail
+/// into a Windows notification ([`crate::new_mail::notify_new_mail`]). Nothing here
 /// touches the sidecar: it is stopped by the `beforeunload` hook on a real
 /// quit, and by the backend's parent-death watchdog if the process goes away
 /// without one.

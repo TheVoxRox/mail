@@ -839,6 +839,7 @@ test.describe('Přístupnost', () => {
 			{ id: 'list-size-select', heading: 'Velikost seznamu zpráv' },
 			{ id: 'message-grouping-select', heading: 'Seskupení zpráv ve složce' },
 			{ id: 'close-action-select', heading: 'Co udělá zavření okna' },
+			{ id: 'new-mail-notifications-select', heading: 'Oznámení Windows o nové poště' },
 			{ id: 'message-body-select', heading: 'Výchozí zobrazení obsahu zprávy' },
 			{ id: 'toast-dismissal-select', heading: 'Zavírání oznámení' }
 		];

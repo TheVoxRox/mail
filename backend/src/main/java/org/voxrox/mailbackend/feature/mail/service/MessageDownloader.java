@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.voxrox.mailbackend.core.config.MailClientProperties;
 import org.voxrox.mailbackend.feature.contact.service.CorrespondentService;
+import org.voxrox.mailbackend.feature.mail.entity.FolderSyncStateEntity;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.feature.mail.mapper.MessageMapper;
 import org.voxrox.mailbackend.feature.mail.mapper.MessageStableId;
@@ -88,7 +89,7 @@ public class MessageDownloader {
         }
 
         int downloaded;
-        if (lastUid <= UID_INITIAL) {
+        if (takesInitialWindow(ctx.syncState())) {
             downloaded = downloadInitialWindowBySequence(ctx);
         } else {
             long startUid = lastUid + UID_INCREMENT;
@@ -99,6 +100,19 @@ public class MessageDownloader {
 
         advanceLastKnownUidIfNeeded(ctx, maxUid);
         return downloaded;
+    }
+
+    /**
+     * Whether the next {@link #syncNewMessages} of this folder downloads the
+     * initial window rather than continuing above {@code lastKnownUid}: true until
+     * the folder's first cycle has recorded a uid, and again after a UIDVALIDITY
+     * change resets it to zero. What that window brings was in the mailbox before
+     * the app looked, so it is a mirror of old mail, not mail that has just arrived
+     * — which is why the sync asks this before the download moves the uid.
+     */
+    public static boolean takesInitialWindow(FolderSyncStateEntity state) {
+        Long lastKnownUid = state.getLastKnownUid();
+        return lastKnownUid == null || lastKnownUid <= UID_INITIAL;
     }
 
     /**

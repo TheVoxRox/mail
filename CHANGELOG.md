@@ -21,6 +21,10 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- [DECISIONS.md](docs/DECISIONS.md) records why new mail is announced with a
+  Windows notification, when, and what it may say. The updater, API-surface and
+  IMAP/SMTP audits acknowledge the drift it brings under their code paths
+  (#886).
 - The AOT step of the sidecar build (`mvn -Paot package`) now runs with
   `--enable-native-access=ALL-UNNAMED`, the flag the packaged sidecar already
   had, so the DPAPI secret store's native lookup no longer warns there, and a
@@ -99,6 +103,14 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Backend
 
+- `sync_completed` carries `arrivedMessagesCount` next to
+  `newMessagesCount`: the mail that has just arrived, downloaded above the
+  folder's existing mirror into the Inbox or Newsletters. A first sync's
+  window, a mirror of Sent, Drafts, Junk or Trash and holes refilled inside the
+  mirror still reload the list, but count as nothing arrived, so the new
+  Windows notification never announces a mailbox's history as new mail. The
+  folder's stored role decides, so mail that opening the folder happened to
+  download first is announced too (#886).
 - Received HTML is sanitized with jsoup 1.24.1 instead of 1.23.2. It parses
   malformed markup closer to the HTML standard, as a browser does: text
   misplaced in a table lands before it, `<main>`, `<search>` and `<dialog>`
@@ -216,6 +228,19 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Tauri / Release
 
+- New mail is announced with a Windows notification while the window is
+  hidden in the notification area, minimized or behind another application.
+  The only announcement used to be the in-app toast, which nobody sees or hears
+  there — a screen reader reads the live regions of the foreground window
+  only — although keeping new mail announced is what the tray was for. The
+  notification gives the count, the account and the folder, never the sender
+  or subject, because Windows keeps it in its notification centre and may show
+  it on the lock screen. It plays Windows' default sound for the app, and a
+  click while it is on screen brings the window back. A window with the focus
+  gets none, so a screen reader does not read the same news twice. Settings →
+  Appearance → "Oznámení Windows o nové poště" turns it off. The shell's
+  license list gains `tauri-plugin-notification` and the crates it brings
+  (#886).
 - Save logs writes its archive with the `zip` crate 9.4.1 instead of 9.3.0.
   The 9.4 releases add an owned entry type and a reader iterator and box a few
   internal buffers; none of it is the writer the shell uses, so nothing in the
