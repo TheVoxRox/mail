@@ -114,12 +114,17 @@
   },
   "docs/UPDATER_AUDIT.md": {
     "reviewedTrees": {
-      "frontend/src-tauri/src": "c42d02f2cc33f82c9bbfd69e93d256223faba5e7"
+      "frontend/src-tauri/src": "c42d02f2cc33f82c9bbfd69e93d256223faba5e7",
+      "frontend/src/lib/components/settings/AboutSettings.svelte": "9f99e7c594061b7095430a61c76c6e8218a64ecd"
     },
     "acknowledgements": [
       {
         "date": "2026-11-09",
         "note": "#886. src-tauri/src gains new_mail.rs, a Windows notification for new mail through tauri-plugin-notification 2.8, driven from Rust only: capabilities/default.json and tauri.conf.json are unchanged, so the page gets none of the plugin's commands. The new command notify_new_mail takes a title and a body, shows the toast only while the main window is hidden, minimized or unfocused, and returns a boolean; a click handler registered at setup calls tray::show_main_window. lib.rs registers the plugin, the command and the handler; tray.rs changes doc comments only. Nothing on the update path moved: no updater command, state, endpoint, pubkey, signature check, download or install step, and not the startup-check preference. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-09",
+        "note": "#887. One expression in AboutSettings.svelte, outside its update section: the 'last sync' line of the connection block reads the SSE event's arrivedMessagesCount instead of newMessagesCount, with a comment saying so. The audit cites this file for the manual update check and its failure UI (checkForUpdateManually, RELEASES_URL), the channel switch and the startup-check toggle; none of those lines, their handlers or the imports they use changed. Verdict unchanged."
       }
     ]
   }

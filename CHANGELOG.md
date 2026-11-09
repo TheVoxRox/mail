@@ -21,6 +21,9 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The updater audit acknowledges the one line #887 changes in
+  `AboutSettings.svelte`, the count on the "Poslední synchronizace" line, which
+  no claim of the audit rests on (#887).
 - [DECISIONS.md](docs/DECISIONS.md) records why new mail is announced with a
   Windows notification, when, and what it may say. The updater, API-surface and
   IMAP/SMTP audits acknowledge the drift it brings under their code paths
