@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -18,14 +19,17 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.voxrox.mailbackend.exception.AccountAlreadyExistsException;
 import org.voxrox.mailbackend.exception.ErrorCode;
 import org.voxrox.mailbackend.exception.MailOperationException;
 import org.voxrox.mailbackend.feature.account.service.ExternalProviderLoginService;
+import org.voxrox.mailbackend.util.AuditLogCapture;
 
 /**
  * Guard tests for {@link OAuth2LoginService}. The identity claims (e-mail,
@@ -59,6 +63,13 @@ class OAuth2LoginServiceTest {
     private OAuth2ClaimsExtractorRegistry registry;
     @Mock
     private OAuth2ClaimsExtractor extractor;
+
+    /**
+     * Every outcome of a sign-in writes one {@code oauth2_login} entry; the threat
+     * model's Boundary 2 repudiation row rests on them.
+     */
+    @RegisterExtension
+    final AuditLogCapture audit = new AuditLogCapture();
 
     private final OAuth2User oauth2User = mock(OAuth2User.class);
     private final OAuth2AuthorizedClient authorizedClient = mock(OAuth2AuthorizedClient.class);
@@ -97,6 +108,27 @@ class OAuth2LoginServiceTest {
 
         verify(externalProviderLoginService).processExternalProviderLogin(PROVIDER, EMAIL, "User Name", EXTERNAL_ID,
                 REFRESH_TOKEN);
+        audit.assertSuccess("oauth2_login", "provider=google");
+    }
+
+    /**
+     * A rejection by the persistence — here the address another sign-in owns — is a
+     * failed sign-in too, and is recorded as one rather than as the success the
+     * guards above it had let through.
+     */
+    @Test
+    @DisplayName("Persistence refuses the sign-in -> recorded as a failure, rethrown")
+    void persistenceRejectionIsRecordedAsFailure() {
+        stubClaims(EMAIL, EXTERNAL_ID, REFRESH_TOKEN);
+        stubGrantedScopes(plus(OIDC_SCOPES, GMAIL_SCOPE));
+        when(extractor.requiredMailScopes()).thenReturn(Set.of(GMAIL_SCOPE));
+        doThrow(new AccountAlreadyExistsException(EMAIL)).when(externalProviderLoginService)
+                .processExternalProviderLogin(PROVIDER, EMAIL, "User Name", EXTERNAL_ID, REFRESH_TOKEN);
+
+        assertThatThrownBy(() -> service.processLogin(PROVIDER, oauth2User, authorizedClient))
+                .isInstanceOf(AccountAlreadyExistsException.class);
+
+        audit.assertFailure("oauth2_login", "provider=google AccountAlreadyExistsException");
     }
 
     @Test
@@ -111,6 +143,7 @@ class OAuth2LoginServiceTest {
         verify(externalProviderLoginService, never()).processExternalProviderLogin(anyString(), any(), any(), any(),
                 any());
         verify(externalProviderLoginService, never()).markRequiresReauthIfExists(any(), any(), any());
+        audit.assertFailure("oauth2_login", "actor=<missing-email> reason=provider=google missing_email");
     }
 
     @Test
@@ -124,6 +157,7 @@ class OAuth2LoginServiceTest {
 
         verify(externalProviderLoginService, never()).processExternalProviderLogin(anyString(), any(), any(), any(),
                 any());
+        audit.assertFailure("oauth2_login", "provider=google missing_external_id");
     }
 
     @Test
@@ -139,6 +173,7 @@ class OAuth2LoginServiceTest {
         verify(externalProviderLoginService).markRequiresReauthIfExists(PROVIDER, EXTERNAL_ID, "missing_refresh_token");
         verify(externalProviderLoginService, never()).processExternalProviderLogin(anyString(), any(), any(), any(),
                 any());
+        audit.assertFailure("oauth2_login", "provider=google missing_refresh_token");
     }
 
     /**
@@ -162,6 +197,7 @@ class OAuth2LoginServiceTest {
         verify(externalProviderLoginService).markRequiresReauthIfExists(PROVIDER, EXTERNAL_ID, "missing_scope");
         verify(externalProviderLoginService, never()).processExternalProviderLogin(anyString(), any(), any(), any(),
                 any());
+        audit.assertFailure("oauth2_login", "provider=google missing_scope=" + GMAIL_SCOPE);
     }
 
     @Test

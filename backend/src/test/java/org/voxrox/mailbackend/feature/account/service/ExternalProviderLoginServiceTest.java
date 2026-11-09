@@ -16,6 +16,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -32,6 +33,7 @@ import org.voxrox.mailbackend.feature.auth.service.GoogleTokenService;
 import org.voxrox.mailbackend.feature.auth.service.OAuth2TokenService;
 import org.voxrox.mailbackend.feature.auth.service.OAuth2TokenServiceRegistry;
 import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager;
+import org.voxrox.mailbackend.util.AuditLogCapture;
 
 /**
  * Unit tests for {@link ExternalProviderLoginService} — the OAuth2 provider
@@ -74,6 +76,9 @@ class ExternalProviderLoginServiceTest {
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
+
+    @RegisterExtension
+    final AuditLogCapture audit = new AuditLogCapture();
 
     private ExternalProviderLoginService service;
 
@@ -123,6 +128,7 @@ class ExternalProviderLoginServiceTest {
             // leaves findByActiveTrueAndRequiresReauthFalse, so its pooled connections
             // are dead weight and the listener closes them.
             verify(eventPublisher).publishEvent(new AccountRequiresReauthEvent(ACCOUNT_ID));
+            audit.assertFailure("account_requires_reauth", "id=1 reason=missing_refresh_token");
         }
 
         @Test
@@ -138,6 +144,7 @@ class ExternalProviderLoginServiceTest {
             // Guarded on the transition, like the deactivation purge in AccountService:
             // an account already marked has nothing left in the pool to close.
             verifyNoInteractions(eventPublisher);
+            audit.assertNone("account_requires_reauth");
         }
 
         /**
@@ -187,9 +194,11 @@ class ExternalProviderLoginServiceTest {
                     "Name", "ext-1", "  ")).isInstanceOf(IllegalStateException.class);
         }
 
-        @Test
-        @DisplayName("New account: copies server config from the template, otherwise NOT NULL constraint fails")
-        void shouldCreateNewAccountWithCopiedServerConfig() {
+        /**
+         * Neither the identity nor the address finds an account, so the sign-in creates
+         * one; the repository gives it {@link #ACCOUNT_ID}.
+         */
+        private MailProviderEntity stubNoAccountYet() {
             MailProviderEntity provider = createProvider();
             when(providerService.resolveOAuthProvider(GoogleTokenService.PROVIDER_NAME)).thenReturn(provider);
             when(accountRepository.findByOauth2ProviderAndExternalId(GoogleTokenService.PROVIDER_NAME, "ext-1"))
@@ -200,13 +209,25 @@ class ExternalProviderLoginServiceTest {
                 a.setId(ACCOUNT_ID);
                 return a;
             });
+            return provider;
+        }
+
+        /** The account the sign-in created, as it stands after the call. */
+        private AccountEntity createdAccount() {
+            ArgumentCaptor<AccountEntity> captor = ArgumentCaptor.forClass(AccountEntity.class);
+            verify(accountRepository, org.mockito.Mockito.atLeastOnce()).save(captor.capture());
+            return captor.getAllValues().get(0);
+        }
+
+        @Test
+        @DisplayName("New account: copies server config from the template, otherwise NOT NULL constraint fails")
+        void shouldCreateNewAccountWithCopiedServerConfig() {
+            MailProviderEntity provider = stubNoAccountYet();
 
             service.processExternalProviderLogin(GoogleTokenService.PROVIDER_NAME, EMAIL, "Test User", "ext-1",
                     "refresh-token-value");
 
-            ArgumentCaptor<AccountEntity> captor = ArgumentCaptor.forClass(AccountEntity.class);
-            verify(accountRepository, org.mockito.Mockito.atLeastOnce()).save(captor.capture());
-            AccountEntity created = captor.getAllValues().get(0);
+            AccountEntity created = createdAccount();
             assertThat(created.getProvider()).isEqualTo(provider);
             // Account name is derived from the e-mail domain label, capitalised
             // (test@example.com -> "Example"), matching the wizard's client-side naming.
@@ -216,6 +237,28 @@ class ExternalProviderLoginServiceTest {
 
             verify(credentialService).saveCredentials(any(AccountEntity.class), eq(EMAIL), eq("refresh-token-value"),
                     eq(AuthType.OAUTH2));
+        }
+
+        /**
+         * The identity is what finds the account again: the next sign-in looks it up by
+         * {@code (oauth2_provider, external_id)}, and so does
+         * {@code markRequiresReauthIfExists}. An account created without it is found
+         * next time by its address only, as a row a sign-in owns, and that sign-in is
+         * refused with 409 (OAuth audit §2). {@code ExternalProviderLoginServiceIT}
+         * runs that second sign-in against a real database.
+         */
+        @Test
+        @DisplayName("New account: bound to the signing-in identity, provider and external id")
+        void shouldBindTheNewAccountToTheSigningInIdentity() {
+            stubNoAccountYet();
+
+            service.processExternalProviderLogin(GoogleTokenService.PROVIDER_NAME, EMAIL, "Test User", "ext-1",
+                    "refresh-token-value");
+
+            AccountEntity created = createdAccount();
+            assertThat(created.getOauth2Provider()).isEqualTo(GoogleTokenService.PROVIDER_NAME);
+            assertThat(created.getExternalId()).isEqualTo("ext-1");
+            audit.assertSuccess("account_create", "id=1 auth=Gmail external_id=ext-1");
         }
 
         @Test
@@ -316,6 +359,11 @@ class ExternalProviderLoginServiceTest {
         void shouldClearRequiresReauthOnReLogin() {
             AccountEntity existing = createAccountEntity();
             existing.setRequiresReauth(true);
+            // What the refresh rejection that set the flag left behind; the accounts page
+            // shows it until it is cleared.
+            existing.setLastError("Google OAuth: the refresh token or OAuth client was rejected");
+            existing.setLastErrorCode("OAUTH2_REFRESH_REJECTED");
+            existing.setLastErrorArgs("{\"provider\":\"Google\"}");
             // Pre-set provider/externalId/displayName so syncExternalAccountMetadata
             // does not mark anything — save then runs only once for the reauth clear.
             existing.setOauth2Provider(GoogleTokenService.PROVIDER_NAME);
@@ -331,7 +379,33 @@ class ExternalProviderLoginServiceTest {
                     "new-refresh");
 
             assertThat(existing.isRequiresReauth()).isFalse();
+            assertThat(existing.getLastError()).isNull();
+            assertThat(existing.getLastErrorCode()).isNull();
+            assertThat(existing.getLastErrorArgs()).isNull();
             verify(accountRepository).save(existing);
+            audit.assertSuccess("account_reauth_cleared", "id=1");
+        }
+
+        /**
+         * After a re-login the cached access token and the pooled IMAP store still
+         * belong to the old refresh token, so both are dropped after the commit (OAuth
+         * audit §2). Inline here: no transaction is active.
+         */
+        @Test
+        @DisplayName("Re-login drops the cached access token and the pooled IMAP store")
+        void shouldDropRuntimeAuthAfterReLogin() {
+            AccountEntity existing = createAccountEntity();
+            existing.setOauth2Provider(GoogleTokenService.PROVIDER_NAME);
+            existing.setExternalId("ext-1");
+            when(providerService.resolveOAuthProvider(GoogleTokenService.PROVIDER_NAME)).thenReturn(createProvider());
+            when(accountRepository.findByOauth2ProviderAndExternalId(GoogleTokenService.PROVIDER_NAME, "ext-1"))
+                    .thenReturn(Optional.of(existing));
+
+            service.processExternalProviderLogin(GoogleTokenService.PROVIDER_NAME, EMAIL, DISPLAY_NAME, "ext-1",
+                    "new-refresh");
+
+            verify(googleTokenService).invalidate(ACCOUNT_ID);
+            verify(imapConnectionManager).removeConnection(ACCOUNT_ID);
         }
 
         @Test
@@ -351,6 +425,7 @@ class ExternalProviderLoginServiceTest {
                     "token");
 
             verify(accountRepository, never()).save(any());
+            audit.assertNone("account_reauth_cleared");
         }
 
         @Test

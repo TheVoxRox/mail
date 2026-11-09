@@ -25,6 +25,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
@@ -38,6 +41,7 @@ import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.account.event.AccountRequiresReauthEvent;
 import org.voxrox.mailbackend.feature.account.repository.AccountCredentialRepository;
 import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
+import org.voxrox.mailbackend.util.AuditLogCapture;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
@@ -75,6 +79,9 @@ class GoogleTokenServiceTest {
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
+
+    @RegisterExtension
+    final AuditLogCapture audit = new AuditLogCapture();
 
     private GoogleTokenService service;
 
@@ -116,6 +123,7 @@ class GoogleTokenServiceTest {
             String token = service.getAccessToken(1L, "refresh-xyz", EMAIL);
 
             assertThat(token).isEqualTo("ya29.fresh-token");
+            audit.assertSuccess("token_refresh", "provider=google");
         }
 
         @Test
@@ -162,9 +170,11 @@ class GoogleTokenServiceTest {
             stubTokenSuccess("token-1", 3600);
 
             service.getAccessToken(1L, "rt", EMAIL);
-            service.getAccessToken(1L, "rt", EMAIL);
+            String cached = service.getAccessToken(1L, "rt", EMAIL);
 
             wireMock.verify(1, postRequestedFor(urlEqualTo(TOKEN_PATH)));
+            // The cache hit hands back the token itself, not just skips the request.
+            assertThat(cached).isEqualTo("token-1");
         }
 
         @Test
@@ -259,6 +269,7 @@ class GoogleTokenServiceTest {
             // connections have to be closed by someone — the listener that reacts to
             // this event.
             verify(eventPublisher).publishEvent(new AccountRequiresReauthEvent(42L));
+            audit.assertFailure("token_refresh", "google_rejected_400");
         }
 
         @Test
@@ -274,6 +285,9 @@ class GoogleTokenServiceTest {
                     .isInstanceOf(MailOperationException.class);
 
             verify(eventPublisher, never()).publishEvent(any(AccountRequiresReauthEvent.class));
+            // The account stays reachable with a token that no longer works, which only
+            // someone reading the audit log can act on.
+            audit.assertCritical("account_reauth_marking_failed", "RuntimeException");
         }
 
         @Test
@@ -352,6 +366,7 @@ class GoogleTokenServiceTest {
 
             verify(accountRepository).updateRequiresReauth(42L, true);
             verify(accountRepository).updateLastError(eq(42L), any(AccountLastError.class), any(LocalDateTime.class));
+            audit.assertFailure("token_refresh", "google_rejected_401");
         }
 
         @Test
@@ -381,6 +396,27 @@ class GoogleTokenServiceTest {
             // CRITICAL: 5xx is transient, the account must NOT be marked as
             // requires_reauth.
             verify(accountRepository, never()).updateRequiresReauth(anyLong(), eq(true));
+            audit.assertCritical("token_refresh", "InternalServerError");
+        }
+
+        /**
+         * The line between a permanent and a transient rejection is drawn at 400 and
+         * 401 (OAuth audit §2), and the 5xx cases above never reach it: only a 4xx is
+         * an {@code HttpClientErrorException}. These pin the other side of the line. A
+         * 429 is the provider throttling, which passes on its own; marking the account
+         * on it would lock it until the user signs in again.
+         */
+        @ParameterizedTest(name = "HTTP {0}")
+        @ValueSource(ints = {403, 429})
+        @DisplayName("Another 4xx is transient: the account is not marked")
+        void otherClientErrorsShouldNotMarkRequiresReauth(int status) {
+            wireMock.stubFor(post(urlEqualTo(TOKEN_PATH)).willReturn(aResponse().withStatus(status)));
+
+            assertThatThrownBy(() -> service.getAccessToken(1L, "rt", EMAIL)).isInstanceOf(MailOperationException.class)
+                    .extracting("code").isEqualTo(ErrorCode.INTERNAL_ERROR);
+
+            verify(accountRepository, never()).updateRequiresReauth(anyLong(), eq(true));
+            verify(eventPublisher, never()).publishEvent(any(AccountRequiresReauthEvent.class));
         }
 
         @Test
@@ -474,6 +510,7 @@ class GoogleTokenServiceTest {
             wireMock.verify(postRequestedFor(urlEqualTo(REVOKE_PATH))
                     .withHeader("Content-Type", containing("application/x-www-form-urlencoded"))
                     .withRequestBody(containing("token=plaintext-rt")));
+            audit.assertSuccess("token_revoke", "provider=google");
 
             // Cache evicted — the next access-token call goes to HTTP again.
             wireMock.resetRequests();
@@ -485,13 +522,16 @@ class GoogleTokenServiceTest {
         @Test
         void revokeShouldSwallowHttpErrorsSoUserCanDeleteAccount() {
             // If Google returns 500, the user must still be able to delete the account —
-            // revoke je best-effort cleanup, ne load-bearing krok.
+            // revoke is a best-effort cleanup, not a load-bearing step.
             wireMock.stubFor(post(urlEqualTo(REVOKE_PATH)).willReturn(aResponse().withStatus(500)));
             when(credentialRepository.findById(5L)).thenReturn(Optional.of(credentials("enc")));
             when(cryptoService.decrypt(anyString(), eq(5L))).thenReturn("rt");
 
             // Must not throw.
             service.revokeToken(account(5L, EMAIL));
+
+            // The grant stays live at Google; the audit log is where that is recorded.
+            audit.assertFailure("token_revoke", "InternalServerError");
         }
 
         @Test

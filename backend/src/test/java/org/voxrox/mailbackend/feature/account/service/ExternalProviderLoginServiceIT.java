@@ -22,6 +22,7 @@ import org.voxrox.mailbackend.core.init.StartupTimingService;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.account.repository.MailProviderRepository;
+import org.voxrox.mailbackend.feature.auth.service.GoogleTokenService;
 import org.voxrox.mailbackend.feature.auth.service.MicrosoftTokenService;
 import org.voxrox.mailbackend.feature.auth.service.OAuth2TokenServiceRegistry;
 import org.voxrox.mailbackend.feature.mail.service.ImapConnectionManager;
@@ -96,5 +97,26 @@ class ExternalProviderLoginServiceIT {
 
         AccountEntity account = accountRepository.findByEmail("someone@gmail.com").orElseThrow();
         assertThat(account.getImapConfig().getHost()).isEqualTo("outlook.office365.com");
+    }
+
+    /**
+     * The identity the first sign-in binds the new account to is what the next one
+     * finds it by. An account created without it is missed by identity, found by
+     * its address as a row a sign-in already owns, and the second sign-in is
+     * refused with 409 (OAuth audit §2).
+     */
+    @Test
+    @DisplayName("The same identity's next sign-in finds the account the first one created")
+    void nextSignInOfTheSameIdentityFindsTheAccount() {
+        service.processExternalProviderLogin(GoogleTokenService.PROVIDER_NAME, "user@gmail.com", "User", "google-sub-1",
+                "refresh-token");
+
+        service.processExternalProviderLogin(GoogleTokenService.PROVIDER_NAME, "user@gmail.com", "User", "google-sub-1",
+                "refresh-token-2");
+
+        assertThat(
+                accountRepository.findByOauth2ProviderAndExternalId(GoogleTokenService.PROVIDER_NAME, "google-sub-1"))
+                .isPresent();
+        assertThat(accountRepository.count()).isEqualTo(1);
     }
 }
