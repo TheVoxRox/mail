@@ -959,6 +959,16 @@
 								</goals>
 								<configuration>
 									<!--
+										process-aot refreshes the application context in a forked JVM,
+										and that initializes WindowsDpapiSecretStore, whose static
+										initializer looks up Crypt32 through java.lang.foreign. Without
+										this flag JDK 25 warns about the restricted call, and the JDK
+										release that blocks it by default would fail this step. The
+										packaged sidecar passes the same flag in its jpackage
+										java-options (backend/scripts/package-sidecar-windows.ps1).
+									-->
+									<jvmArguments>--enable-native-access=ALL-UNNAMED</jvmArguments>
+									<!--
 										Stejne vylouceni jako u repackage: bez nej by
 										process-aot vygeneroval springdoc
 										__BeanDefinitions classy, ktere by za behu
