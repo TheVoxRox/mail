@@ -41,6 +41,9 @@ Entries before 2026-09-17 predate that split and are left as written.
   extracted layout starts faster without it than the executable jar did with
   it. Recorded in `docs/DECISIONS.md` with what reopens it, and the runbook
   and the packaging script that promised its return point at it (#866).
+- The backend's build plugins move up: Spotless 3.11.0, whose new default of
+  google-java-format 2.0 does not apply here, since the formatter is the
+  pinned Eclipse 4.37, and PIT 1.30.2 for the mutation runs (#877).
 
 - The `v0.2.0-beta.3` sheet records what was taken after publishing, as its §9
   approved: the first update through the updater itself, from 0.2.0-beta.2 on
