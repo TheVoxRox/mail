@@ -164,7 +164,7 @@
     "reviewedTrees": {
       "frontend/src-tauri/tauri.conf.json": "83dc89c9108fa682527af7a52fb1c9b66b525293",
       "frontend/src/lib/components/settings/AboutSettings.svelte": "b282710648cfa025cd4566873263dcc529970682",
-      ".github/workflows/windows-signed-release.yml": "77f306b502b1b8cf7591eed23c8ea4c60b40a6a2",
+      ".github/workflows/windows-signed-release.yml": "50af5470b91a50e97f8bcd796592db8274202d0f",
       "frontend/src-tauri/src": "21ffca8b4140234e40d8e3afc7f8231d97eda797"
     },
     "acknowledgements": [
@@ -187,6 +187,10 @@
       {
         "date": "2026-11-07",
         "note": "The one change under frontend/src-tauri/src is in lib.rs: the main window's WebviewWindowBuilder gains general_autofill_enabled(false) and a comment saying why (WebView2's form-suggestion popup was unreadable to a screen reader on the New account page). It switches off a WebView2 setting and nothing else: generate_handler! is untouched, so the renderer can invoke the same commands; no updater command, endpoint, channel map, pinned pubkey, pending slot or capability changes; webview_defaults.rs and the browser arguments are byte-identical. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-09",
+        "note": "#878, a dependabot bump of the github-actions-minor-patch group. The one change in windows-signed-release.yml is the Setup Java step's actions/setup-java, v6.1.0 (b843ebf9) to v6.2.0 (77dd5b2c), still pinned to a 40-hex commit. That step runs in build-signed-windows, the job with contents: read and no updater key; publish-release, which holds the key, does not use setup-java, and none of its lines moved. Every other step, permission, environment, pin and run: block is byte-identical (U-1, U-2 and U-3 hold). v6.2.0 fixes Liberica patch resolution and updates its bundled Undici; the step installs Temurin 25 as before. Verdict unchanged."
       }
     ]
   }
