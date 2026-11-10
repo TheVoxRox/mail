@@ -14,6 +14,7 @@ import {
 } from '#lib/mail/mailbox.js';
 import { localeKeywords, type Command } from '#lib/commands/shared.js';
 import { printOpenMessage, type PrintableSelection } from '#lib/mail/printMessages.js';
+import type { RemoteImageOffer } from '#lib/mail/remoteImageOffer.js';
 import { SHORTCUT_LABELS } from '#lib/shortcuts/shortcutLabels.js';
 import type { FolderResponse } from '#lib/types.js';
 
@@ -31,6 +32,8 @@ interface MailCommandOptions {
 	stableId: string | null;
 	/** The ticked rows of the list in view, when there are any. */
 	printableSelection: PrintableSelection | null;
+	/** The open message's blocked remote images, while its banner is on screen. */
+	remoteImageOffer: RemoteImageOffer | null;
 }
 
 function mailRouteAvailable(pathname: string): boolean {
@@ -49,7 +52,8 @@ export function createMailCommands(options: MailCommandOptions): Command[] {
 		pathname,
 		selectedDetail,
 		stableId,
-		printableSelection
+		printableSelection,
+		remoteImageOffer
 	} = options;
 	const currentFolderName = decodeURIComponent(pathname.split('/')[3] ?? '');
 	const moveTargets = folders.filter((folder) => folder.folderRef !== currentFolderName);
@@ -126,8 +130,41 @@ export function createMailCommands(options: MailCommandOptions): Command[] {
 
 	if (!stableId || !messageRouteAvailable(pathname)) return commands;
 
+	/*
+	 * Listed only while there is something to load, like "Print selection"
+	 * above: an entry that would answer "nothing is blocked" for most messages
+	 * is noise in every search for "images". It loads outright, as the banner's
+	 * first button does, and then moves focus to the body itself — so it runs
+	 * after the palette has closed (no restoreFocus), or the dialog's focus trap
+	 * would take that move back. No shortcut label: Ctrl+Shift+W goes to the
+	 * banner, it does not load. An offer left over from another message is not
+	 * this message's to make.
+	 */
+	const loadImages: Command[] =
+		remoteImageOffer?.stableId === stableId
+			? [
+					{
+						id: 'mail.loadRemoteImages',
+						titleKey: 'command.loadRemoteImages',
+						groupKey: 'mail',
+						keywords: localeKeywords(
+							locale,
+							['obrazky', 'nacist', 'zobrazit', 'blokovane'],
+							['images', 'pictures', 'load', 'download', 'blocked']
+						),
+						icon: 'arrow-down-tray',
+						contexts: ['mail'],
+						routePrefixes: ['/mail/'],
+						priority: 56,
+						available: () => true,
+						run: () => remoteImageOffer.load()
+					}
+				]
+			: [];
+
 	return [
 		...commands,
+		...loadImages,
 		{
 			id: 'mail.reply',
 			titleKey: 'command.reply',

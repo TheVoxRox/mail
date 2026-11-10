@@ -1285,7 +1285,12 @@ export interface components {
 		MailContentResponse: {
 			content?: string;
 			/**
-			 * @description Whether the sender is already trusted to load remote images.
+			 * @description Whether the client may offer to trust the sender for remote images. False for a message in a Junk folder, where the allow-list is not applied.
+			 * @example true
+			 */
+			remoteImageTrustOffered?: boolean;
+			/**
+			 * @description Whether the sender is already trusted to load remote images. Always false for a message in a Junk folder.
 			 * @example false
 			 */
 			remoteImagesAllowedForSender?: boolean;

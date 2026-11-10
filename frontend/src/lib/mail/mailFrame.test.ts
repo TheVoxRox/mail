@@ -304,6 +304,16 @@ describe('MAIL_FRAME_SCRIPT keyboard forwarding', () => {
 		expect(press({ key: 'I', code: 'KeyI', ctrlKey: true, shiftKey: true })).toBe(true);
 	});
 
+	// Outlook's "go to the InfoBar"; here it moves focus to the blocked-images
+	// offer, which sits just above this very frame.
+	it('cancels Ctrl+Shift+W, which the app claims as go to the blocked-images offer', () => {
+		expect(press({ key: 'W', code: 'KeyW', ctrlKey: true, shiftKey: true })).toBe(true);
+	});
+
+	it('leaves Ctrl+W alone, which the app claims only with Shift', () => {
+		expect(press({ key: 'w', code: 'KeyW', ctrlKey: true })).toBe(false);
+	});
+
 	/*
 	 * The other half of that rule. handleGlobalKeydown matches Ctrl+K, Ctrl+F,
 	 * Ctrl+Q, Ctrl+U and the code-matched Ctrl+N / Ctrl+1-3 under

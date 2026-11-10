@@ -25,6 +25,7 @@ function makeHandlers(overrides: Partial<GlobalShortcutHandlers> = {}): GlobalSh
 		archiveMessage: vi.fn(),
 		printOpenMessage: vi.fn(),
 		announceNothingToPrint: vi.fn(),
+		goToRemoteImageOffer: vi.fn(),
 		isFocusInOpenMessage: () => false,
 		hasPrintableSelection: () => false,
 		printSelection: vi.fn(),
@@ -351,6 +352,31 @@ describe('handleGlobalKeydown — message actions', () => {
 		const h = openMessageHandlers();
 		handleGlobalKeydown(makeEvent({ key: 'g', ctrlKey: true, shiftKey: true }), h);
 		expect(h.toggleFlag).toHaveBeenCalledOnce();
+	});
+
+	it('Ctrl+Shift+W goes to the blocked-images offer and consumes the key', () => {
+		const h = openMessageHandlers();
+		const ev = makeEvent({ key: 'W', ctrlKey: true, shiftKey: true });
+		const prevent = vi.spyOn(ev, 'preventDefault');
+		handleGlobalKeydown(ev, h);
+		expect(h.goToRemoteImageOffer).toHaveBeenCalledOnce();
+		expect(prevent).toHaveBeenCalled();
+	});
+
+	it('Ctrl+W without Shift is not the blocked-images key', () => {
+		const h = openMessageHandlers();
+		const ev = makeEvent({ key: 'w', ctrlKey: true });
+		handleGlobalKeydown(ev, h);
+		expect(h.goToRemoteImageOffer).not.toHaveBeenCalled();
+		expect(ev.defaultPrevented).toBe(false);
+	});
+
+	it('Ctrl+Shift+W does nothing with no message open', () => {
+		const h = makeHandlers();
+		const ev = makeEvent({ key: 'W', ctrlKey: true, shiftKey: true });
+		handleGlobalKeydown(ev, h);
+		expect(h.goToRemoteImageOffer).not.toHaveBeenCalled();
+		expect(ev.defaultPrevented).toBe(false);
 	});
 
 	it('Ctrl+Q asks for read and consumes the key', () => {

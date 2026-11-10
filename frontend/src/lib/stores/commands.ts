@@ -3,6 +3,7 @@ import type { Command } from '#lib/commands/shared.js';
 import { createAccountCommands, createFolderCommands } from '#lib/commands/accountCommands.js';
 import { createMailCommands } from '#lib/commands/mailCommands.js';
 import { printableSelection } from '#lib/mail/printMessages.js';
+import { remoteImageOffer } from '#lib/mail/remoteImageOffer.js';
 import { createViewCommands } from '#lib/commands/viewCommands.js';
 import { createWorkspaceCommands } from '#lib/commands/workspaceCommands.js';
 import { activeAccountId, accountsState } from '#lib/stores/accounts.js';
@@ -39,6 +40,7 @@ export const commandsFor: Readable<(pathname: string) => Command[]> = derived(
 		appLocale,
 		themePreference,
 		printableSelection,
+		remoteImageOffer,
 		_
 	],
 	([
@@ -50,6 +52,7 @@ export const commandsFor: Readable<(pathname: string) => Command[]> = derived(
 		$appLocale,
 		$themePreference,
 		$printableSelection,
+		$remoteImageOffer,
 		$t
 	]) =>
 		(pathname: string): Command[] => {
@@ -77,7 +80,8 @@ export const commandsFor: Readable<(pathname: string) => Command[]> = derived(
 					pathname,
 					selectedDetail,
 					stableId,
-					printableSelection: $printableSelection
+					printableSelection: $printableSelection,
+					remoteImageOffer: $remoteImageOffer
 				}),
 				...createViewCommands($appLocale, $themePreference)
 			];

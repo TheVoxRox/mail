@@ -15,8 +15,9 @@
 	} from '#lib/mail/mailFrame.js';
 	import { bodyFocusIntent, clearBodyFocusIntent, shouldFocusBody } from '#lib/mail/bodyFocus.js';
 	import { mailHtmlToPlainText } from '#lib/mail/content-sanitizer.js';
-	import { allowSenderRemoteImages } from '#lib/api/remoteImages.js';
-	import { pushToast } from '#lib/stores/toasts.js';
+	import { trustRemoteImageSender } from '#lib/mail/remoteImageTrust.js';
+	import { publishRemoteImageOffer } from '#lib/mail/remoteImageOffer.js';
+	import { announcePolite, pushToast } from '#lib/stores/toasts.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { messageBodyView } from '#lib/stores/uiLayout.js';
 	import { textSize } from '#lib/stores/textSize.js';
@@ -32,6 +33,8 @@
 		senderEmail: string;
 		accountId: number;
 		remoteImagesAllowedForSender: boolean;
+		/** False in a Junk folder: the banner then offers this message's images only. */
+		remoteImageTrustOffered: boolean;
 		/**
 		 * Rendered for paper only, inside MessagePrintSheet, where several bodies
 		 * sit side by side in an inert container. The body never takes focus and
@@ -53,6 +56,7 @@
 		senderEmail,
 		accountId,
 		remoteImagesAllowedForSender,
+		remoteImageTrustOffered,
 		printOnly = false,
 		onPrintReady
 	}: Props = $props();
@@ -104,6 +108,17 @@
 	let allowInFlight = $state(false);
 
 	/*
+	 * Trusting the sender is offered only where it can be kept and where the
+	 * backend will honor it. Without an account or an address there is no key to
+	 * store it under; in a Junk folder the backend does not apply the list at
+	 * all (remoteImageTrustOffered), because its key is the From address and junk
+	 * is where a message forged in a trusted name ends up. A button that says
+	 * "always" and then remembers nothing is worse than no button, so the banner
+	 * is left with the one that loads this message.
+	 */
+	const canTrustSender = $derived(remoteImageTrustOffered && accountId > 0 && senderEmail !== '');
+
+	/*
 	 * Loading the images unmounts the banner the pressed button lives in, and the
 	 * button takes focus down with it — focus falls back to <body>, where a
 	 * screen reader has nothing to read and no way back except the landmark key.
@@ -124,18 +139,20 @@
 		});
 	}
 
-	/* "Always from this sender": persist to the allow-list, then load for this view. */
+	/*
+	 * "Always from <address>": persist to the allow-list, then load for this
+	 * view. The button and the announcement both name the address, because the
+	 * address is what gets trusted — the bare one from the From header, which a
+	 * display name can differ from.
+	 */
 	async function trustSender(): Promise<void> {
-		if (accountId <= 0 || !senderEmail) {
-			// No key to persist against — still honor the intent for this view only,
-			// and announce only that, because nothing was remembered.
-			revealRemoteImages($_('detail.remoteImages.loadedAnnouncement'));
-			return;
-		}
+		if (!canTrustSender) return;
 		allowInFlight = true;
 		try {
-			await allowSenderRemoteImages(accountId, senderEmail);
-			revealRemoteImages($_('detail.remoteImages.senderAllowedAnnouncement'));
+			await trustRemoteImageSender(accountId, senderEmail);
+			revealRemoteImages(
+				$_('detail.remoteImages.senderAllowedAnnouncement', { values: { email: senderEmail } })
+			);
 		} catch (error) {
 			console.warn('[mail] failed to trust sender for remote images', error);
 			pushToast($_('detail.remoteImages.allowError'), { tone: 'error' });
@@ -143,6 +160,22 @@
 			allowInFlight = false;
 		}
 	}
+
+	/*
+	 * While the banner is on screen, the palette command and Ctrl+Shift+W can
+	 * reach it (see mail/remoteImageOffer.ts). The print sheet's copies never
+	 * publish: they have no banner, and one of them would otherwise answer for
+	 * the message in the reading pane.
+	 */
+	let loadButton = $state<HTMLElement | null>(null);
+	$effect(() => {
+		if (!showRemoteBanner || printOnly) return;
+		return publishRemoteImageOffer({
+			stableId,
+			load: () => revealRemoteImages($_('detail.remoteImages.loadedAnnouncement')),
+			focus: () => loadButton?.focus()
+		});
+	});
 
 	let frameElement = $state<HTMLIFrameElement | null>(null);
 	let textElement = $state<HTMLElement | null>(null);
@@ -175,7 +208,23 @@
 		// palette focus restore).
 		clearBodyFocusIntent();
 		requestAnimationFrame(() => {
-			if (target.isConnected) target.focus();
+			if (!target.isConnected) return;
+			target.focus();
+			/*
+			 * The reading cursor has just gone past the blocked-images banner, which
+			 * is silent, so a deliberate open says in one short sentence that the
+			 * message has images it did not load. This is the announcement the
+			 * banner lost when it stopped being a live region (see the comment on
+			 * it below), back on the one path where it was wanted: as a live region
+			 * it could not tell an open from a row change that follows focus, and
+			 * read itself out on every arrow key in the split pane. Whether to take
+			 * focus is decided by exactly that difference, so the sentence rides on
+			 * the same decision and a followed row stays quiet. After the focus
+			 * call, so a screen reader queues it behind what the move makes it say.
+			 * Read here rather than in the effect, which must not re-run when the
+			 * banner goes.
+			 */
+			if (showRemoteBanner) announcePolite($_('detail.remoteImages.blockedAnnouncement'));
 		});
 	});
 
@@ -325,7 +374,9 @@
 				testers who heard "remote images blocked (1)" could not tell what the
 				region was for. Each button name stands on its own for the same
 				reason — tabbing reaches the buttons without passing the text, and
-				"Always from this sender" did not say what would happen always.
+				"Always from this sender" did not say what would happen always. The
+				second one names the address it will trust, and is left out where
+				that trust cannot be given (see canTrustSender).
 
 				A named region, deliberately NOT a live region. It used to be
 				`aria-live="polite"` so that opening a message would mention the
@@ -335,8 +386,11 @@
 				pane reloads per row, and the region read itself out in full —
 				label, count and both button names — on top of the row the reader
 				had just announced. The banner is still reachable without it: the
-				region is named, so the landmark key (D) reaches it, and both
-				buttons sit in the tab order between the row and the body.
+				region is named, so the landmark key (D) reaches it, both buttons
+				sit in the tab order between the row and the body, Ctrl+Shift+W
+				moves focus to the first of them, and the palette loads the images.
+				The deliberate open has its mention back by another route: one
+				sentence, pushed where the body takes focus, never by this region.
 
 				Pressing either button unmounts this entire region, so neither
 				button can be what reports the result — see revealRemoteImages.
@@ -351,15 +405,18 @@
 				</p>
 				<div class="ml-auto flex gap-2">
 					<Button
+						bind:ref={loadButton}
 						variant="outline"
 						size="sm"
 						onclick={() => revealRemoteImages($_('detail.remoteImages.loadedAnnouncement'))}
 					>
 						{$_('detail.remoteImages.load')}
 					</Button>
-					<Button variant="ghost" size="sm" disabled={allowInFlight} onclick={trustSender}>
-						{$_('detail.remoteImages.alwaysAllow')}
-					</Button>
+					{#if canTrustSender}
+						<Button variant="ghost" size="sm" disabled={allowInFlight} onclick={trustSender}>
+							{$_('detail.remoteImages.alwaysAllow', { values: { email: senderEmail } })}
+						</Button>
+					{/if}
 				</div>
 			</div>
 		{/if}

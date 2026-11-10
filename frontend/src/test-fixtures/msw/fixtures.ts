@@ -21,13 +21,25 @@ import type {
 	ThreadResponse
 } from '#lib/types.js';
 
+export type StoredMailContent = Pick<MailContentResponse, 'content' | 'senderEmail'>;
+
 export interface E2EFixtureState {
 	accounts: AccountResponse[];
 	providers: MailProviderResponse[];
 	foldersByAccount: Record<number, FolderResponse[]>;
 	messagesByFolder: Record<string, MailSummaryResponse[]>;
 	messageDetails: Record<string, MailDetailResponse>;
-	messageContents: Record<string, MailContentResponse>;
+	/**
+	 * Body and sender only. The two remote-image flags of the content endpoint
+	 * are not stored: the backend derives them per request from the folder's
+	 * role and the allow-list, and so does the mock (`remoteImageFlagsFor`).
+	 */
+	messageContents: Record<string, StoredMailContent>;
+	/**
+	 * Senders trusted to load remote images, per account, as the backend keeps
+	 * them: normalized, and listed in address order.
+	 */
+	remoteImageAllowlist: Record<number, string[]>;
 	/** One address book for the whole app — deliberately not keyed by account. */
 	contacts: ContactResponse[];
 	contactLabels: ContactLabelResponse[];
@@ -124,6 +136,30 @@ function makeDetail(summary: MailSummaryResponse): MailDetailResponse {
  */
 export function plainBodyFor(detail: MailDetailResponse): string {
 	return `Text zprávy ${detail.subject}`;
+}
+
+/**
+ * The remote-image flags of the content endpoint, derived as
+ * `MailFacade.getMessageContentOnly` derives them: in a folder with the JUNK
+ * role the allow-list is neither applied nor offered, anywhere else the sender
+ * is looked up in the account's list.
+ */
+export function remoteImageFlagsFor(
+	detail: MailDetailResponse,
+	senderEmail: string
+): Pick<MailContentResponse, 'remoteImagesAllowedForSender' | 'remoteImageTrustOffered'> {
+	const owner = Object.entries(fixtureState.messagesByFolder).find(([, messages]) =>
+		messages.some((message) => message.stableId === detail.stableId)
+	);
+	const accountId = owner ? Number(owner[0].split(':')[0]) : null;
+	const folders = accountId === null ? [] : (fixtureState.foldersByAccount[accountId] ?? []);
+	const inJunk = folders.some(
+		(folder) => folder.folderRef === detail.folderName && folder.role === 'JUNK'
+	);
+	const trusted =
+		accountId !== null &&
+		(fixtureState.remoteImageAllowlist[accountId] ?? []).includes(senderEmail.trim().toLowerCase());
+	return { remoteImagesAllowedForSender: !inJunk && trusted, remoteImageTrustOffered: !inJunk };
 }
 
 function pageOf<T>(content: T[], page: number, size: number): PagedResponse<T> {
@@ -494,12 +530,22 @@ function createInitialState(): E2EFixtureState {
 									? // A text/plain body exactly as the backend wraps it after
 										// linkifying a bare URL (HtmlSanitizer.escapePlainText, audit F4).
 										`<div class='mail-content-wrapper' style='all: revert;'><pre>Textová zpráva bez HTML.\nOdkaz: <a href="https://example.com/plain">https://example.com/plain</a> na konci.</pre></div>`
-									: `<p>HTML obsah pro <strong>${message.subject}</strong>.</p>`,
-					senderEmail: 'newsletter@example.com',
-					remoteImagesAllowedForSender: false
+									: message.stableId === 'junk-plan-01'
+										? // The one junk message, with a remote image: the case
+											// where the allow-list is neither applied nor offered.
+											`<div><p>Výhra pro <strong>${message.subject}</strong>.</p><img data-voxrox-remote-src="https://cdn.example.test/prize.png" alt="výhra"></div>`
+										: `<p>HTML obsah pro <strong>${message.subject}</strong>.</p>`,
+					senderEmail: 'newsletter@example.com'
 				}
 			])
 		),
+		// Neither address is the one the message fixtures carry
+		// (newsletter@example.com), so every message still opens with its images
+		// blocked. Account 2 has none: the empty state of the settings list.
+		remoteImageAllowlist: {
+			1: ['faktury@example.com', 'novinky@example.com'],
+			2: []
+		},
 		contacts: [
 			{
 				id: 1,
@@ -1203,8 +1249,7 @@ export function draftToSummary(
 	};
 	fixtureState.messageContents[stableId] = {
 		content: body.body ?? '',
-		senderEmail: 'me@example.com',
-		remoteImagesAllowedForSender: false
+		senderEmail: 'me@example.com'
 	};
 	return summary;
 }

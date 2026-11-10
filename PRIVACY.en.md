@@ -1,6 +1,6 @@
 # Privacy Policy — VoxRox Mail
 
-_Version: 2026-11-09 (draft, pre-first-release). This version is preliminary
+_Version: 2026-11-10 (draft, pre-first-release). This version is preliminary
 and has not yet been reviewed by a lawyer — see "Open items" at the bottom._
 
 _Česká verze: [PRIVACY.md](PRIVACY.md)._
@@ -129,16 +129,22 @@ The application initiates network traffic only in these cases:
    channel choice is stored locally only).
 4. **Loading remote images in a message — only when you allow it.** Images
    referenced by an HTML message are **not fetched** by default; the
-   application blocks them and shows "Remote images blocked" above the
-   message. Only when you click **"Load images"** (once, for that message) or
-   **"Always from this sender"** (permanently — the trusted-sender list is
-   stored locally in the database) does the application fetch the images
-   directly from the servers the message points at. Those servers are **not
-   under VoxRox's control** — they belong to the sender or their mailing
-   platform. On such a request the operator of that server sees your **IP
-   address** and the time of loading, and can infer that you opened the
-   message (a tracking pixel). That is exactly why remote images stay blocked
-   until you allow them.
+   application blocks them and says so above the message, in the area named
+   "Blocked images from the internet". Only when you choose **"Load images"**
+   (once, for that message) or **"Always load images from"** followed by the
+   sender's address (permanently — the trusted-sender list is stored locally
+   in the database) does the application fetch the images directly from the
+   servers the message points at. Those servers are **not under VoxRox's
+   control** — they belong to the sender or their mailing platform. On such a
+   request the operator of that server sees your **IP address** and the time
+   of loading, and can infer that you opened the message (a tracking pixel).
+   That is exactly why remote images stay blocked until you allow them. You
+   can remove a sender from the list at any time in Settings → Accounts → edit
+   the account, under "Images from the internet"; that sender's messages then
+   open with their images blocked again. In the junk folder (Spam) images
+   never load on their own, not even from a sender on the list, because a
+   sender's address can be forged, and the permanent option is not offered
+   there.
 
 The application **does not send** your e-mails, contacts or activity to any
 VoxRox server or third-party analytics platform.

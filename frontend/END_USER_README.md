@@ -39,7 +39,9 @@ IMAP/SMTP servery a poskytuje API pro uživatelské rozhraní.
 - Správa kontaktů, vlastní štítky kontaktů (Rodina, Klienti, …) a export
   kontaktů do vCard.
 - Blokování vzdálených obrázků ve zprávách s možností je povolit jednorázově
-  nebo trvale pro konkrétního odesílatele (viz [PRIVACY.md](../PRIVACY.md)).
+  nebo trvale pro konkrétního odesílatele. Trvalé povolení jde kdykoli odebrat
+  v nastavení účtu a ve složce Spam se nepoužije (viz
+  [PRIVACY.md](../PRIVACY.md)).
 - Ovládání klávesnicí s výpisem zkratek v Nastavení → Klávesové zkratky;
   volba vzhledu (světlý/tmavý), rozložení čtení a jazyka rozhraní.
 - Lokální diagnostické logy pro podporu.

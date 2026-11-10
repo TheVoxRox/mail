@@ -21,6 +21,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- [DECISIONS.md](docs/DECISIONS.md) records how remote-image trust works after
+  a comparison with Gmail, Outlook, Thunderbird and Apple Mail, and what was
+  considered and not built (domain trust, a global "always load"). The
+  IMAP/SMTP audit (1.85) and the content-rendering audit (2.2) are trued to it,
+  with the threat model's Boundary 4 row; the API-surface audit acknowledges
+  the new field of the content response (#889).
 - The backend build no longer asks the two repositories Flyway's parent POM
   declares behind a login for their prefix file, so Maven stops logging two
   `HTTP Status: 401` warnings on every run (#888).
@@ -109,6 +115,14 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Backend
 
+- A sender trusted to load remote images is not trusted in the junk folder. The
+  list is keyed on the `From` address, which anyone can write, and junk is
+  where a server files a message forged in a trusted sender's name: its images
+  loaded on open and told the forger the address is read. For a message in a
+  folder synced as Junk the content endpoint now answers
+  `remoteImagesAllowedForSender: false`, and a new `remoteImageTrustOffered`,
+  also `false` there, tells the client not to offer the permanent option.
+  Loading that one message's images is still a press away (#889).
 - `sync_completed` carries `arrivedMessagesCount` next to
   `newMessagesCount`: the mail that has just arrived, downloaded above the
   folder's existing mirror into the Inbox or Newsletters. A first sync's
@@ -146,6 +160,31 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- Trusting a sender to load images from the internet can be taken back.
+  Settings → Accounts → an account now lists the senders whose images load on
+  their own, under "Obrázky z internetu", each with a button to remove it.
+  "Vždy načítat obrázky" in a message used to be a one-way door: the list
+  existed, and nothing in the app showed it. A message of a removed sender
+  opens with its images blocked again, one already opened before included
+  (#889).
+- The banner's second button names the address it trusts, "Vždy načítat
+  obrázky od news@example.com", as does the announcement that follows. The
+  address is what is remembered, and the sender's displayed name can say
+  something else. The button is not offered in the Spam folder, where a trusted
+  sender's images no longer load on their own either (#889).
+- Ctrl+Shift+W in an open message moves focus to the blocked-images banner,
+  the key Outlook uses for the strip under a message's header; a message with
+  nothing blocked says so. The command palette gains "Načíst obrázky z
+  internetu v této zprávě" while there is something to load. Opening a message
+  puts the reading cursor in the body, past the banner, and the banner is
+  silent by design, so until now it took the landmark key or Shift+Tab to find
+  it. PRIVACY.md describes the banner as it now reads; voxrox.org is not yet
+  resynced (#889).
+- Opening a message with Enter or a click now says "Obrázky z internetu jsou
+  blokované." when it has images it did not load. The banner used to announce
+  itself and was silenced, because in the split pane it did so on every arrow
+  key; the sentence is tied to a deliberate open, so paging through the list
+  stays quiet (#889).
 - The new-mail toast announces only mail that arrived, the count the Windows
   notification already used. It announced every folder that downloaded
   something: the copy of a message the user had just sent came back with the

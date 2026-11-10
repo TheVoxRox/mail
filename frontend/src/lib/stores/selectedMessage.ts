@@ -157,6 +157,28 @@ export function invalidateMessage(stableId: string): void {
 	contentCache.delete(stableId);
 }
 
+/**
+ * Forgets the cached bodies of one sender's messages, so the next open asks
+ * the backend again.
+ *
+ * A cached body carries `remoteImagesAllowedForSender` as it was when the body
+ * was fetched. Trusting a sender, or taking that trust back in the account
+ * settings, changes the answer for every message of theirs at once, and a
+ * message reopened from the cache would go on acting on the old one: images
+ * loading by themselves from a sender the user had just removed, for as long
+ * as the entry stayed in the cache. Dropped rather than patched, because the
+ * flag is the backend's to derive — it depends on the account and on the
+ * folder's role, and a cached body knows neither.
+ */
+export function forgetContentFromSender(senderEmail: string): void {
+	const sender = senderEmail.trim().toLowerCase();
+	for (const [stableId, content] of contentCache) {
+		// Optional on the wire (see schema.d.ts), whatever types.ts promises.
+		const cachedSender: string | undefined = content.senderEmail;
+		if ((cachedSender ?? '').trim().toLowerCase() === sender) contentCache.delete(stableId);
+	}
+}
+
 export function patchSelectedMessageDetail(
 	stableId: string,
 	patch: Partial<MailDetailResponse>

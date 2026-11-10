@@ -1,6 +1,6 @@
 # Zásady ochrany soukromí — VoxRox Mail
 
-_Verze: 2026-11-09 (návrh před prvním vydáním). Tato verze je předběžná a ještě
+_Verze: 2026-11-10 (návrh před prvním vydáním). Tato verze je předběžná a ještě
 nebyla schválena právníkem — viz sekce „Otevřené body" na konci dokumentu._
 
 _English version: [PRIVACY.en.md](PRIVACY.en.md)._
@@ -125,15 +125,20 @@ Aplikace zahájí síťovou komunikaci jen v těchto případech:
    neodesílají (volba kanálu zůstává uložená jen lokálně).
 4. **Načtení vzdálených obrázků ve zprávě — jen když to sami povolíte.**
    Obrázky odkazované z HTML zprávy se ve výchozím stavu **nestahují**;
-   aplikace je zablokuje a nad zprávou zobrazí „Vzdálené obrázky blokovány".
-   Teprve když kliknete na **„Načíst obrázky"** (jednorázově pro danou zprávu),
-   nebo na **„Vždy od tohoto odesílatele"** (trvale, seznam důvěryhodných
-   odesílatelů se ukládá lokálně v databázi), stáhne aplikace obrázky přímo ze
-   serverů, na které zpráva odkazuje. Ty **nejsou pod kontrolou VoxRoxu** — jsou
-   to servery odesílatele nebo jeho rozesílací platformy. Při stažení uvidí
-   provozovatel takového serveru vaši **IP adresu** a čas načtení a může z toho
-   odvodit, že jste zprávu otevřeli (tzv. sledovací pixel). Právě proto jsou
-   vzdálené obrázky blokované, dokud je nepovolíte.
+   aplikace je zablokuje a nad zprávou to řekne v oblasti „Blokované obrázky z
+   internetu". Teprve když zvolíte **„Načíst obrázky"** (jednorázově pro danou
+   zprávu), nebo **„Vždy načítat obrázky od"** s adresou odesílatele (trvale,
+   seznam důvěryhodných odesílatelů se ukládá lokálně v databázi), stáhne
+   aplikace obrázky přímo ze serverů, na které zpráva odkazuje. Ty **nejsou pod
+   kontrolou VoxRoxu** — jsou to servery odesílatele nebo jeho rozesílací
+   platformy. Při stažení uvidí provozovatel takového serveru vaši **IP adresu**
+   a čas načtení a může z toho odvodit, že jste zprávu otevřeli (tzv. sledovací
+   pixel). Právě proto jsou vzdálené obrázky blokované, dokud je nepovolíte.
+   Odesílatele ze seznamu kdykoli odeberete v Nastavení → Účty → úprava účtu, v
+   části „Obrázky z internetu"; jeho zprávy se pak znovu otevírají s
+   blokovanými obrázky. Ve složce nevyžádané pošty (Spam) se obrázky samy
+   nenačtou ani od odesílatele ze seznamu, protože adresu odesílatele lze
+   podvrhnout, a trvalé povolení se tam nenabízí.
 
 Aplikace **neposílá** vaše e-maily, kontakty ani aktivitu na servery VoxRox
 ani na žádnou analytickou platformu třetí strany.

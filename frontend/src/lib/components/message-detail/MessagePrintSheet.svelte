@@ -116,6 +116,7 @@
 					senderEmail={item.content.senderEmail}
 					accountId={$resolvedActiveAccountId ?? 0}
 					remoteImagesAllowedForSender={item.content.remoteImagesAllowedForSender}
+					remoteImageTrustOffered={item.content.remoteImageTrustOffered}
 					onPrintReady={markReady}
 				/>
 			</article>

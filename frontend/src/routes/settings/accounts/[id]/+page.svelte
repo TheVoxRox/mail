@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import AccountForm from '#lib/components/AccountForm.svelte';
+	import RemoteImageSenderList from '#lib/components/RemoteImageSenderList.svelte';
 	import { getAccount, updateAccount } from '#lib/api/accounts.js';
 	import { confirmAndDeleteAccount } from '#lib/accounts/deleteAccount.js';
 	import { toErrorMessage } from '#lib/api/errors.js';
@@ -65,7 +66,7 @@
 		? $_('accounts.headingEditWithName', { values: { name: account.accountName } })
 		: $_('accounts.headingEdit')}
 	description={$_('settings.accounts.description')}
-	contentClass="max-w-4xl"
+	contentClass="max-w-4xl space-y-4"
 >
 	{#snippet actions()}
 		<Button variant="link" size="sm" href={resolve('settings/accounts')}
@@ -112,5 +113,6 @@
 				{/if}
 			</div>
 		</Surface>
+		<RemoteImageSenderList accountId={data.id} />
 	{/if}
 </PageShell>

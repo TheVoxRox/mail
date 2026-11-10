@@ -224,11 +224,13 @@
 		"remoteImages": {
 			"blocked": "{count, plural, one {Zpráva obsahuje {count} obrázek z internetu, který jsme nenačetli.} few {Zpráva obsahuje {count} obrázky z internetu, které jsme nenačetli.} other {Zpráva obsahuje {count} obrázků z internetu, které jsme nenačetli.}} Načtení obrázků z internetu může odesílateli prozradit, že jste zprávu otevřeli.",
 			"load": "Načíst obrázky",
-			"alwaysAllow": "Vždy načítat obrázky od tohoto odesílatele",
+			"alwaysAllow": "Vždy načítat obrázky od {email}",
 			"allowError": "Odesílatele se nepodařilo přidat mezi důvěryhodné. Zkuste to znovu.",
 			"regionLabel": "Blokované obrázky z internetu",
 			"loadedAnnouncement": "Obrázky z internetu načteny.",
-			"senderAllowedAnnouncement": "Obrázky od tohoto odesílatele se budou načítat vždy, obrázky v této zprávě jsou načtené."
+			"senderAllowedAnnouncement": "Obrázky od {email} se budou načítat vždy, obrázky v této zprávě jsou načtené.",
+			"noneBlocked": "Tato zpráva nemá žádné blokované obrázky z internetu.",
+			"blockedAnnouncement": "Obrázky z internetu jsou blokované."
 		}
 	},
 	"compose": {
@@ -331,6 +333,16 @@
 		"reauth": "Znovu přihlásit",
 		"reauthStarting": "Otevírám prohlížeč…",
 		"deleteAccount": "Smazat účet",
+		"remoteImages": {
+			"heading": "Obrázky z internetu",
+			"description": "Od těchto odesílatelů se obrázky z internetu načítají samy. U všech ostatních zůstávají blokované, dokud je ve zprávě nenačtete. Ve složce Spam se nenačítají samy od nikoho.",
+			"empty": "Zatím tu není žádný odesílatel. Přidáte ho ve zprávě s blokovanými obrázky tlačítkem Vždy načítat obrázky.",
+			"removeShort": "Odebrat",
+			"remove": "Odebrat {email}",
+			"removed": "Obrázky od {email} se už nebudou načítat samy.",
+			"removeError": "Odesílatele {email} se nepodařilo odebrat. Zkuste to znovu.",
+			"loadError": "Seznam odesílatelů se nepodařilo načíst: {message}"
+		},
 		"deleteConfirm": "Opravdu smazat účet „{name}“?",
 		"deleteConfirmTitle": "Smazat účet",
 		"deletedToast": "Účet odstraněn.",
@@ -727,6 +739,7 @@
 				"deleteMessage": "Smazat zprávu",
 				"archiveMessage": "Přesunout zprávu do složky Archiv",
 				"printMessage": "Vytisknout zprávu nebo vybrané zprávy",
+				"remoteImageOffer": "Přejít na nabídku načtení blokovaných obrázků z internetu",
 				"closeMessage": "Zavřít zprávu a vrátit fokus do seznamu",
 				"listPrevNextMessage": "Předchozí / další zpráva",
 				"listPrevNextCell": "Předchozí / další buňka řádku",
@@ -896,6 +909,7 @@
 		"deleteMessage": "Smazat zprávu",
 		"moveMessageToFolder": "Přesunout do složky {folder}",
 		"print": "Vytisknout zprávu",
+		"loadRemoteImages": "Načíst obrázky z internetu v této zprávě",
 		"printSelection": "Vytisknout výběr: {summary}"
 	},
 	"workspace": {
