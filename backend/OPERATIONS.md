@@ -427,9 +427,11 @@ Two properties follow, and the rest of this section rests on them:
 1. Set the prerelease version (`0.2.0-beta.1`) in `tauri.conf.json`/`package.json`/`version.ts` and tag `v0.2.0-beta.1`. The release workflow checks that the tag matches the version, and a prerelease-suffixed tag creates the release with `--prerelease`; if the release already exists (pre-drafted notes, a partial earlier run), the workflow adds the flag through `gh release edit` — without it, publishing would hand the beta build to the `releases/latest` redirect of the stable channel.
 2. After a manual Publish of the release, `beta-channel.yml` overwrites `beta/latest.json`. The stable channel does not see the build — the `releases/latest` redirect skips prereleases.
 
+A beta candidate is checked by the machine half of the release checklist and §9, not by its manual sections ([DECISIONS.md](../docs/DECISIONS.md), "A beta takes no manual section; the promotion takes them once"); the testers on the beta channel are the wider circle the model is for.
+
 ### Promotion to stable
 
-Ship a full version (no suffix) through the ordinary release process, in its promotion shape: [RELEASE_PROCESS.md](../docs/RELEASE_PROCESS.md) "What a release runs" — the machine half, the update smoke and the channel check run again, and the manual sections carry from the beta when the code did not change. Publishing triggers `beta-channel.yml` here too, so beta users converge onto the same stable build (SemVer: `0.2.0` > `0.2.0-beta.1`) and the beta channel never lags behind stable.
+Ship a full version (no suffix) through the ordinary release process, in its promotion shape: [RELEASE_PROCESS.md](../docs/RELEASE_PROCESS.md) "What a release runs" — the machine half, the update smoke and the channel check run again, and the manual sections are taken on it, once for the stable version, re-taking only what moved since the last sheet that ticked each. Publishing triggers `beta-channel.yml` here too, so beta users converge onto the same stable build (SemVer: `0.2.0` > `0.2.0-beta.1`) and the beta channel never lags behind stable.
 
 ### HALT — withdrawing a faulty beta
 

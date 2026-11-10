@@ -294,6 +294,45 @@ beta testers then do not get the fix until the next beta.
 **Revisit when:** the beta opens to a larger audience, where the delay of a
 stable fix stops being acceptable.
 
+### A beta takes no manual section; the promotion takes them once
+
+**Decided 2026-11-10** (maintainer, #892). A beta candidate runs what a machine
+checks: §0–§2 of [RELEASE_CHECKLIST.md](../backend/RELEASE_CHECKLIST.md), the
+signed build, Release Candidate Smoke with its update job, §8a, §8b, §9, and
+Release Channel Check after publishing. It takes none of the sections done by
+hand on the installed candidate, §3 to §8. Those are taken once per stable
+version, on the candidate that promotes the last beta, under the carry rule
+that re-takes only what moved since the last sheet that ticked each section.
+The §3a updater item stays where it was: from an installation of the previous
+beta on the beta channel, once the beta is published and before the promotion.
+
+Why: the manual half is about half a day by
+[RELEASE_PROCESS.md](RELEASE_PROCESS.md)'s own count, and four betas were cut
+between 2026-11-01 and 2026-11-10. The carry rule seldom spared any of it,
+because §5 rests on the whole UI. The rule was already being worked around:
+the 0.2.0-beta.3 sheet took §3a, §4, §5 and §7 after publishing, on the
+installation the updater had taken to it, and said so in its §9. A beta reaches
+only testers who chose the beta channel in Settings → About; a defect found
+there is fixed by the next beta, not repaired in a stable release. What a
+roll-forward cannot undo is guarded by the machine on every candidate, beta
+included: the update over a running installation and the files it leaves, the
+signing key and the manifest, and the frozen V1 migration
+(`FlywayBaselineChecksumTest`).
+
+What a beta's sheet still records is what its pull requests left for a person
+to see or hear, such as a screen-reader pass that needs an installed build.
+Those items are taken in the promotion's pass, or earlier on the beta if the
+maintainer chooses.
+
+In the same change, a section's inputs that moved only in comments and layout
+no longer count as moved, read the way `check:audits` reads audit drift ("A
+change only in comments is not audit drift" below).
+
+**Revisit when:** a beta ships a defect that a manual section would have
+caught and that a roll-forward cannot undo (lost or damaged mail, an update
+that does not arrive), or when the beta grows beyond the closed beta of about
+45 testers, for example once Google sign-in leaves its tester list (#838).
+
 ### The release after v0.1.0 is 0.2.0: the number follows the content
 
 **Decided 2026-10-20** as `0.1.1`, because everything since v0.1.0 had been

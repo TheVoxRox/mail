@@ -3,6 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import { changedOnlyInComments } from './lib/comment-only-objects.mjs';
 import { readBlobs, resolveObjects } from './lib/git-objects.mjs';
 import {
 	SIGNED_WORKFLOW,
@@ -189,7 +190,8 @@ if (sectionInputs && openManualSections(sheet).length > 0) {
 	carry = judgeCarry(
 		plan,
 		resolveObjects(repoRoot, specs.objects),
-		readBlobs(repoRoot, specs.blobs)
+		readBlobs(repoRoot, specs.blobs),
+		(codePath, before, now) => changedOnlyInComments(repoRoot, codePath, before, now)
 	);
 }
 

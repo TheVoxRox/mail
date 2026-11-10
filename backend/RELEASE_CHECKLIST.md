@@ -27,7 +27,7 @@ the appendix. A tick with no candidate attached cannot be read by the next
 release, so the body no longer holds one. The dated `Notes:` blocks stay: they
 carry their own date and read as history, which is what they are.
 
-**Not every candidate re-takes every section.** A section taken by hand carries from the last sheet that ticked it when nothing it rests on has moved since, and only what moved is re-taken; the appendix holds the rule and what each section rests on. [RELEASE_PROCESS.md](../docs/RELEASE_PROCESS.md) "What a release runs" says what runs on every candidate regardless, and why a promotion of a finished beta to stable carries every manual section.
+**Not every candidate re-takes every section.** A beta takes none of the sections done by hand on the installed candidate, §3 to §8: they are taken once, on the stable candidate that promotes it. There a section carries from the last sheet that ticked it when nothing it rests on has moved since, a change only in comments aside, and only what moved is re-taken; the appendix holds the rule and what each section rests on. [RELEASE_PROCESS.md](../docs/RELEASE_PROCESS.md) "What a release runs" says what runs on every candidate regardless, and why.
 
 ## 0. Version
 
@@ -311,8 +311,10 @@ tagged, so keep that window to minutes. The object id table is what lets
 describes `main` and the tag; it reads the newest sheet, its object id rows and
 its `- [x] **§N**` lines, so keep those three shapes.
 
-**A manual section carries when what it rests on has not moved.** A re-cut,
-and the next release, re-take by hand only what changed. Each section from §3
+**A manual section carries when what it rests on has not moved.** A stable
+candidate re-takes by hand only what changed. A beta takes none of §3 to §8
+(RELEASE_PROCESS "What a release runs"): its sheet leaves their lines
+unticked, so the next sheet to tick them is the stable candidate's. Each section from §3
 to §8 carries from the last sheet that ticked it when none of its inputs in the
 table below moved between that sheet's object ids and this sheet's, which are
 the tag's. Its line then says it was carried from the `YYYY-MM-DD` sheet and why
@@ -339,8 +341,14 @@ How the table is read, by `npm run release:status` and by hand:
 - A path ending in `#key` compares only that key of a JSON file, dot-separated.
   That names `tauri.conf.json` and the lockfile without the version
   `npm run bump:version` writes: no input names a file the bump writes whole, so
-  a version bump alone moves nothing. The promotion in RELEASE_PROCESS "What a
-  release runs" is the case where nothing else moved either.
+  a version bump alone moves nothing. A promotion moves nothing since its beta;
+  what it re-takes is what moved since the last sheet that ticked each section.
+- An input that moved only in comments and layout has not moved, in the
+  languages `check:audits` reads exactly (Java, TypeScript, JavaScript,
+  `.properties`; `frontend/scripts/lib/comment-only-objects.mjs` holds the rule
+  for both). The report names such a path, "changed only in comments, not
+  counted", so the line can say why it carried. Anything else, a Svelte or Rust
+  file included, is compared byte for byte.
 - An audit document stands for its `Code paths` as `main` has them, so a path
   that joins the audit joins the section.
 - A test that sits beside the code under a frontend path moves that path as
@@ -428,11 +436,12 @@ Tester:    machine half automated; §3–§9 are the maintainer's
 Findings:
 
 - **`NOTICE.txt` had fallen behind the inventories it is written from.** #872, #873, #875, #876 and #886 each regenerated the license list they touch, and none ran `regen:notice`, so the notice the installer carries stayed at the tree of #857 (2026-11-07): 490 components where the tree has 502, with jsoup 1.23.2, bits-ui 2.20.2, `zip` 9.3.0 and no `tauri-plugin-notification`. The cut regenerates it in its own commit, before §1; no license group is added or dropped. §8a is still the first place this shows: a dependency pull request refreshes the inventories and nothing makes it refresh the notice.
-- **What no candidate has been heard on yet.** Six pull requests in this cut leave their screen-reader pass open: the Windows notification for new mail and a click on it bringing the window back (#886, #887), which only an installed build can show, since a dev build's toast is attributed to Windows PowerShell; the blocked-images banner, its sentence on opening a message and Ctrl+Shift+W (#889); the pane toggle at the foot of the rail (#861); "Vytisknout" in the row actions menu (#862); and the account wizard's first step (#869). They belong to §4 and §5 on this candidate's installation, with the hand-run items over the palette and the menus that the 2026-11-03 sheet left untaken, before 0.2.0 is promoted.
+- **What no candidate has been heard on yet.** Six pull requests in this cut leave their screen-reader pass open: the Windows notification for new mail and a click on it bringing the window back (#886, #887), which only an installed build can show, since a dev build's toast is attributed to Windows PowerShell; the blocked-images banner, its sentence on opening a message and Ctrl+Shift+W (#889); the pane toggle at the foot of the rail (#861); "Vytisknout" in the row actions menu (#862); and the account wizard's first step (#869). They belong to §4 and §5 of the pass on the candidate that promotes 0.2.0, with the hand-run items over the palette and the menus that the 2026-11-03 sheet left untaken, or earlier on this beta at the maintainer's choice.
+- **This beta takes no manual section (#892).** The rule changed after the tag: a beta runs the machine half and §9, and §3 to §8 are taken once, on the stable candidate. Their lines above stay unticked and name what moved since the 2026-11-03 sheet; the 0.2.0 candidate re-takes what moved since then, a change only in comments no longer counted.
 - **The first candidate with `tauri-plugin-notification`.** #886 adds the plugin with one Rust command and a click handler, and no permission in `frontend/src-tauri/capabilities/default.json`; the updater audit's ledger acknowledges it. Release Candidate Smoke starts and stops the app, but nothing in it raises a notification, so the toast, its sound and the click are §5's to take by hand.
 - **The IMAP/SMTP audit's ledger holds 6 of its 8 acknowledgements.** A fix that merges during this beta under its `Code paths` and needs two more reaches the cap, and then only re-verifying the audit clears `check:audits`.
 - **This cut takes everything merged since `v0.2.0-beta.3` (`63159d4`):** #853 and #854 (the beta.3 release decision, notes and updater re-takes); #855 and #857 (the SBOM job, SQLite 3.54.1 for the nightly scan's CVEs); #858 to #865 and #868 to #871 (WebView2 autofill off, the account edit page and the wizard read the way a screen reader needs, a username saved without a new password, the pane toggle, Print in the row menu); #866 and #867 (the AOT cache decision, comment-only changes outside audit drift); #872 to #878 (dependency updates: bits-ui 2.20.6, Tailwind 4.3.4, jsoup 1.24.1, commonmark 0.32.0, `zip` 9.4.1, jsdom 31, build plugins, CI actions); #879 (`tauri:build` checks the sidecar first); #880 to #882 and #884 (the updater, crypto and OAuth audits re-verified, the OAuth claims pinned by tests); #885 and #888 (the AOT step's native access, Flyway's login-only repositories); #886 and #887 (the Windows notification for new mail, the toast for arrived mail by account name); and #889 (remote-image trust revocable, named and off in junk). Each fix that merges from here adds its number to the next item.
-- **Waiting for the next cut:** #891 (`npm run check` fails while `NOTICE.txt` is behind a license inventory; tooling only, nothing that ships changes).
+- **Waiting for the next cut:** #891 (`npm run check` fails while `NOTICE.txt` is behind a license inventory; tooling only, nothing that ships changes); #892 (a beta takes no manual section, and `release:status` no longer counts a change only in comments; tooling and documents only).
 
 ### Candidate 2026-11-03 — tag `v0.2.0-beta.3` (see the object ids below)
 

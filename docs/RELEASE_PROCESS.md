@@ -49,28 +49,37 @@ than from a list someone kept by hand.
 
 A candidate does not re-run the whole checklist. Half a day of it is manual,
 and repeating that on code nobody changed is what made the ten cuts of `v0.1.0`
-slow: each re-took §3 to §8.1 by hand, mostly the same items. So what runs is
-split in two:
+slow: each re-took §3 to §8.1 by hand, mostly the same items. So what runs
+depends on what the candidate is:
 
-- **On every candidate:** what a new build and a new version can break —
-  §0–§2 (anything merged, and the version change, move the object ids), the
-  signed build and Release Candidate Smoke, §8a, §8b, §9, and Release Channel
-  Check after publishing. The update smoke vN-1 → vN in §3a runs on every
-  release from the previous stable, because every release is a new pair of
-  versions; RELEASE_CHECKLIST §3a states the first-ship exception.
-- **The manual sections** — §3 beyond what Release Candidate Smoke covers,
-  §3a's other items, §4–§7 and §8.1 — **carry from the last sheet that ticked
-  them when nothing they rest on moved**, and are re-taken where it did. The
-  rule, and the table of the paths each section rests on, are in the
+- **On every candidate, beta or stable:** what a new build and a new version
+  can break — §0–§2 (anything merged, and the version change, move the object
+  ids), the signed build and Release Candidate Smoke, §8a, §8b, §9, and Release
+  Channel Check after publishing. The update smoke vN-1 → vN in §3a runs on
+  every release from the previous stable, in Release Candidate Smoke's update
+  job, because every release is a new pair of versions; RELEASE_CHECKLIST §3a
+  states the first-ship exception.
+- **On a beta, nothing more.** The manual sections — §3 beyond what Release
+  Candidate Smoke covers, §3a's other items, §4–§7 and §8.1 — are not taken on
+  a prerelease (docs/DECISIONS.md, "A beta takes no manual section; the
+  promotion takes them once"). The sheet keeps their lines unticked, and §9
+  names what the beta's pull requests left for a person to see or hear, for the
+  promotion's pass. `npm run release:status` goes past them to §9 on a
+  prerelease tag. The §3a updater item is the one manual check tied to a beta:
+  it is taken after the beta is published, from an installation of the
+  previous beta on the beta channel, and before the promotion.
+- **On a stable candidate, the manual sections, once.** Each **carries from
+  the last sheet that ticked it when nothing it rests on moved**, a change only
+  in comments and layout aside, and is re-taken where something did. The rule,
+  and the table of the paths each section rests on, are in the
   RELEASE_CHECKLIST appendix ("A manual section carries when what it rests on
   has not moved"). `npm run release:status` reports for each open section
   "carry from" the sheet, or "re-take:" with the inputs that moved.
 
-That holds for a re-cut, a beta and the first ship alike. A **promotion to
-stable** — `vX.Y.Z` shipping the code of a `vX.Y.Z-beta.N` whose beta cycle
-ended with no open blocker — is the case where nothing but the version moved:
-no input names a file `npm run bump:version` writes whole, so every manual
-section carries from the beta's sheet, citing it. Confirm the shape before
+A **promotion to stable** — `vX.Y.Z` shipping the code of a `vX.Y.Z-beta.N`
+whose beta cycle ended with no open blocker — is the stable candidate this
+model expects: nothing but the version moved since the beta, so the build the
+manual pass runs on is the build the testers had. Confirm the shape before
 tagging by comparing the beta tag with the candidate:
 
 ```bash
@@ -80,8 +89,8 @@ git diff --name-only vX.Y.Z-beta.N main
 It may list only the files `npm run bump:version` changes, `CHANGELOG.md`, and
 Markdown documentation. Anything else — a fix merged during the beta, a
 dependency bump — means the stable build is not the build the beta tested: the
-release is then an ordinary candidate, and the sections what changed can reach
-are re-taken.
+release is then an ordinary candidate rather than a promotion, and what changed
+reached no tester first.
 
 ## 1. Version
 
@@ -216,10 +225,11 @@ stretch of the release by wall clock.
   published stable release, over the running installation, and checks the
   result against a fresh install (§3a). A red run stops the release here:
   nothing manual is worth doing on an installer that fails it.
-- RELEASE_CHECKLIST §3–§7 on the installed candidate for what the smoke does
-  not cover, then §8.1 in the same sitting — the sections, and within them the
-  items, that `npm run release:status` reports as re-take. The others carry
-  from the sheet it names, and their lines say so ("What a release runs").
+- On a stable candidate, RELEASE_CHECKLIST §3–§7 on the installed candidate
+  for what the smoke does not cover, then §8.1 in the same sitting — the
+  sections, and within them the items, that `npm run release:status` reports
+  as re-take. The others carry from the sheet it names, and their lines say so.
+  A beta skips this bullet ("What a release runs").
 - §8a and §9 afterwards. §8.2 is no longer an overnight gate; RELEASE_CHECKLIST
   §8.2 records what replaces it.
 - §9 is where the blockers, the known issues and the signature are recorded.
@@ -298,9 +308,11 @@ two differ.
 Publish only when all of these hold. Each is a fact you can check, not a
 judgement call:
 
-- [ ] Checklist §3–§7 and §8.1 ticked **on this candidate's sheet** — taken on
-      it, or carried with the earlier sheet named ("What a release runs") —
-      with §9 carrying no open blocker. §8.2 is not a gate: RELEASE_CHECKLIST
+- [ ] On a stable candidate, checklist §3–§7 and §8.1 ticked **on this
+      candidate's sheet** — taken on it, or carried with the earlier sheet
+      named ("What a release runs"). A beta does not take them, and its §9
+      names what its pull requests left for the promotion's pass. Either way §9
+      carries no open blocker. §8.2 is not a gate: RELEASE_CHECKLIST
       §8.2 records what replaces it, and until that automation exists §9
       records the absence of the overnight run as an accepted risk.
 - [ ] `### Known issues` in the changelog section, and the same list in the

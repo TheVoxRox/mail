@@ -312,45 +312,78 @@ function valueAt(text, key) {
 	}
 }
 
-/** Why an input reads as moved, or null when it did not move. Anything that cannot be compared moved. */
-function inputMoved(input, objects, blobs) {
-	if (input.problem) return input.problem;
-	if (input.now === null) return `${input.label}, which no object id row of this sheet covers`;
-	if (input.before === null) return `${input.label}, which no object id row of that sheet covers`;
+/**
+ * How an input compares: null when it did not move, `{ commented }` when it
+ * moved only in comments and layout, or `{ moved }` with the reason. Anything
+ * that cannot be compared moved. `onlyComments(path, before, now)` answers for
+ * two object ids of a path, as check:audits does for audit drift; a JSON key
+ * is compared by value and never asks it.
+ */
+function compareInput(input, objects, blobs, onlyComments) {
+	if (input.problem) return { moved: input.problem };
+	if (input.now === null)
+		return { moved: `${input.label}, which no object id row of this sheet covers` };
+	if (input.before === null)
+		return { moved: `${input.label}, which no object id row of that sheet covers` };
 	if (input.key) {
 		const now = valueAt(blobs.get(input.now), input.key);
-		if (now === undefined) return `${input.label}, which this candidate does not have`;
-		return now === valueAt(blobs.get(input.before), input.key) ? null : input.label;
+		if (now === undefined) return { moved: `${input.label}, which this candidate does not have` };
+		return now === valueAt(blobs.get(input.before), input.key) ? null : { moved: input.label };
 	}
 	const now = objects.get(input.now)?.oid;
-	if (!now) return `${input.label}, which this candidate does not have`;
-	return now === objects.get(input.before)?.oid ? null : input.label;
+	if (!now) return { moved: `${input.label}, which this candidate does not have` };
+	const before = objects.get(input.before)?.oid;
+	if (now === before) return null;
+	return before && onlyComments(input.path, before, now)
+		? { commented: input.label }
+		: { moved: input.label };
 }
 
 /**
  * Carry or re-take for each section of a plan, given what git answered for
- * `carrySpecs(plan)`. A section carries only when every input compared equal;
- * one the table does not name (`always`), or that no earlier sheet ticked, is
- * re-taken.
+ * `carrySpecs(plan)`. A section carries only when every input compared equal
+ * or moved only in comments; one the table does not name (`always`), or that
+ * no earlier sheet ticked, is re-taken. A comment edit is not a reason to
+ * install the candidate and take a section by hand: until 2026-11-10 it was,
+ * and the 0.2.0-beta.4 sheet listed comment edits in `SecurityConfig.java` and
+ * the sidecar packaging script among its reasons to re-take §3, §4, §6 and §8.
  */
-export function judgeCarry(plan, objects, blobs) {
+export function judgeCarry(plan, objects, blobs, onlyComments = () => false) {
 	return plan.map(({ section, tick, inputs }) => {
-		if (inputs === null) return { section, tick, carry: false, always: true, moved: [] };
-		if (tick === null) return { section, tick, carry: false, always: false, moved: [] };
-		const moved = inputs.map((input) => inputMoved(input, objects, blobs)).filter(Boolean);
-		return { section, tick, carry: moved.length === 0, always: false, moved };
+		const none = { moved: [], commented: [] };
+		if (inputs === null) return { section, tick, carry: false, always: true, ...none };
+		if (tick === null) return { section, tick, carry: false, always: false, ...none };
+		const compared = inputs
+			.map((input) => compareInput(input, objects, blobs, onlyComments))
+			.filter(Boolean);
+		const moved = compared.flatMap((result) => (result.moved ? [result.moved] : []));
+		const commented = compared.flatMap((result) => (result.commented ? [result.commented] : []));
+		return { section, tick, carry: moved.length === 0, always: false, moved, commented };
 	});
 }
 
 /** One line of the report, in words, since it is read with a screen reader. */
-export function describeCarry({ section, tick, carry, always, moved }) {
+export function describeCarry({ section, tick, carry, always, moved, commented = [] }) {
 	const name = label(section);
 	if (always) return `${name}: re-take, as on every candidate`;
 	if (!tick) return `${name}: re-take, no earlier sheet ticked it`;
 	const from = `the ${tick.date} sheet as of ${shortSha(tick.commit)}`;
+	const comments =
+		commented.length > 0 ? ` (changed only in comments, not counted: ${commented.join('; ')})` : '';
 	return carry
-		? `${name}: carry from ${from}`
-		: `${name}: re-take: ${moved.join('; ')}. Against ${from}`;
+		? `${name}: carry from ${from}${comments}`
+		: `${name}: re-take: ${moved.join('; ')}. Against ${from}${comments}`;
+}
+
+/**
+ * The stable tag a prerelease tag is promoted to, `v0.2.0` for
+ * `v0.2.0-beta.4`; null for a stable tag. A beta does not take the manual
+ * sections: they are taken once, on the candidate that promotes it
+ * (docs/DECISIONS.md, 2026-11-10).
+ */
+export function promotionOf(tag) {
+	const match = /^(v\d+\.\d+\.\d+)-/.exec(tag ?? '');
+	return match ? match[1] : null;
 }
 
 /** Origin's `owner/repo` for a GitHub remote URL, https or ssh; null for any other host. */
@@ -815,10 +848,26 @@ export function decideNextStep(facts) {
 				`RELEASE_PROCESS step 6 needs its cause named before publishing: ${scan.url}`
 		);
 	}
-	const open = sheet.sections.filter((section) => !section.done);
+	// A beta takes no manual section; the candidate that promotes it does (RELEASE_PROCESS "What a release runs").
+	const promotion = promotionOf(tag);
+	const deferred = promotion
+		? openManualSections(sheet).filter((section) => section.id !== '§9')
+		: [];
+	if (deferred.length > 0) {
+		notes.push(
+			`${deferred.map((section) => section.id).join(', ')} are not taken on a beta. They are taken ` +
+				`once, on the candidate that promotes ${promotion}; Manual sections above says what moved ` +
+				'since each was last ticked.'
+		);
+	}
+	const open = sheet.sections.filter((section) => !section.done && !deferred.includes(section));
+	const everyTicked =
+		deferred.length > 0
+			? `Every section a beta takes is ticked on the ${sheet.date} sheet`
+			: `Every section of the ${sheet.date} sheet is ticked`;
 	if (open.length > 0) {
 		if (open.length > 1) notes.push(`Open after it: ${open.slice(1).map(label).join(', ')}.`);
-		const carried = (facts.carry ?? []).filter((verdict) => verdict.carry);
+		const carried = promotion ? [] : (facts.carry ?? []).filter((verdict) => verdict.carry);
 		if (carried.length > 0) {
 			notes.push(
 				`${carried.map((verdict) => verdict.section.id).join(', ')} can carry: tick each with the ` +
@@ -836,7 +885,7 @@ export function decideNextStep(facts) {
 	const bodyState = compareReleaseNotes(facts.releaseNotesFile ?? null, facts.release?.body);
 	if (bodyState === 'missing') {
 		return step(
-			`Every section of the ${sheet.date} sheet is ticked, but main has no ${notesPath}. Write the ` +
+			`${everyTicked}, but main has no ${notesPath}. Write the ` +
 				'release notes (RELEASE_PROCESS step 5), merge them, then set the draft body from the file, ' +
 				'from the repository root:',
 			[notesCommand]
@@ -850,7 +899,7 @@ export function decideNextStep(facts) {
 		);
 	}
 	return step(
-		`Every section of the ${sheet.date} sheet is ticked. Check the conditions in ` +
+		`${everyTicked}. Check the conditions in ` +
 			'RELEASE_PROCESS step 6, record the decision in §9, then publish (step 7).'
 	);
 }
