@@ -21,6 +21,9 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The backend build no longer asks the two repositories Flyway's parent POM
+  declares behind a login for their prefix file, so Maven stops logging two
+  `HTTP Status: 401` warnings on every run (#888).
 - The updater audit acknowledges the one line #887 changes in
   `AboutSettings.svelte`, the count on the "Poslední synchronizace" line, which
   no claim of the audit rests on (#887).
