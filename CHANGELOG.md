@@ -33,6 +33,10 @@ Entries before 2026-09-17 predate that split and are left as written.
   stable candidate that promotes it. `npm run release:status` goes past them to
   §9 on a prerelease tag and no longer counts a change only in comments as
   moving a section's inputs; why is in `docs/DECISIONS.md` (#892).
+- The `v0.2.0-beta.4` release decision: §9 of the 2026-11-10 sheet, with no
+  open blocker and the known issues of 0.2.0-beta.3, is the first beta to take
+  no manual section under #892, and the release notes are in
+  `docs/release-notes/v0.2.0-beta.4.md` (#893).
 
 ## [0.2.0-beta.4] - 2026-11-10
 
@@ -244,8 +248,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Known issues
 
-Provisional until §9 of the 2026-11-10 candidate sheet, per
-[RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) step 2. Unchanged from
+Reconciled with §9 of the 2026-11-10 candidate sheet, per
+[RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) step 6. Unchanged from
 0.2.0-beta.3:
 
 - **A transient IMAP hiccup, `failed to create new store connection`, appears
