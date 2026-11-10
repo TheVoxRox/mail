@@ -752,9 +752,16 @@ public class MailFacade {
         String content = mailContentService.getOrFetchMessageContent(entity.getId());
         // Metadata for the remote-image opt-in (audit F2): the bare sender is the
         // allow-list key, and whether it is already trusted lets the client auto-load.
+        // Not in junk: the key is the spoofable From, and a message forged in a
+        // trusted sender's name is exactly what a server files there. Auto-loading
+        // its images would confirm the open to whoever forged it, so the list is
+        // neither applied nor offered for extension from such a message.
         String senderEmail = entity.getFromEmailOnly();
-        boolean allowed = remoteImageAllowlistService.isAllowed(entity.getAccount().getId(), senderEmail);
-        return new MailContentResponse(content, senderEmail, allowed);
+        Long accountId = entity.getAccount().getId();
+        boolean trustOffered = !imapFolderService.isRecordedWithRole(accountId, entity.getFolderName(),
+                FolderRole.JUNK);
+        boolean allowed = trustOffered && remoteImageAllowlistService.isAllowed(accountId, senderEmail);
+        return new MailContentResponse(content, senderEmail, allowed, trustOffered);
     }
 
     /**

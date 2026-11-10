@@ -224,11 +224,13 @@
 		"remoteImages": {
 			"blocked": "{count, plural, one {This message contains {count} image from the internet that we did not load.} other {This message contains {count} images from the internet that we did not load.}} Loading images from the internet can tell the sender that you opened the message.",
 			"load": "Load images",
-			"alwaysAllow": "Always load images from this sender",
+			"alwaysAllow": "Always load images from {email}",
 			"allowError": "Could not add the sender to your trusted list. Please try again.",
 			"regionLabel": "Blocked images from the internet",
 			"loadedAnnouncement": "Images from the internet loaded.",
-			"senderAllowedAnnouncement": "Images from this sender will always load, and the images in this message are loaded."
+			"senderAllowedAnnouncement": "Images from {email} will always load, and the images in this message are loaded.",
+			"noneBlocked": "This message has no blocked images from the internet.",
+			"blockedAnnouncement": "Images from the internet are blocked."
 		}
 	},
 	"compose": {
@@ -331,6 +333,16 @@
 		"reauth": "Re-sign in",
 		"reauthStarting": "Opening browser…",
 		"deleteAccount": "Delete account",
+		"remoteImages": {
+			"heading": "Images from the internet",
+			"description": "Images from the internet load on their own for these senders. For everyone else they stay blocked until you load them in the message. In the Spam folder they never load on their own, for anyone.",
+			"empty": "No senders here yet. Add one from a message with blocked images, using the Always load images button.",
+			"removeShort": "Remove",
+			"remove": "Remove {email}",
+			"removed": "Images from {email} will no longer load on their own.",
+			"removeError": "Could not remove the sender {email}. Please try again.",
+			"loadError": "Could not load the list of senders: {message}"
+		},
 		"deleteConfirm": "Really delete the account “{name}”?",
 		"deleteConfirmTitle": "Delete account",
 		"deletedToast": "Account removed.",
@@ -727,6 +739,7 @@
 				"deleteMessage": "Delete message",
 				"archiveMessage": "Move the message to the Archive folder",
 				"printMessage": "Print the message or the selected messages",
+				"remoteImageOffer": "Go to the offer to load blocked images from the internet",
 				"closeMessage": "Close the message and return focus to the list",
 				"listPrevNextMessage": "Previous / next message",
 				"listPrevNextCell": "Previous / next cell in the row",
@@ -896,6 +909,7 @@
 		"deleteMessage": "Delete message",
 		"moveMessageToFolder": "Move to {folder}",
 		"print": "Print message",
+		"loadRemoteImages": "Load this message's images from the internet",
 		"printSelection": "Print selection: {summary}"
 	},
 	"workspace": {

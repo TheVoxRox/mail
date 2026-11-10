@@ -266,6 +266,12 @@ export interface MailContentResponse {
 	senderEmail: string;
 	/** Whether the sender is already trusted to load remote images. */
 	remoteImagesAllowedForSender: boolean;
+	/**
+	 * Whether trusting the sender may be offered. False in a Junk folder, where
+	 * the backend does not apply the allow-list either: its key is the `From`
+	 * address, and junk is where a message forged in a trusted name ends up.
+	 */
+	remoteImageTrustOffered: boolean;
 }
 
 export type MailFlagType = 'seen' | 'flagged' | 'answered';

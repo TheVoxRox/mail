@@ -385,6 +385,33 @@ class ImapFolderServiceTest {
         }
     }
 
+    @Nested
+    @DisplayName("isRecordedWithRole")
+    class IsRecordedWithRole {
+
+        @Test
+        @DisplayName("Answers from the local record for the folder asked about, not for any folder of the role")
+        void answersForTheFolderAskedAbout() {
+            when(folderSyncStateRepository.findFolderNamesByRole(ACCOUNT_ID, FolderRole.JUNK))
+                    .thenReturn(List.of("Junk", "Spam"));
+
+            assertThat(service.isRecordedWithRole(ACCOUNT_ID, "Spam", FolderRole.JUNK)).isTrue();
+            assertThat(service.isRecordedWithRole(ACCOUNT_ID, "INBOX", FolderRole.JUNK)).isFalse();
+        }
+
+        @Test
+        @DisplayName("An account with no folder for the role answers false without asking the server")
+        void noRecordAnswersFalseWithoutImap() {
+            // Asked on every message open: the resolving lookups fall back to an IMAP
+            // listing on an empty local answer, and this one must not.
+            when(folderSyncStateRepository.findFolderNamesByRole(ACCOUNT_ID, FolderRole.JUNK)).thenReturn(List.of());
+
+            assertThat(service.isRecordedWithRole(ACCOUNT_ID, "INBOX", FolderRole.JUNK)).isFalse();
+
+            verifyNoInteractions(imapConnectionManager);
+        }
+    }
+
     private void mockFolderListing(Folder... folders) throws Exception {
         Store store = mock(Store.class);
         Folder defaultFolder = mock(Folder.class);

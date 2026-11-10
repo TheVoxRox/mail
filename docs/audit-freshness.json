@@ -51,7 +51,7 @@
   "docs/API_SURFACE_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/resources/application.properties": "6f4dcc647382dd679f0ff713b79931a3b92c2d48",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "0fcc185c9d021afa2b1bf94d070ccaf60ca9e279"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "b053b02dfdcab5d71112c38303af639fbec32f1e"
     },
     "acknowledgements": [
       {
@@ -65,13 +65,17 @@
       {
         "date": "2026-11-09",
         "note": "#886. SyncNotification, the payload of the sync_completed SSE event, gains an int arrivedMessagesCount: the part of newMessagesCount that arrived above the folder's existing mirror into Inbox or Newsletters, which the client may announce with a Windows notification. Both counts gain a @Schema description. The event carries no new kind of data, only a second count of messages newMessagesCount already counted, for the account and folder it already names, over the same loopback stream behind the same API key. No endpoint, request body, validation, authentication or error path changed, and no other DTO in the package moved; the OpenAPI snapshot gains the field and the two descriptions. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-10",
+        "note": "MailContentResponse gains one boolean, remoteImageTrustOffered, false for a message in a folder the sync recorded as JUNK, and its record documentation says remoteImagesAllowedForSender is always false there. A response field only: GET /messages/{stableId}/content takes the same path variable and no new input, no endpoint, method, validation constraint, size bound or authentication rule moved, and the allow-list controller is byte-identical — the client now calls its GET and DELETE, which the audit already enumerates. The OpenAPI golden snapshot carries the field. Verdict unchanged."
       }
     ]
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/resources/application.properties": "6f4dcc647382dd679f0ff713b79931a3b92c2d48",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "715fbf9361767b0220a8c007afe054c30c4cd229"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "5fa4d95ddc572659bc0104940b7482e6f478ced1"
     },
     "acknowledgements": [
       {
@@ -93,13 +97,17 @@
       {
         "date": "2026-11-09",
         "note": "#886. MailSyncService.syncFolderOnce labels part of what a folder cycle downloads as arrived, for MailSyncCompletedEvent: the forward download's count when the folder already had a mirror (MessageDownloader.takesInitialWindow, new, asked before the download) and its stored role delivers new mail; zero otherwise, holes refilled by reconcileServerOnlyUids included. syncNewMessages asks the same helper in place of `lastUid <= UID_INITIAL`, the same test, since a null uid already fails the unboxing above it. No IMAP command, bound, timeout, lock, retry, window, persistence step or role decision moved; the count only describes downloads the cycle already made. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-10",
+        "note": "Audit 1.85. MailFacade.getMessageContentOnly asks the new ImapFolderService.isRecordedWithRole whether the message sits in a folder recorded as JUNK and, if so, reports the sender as not trusted for remote images and the trust as not offered; elsewhere it asks RemoteImageAllowlistService.isAllowed as before. isRecordedWithRole is one read of folder_sync_state through the existing findFolderNamesByRole query and never reaches IMAP, so no command, bound, timeout, lock, retry or persistence step moved, and a folder with no recorded role answers false. The change narrows the one security-load path from From that §3 traces; §3 now says so. Verdict unchanged."
       }
     ]
   },
   "docs/CONTENT_RENDERING_AUDIT.md": {
     "reviewedTrees": {
-      "frontend/src/lib/mail/mailFrame.ts": "875223ca3f842040b69aa178afd2060dcc89cc5e",
-      "frontend/src/lib/components/message-detail": "38f3d909c5ab9d3a45c01b9683818bac010326e9"
+      "frontend/src/lib/mail/mailFrame.ts": "039781084f982faf4d034090719936613d61e493",
+      "frontend/src/lib/components/message-detail": "8746cb08214cd11f6ee9c64340ff80273791bbbb"
     },
     "acknowledgements": [
       {
@@ -109,6 +117,10 @@
       {
         "date": "2026-10-31",
         "note": "The only change under message-detail is the remote-image banner in MessageContent.svelte, for testers who could not tell what it was for: its text moves from a muted span to a paragraph that says why the images are held back (the message holds images from the internet that were not loaded, and loading them can tell the sender it was opened), and the i18n strings behind it, the region name and both announcements say 'images from the internet' instead of 'remote images'; the second button is now named 'Always load images from this sender'. The banner is still shown only while renderAsHtml, the count is non-zero and loadRemoteImages is false; the two buttons call the same revealRemoteImages and trustSender, which still send the same allow-list PUT; loadRemoteImages is still seeded per stableId from remoteImagesAllowedForSender; the iframe's sandbox, srcdoc, CSP and the mailFrame message handling are byte-identical. Section 1's tracking-pixel claim holds: no path loads a remote image without one of the two presses. The 2026-07-08 finding record still quotes the button's old English label, which is that date's record and not a claim about the current text. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-10",
+        "note": "Audit 2.2. mailFrame.ts: the forwarder cancels one more chord, Ctrl+Shift+W (the Shift list /^[rgi]$/ becomes /^[rgiw]$/), which the app now claims to move focus to the blocked-images banner; MAIL_FRAME_SCRIPT_SHA256 is recomputed from the literal and mailFrame.test.ts asserts it. The CSP directives, the sandbox, the style hashes, the link and height relays and the promote/count functions are untouched. message-detail: MessageContent.svelte takes remoteImageTrustOffered and renders the second button only when it is true and there is an account and an address to key the trust on (the branch that loaded once without remembering is gone with the button), names the address in the button and the announcement, sends the allow-list PUT through mail/remoteImageTrust.ts, which then drops that sender’s cached bodies, and publishes revealRemoteImages and a focus call for the palette command and the shortcut while the banner is shown and the copy is not the print sheet’s. Where the body takes focus on a deliberate open it also pushes one sentence to the polite announcer if the banner is shown; that call writes text to the app’s live region and loads nothing. MessagePrintSheet.svelte passes the new prop. loadRemoteImages is still seeded per stableId from remoteImagesAllowedForSender and set only by revealRemoteImages; the new callers reach that same function, so §2’s tracking-pixel claim holds: no remote image loads without a gesture on that message or a sender the user trusted, and now never by trust alone in junk. Verdict unchanged."
       }
     ]
   },

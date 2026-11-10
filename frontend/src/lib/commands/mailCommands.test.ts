@@ -29,9 +29,38 @@ function commands(
 		selectedDetail: null,
 		stableId: null,
 		printableSelection: null,
+		remoteImageOffer: null,
 		...overrides
 	});
 }
+
+describe('createMailCommands — blocked remote images', () => {
+	const open = { pathname: '/mail/1/INBOX/msg-02', stableId: 'msg-02' };
+
+	it('offers to load the images only while the open message has some blocked', () => {
+		expect(commands(open).some((command) => command.id === 'mail.loadRemoteImages')).toBe(false);
+
+		const offer = { stableId: 'msg-02', load: vi.fn(), focus: vi.fn() };
+		const entry = commands({ ...open, remoteImageOffer: offer }).find(
+			(command) => command.id === 'mail.loadRemoteImages'
+		);
+		void entry?.run();
+		expect(offer.load).toHaveBeenCalledOnce();
+		// It moves focus to the body itself, so the palette must not restore it.
+		expect(entry?.restoreFocus).toBeUndefined();
+		// Ctrl+Shift+W goes to the banner; it does not load.
+		expect(entry?.shortcut).toBeUndefined();
+	});
+
+	it('does not offer another message’s images for the one that is open', () => {
+		const stale = { stableId: 'msg-01', load: vi.fn(), focus: vi.fn() };
+		expect(
+			commands({ ...open, remoteImageOffer: stale }).some(
+				(command) => command.id === 'mail.loadRemoteImages'
+			)
+		).toBe(false);
+	});
+});
 
 describe('createMailCommands — printing', () => {
 	it('offers "print selection" only while rows are ticked, titled with the bar summary', () => {

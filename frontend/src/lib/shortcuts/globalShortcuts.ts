@@ -40,6 +40,11 @@ export interface GlobalShortcutHandlers {
 	printOpenMessage: () => void;
 	/** Ctrl+P with no message open and nothing ticked: say so instead of printing the screen. */
 	announceNothingToPrint: () => void;
+	/**
+	 * Ctrl+Shift+W: moves focus to the open message's offer to load its blocked
+	 * remote images, or says the message has none.
+	 */
+	goToRemoteImageOffer: () => void;
 	/** Whether focus is inside the open message: its header, toolbar or body. */
 	isFocusInOpenMessage: () => boolean;
 	/** Whether the mail list in view has ticked rows to print. */
@@ -68,7 +73,8 @@ export function isEditableTarget(target: EventTarget | null): boolean {
  *     Ctrl+P (print the open message or the ticked rows) — also in inputs.
  *  4) Cursor in an editable element → handler stays out.
  *  5) Ctrl+Y into the workspace pane.
- *  6) Outlook-style actions on the open message (reply, forward, flag, …).
+ *  6) Outlook-style actions on the open message (reply, forward, flag, the
+ *     blocked-images offer, …).
  */
 export function handleGlobalKeydown(event: KeyboardEvent, handlers: GlobalShortcutHandlers): void {
 	/*
@@ -269,6 +275,21 @@ function handleMessageShortcut(event: KeyboardEvent, handlers: GlobalShortcutHan
 		if (key === 'g') {
 			event.preventDefault();
 			handlers.toggleFlag();
+			return true;
+		}
+		/*
+		 * Ctrl+Shift+W is Outlook's "go to the InfoBar", the strip under a
+		 * message's header that holds, among other things, its blocked pictures.
+		 * Here that strip is the blocked-images banner. It moves focus rather
+		 * than loading: the banner offers two different things, and the key that
+		 * gets you there should not pick one. The command palette has the entry
+		 * that loads outright. The webview has no meaning of its own for the
+		 * chord — browser accelerators are denied by default in
+		 * webview_defaults.rs.
+		 */
+		if (key === 'w') {
+			event.preventDefault();
+			handlers.goToRemoteImageOffer();
 			return true;
 		}
 		return false;

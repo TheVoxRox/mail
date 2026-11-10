@@ -111,6 +111,11 @@
 					scopeKey: 'settings.shortcuts.scopes.printTarget'
 				},
 				{
+					shortcut: SHORTCUT_LABELS.remoteImageOffer,
+					actionKey: 'settings.shortcuts.actions.remoteImageOffer',
+					scopeKey: 'settings.shortcuts.scopes.openMessage'
+				},
+				{
 					shortcut: 'Escape',
 					actionKey: 'settings.shortcuts.actions.closeMessage',
 					scopeKey: 'settings.shortcuts.scopes.openMessage'

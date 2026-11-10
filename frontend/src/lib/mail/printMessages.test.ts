@@ -25,7 +25,8 @@ import type { MailContentResponse, MailDetailResponse } from '#lib/types.js';
 const content = (id: string): MailContentResponse => ({
 	content: `<p>${id}</p>`,
 	senderEmail: '',
-	remoteImagesAllowedForSender: false
+	remoteImagesAllowedForSender: false,
+	remoteImageTrustOffered: true
 });
 
 describe('printMessages', () => {

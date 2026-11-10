@@ -199,6 +199,7 @@
 				senderEmail={state.content.senderEmail}
 				accountId={$resolvedActiveAccountId ?? 0}
 				remoteImagesAllowedForSender={state.content.remoteImagesAllowedForSender}
+				remoteImageTrustOffered={state.content.remoteImageTrustOffered}
 			/>
 		{/if}
 	</div>

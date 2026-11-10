@@ -49,6 +49,7 @@
 		type PrintJob
 	} from '#lib/mail/printMessages.js';
 	import { forwardMessage, goToInbox, replyToMessage } from '#lib/mail/actions.js';
+	import { remoteImageOffer } from '#lib/mail/remoteImageOffer.js';
 	import {
 		archiveMessage,
 		deleteMessages,
@@ -498,6 +499,12 @@
 			archiveMessage: () => runOnOpenMessage((id) => archiveMessage(id)),
 			printOpenMessage,
 			announceNothingToPrint: () => pushToast($_('detail.nothingToPrint'), { tone: 'info' }),
+			// With nothing blocked the key still answers: a press that does nothing
+			// and says nothing leaves a screen-reader user unsure it landed.
+			goToRemoteImageOffer: () => {
+				if ($remoteImageOffer) $remoteImageOffer.focus();
+				else pushToast($_('detail.remoteImages.noneBlocked'), { tone: 'info' });
+			},
 			// The reading pane's root carries data-print="document"; focus in the
 			// body frame reports the iframe element, which sits inside it. A menu
 			// opened from the message toolbar lives in a portal, so it counts

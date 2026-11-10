@@ -7,6 +7,7 @@ import {
 	getFolderMessages,
 	listPage,
 	plainBodyFor,
+	remoteImageFlagsFor,
 	removeMessageEverywhere,
 	replaceFolderMessages,
 	replyFor,
@@ -951,8 +952,11 @@ function messageRoutes(
 	}
 	if (segments[2] === 'forward' && method === 'GET') return HttpResponse.json(forwardFor(stableId));
 	if (segments[2] === 'content' && method === 'GET') {
+		const stored = fixtureState.messageContents[stableId];
 		return HttpResponse.json(
-			fixtureState.messageContents[stableId] ?? { content: plainBodyFor(detail) }
+			stored
+				? { ...stored, ...remoteImageFlagsFor(detail, stored.senderEmail) }
+				: { content: plainBodyFor(detail) }
 		);
 	}
 	if (segments[2] === 'attachments' && method === 'GET') {
@@ -1017,23 +1021,54 @@ function authRoutes(method: string, segments: string[]): MockResponse | null {
  * looking like it worked — nothing asserted it, and the banner it leaves
  * standing is also what a failed attempt leaves standing.
  *
- * PUT only, although the real controller also serves GET and DELETE. Modelling
- * those turned out worse than omitting them: no client calls either, so nothing
- * exercised the branches, and the DELETE one was wrong — it read `accountId`
+ * GET and DELETE were left out for as long as no client called them: an
+ * unexercised mock branch is a claim about the contract that nothing checks,
+ * and the DELETE once modelled here was wrong unnoticed — it read `accountId`
  * and `senderEmail` from a JSON body, while
  * `RemoteImageAllowlistController.disallow` takes them as query parameters and
- * has no body at all. An unexercised mock branch is a claim about the contract
- * that nothing checks, which is how that one got to be wrong unnoticed.
+ * has no body at all. The account settings now list the senders and remove
+ * them, so both are modelled, as the controller shapes them, and exercised by
+ * remote-images.functional.e2e.ts.
  *
- * No allow-list state is kept either. It was written and never read: the
- * mail-content fixture answers `remoteImagesAllowedForSender: false`
- * unconditionally, so trusting a sender here was never observable to a test. A
- * test that needs it to be would wire that flag in fixtures.ts, not here.
+ * The list is state for the same reason: the content endpoint reads it
+ * (`remoteImageFlagsFor`), so trusting a sender here is what makes that
+ * sender's next message open with its images loaded, and removing one is what
+ * brings the banner back.
  */
-function remoteImageRoutes(method: string, segments: string[]): MockResponse | null {
+function remoteImageRoutes(
+	method: string,
+	segments: string[],
+	request: Request
+): Promise<MockResponse> | MockResponse | null {
 	if (segments[0] !== 'remote-images' || segments[1] !== 'allowlist') return null;
-	// Idempotent on the real endpoint: 204 whether or not the sender was new.
-	return method === 'PUT' ? noContent() : null;
+	const normalize = (email: string) => email.trim().toLowerCase();
+	const listOf = (accountId: number) => (fixtureState.remoteImageAllowlist[accountId] ??= []);
+
+	if (method === 'PUT') {
+		return request.json().then((body) => {
+			const { accountId, senderEmail } = body as { accountId: number; senderEmail: string };
+			const list = listOf(accountId);
+			const sender = normalize(senderEmail);
+			// Idempotent on the real endpoint: 204 whether or not the sender was new.
+			if (!list.includes(sender)) list.push(sender);
+			return noContent();
+		});
+	}
+
+	const params = new URL(request.url).searchParams;
+	const accountId = Number(params.get('accountId') ?? 0);
+	if (method === 'GET') {
+		// RemoteImageSenderRepository orders by address.
+		return HttpResponse.json([...listOf(accountId)].sort());
+	}
+	if (method === 'DELETE') {
+		const sender = normalize(params.get('senderEmail') ?? '');
+		fixtureState.remoteImageAllowlist[accountId] = listOf(accountId).filter(
+			(entry) => entry !== sender
+		);
+		return noContent();
+	}
+	return null;
 }
 
 function notificationRoutes(method: string, segments: string[]): MockResponse | null {
@@ -1149,7 +1184,7 @@ async function routeApiRequest(request: Request): Promise<MockResponse> {
 		contactLabelRoutes(method, segments, request) ??
 		messageRoutes(method, segments, request) ??
 		authRoutes(method, segments) ??
-		remoteImageRoutes(method, segments) ??
+		remoteImageRoutes(method, segments, request) ??
 		notificationRoutes(method, segments);
 
 	if (response) return response;

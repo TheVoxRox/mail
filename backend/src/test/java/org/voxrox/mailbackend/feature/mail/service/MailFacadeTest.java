@@ -73,9 +73,6 @@ class MailFacadeTest {
     private MailDraftService mailDraftService;
     @Mock
     private FolderCountCache folderCountCache;
-    // No test touches it, but MailFacade's constructor takes one, so @InjectMocks
-    // needs the field to exist.
-    @SuppressWarnings("UnusedVariable")
     @Mock
     private RemoteImageAllowlistService remoteImageAllowlistService;
 
@@ -99,6 +96,7 @@ class MailFacadeTest {
     private static final Long UID = 42L;
     private static final String FOLDER_INBOX = "INBOX";
     private static final String FOLDER_TRASH = "[Gmail]/Trash";
+    private static final String FOLDER_JUNK = "[Gmail]/Spam";
     private static final String FOLDER_DRAFTS = "[Gmail]/Drafts";
 
     private AccountEntity account;
@@ -880,6 +878,40 @@ class MailFacadeTest {
 
             assertThatThrownBy(() -> mailFacade.getMessageContentOnly(STABLE_ID))
                     .isInstanceOf(MailOperationException.class);
+        }
+
+        @Test
+        @DisplayName("A trusted sender's message outside junk loads its remote images and may extend the list")
+        void shouldApplyTheAllowListOutsideJunk() {
+            when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(entity));
+            when(mailContentService.getOrFetchMessageContent(MESSAGE_ID)).thenReturn("<p>Body</p>");
+            when(remoteImageAllowlistService.isAllowed(ACCOUNT_ID, "alice@example.com")).thenReturn(true);
+
+            MailContentResponse result = mailFacade.getMessageContentOnly(STABLE_ID);
+
+            assertThat(result.senderEmail()).isEqualTo("alice@example.com");
+            assertThat(result.remoteImagesAllowedForSender()).isTrue();
+            assertThat(result.remoteImageTrustOffered()).isTrue();
+        }
+
+        /*
+         * The allow-list is keyed on From, which anyone can write. A message forged in
+         * a trusted sender's name is what a server files under junk, and loading its
+         * images on open would tell the forger the address is read.
+         */
+        @Test
+        @DisplayName("In a junk folder the allow-list is neither applied nor offered, even for a trusted sender")
+        void shouldNotApplyTheAllowListInJunk() {
+            entity.setFolderName(FOLDER_JUNK);
+            when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(entity));
+            when(mailContentService.getOrFetchMessageContent(MESSAGE_ID)).thenReturn("<p>Body</p>");
+            when(imapFolderService.isRecordedWithRole(ACCOUNT_ID, FOLDER_JUNK, FolderRole.JUNK)).thenReturn(true);
+            lenient().when(remoteImageAllowlistService.isAllowed(ACCOUNT_ID, "alice@example.com")).thenReturn(true);
+
+            MailContentResponse result = mailFacade.getMessageContentOnly(STABLE_ID);
+
+            assertThat(result.remoteImagesAllowedForSender()).isFalse();
+            assertThat(result.remoteImageTrustOffered()).isFalse();
         }
     }
 

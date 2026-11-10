@@ -329,6 +329,19 @@ public class ImapFolderService {
     }
 
     /**
+     * Whether the sync has recorded {@code folderName} as carrying {@code role}.
+     * The local record only, never IMAP: this is asked on every message open, about
+     * a folder the message was synced from, so the row that answers it was written
+     * by the cycle that stored the message. A folder with no record is not known to
+     * carry the role and answers {@code false}; an account with no folder for the
+     * role must not cost a server round trip per opened message, which is what the
+     * resolving lookups above would do on an empty local answer.
+     */
+    public boolean isRecordedWithRole(Long accountId, String folderName, FolderRole role) {
+        return folderSyncStateRepository.findFolderNamesByRole(accountId, role).contains(folderName);
+    }
+
+    /**
      * Like {@link #findFolderNameByRole(Long, FolderRole)} but throws
      * {@link MailOperationException} with {@link ErrorCode#FOLDER_ROLE_NOT_FOUND}
      * when no folder is detected for the role. Used by call sites that cannot

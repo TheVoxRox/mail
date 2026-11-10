@@ -179,6 +179,68 @@ opt-in of its own, given the lock screen), the click from the notification
 centre turns out to be needed, or notifications for Newsletters prove
 unwanted.
 
+### Remote images: trust is per sender, revocable, and not applied in junk
+
+**Decided 2026-11-10**, after comparing the blocked-images banner with Gmail,
+Outlook, Thunderbird and Apple Mail. Remote images stay blocked by default, a
+message's images can be loaded once, and a sender can be trusted for good —
+that much has shipped since the F2 fix of
+[CONTENT_RENDERING_AUDIT.md](CONTENT_RENDERING_AUDIT.md). What changed is what
+surrounds it.
+
+- **Trust can be taken back.** The account's settings list its trusted senders
+  with a button to remove each. "Always load images from …" was a one-way door
+  until then: the backend could list and remove senders from the start, and
+  nothing in the app called either. Every client compared has such a list.
+- **The button names the address it trusts.** The key is the bare address from
+  the `From` header, which a display name can differ from, so the button and
+  the announcement both say it. Where there is no address or no account to
+  store it under, the button is left out rather than quietly loading once.
+- **Not in junk.** The key is `From`, which anyone can write, and a message
+  forged in a trusted sender's name is what a server files under junk. Loading
+  its images on open would confirm the address to the forger. In a folder the
+  sync recorded as `JUNK` the content endpoint answers
+  `remoteImagesAllowedForSender: false` and `remoteImageTrustOffered: false`,
+  so the list is neither applied nor offered for extension; loading that one
+  message's images stays the user's call. The role is read from the local
+  record only (`ImapFolderService.isRecordedWithRole`): the question is asked
+  on every message open and must not cost a server round trip. A folder with
+  no recorded role is treated as not junk.
+- **Reachable without the mouse and without a live region.** The banner stays
+  silent on its own (#364: as a live region it read itself out on every arrow
+  key in the split pane). Ctrl+Shift+W, Outlook's key for the InfoBar, moves
+  focus to the banner's first button, or says the message has nothing blocked.
+  It goes there rather than loading, because the banner offers two different
+  things. The command palette has the entry that loads outright, listed only
+  while there is something to load.
+- **A deliberate open says so, in one sentence.** Opening a message with Enter
+  or a click puts the reading cursor in the body, past the banner, so the app
+  says "Obrázky z internetu jsou blokované." through the polite announcer at
+  the moment the body takes focus. This is the mention the banner lost with its
+  live region, back on the one path it was wanted on: the body now tells a
+  deliberate open from a row change that follows focus (`mail/bodyFocus.ts`),
+  which the live region could not, so paging through the split pane stays
+  quiet. The maintainer asked for it on 2026-11-10, knowing it is one more
+  sentence on every newsletter. Not yet heard in a screen reader: whether the
+  sentence survives the speech the focus move itself causes is for the
+  installed build to show.
+
+Considered and not built:
+
+- **Trusting a whole domain.** Outlook and Thunderbird offer it, and it would
+  suit newsletters that rotate addresses. It needs a second kind of entry in
+  the list, turns the banner's second button into a menu, and on a shared
+  domain (`gmail.com`) trusts everyone.
+- **A global "always load".** Gmail and the new Outlook can afford one because
+  they fetch through their own proxy, which hides the reader's address. This
+  application has no server to put in between, so the setting would hand every
+  sender the reader's IP address and the time of each open.
+
+**Revisit when:** users ask for domain trust; the sentence on open proves to be
+noise, or is not heard at all; or a mail server is found that files legitimate
+mail from trusted senders under junk often enough for the missing auto-load to
+be the complaint.
+
 ### The pane toggle stands at the foot of the rail, outside its landmark
 
 **Decided 2026-11-07** (#861), after testers took the toggle at the head of the

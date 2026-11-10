@@ -19,7 +19,7 @@ vi.mock('#lib/stores/messages.js', () => ({
 
 // Real ApiError so `err instanceof ApiError` in the store matches.
 import { ApiError } from '#lib/api/client.js';
-import { selectMessage, selectedMessage } from './selectedMessage.js';
+import { forgetContentFromSender, selectMessage, selectedMessage } from './selectedMessage.js';
 
 function detail(stableId: string): MailDetailResponse {
 	return { stableId, subject: 'Subject' } as unknown as MailDetailResponse;
@@ -133,5 +133,47 @@ describe('selectMessage', () => {
 		expect(state?.notFound).toBe(true);
 		expect(state?.error).toBeNull();
 		expect(reloadCurrentPageMock).toHaveBeenCalledOnce();
+	});
+});
+
+describe('forgetContentFromSender', () => {
+	const from = (senderEmail: string, allowed: boolean): MailContentResponse => ({
+		content: '<p>body</p>',
+		senderEmail,
+		remoteImagesAllowedForSender: allowed,
+		remoteImageTrustOffered: true
+	});
+
+	/*
+	 * The case the function exists for: the sender's trust was taken back in the
+	 * account settings, and a message of theirs is reopened from the cache. The
+	 * cached body still says the images may load by themselves.
+	 */
+	it('makes the next open ask again, so a changed trust is not answered from the cache', async () => {
+		getMessageDetailMock.mockImplementation((id: string) => Promise.resolve(detail(id)));
+		getMessageContentMock.mockResolvedValue(from('News@Example.com', true));
+		await selectMessage('trust-1');
+		expect(get(selectedMessage)?.content?.remoteImagesAllowedForSender).toBe(true);
+
+		// Without the call, this second answer is never asked for.
+		getMessageContentMock.mockResolvedValue(from('News@Example.com', false));
+		await selectMessage('trust-1');
+		expect(get(selectedMessage)?.content?.remoteImagesAllowedForSender).toBe(true);
+
+		forgetContentFromSender(' news@example.com ');
+		await selectMessage('trust-1');
+		expect(get(selectedMessage)?.content?.remoteImagesAllowedForSender).toBe(false);
+	});
+
+	it('leaves other senders’ bodies in the cache', async () => {
+		getMessageDetailMock.mockImplementation((id: string) => Promise.resolve(detail(id)));
+		getMessageContentMock.mockResolvedValue(from('other@example.com', false));
+		await selectMessage('trust-2');
+		getMessageContentMock.mockClear();
+
+		forgetContentFromSender('news@example.com');
+		await selectMessage('trust-2');
+
+		expect(getMessageContentMock).not.toHaveBeenCalled();
 	});
 });

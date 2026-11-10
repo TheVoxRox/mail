@@ -11,3 +11,22 @@ import { api } from './client.js';
 export function allowSenderRemoteImages(accountId: number, senderEmail: string): Promise<void> {
 	return api.put<void>('/remote-images/allowlist', { accountId, senderEmail });
 }
+
+/** The account's trusted senders, in address order. */
+export function listRemoteImageSenders(accountId: number): Promise<string[]> {
+	return api.get<string[]>('/remote-images/allowlist', {
+		params: { accountId: String(accountId) }
+	});
+}
+
+/**
+ * Stops trusting a sender: its messages open with their images blocked again.
+ * Idempotent. Both values are query parameters and there is no body, which is
+ * how `RemoteImageAllowlistController.disallow` reads them; the request goes to
+ * the sidecar on this machine and nowhere else.
+ */
+export function disallowSenderRemoteImages(accountId: number, senderEmail: string): Promise<void> {
+	return api.delete<void>('/remote-images/allowlist', undefined, {
+		params: { accountId: String(accountId), senderEmail }
+	});
+}

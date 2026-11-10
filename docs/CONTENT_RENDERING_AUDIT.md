@@ -2,8 +2,8 @@
 
 |                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version**        | 2.1                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| **Date**           | 2026-10-25                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **Version**        | 2.2                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **Date**           | 2026-11-10                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | **Applies to**     | VoxRox Mail V0.1.0 (`0d84ec6`), which under `Code paths` is byte-identical to the audited commit                                                                                                                                                                                                                                                                                                                                                                                        |
 | **Audited commit** | `246b2ba` (re-verified 2026-10-25, clearing seven acknowledgements; 2.0 anchor `c0ff3b0`, re-verified 2026-09-21; 1.9 anchor `0c1b61b`; 1.7-1.8 anchor `d558098`; 1.4-1.6 anchor `cad05cb`, recorded pre-squash as `5799e8b`; 1.0–1.3 baseline: `d55b753` / `fc71cb4`)                                                                                                                                                                                                                  |
 | **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/util/HtmlSanitizer.java`, `backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailContentService.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/RemoteImageAllowlistService.java`, `frontend/src/lib/mail/content-sanitizer.ts`, `frontend/src/lib/mail/mailFrame.ts`, `frontend/src/lib/components/message-detail` |
@@ -132,7 +132,14 @@ IMAP raw body
       The print sheet for ticked messages seeds each frame from the
       per-sender allow-list only; a per-message opt-in made in the reading
       pane is not carried into it, so a print loads no more than opening the
-      message would.
+      message would. Since 2.2 the per-sender half is narrower and can be
+      undone: in a Junk folder the backend reports no sender as trusted and
+      the banner offers this message's images only
+      ([IMAP_SMTP_AUDIT.md](IMAP_SMTP_AUDIT.md) §3), and the account's settings
+      list the trusted senders with a button to remove each. A body already
+      in the reading pane's cache is dropped when its sender's trust changes
+      (`forgetContentFromSender`), so a removed sender's message is not
+      reopened with the old answer.
 - [x] **Reverse tabnabbing** — `rel="noopener noreferrer nofollow"` at both layers.
 - [x] **DoS** — every read in
       [MimePartExtractor.java](../backend/src/main/java/org/voxrox/mailbackend/util/MimePartExtractor.java)
@@ -210,6 +217,16 @@ images by default.
   `data: https:`; a `no-referrer` meta keeps the load from leaking a referrer.
   The per-sender auto-load is keyed on the (spoofable) `From` and affects **image
   loading only** — never trust or code execution.
+  - **Narrowed 2026-11-10 (2.2):** the second button names the address it
+    trusts ("Always load images from …") and is left out where that trust
+    cannot be given: with no address or account to key it on, and in a Junk
+    folder, where the backend does not apply the list either. Trust is
+    revocable from the account's settings
+    ([RemoteImageSenderList.svelte](../frontend/src/lib/components/RemoteImageSenderList.svelte)).
+    The offer is also reachable from outside the banner — Ctrl+Shift+W moves
+    focus to it and a command-palette entry loads the images — and both run
+    the banner's own handler, so no new path loads a remote image without a
+    deliberate gesture on that message.
   - **Regression cover:** `HtmlSanitizerTest` (https preserved inertly / http
     dropped), `mailFrame.test.ts` + `content-sanitizer` tests (CSP variants,
     promote, count), `RemoteImageAllowlistService`/`Controller` tests, and the
@@ -439,6 +456,23 @@ bridge restores working links without changing the sandbox.
 
 ## 7. Change log
 
+- **2.2** (2026-11-10) — **remote-image trust is narrower, revocable and
+  reachable from the keyboard** (§2 tracking pixels, §3 F2). Not a
+  re-verification: the anchor stays `246b2ba` and the drift under
+  `message-detail` and `mailFrame.ts` is acknowledged in the ledger. What
+  moved under `Code paths`: `MessageContent.svelte` takes
+  `remoteImageTrustOffered` and renders the second button only where trust can
+  be given, names the sender's address in it, routes the allow-list call
+  through `mail/remoteImageTrust.ts` (which also drops that sender's cached
+  bodies), publishes its two actions for the palette command and the
+  shortcut, and on a deliberate open pushes one sentence to the polite
+  announcer after the body takes focus; `MessagePrintSheet.svelte` passes the new prop on; and the frame
+  forwarder's Shift list in `mailFrame.ts` gains `w`, with the script hash
+  recomputed (`MAIL_FRAME_SCRIPT_SHA256`, asserted by `mailFrame.test.ts`).
+  The sandbox, the CSP directives and the sanitizer are untouched, and remote
+  images still load only on a gesture for that message or for a sender the
+  user trusted — now never in junk. Verdict unchanged (**PASS**). Threat model
+  3.47.
 - **2.1** (2026-10-25) — re-verified against `246b2ba`, every claim, by a
   session that wrote none of the delta it read, clearing the seven
   acknowledgements recorded since 2026-09-22, one short of the ledger's cap.

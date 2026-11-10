@@ -240,7 +240,7 @@ class MailReadControllerTest {
     @DisplayName("GET content -> 200 with body")
     void contentOk() throws Exception {
         when(mailFacade.getMessageContentOnly("abc123"))
-                .thenReturn(new MailContentResponse("<html>ok</html>", "sender@example.com", false));
+                .thenReturn(new MailContentResponse("<html>ok</html>", "sender@example.com", false, true));
 
         mockMvc.perform(get("/api/v1/messages/abc123/content")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").value("<html>ok</html>"))
