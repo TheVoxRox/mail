@@ -32,7 +32,11 @@
  * (inventories + SBOMs + this notice). Either way the SBOMs must be fresh
  * first — this script reads them, it does not build them.
  *
- * Output: `frontend/src-tauri/resources/NOTICE.txt` (overwritten).
+ * Output: `frontend/src-tauri/resources/NOTICE.txt` (overwritten), and beside
+ * it `frontend/src-tauri/notice-inputs.json`, the digests of the three license
+ * inventories as they stood when the notice was rendered. `npm run check:notice`
+ * compares those with the committed inventories, so regenerating an inventory
+ * without rendering the notice again fails `npm run check`. Commit both files.
  */
 
 import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
@@ -40,6 +44,12 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { packagedArtifacts } from '../../backend/scripts/lib/packaged-artifacts.mjs';
 import { builtCrates } from '../src-tauri/scripts/lib/built-crates.mjs';
+import {
+	NOTICE_INVENTORIES,
+	NOTICE_RECORD,
+	inventoryDigest,
+	renderNoticeRecord
+} from './lib/notice-inputs.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '..', '..');
@@ -307,8 +317,23 @@ const sections = sortedLicenses.map((lic) => renderLicenseGroup(lic, byLicense.g
 mkdirSync(outDir, { recursive: true });
 writeFileSync(outFile, [...header, ...sections].join('\n'), 'utf8');
 
+/*
+ * Which inventories this notice was rendered alongside, for
+ * `npm run check:notice` (scripts/check-notice-inputs.mjs). Written in the
+ * same run as the notice and nowhere else, so the record can only move when
+ * the notice is rendered again.
+ */
+const digests = Object.fromEntries(
+	NOTICE_INVENTORIES.map((file) => [
+		file,
+		inventoryDigest(readFileSync(path.join(repoRoot, file), 'utf8'))
+	])
+);
+writeFileSync(path.join(repoRoot, NOTICE_RECORD), renderNoticeRecord(digests), 'utf8');
+
 const sizeKb = (Buffer.byteLength(readFileSync(outFile)) / 1024).toFixed(1);
 console.log(
 	`Wrote ${path.relative(repoRoot, outFile)} (${sizeKb} KB) — ` +
-		`${totalComponents} components across ${sortedLicenses.length} license groups.`
+		`${totalComponents} components across ${sortedLicenses.length} license groups — ` +
+		`and ${NOTICE_RECORD}.`
 );

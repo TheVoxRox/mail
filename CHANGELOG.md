@@ -19,6 +19,15 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Repo
+
+- `npm run check` fails when a license inventory has changed since the bundled
+  `NOTICE.txt` was last rendered: `regen:notice` records each inventory's
+  digest in `frontend/src-tauri/notice-inputs.json`, and `check:notice`
+  recomputes them from the committed inventories. Five dependency PRs had
+  regenerated an inventory without the notice until the v0.2.0-beta.4 cut
+  caught it by hand (#891).
+
 ## [0.2.0-beta.4] - 2026-11-10
 
 ### Backend

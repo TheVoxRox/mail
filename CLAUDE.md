@@ -147,6 +147,15 @@ someone a rework at least once. For the human-facing versions see
     the sidecar dies at startup under `spring.aot.enabled=true` — the shape of
     #393. The `openapi` profile resets both filters and must reset **both**;
     resetting one is the same failure by another route.
+  - `check:notice` — the bundled `NOTICE.txt` may not fall behind the three
+    license inventories. It is rendered from SBOMs, the built jar,
+    `cargo tree` and `node_modules`, none committed, so `regen:notice` records
+    a digest of each inventory's component list in
+    `frontend/src-tauri/notice-inputs.json` and the gate recomputes them. On a
+    failure render the notice again and commit both files; never paste a
+    digest into the record, which would vouch for a notice nobody rendered.
+    Five dependency PRs in a row regenerated an inventory and not the notice
+    before it existed (#890). It cannot see an inventory nobody regenerated.
   - `check:test-claims` — a test may not repeat its neighbour, and may not be
     switched off in silence. Two tests in **one file** with identical bodies
     assert the same thing under two names (#307: a refactor removed the
