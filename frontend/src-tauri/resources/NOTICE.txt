@@ -8,19 +8,19 @@ attached to the component. The product itself is licensed under
 the terms of the LICENSE file shipped alongside this notice in the
 installation directory.
 
-Total third-party components: 490
-  npm    110
+Total third-party components: 502
+  npm    115
   maven  106
-  cargo  274
+  cargo  281
 
-Generated: 2026-11-07
+Generated: 2026-11-10
 
 Machine-readable CycloneDX SBOM files for each ecosystem are
 published alongside the installer on the GitHub Releases page.
 
 ------------------------------------------------------------------
 
-## MIT  —  139 component(s)
+## MIT  —  144 component(s)
 
 License text:
 
@@ -54,11 +54,11 @@ Components and their copyright notices:
       tyrealhu and the Svelte team
       git+https://github.com/sveltejs/acorn-typescript.git
 
-  * binding-win32-x64-msvc 1.2.15  [npm]
+  * binding-win32-x64-msvc 1.2.16  [npm]
       (no author in package.json — see git+https://github.com/rolldown/rolldown.git#packages/rolldown)
       git+https://github.com/rolldown/rolldown.git#packages/rolldown
 
-  * bits-ui 2.20.2  [npm]
+  * bits-ui 2.20.6  [npm]
       Hunter Johnston
       git+https://github.com/huntabyte/bits-ui.git
 
@@ -81,6 +81,10 @@ Components and their copyright notices:
   * cookie 2.0.1  [npm]
       Roman Shtylman
       git+https://github.com/jshttp/cookie.git
+
+  * core 1.11.1  [npm]
+      toyobayashi
+      git+https://github.com/toyobayashi/emnapi.git
 
   * core 1.8.0  [npm]
       atomiks
@@ -134,7 +138,7 @@ Components and their copyright notices:
       Long Ho
       git+ssh://git@github.com/formatjs/formatjs.git
 
-  * enhanced-resolve 5.24.3  [npm]
+  * enhanced-resolve 5.26.1  [npm]
       Tobias Koppers @sokra
       git+https://github.com/webpack/enhanced-resolve.git
 
@@ -246,7 +250,7 @@ Components and their copyright notices:
       (no author in package.json — see git+https://github.com/unjs/jiti.git)
       git+https://github.com/unjs/jiti.git
 
-  * jsoup 1.23.2  [maven]
+  * jsoup 1.24.1  [maven]
       Jonathan Hedley
       https://github.com/jhy/jsoup
 
@@ -298,7 +302,7 @@ Components and their copyright notices:
       Matt Brubeck <mbrubeck@limpet.net>, Jonathan Reem <jonathan.reem@gmail.com>
       https://github.com/mbrubeck/rust-debug-unreachable
 
-  * node 4.3.3  [npm]
+  * node 4.3.4  [npm]
       (no author in package.json — see git+https://github.com/tailwindlabs/tailwindcss.git#packages/@tailwindcss-node)
       git+https://github.com/tailwindlabs/tailwindcss.git#packages/@tailwindcss-node
 
@@ -318,11 +322,15 @@ Components and their copyright notices:
       Jack O'Connor
       https://github.com/oconnor663/os_pipe.rs
 
-  * oxide 4.3.3  [npm]
+  * oxide 4.3.4  [npm]
       (no author in package.json — see git+https://github.com/tailwindlabs/tailwindcss.git#crates/node)
       git+https://github.com/tailwindlabs/tailwindcss.git#crates/node
 
-  * oxide-win32-x64-msvc 4.3.3  [npm]
+  * oxide-wasm32-wasi 4.3.4  [npm]
+      (no author in package.json — see git+https://github.com/tailwindlabs/tailwindcss.git#crates/node)
+      git+https://github.com/tailwindlabs/tailwindcss.git#crates/node
+
+  * oxide-win32-x64-msvc 4.3.4  [npm]
       (no author in package.json — see git+https://github.com/tailwindlabs/tailwindcss.git#crates/node/npm/win32-x64-msvc)
       git+https://github.com/tailwindlabs/tailwindcss.git#crates/node/npm/win32-x64-msvc
 
@@ -374,13 +382,17 @@ Components and their copyright notices:
       Justin Ridgewell
       git+https://github.com/jridgewell/resolve-uri.git
 
-  * rolldown 1.2.15  [npm]
+  * rolldown 1.2.16  [npm]
       (no author in package.json — see git+https://github.com/rolldown/rolldown.git#packages/rolldown)
       git+https://github.com/rolldown/rolldown.git#packages/rolldown
 
   * runed 0.35.1  [npm]
       Thomas G. Lopes
       git+https://github.com/svecosystem/runed.git#packages/runed
+
+  * runtime 1.11.1  [npm]
+      toyobayashi
+      git+https://github.com/toyobayashi/emnapi.git
 
   * sade 1.8.1  [npm]
       Luke Edwards
@@ -442,7 +454,7 @@ Components and their copyright notices:
       Nika Layzell <nika@thelayzells.com>
       https://github.com/mystor/synstructure
 
-  * tabbable 6.5.0  [npm]
+  * tabbable 6.5.1  [npm]
       David Clark
       git+https://github.com/focus-trap/tabbable.git
 
@@ -450,11 +462,11 @@ Components and their copyright notices:
       Dany Castillo
       git+https://github.com/dcastil/tailwind-merge.git#packages/tailwind-merge
 
-  * tailwind-variants 4.0.0  [npm]
+  * tailwind-variants 4.0.1  [npm]
       Junior Garcia
       git+https://github.com/heroui-inc/tailwind-variants.git
 
-  * tailwindcss 4.3.3  [npm]
+  * tailwindcss 4.3.4  [npm]
       (no author in package.json — see git+https://github.com/tailwindlabs/tailwindcss.git#packages/tailwindcss)
       git+https://github.com/tailwindlabs/tailwindcss.git#packages/tailwindcss
 
@@ -526,10 +538,6 @@ Components and their copyright notices:
       Luca Bosin
       git+https://github.com/Wombosvideo/tw-animate-css.git
 
-  * types 0.155.0  [npm]
-      Boshen and oxc contributors
-      git+https://github.com/oxc-project/oxc.git#npm/oxc-types
-
   * types 8.72.1  [npm]
       (no author in package.json — see git+https://github.com/typescript-eslint/typescript-eslint.git#packages/types)
       git+https://github.com/typescript-eslint/typescript-eslint.git#packages/types
@@ -550,11 +558,11 @@ Components and their copyright notices:
       atomiks
       git+https://github.com/floating-ui/floating-ui.git#packages/utils
 
-  * vite 4.3.3  [npm]
+  * vite 4.3.4  [npm]
       Evan You
       git+https://github.com/tailwindlabs/tailwindcss.git#packages/@tailwindcss-vite
 
-  * vite 8.3.5  [npm]
+  * vite 8.3.6  [npm]
       Evan You
       git+https://github.com/vitejs/vite.git#packages/vite
 
@@ -569,6 +577,18 @@ Components and their copyright notices:
   * want 0.3.2  [cargo]
       Sean McArthur <sean@seanmonstar.com>
       https://github.com/seanmonstar/want
+
+  * wasi-threads 1.2.2  [npm]
+      toyobayashi
+      git+https://github.com/toyobayashi/emnapi.git
+
+  * wasm-runtime 1.2.2  [npm]
+      LongYinan
+      git+https://github.com/napi-rs/napi-rs.git#wasm-runtime
+
+  * wasm-util 0.10.3  [npm]
+      toyobayashi
+      git+https://github.com/toyobayashi/wasm-util.git
 
   * webview2-com 0.39.1  [cargo]
       (copyright not declared)
@@ -594,7 +614,7 @@ Components and their copyright notices:
       (no author in package.json — see git+https://github.com/sveltejs/zimmerframe.git)
       git+https://github.com/sveltejs/zimmerframe.git
 
-  * zip 9.3.0  [cargo]
+  * zip 9.4.1  [cargo]
       Mathijs van de Nes <git@mathijs.vd-nes.nl>, Marli Frost <marli@frost.red>, Ryan Levick <ryan.levick@gmail.com>, Chris Hennick <hennickc@amazon.com>
       https://github.com/zip-rs/zip2
 
@@ -604,7 +624,7 @@ Components and their copyright notices:
 
 ------------------------------------------------------------------
 
-## MIT OR Apache-2.0  —  137 component(s)
+## MIT OR Apache-2.0  —  143 component(s)
 
 License text: see https://spdx.org/licenses/MIT%20OR%20Apache-2.0.html
 
@@ -651,6 +671,10 @@ Components and their copyright notices:
       https://github.com/thomcc/core_detect
 
   * cpufeatures 0.2.17  [cargo]
+      RustCrypto Developers
+      https://github.com/RustCrypto/utils
+
+  * cpufeatures 0.3.1  [cargo]
       RustCrypto Developers
       https://github.com/RustCrypto/utils
 
@@ -782,6 +806,10 @@ Components and their copyright notices:
       Sean McArthur <sean@seanmonstar.com>
       https://github.com/seanmonstar/httparse
 
+  * chacha20 0.10.2  [cargo]
+      RustCrypto Developers
+      https://github.com/RustCrypto/stream-ciphers
+
   * ident_case 1.0.1  [cargo]
       Ted Driggs <ted.driggs@outlook.com>
       https://github.com/TedDriggs/ident_case
@@ -830,6 +858,10 @@ Components and their copyright notices:
       Sean McArthur <sean@seanmonstar.com>
       https://github.com/hyperium/mime
 
+  * notify-rust 4.19.0  [cargo]
+      Hendrik Sollich <hendrik@hoodie.de>
+      https://github.com/hoodie/notify-rust
+
   * num-conv 0.2.2  [cargo]
       Jacob Pratt <jacob@jhpratt.dev>
       https://github.com/jhpratt/num-conv
@@ -877,6 +909,14 @@ Components and their copyright notices:
   * quote 1.0.47  [cargo]
       David Tolnay <dtolnay@gmail.com>
       https://github.com/dtolnay/quote
+
+  * rand 0.10.3  [cargo]
+      The Rand Project Developers, The Rust Project Developers
+      https://github.com/rust-random/rand
+
+  * rand_core 0.10.1  [cargo]
+      The Rand Project Developers
+      https://github.com/rust-random/rand_core
 
   * regex 1.13.1  [cargo]
       The Rust Project Developers, Andrew Gallant <jamslam@gmail.com>
@@ -1009,6 +1049,10 @@ Components and their copyright notices:
   * syn 3.0.9  [cargo]
       David Tolnay <dtolnay@gmail.com>
       https://github.com/dtolnay/syn
+
+  * tauri-winrt-notification 0.8.1  [cargo]
+      allenbenz, Tauri Programme within The Commons Conservancy
+      https://github.com/tauri-apps/winrt-notification
 
   * tempfile 3.27.0  [cargo]
       Steven Allen <steven@stebalien.com>, The Rust Project Developers, Ashley Mannix <ashleymannix@live.com.au>, Jason White <me@jasonwhite.io>
@@ -1706,7 +1750,7 @@ Components and their copyright notices:
 
 ------------------------------------------------------------------
 
-## Apache-2.0 OR MIT  —  32 component(s)
+## Apache-2.0 OR MIT  —  33 component(s)
 
 License text: see https://spdx.org/licenses/Apache-2.0%20OR%20MIT.html
 
@@ -1789,6 +1833,10 @@ Components and their copyright notices:
       https://github.com/tauri-apps/plugins-workspace
 
   * tauri-plugin-log 2.10.1  [cargo]
+      Tauri Programme within The Commons Conservancy
+      https://github.com/tauri-apps/plugins-workspace
+
+  * tauri-plugin-notification 2.8.0  [cargo]
       Tauri Programme within The Commons Conservancy
       https://github.com/tauri-apps/plugins-workspace
 
@@ -2176,11 +2224,11 @@ Components and their copyright notices:
       Xidorn Quan <me@upsuper.org>
       https://github.com/upsuper/dtoa-short
 
-  * lightningcss 1.32.0  [npm]
+  * lightningcss 1.33.0  [npm]
       (no author in package.json — see git+https://github.com/parcel-bundler/lightningcss.git)
       git+https://github.com/parcel-bundler/lightningcss.git
 
-  * lightningcss-win32-x64-msvc 1.32.0  [npm]
+  * lightningcss-win32-x64-msvc 1.33.0  [npm]
       (no author in package.json — see git+https://github.com/parcel-bundler/lightningcss.git)
       git+https://github.com/parcel-bundler/lightningcss.git
 
@@ -2396,7 +2444,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Components and their copyright notices:
 
-  * commonmark 0.31.0  [maven]
+  * commonmark 0.32.0  [maven]
       (copyright not declared)
       https://github.com/commonmark/commonmark-java/commonmark
 
@@ -2480,8 +2528,9 @@ License text: see https://spdx.org/licenses/UNKNOWN.html
 
 Components and their copyright notices:
 
-  * svelte-toolbelt 0.10.6  [npm]
-      (copyright not declared in package metadata)
+  * svelte-toolbelt 0.10.7  [npm]
+      (no author in package.json — see git+https://github.com/huntabyte/svelte-toolbelt.git)
+      git+https://github.com/huntabyte/svelte-toolbelt.git
 
 ------------------------------------------------------------------
 

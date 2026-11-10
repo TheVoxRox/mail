@@ -284,6 +284,13 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Tauri / Release
 
+- The `NOTICE.txt` the installer carries names the dependencies this release
+  ships: 502 components where it named 490, among them jsoup 1.24.1,
+  commonmark 0.32.0, bits-ui 2.20.6, `zip` 9.4.1, `tauri-plugin-notification`
+  with the crates it brings, and Tailwind's WebAssembly fallback. #872, #873,
+  #875, #876 and #886 moved the license lists, and the notice, which a step of
+  its own writes from them, stayed at the tree of 2026-11-07; the cut's
+  `regen:licenses:all` is where that showed.
 - New mail is announced with a Windows notification while the window is
   hidden in the notification area, minimized or behind another application.
   The only announcement used to be the in-app toast, which nobody sees or hears
