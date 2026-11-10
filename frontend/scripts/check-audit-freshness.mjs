@@ -2,8 +2,8 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
-import { differsOnlyInComments } from './lib/comment-only.mjs';
-import { readBlobs, resolveObjects } from './lib/git-objects.mjs';
+import { changedOnlyInComments as onlyCommentsBetween } from './lib/comment-only-objects.mjs';
+import { resolveObjects } from './lib/git-objects.mjs';
 
 /*
  * Fails when a per-subsystem security audit falls behind the code it audits.
@@ -305,50 +305,12 @@ const objectIdAt = (rev, filePath) => resolved.get(`${rev}:${filePath}`)?.oid ??
 
 /**
  * Whether `codePath` went from object `baseline` to object `current` through
- * changes to comments and layout only. Runs only for a path whose id already
- * differs, so a green run with nothing drifted never pays for it.
- *
- * Every answer short of a confident yes is no: a baseline this clone does not
- * have (an id recorded from a merge commit that never landed), a file added,
- * deleted or with a changed mode, a submodule, a language the library does
- * not cover.
+ * changes to comments and layout only, read in this repository. The rule
+ * lives in lib/comment-only-objects.mjs, which release:status shares for the
+ * manual release sections.
  */
-function changedOnlyInComments(codePath, baseline, current) {
-	const objects = resolveObjects(repoRoot, [baseline, current]);
-	const before = objects.get(baseline);
-	const after = objects.get(current);
-	if (!before || !after || before.type !== after.type) return false;
-
-	const pairs = [];
-	if (before.type === 'blob') {
-		pairs.push({ file: codePath, from: baseline, to: current });
-	} else if (before.type === 'tree') {
-		// `-z` output: ":<mode> <mode> <oid> <oid> <status>" NUL "<path>" NUL, per file.
-		const fields = execFileSync(
-			'git',
-			['diff-tree', '-r', '-z', '--no-renames', baseline, current],
-			{ cwd: repoRoot, encoding: 'utf8' }
-		).split('\0');
-		for (let index = 0; index + 1 < fields.length; index += 2) {
-			const [fromMode, toMode, from, to, status] = fields[index].replace(/^:/, '').split(' ');
-			if (status !== 'M' || fromMode !== toMode) return false;
-			pairs.push({ file: `${codePath}/${fields[index + 1]}`, from, to });
-		}
-	} else {
-		return false;
-	}
-	if (pairs.length === 0) return false;
-
-	const blobs = readBlobs(
-		repoRoot,
-		pairs.flatMap(({ from, to }) => [from, to])
-	);
-	return pairs.every(({ file, from, to }) => {
-		const left = blobs.get(from);
-		const right = blobs.get(to);
-		return left != null && right != null && differsOnlyInComments(file, left, right);
-	});
-}
+const changedOnlyInComments = (codePath, baseline, current) =>
+	onlyCommentsBetween(repoRoot, codePath, baseline, current);
 
 for (const { rel, auditedCommit, codePaths } of audits) {
 	const hasEntry = Object.hasOwn(ledger, rel);

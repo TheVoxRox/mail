@@ -26,6 +26,7 @@ import {
 	pickSignedRun,
 	pickSmokeRun,
 	planCarry,
+	promotionOf,
 	readGhAnswer,
 	readProvenance
 } from './lib/release-status.mjs';
@@ -443,7 +444,8 @@ describe('carrying a manual section', () => {
 		]),
 		rows = inputs,
 		objects = {},
-		blobs = {}
+		blobs = {},
+		onlyComments = undefined
 	} = {}) {
 		const plan = planCarry({ sheet: current, inputs: rows, ticks, codePathsOf });
 		const oid = (fill) => ({ oid: fill.repeat(40), type: 'tree' });
@@ -459,7 +461,10 @@ describe('carrying a manual section', () => {
 			[`${NOW_TAURI}:tauri.conf.json`, config('0.2.0', { targets: 'nsis' })],
 			...Object.entries(blobs)
 		]);
-		return { plan, lines: judgeCarry(plan, resolved, contents).map(describeCarry) };
+		return {
+			plan,
+			lines: judgeCarry(plan, resolved, contents, onlyComments).map(describeCarry)
+		};
 	}
 
 	it('lists the open sections taken by hand, not §0–§2', () => {
@@ -498,6 +503,41 @@ describe('carrying a manual section', () => {
 			'§3a Installer behaviour: re-take: frontend/src-tauri/tauri.conf.json#bundle. ' +
 				'Against the 2026-10-13 sheet as of a2caa27'
 		);
+		expect(lines[1]).toBe(
+			'§4 Account flows: re-take: backend/src/auth. Against the 2026-10-13 sheet as of a2caa27'
+		);
+	});
+
+	it('carries a path that moved only in comments, and says so on the line', () => {
+		const asked = [];
+		const { lines } = judge({
+			objects: { [`${NOW_SRC}:auth`]: { oid: 'c'.repeat(40), type: 'tree' } },
+			onlyComments: (path, before, now) => {
+				asked.push([path, before, now]);
+				return true;
+			}
+		});
+
+		expect(asked).toEqual([['backend/src/auth', 'b'.repeat(40), 'c'.repeat(40)]]);
+		expect(lines[1]).toBe(
+			'§4 Account flows: carry from the 2026-10-13 sheet as of a2caa27 ' +
+				'(changed only in comments, not counted: backend/src/auth)'
+		);
+	});
+
+	it('re-takes a path whose change is more than comments, and never asks about a JSON key', () => {
+		const asked = [];
+		const { lines } = judge({
+			objects: { [`${NOW_SRC}:auth`]: { oid: 'c'.repeat(40), type: 'tree' } },
+			blobs: { [`${NOW_TAURI}:tauri.conf.json`]: config('0.1.0', { targets: 'msi' }) },
+			onlyComments: (path) => {
+				asked.push(path);
+				return false;
+			}
+		});
+
+		expect(asked).toEqual(['backend/src/auth']);
+		expect(lines[0]).toContain('re-take: frontend/src-tauri/tauri.conf.json#bundle');
 		expect(lines[1]).toBe(
 			'§4 Account flows: re-take: backend/src/auth. Against the 2026-10-13 sheet as of a2caa27'
 		);
@@ -799,6 +839,59 @@ describe('decideNextStep and the release notes', () => {
 		const decision = decideNextStep(facts({ releaseNotesFile: null }));
 
 		expect(decision.summary).toContain('Next on the sheet');
+	});
+});
+
+describe('a beta and the manual sections', () => {
+	const beta = (overrides = {}) =>
+		facts({
+			tag: 'v0.2.0-beta.4',
+			provenance: { commit: TAG, ref: 'refs/tags/v0.2.0-beta.4' },
+			carry: [{ section: { id: '§3', title: 'Fresh install' }, carry: true }],
+			...overrides
+		});
+
+	it('names the stable tag a prerelease promotes to, and none for a stable tag', () => {
+		expect(promotionOf('v0.2.0-beta.4')).toBe('v0.2.0');
+		expect(promotionOf('v1.10.3-rc.1')).toBe('v1.10.3');
+		expect(promotionOf('v0.2.0')).toBeNull();
+		expect(promotionOf(null)).toBeNull();
+	});
+
+	it('goes past the open manual sections of a beta to §9, and says where they are taken', () => {
+		const decision = decideNextStep(beta());
+
+		expect(decision.summary).toContain('Next on the sheet: §9.');
+		expect(decision.notes.join(' ')).toContain(
+			'§3 are not taken on a beta. They are taken once, on the candidate that promotes v0.2.0'
+		);
+		expect(decision.notes.join(' ')).not.toContain('can carry');
+	});
+
+	it('asks a beta for its notes once §9 is ticked, with §3 still open', () => {
+		const decision = decideNextStep(
+			beta({ sheet: ticked((id) => id !== '§3'), releaseNotesFile: null })
+		);
+
+		expect(decision.summary).toBe(
+			'Every section a beta takes is ticked on the 2026-09-11 sheet, but main has no ' +
+				'docs/release-notes/v0.2.0-beta.4.md. Write the release notes (RELEASE_PROCESS step 5), ' +
+				'merge them, then set the draft body from the file, from the repository root:'
+		);
+	});
+
+	it('still holds the stable candidate that promotes it to every manual section', () => {
+		const decision = decideNextStep(
+			facts({
+				tag: 'v0.2.0',
+				provenance: { commit: TAG, ref: 'refs/tags/v0.2.0' },
+				sheet: ticked((id) => id !== '§3'),
+				releaseNotesFile: null
+			})
+		);
+
+		expect(decision.summary).toContain('Next on the sheet: §3 Fresh install.');
+		expect(decision.notes.join(' ')).not.toContain('not taken on a beta');
 	});
 });
 

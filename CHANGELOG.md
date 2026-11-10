@@ -27,6 +27,12 @@ Entries before 2026-09-17 predate that split and are left as written.
   recomputes them from the committed inventories. Five dependency PRs had
   regenerated an inventory without the notice until the v0.2.0-beta.4 cut
   caught it by hand (#891).
+- A beta no longer takes the release checklist's manual sections: it ships on
+  the machine half (CI, the signed build, Release Candidate Smoke with the
+  update from the last stable) and §9, and §3 to §8 are taken once, on the
+  stable candidate that promotes it. `npm run release:status` goes past them to
+  §9 on a prerelease tag and no longer counts a change only in comments as
+  moving a section's inputs; why is in `docs/DECISIONS.md` (#892).
 
 ## [0.2.0-beta.4] - 2026-11-10
 

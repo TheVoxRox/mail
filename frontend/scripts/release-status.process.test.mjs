@@ -133,9 +133,11 @@ describe('release:status as a process', () => {
 		repo.write(CHECKLIST, checklist('2026-09-11', true));
 		repo.commit('the first sheet, every section ticked');
 		const ticked = repo.git(['rev-parse', 'HEAD']).slice(0, 7);
-		// The next cut: a version bump and a change to the mail list, nothing else.
+		// The next cut: a version bump, a change to the mail list and a comment
+		// in the sign-in code, nothing else.
 		repo.write(CONFIG, tauri('0.2.0'));
 		repo.write('frontend/src/lib/mail/list.ts', 'export const list = 2;\n');
+		repo.write('backend/src/auth/Login.java', '/** Signs in. */\nclass Login {}\n');
 		repo.commit('the next cut');
 		repo.write(CHECKLIST, checklist('2026-09-12', false));
 		repo.commit('the second sheet, replacing the first');
@@ -147,7 +149,9 @@ describe('release:status as a process', () => {
 		expect(result.status).toBe(0);
 		expect(result.stdout).toContain('Manual sections, against the last sheet that ticked each');
 		expect(result.stdout).toContain(`§3a Manual: carry from ${against}`);
-		expect(result.stdout).toContain(`§4 Manual: carry from ${against}`);
+		expect(result.stdout).toContain(
+			`§4 Manual: carry from ${against} (changed only in comments, not counted: backend/src/auth)`
+		);
 		expect(result.stdout).toContain(
 			`§5 Manual: re-take: frontend/src/lib/mail. Against ${against}`
 		);
