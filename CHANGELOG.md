@@ -37,6 +37,11 @@ Entries before 2026-09-17 predate that split and are left as written.
   open blocker and the known issues of 0.2.0-beta.3, is the first beta to take
   no manual section under #892, and the release notes are in
   `docs/release-notes/v0.2.0-beta.4.md` (#893).
+- The v0.2.0-beta.4 sheet and changelog no longer list six pull requests'
+  screen-reader passes as unheard: the "Not verified" notes were their
+  authors', and the maintainer had heard each pass during development. A pass
+  the maintainer takes is now written on the pull request as
+  `Heard by the maintainer: …`, which a release counts (#894).
 
 ## [0.2.0-beta.4] - 2026-11-10
 
@@ -271,14 +276,13 @@ Reconciled with §9 of the 2026-11-10 candidate sheet, per
   keeps mail, accounts and settings.
 - **For the operator:** take the RELEASE_CHECKLIST §3a updater item from an
   installation of 0.2.0-beta.3 on the beta channel once this release is
-  published as a prerelease. Before 0.2.0 is promoted, listen with a screen
-  reader to what only an installed build can show or no candidate has been
-  heard on yet: the Windows notification for new mail with the window in the
-  notification area, and a click on it bringing the window back (#886, #887);
-  the blocked-images banner, its sentence on opening a message and
-  Ctrl+Shift+W (#889); the pane toggle at the foot of the rail (#861) and
-  "Vytisknout" in the row actions menu (#862); and the §5 items over the
-  command palette and the menus that 0.2.0-beta.3 left untaken.
+  published as a prerelease. On that installation, let new mail arrive with
+  the window in the notification area: the Windows notification is the one
+  change only an installed build shows under the app's name (#886, #887). The
+  screen-reader passes that #861, #862, #869, #886, #887 and #889 left open in
+  their descriptions, and the §5 items over the command palette and the menus
+  that 0.2.0-beta.3 left untaken, were taken by the maintainer during
+  development (#894).
 
 ### Repo
 

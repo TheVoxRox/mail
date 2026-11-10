@@ -319,10 +319,17 @@ included: the update over a running installation and the files it leaves, the
 signing key and the manifest, and the frozen V1 migration
 (`FlywayBaselineChecksumTest`).
 
-What a beta's sheet still records is what its pull requests left for a person
-to see or hear, such as a screen-reader pass that needs an installed build.
-Those items are taken in the promotion's pass, or earlier on the beta if the
-maintainer chooses.
+What a beta's sheet still records is what nobody has seen or heard yet, such
+as a screen-reader pass that needs an installed build. A pull request's "Not
+verified" note says what its author could not check, and an agent cannot
+listen with a screen reader, so the note alone is not that list: the
+maintainer's own pass during development counts, and is written on the pull
+request as `Heard by the maintainer: …` so that a release does not ask for it
+again. Only what neither covered is taken in the promotion's pass, or earlier
+on the beta if the maintainer chooses. Revised 2026-11-10 (#894): the
+0.2.0-beta.4 cut had listed six pull requests' passes as unheard from their
+notes alone, and the maintainer had heard every one of them during
+development.
 
 In the same change, a section's inputs that moved only in comments and layout
 no longer count as moved, read the way `check:audits` reads audit drift ("A
