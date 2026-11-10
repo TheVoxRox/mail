@@ -17,7 +17,7 @@ neighbouring documents own:
 number would be ambiguous: §6 is Approval here and Sidecar lifecycle there. In
 this document, **`§` always means a section of the checklist** and its own
 sections are called **steps** — "step 6" is below, "§6" is not. Sections that
-exist in only one of the two (§0, §3a, §8a, §8b, §9) carry no ambiguity, but
+exist in only one of the two (§0, §3a, §3b, §8a, §8b, §9) carry no ambiguity, but
 take the prefix on first mention anyway.
 
 Read [OPERATIONS.md](../backend/OPERATIONS.md) "The release model:
@@ -67,9 +67,12 @@ depends on what the candidate is:
   request's own "Not verified" note is its author's, and a pass the maintainer
   took during development, written on the pull request as
   `Heard by the maintainer: …`, counts. `npm run release:status` goes past them to §9 on a
-  prerelease tag. The §3a updater item is the one manual check tied to a beta:
-  it is taken after the beta is published, from an installation of the
-  previous beta on the beta channel, and before the promotion.
+  prerelease tag. The one manual check a beta can owe is §3b, the updater
+  itself, and only when something in its row moved or the signing key was
+  rotated (docs/DECISIONS.md, "The updater is taken by hand only when it
+  changed"); otherwise it carries. When it is owed, it is taken after the beta
+  is published, from an installation of the previous beta on the beta channel,
+  and before the promotion.
 - **On a stable candidate, the manual sections, once.** Each **carries from
   the last sheet that ticked it when nothing it rests on moved**, a change only
   in comments and layout aside, and is re-taken where something did. The rule,

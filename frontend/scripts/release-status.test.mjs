@@ -543,6 +543,54 @@ describe('carrying a manual section', () => {
 		);
 	});
 
+	it('reads a Cargo.lock key as that crate’s version, not as the whole lockfile', () => {
+		const lock = (updater, zip) =>
+			[
+				'version = 4',
+				'',
+				'[[package]]',
+				'name = "tauri-plugin-updater"',
+				`version = "${updater}"`,
+				'',
+				'[[package]]',
+				'name = "zip"',
+				`version = "${zip}"`,
+				''
+			].join('\n');
+		const rows = new Map([
+			['§3a', ['frontend/src-tauri/Cargo.lock#tauri-plugin-updater']],
+			['§4', ['frontend/src-tauri/Cargo.lock#zip']]
+		]);
+		const { lines } = judge({
+			rows,
+			blobs: {
+				[`${THEN_TAURI}:Cargo.lock`]: lock('2.14.1', '9.3.0'),
+				[`${NOW_TAURI}:Cargo.lock`]: lock('2.14.1', '9.4.1')
+			}
+		});
+
+		expect(lines[0]).toBe('§3a Installer behaviour: carry from the 2026-10-13 sheet as of a2caa27');
+		expect(lines[1]).toBe(
+			'§4 Account flows: re-take: frontend/src-tauri/Cargo.lock#zip. ' +
+				'Against the 2026-10-13 sheet as of a2caa27'
+		);
+	});
+
+	it('re-takes a Cargo.lock key whose crate the candidate no longer has', () => {
+		const { lines } = judge({
+			rows: new Map([['§3a', ['frontend/src-tauri/Cargo.lock#tauri-plugin-updater']]]),
+			blobs: {
+				[`${THEN_TAURI}:Cargo.lock`]:
+					'[[package]]\nname = "tauri-plugin-updater"\nversion = "2.14.1"\n',
+				[`${NOW_TAURI}:Cargo.lock`]: '[[package]]\nname = "zip"\nversion = "9.4.1"\n'
+			}
+		});
+
+		expect(lines[0]).toContain(
+			'frontend/src-tauri/Cargo.lock#tauri-plugin-updater, which this candidate does not have'
+		);
+	});
+
 	it('re-takes what cannot be compared rather than carrying it', () => {
 		const { lines } = judge({
 			rows: new Map([
@@ -878,6 +926,28 @@ describe('a beta and the manual sections', () => {
 				'docs/release-notes/v0.2.0-beta.4.md. Write the release notes (RELEASE_PROCESS step 5), ' +
 				'merge them, then set the draft body from the file, from the repository root:'
 		);
+	});
+
+	it('takes the updater after the publish, apart from the sections the promotion takes', () => {
+		const withUpdater = sheetWith({
+			sections: [
+				...facts().sheet.sections.filter((section) => section.id !== '§9'),
+				{ id: '§3b', title: 'Updater', done: false },
+				{ id: '§9', title: '', done: false }
+			]
+		});
+		const open = decideNextStep(beta({ sheet: withUpdater, carry: [] })).notes.join(' ');
+		const carried = decideNextStep(
+			beta({
+				sheet: withUpdater,
+				carry: [{ section: { id: '§3b', title: 'Updater' }, carry: true }]
+			})
+		).notes.join(' ');
+
+		expect(open).toContain('§3 are not taken on a beta.');
+		expect(open).toContain('§3b is taken once this beta is published');
+		expect(carried).toContain('§3b carries: nothing the updater rests on moved');
+		expect(carried).not.toContain('§3b is taken once');
 	});
 
 	it('still holds the stable candidate that promotes it to every manual section', () => {

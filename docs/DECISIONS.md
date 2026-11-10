@@ -303,8 +303,9 @@ Release Channel Check after publishing. It takes none of the sections done by
 hand on the installed candidate, §3 to §8. Those are taken once per stable
 version, on the candidate that promotes the last beta, under the carry rule
 that re-takes only what moved since the last sheet that ticked each section.
-The §3a updater item stays where it was: from an installation of the previous
-beta on the beta channel, once the beta is published and before the promotion.
+The updater taken by hand stays tied to the beta: from an installation of the
+previous beta on the beta channel, once the beta is published, and only when it
+does not carry (§3b since #895, the next entry).
 
 Why: the manual half is about half a day by
 [RELEASE_PROCESS.md](RELEASE_PROCESS.md)'s own count, and four betas were cut
@@ -339,6 +340,34 @@ change only in comments is not audit drift" below).
 caught and that a roll-forward cannot undo (lost or damaged mail, an update
 that does not arrive), or when the beta grows beyond the closed beta of about
 45 testers, for example once Google sign-in leaves its tester list (#838).
+
+### The updater is taken by hand only when it changed
+
+**Decided 2026-11-10** (maintainer, #895). The check that an installed release
+takes the next one through its updater, finds it on the channel, downloads it,
+accepts its signature and hands over to the installer, is
+[RELEASE_CHECKLIST.md](../backend/RELEASE_CHECKLIST.md) §3b. It carries like
+the manual sections: it is re-taken only when its row moved since the last
+sheet that ticked it, that is the updater's configuration in
+`tauri.conf.json`, `tauri-plugin-updater` in `Cargo.lock`, or the update code
+in `lib.rs`, `updates.ts` and `updateChannel.ts`. Two re-takes the row cannot
+compute are stated on the sheet line: a rotation of the signing key, which
+lives in the release environment, and the release after a change to the update
+code, the first that the new code updates into.
+
+Why: it was asked of every beta, and the maintainer took it as a matter of
+course by updating their own installation; what it cost was a record after
+each publish. The key it exists to prove changed once, in #829, and was proven
+by the update from 0.2.0-beta.2 to 0.2.0-beta.3 (#836). Between changes,
+every candidate is still held by the machine to what the hand check would
+see break: the build verifies the installer's signature against the shipped
+pubkey, Release Candidate Smoke runs the installer over a running
+installation, and Release Channel Check fetches the manifest through the
+channel and checks the version and the signature it names. The update from
+0.2.0-beta.3 to 0.2.0-beta.4 on 2026-11-10 is §3b's first tick.
+
+**Revisit when:** an update through an unchanged updater fails in the field,
+or the signing key moves somewhere the release environment does not hold it.
 
 ### The release after v0.1.0 is 0.2.0: the number follows the content
 

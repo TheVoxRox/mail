@@ -42,6 +42,12 @@ Entries before 2026-09-17 predate that split and are left as written.
   authors', and the maintainer had heard each pass during development. A pass
   the maintainer takes is now written on the pull request as
   `Heard by the maintainer: …`, which a release counts (#894).
+- The updater taken by hand through the channel is RELEASE_CHECKLIST §3b and
+  is re-taken only when the updater changed: its configuration,
+  `tauri-plugin-updater` in `Cargo.lock`, the update code, or the signing key.
+  `npm run release:status` reads a `Cargo.lock#<crate>` input as that crate's
+  version; the update from 0.2.0-beta.3 to 0.2.0-beta.4 on 2026-11-10 is the
+  first tick (#895).
 
 ## [0.2.0-beta.4] - 2026-11-10
 

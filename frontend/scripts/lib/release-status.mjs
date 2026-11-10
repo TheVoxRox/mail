@@ -18,6 +18,12 @@ const SECTION_BOX = /^- \[([ xX])\] \*\*(§\d+[a-z]?)(?:\s+([^*]+?))?\*\*/;
 
 /** The sections a sheet needs before anything is installed — they gate the tag. */
 const MACHINE_SECTIONS = ['§0', '§1', '§2'];
+/**
+ * The updater taken by hand, through the channel: it needs the candidate
+ * published, so on a beta it follows the publish rather than waiting for the
+ * promotion, and it carries like any manual section (docs/DECISIONS.md).
+ */
+const UPDATER_SECTION = '§3b';
 
 export const SIGNED_WORKFLOW = 'windows-signed-release.yml';
 export const SMOKE_WORKFLOW = 'release-candidate-smoke.yml';
@@ -295,9 +301,30 @@ export function carrySpecs(plan) {
 	return { objects, blobs };
 }
 
-/** The JSON text under `key` in a JSON file; undefined when the file, its JSON or the key is not there. */
-function valueAt(text, key) {
+/**
+ * The version of the crate `name` in a `Cargo.lock`, every version joined when
+ * the lock holds more than one; undefined when it holds none. A lockfile is
+ * TOML, not JSON, and the one thing the table asks of it is a crate's version,
+ * so `Cargo.lock#tauri-plugin-updater` moves with that crate and not with
+ * every other crate a dependency bump touches.
+ */
+function crateVersion(text, name) {
+	const versions = text
+		.split(/^\[\[package\]\]$/m)
+		.filter((block) => new RegExp(`^name = "${name}"$`, 'm').test(block))
+		.map((block) => /^version = "([^"]+)"$/m.exec(block)?.[1])
+		.filter(Boolean);
+	return versions.length > 0 ? versions.join(', ') : undefined;
+}
+
+/**
+ * The value under `key` of an input's file: the JSON text under that key of a
+ * JSON file, or a crate's version in a `Cargo.lock`. Undefined when the file,
+ * its contents or the key is not there.
+ */
+function valueAt(text, key, path = '') {
 	if (text === null || text === undefined) return undefined;
+	if (path.endsWith('Cargo.lock')) return key.length === 1 ? crateVersion(text, key[0]) : undefined;
 	try {
 		const value = key.reduce(
 			(node, part) =>
@@ -326,9 +353,11 @@ function compareInput(input, objects, blobs, onlyComments) {
 	if (input.before === null)
 		return { moved: `${input.label}, which no object id row of that sheet covers` };
 	if (input.key) {
-		const now = valueAt(blobs.get(input.now), input.key);
+		const now = valueAt(blobs.get(input.now), input.key, input.path);
 		if (now === undefined) return { moved: `${input.label}, which this candidate does not have` };
-		return now === valueAt(blobs.get(input.before), input.key) ? null : { moved: input.label };
+		return now === valueAt(blobs.get(input.before), input.key, input.path)
+			? null
+			: { moved: input.label };
 	}
 	const now = objects.get(input.now)?.oid;
 	if (!now) return { moved: `${input.label}, which this candidate does not have` };
@@ -853,11 +882,23 @@ export function decideNextStep(facts) {
 	const deferred = promotion
 		? openManualSections(sheet).filter((section) => section.id !== '§9')
 		: [];
-	if (deferred.length > 0) {
+	const onPromotion = deferred.filter((section) => section.id !== UPDATER_SECTION);
+	if (onPromotion.length > 0) {
 		notes.push(
-			`${deferred.map((section) => section.id).join(', ')} are not taken on a beta. They are taken ` +
+			`${onPromotion.map((section) => section.id).join(', ')} are not taken on a beta. They are taken ` +
 				`once, on the candidate that promotes ${promotion}; Manual sections above says what moved ` +
 				'since each was last ticked.'
+		);
+	}
+	// The updater needs the beta published, and is taken by hand only when it does not carry.
+	if (deferred.some((section) => section.id === UPDATER_SECTION)) {
+		const verdict = (facts.carry ?? []).find((each) => each.section.id === UPDATER_SECTION);
+		notes.push(
+			verdict?.carry
+				? `${UPDATER_SECTION} carries: nothing the updater rests on moved since it was last taken, ` +
+						'so no update needs taking by hand for it. Tick it with the sheet it carries from named.'
+				: `${UPDATER_SECTION} is taken once this beta is published: an installation of the previous ` +
+						'beta on the beta channel takes it through the updater. Manual sections above says what moved.'
 		);
 	}
 	const open = sheet.sections.filter((section) => !section.done && !deferred.includes(section));
