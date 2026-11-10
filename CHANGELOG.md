@@ -19,99 +19,7 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
-### Repo
-
-- [DECISIONS.md](docs/DECISIONS.md) records how remote-image trust works after
-  a comparison with Gmail, Outlook, Thunderbird and Apple Mail, and what was
-  considered and not built (domain trust, a global "always load"). The
-  IMAP/SMTP audit (1.85) and the content-rendering audit (2.2) are trued to it,
-  with the threat model's Boundary 4 row; the API-surface audit acknowledges
-  the new field of the content response (#889).
-- The backend build no longer asks the two repositories Flyway's parent POM
-  declares behind a login for their prefix file, so Maven stops logging two
-  `HTTP Status: 401` warnings on every run (#888).
-- The updater audit acknowledges the one line #887 changes in
-  `AboutSettings.svelte`, the count on the "Poslední synchronizace" line, which
-  no claim of the audit rests on (#887).
-- [DECISIONS.md](docs/DECISIONS.md) records why new mail is announced with a
-  Windows notification, when, and what it may say. The updater, API-surface and
-  IMAP/SMTP audits acknowledge the drift it brings under their code paths
-  (#886).
-- The AOT step of the sidecar build (`mvn -Paot package`) now runs with
-  `--enable-native-access=ALL-UNNAMED`, the flag the packaged sidecar already
-  had, so the DPAPI secret store's native lookup no longer warns there, and a
-  JDK that blocks the lookup by default will not fail the build (#885).
-- Tests now pin the OAuth audit claims a PIT sweep found no test held (#883):
-  the identity a new OAuth account is bound to, the line between a permanent
-  and a transient refresh rejection (a throttling 429 must not lock the
-  account), and every audit-log entry the threat model's Boundary 2
-  repudiation row rests on. The audit moves to 1.9 with its anchor unchanged
-  (#884).
-- The OAuth audit is re-verified against `0ea4017` (1.8), which clears its four
-  ledger acknowledgements before the 90-day cap. There is no finding. One claim
-  is corrected: Spring Security already gives the Google sign-in PKCE by
-  default, and the `SecurityConfig` customizer is a second layer, which
-  `SecurityConfigTest` now pins. B2-1's regression test is also seen failing
-  against the unfixed code at last (#882).
-- The crypto and local-storage audit is re-verified against `dc44cd5` (1.3),
-  which clears its five ledger acknowledgements a month before the 90-day cap.
-  No finding; three of its claims are corrected, the main one being that a
-  `crypto.fingerprint` mismatch stops the app only when the key comes from the
-  environment, while the desktop default rewrites it from `crypto.bin` (#881).
-- The updater audit is re-verified against `721bc6e` (1.26), which clears the
-  six acknowledgements its ledger held, two short of the cap. No finding; the
-  two releases the two-job release workflow has signed so far carry the new
-  updater key (#880).
-- `npm run tauri:build` checks the sidecar before it builds, through the
-  function `npm run tauri:dev` uses, so an installer is no longer built around
-  a sidecar packaged from other backend sources. `MAIL_ALLOW_STALE_SIDECAR=1`
-  lets a local build through by the dev run's rule, with a warning before and
-  after; why is in `docs/DECISIONS.md`. The release workflow packages and syncs
-  in the same job and passes unchanged (#879).
-- CI actions move up a patch or a minor, each still pinned to a commit:
-  `actions/setup-java` 6.2.0 and the CodeQL action 4.39.3, which takes CodeQL
-  2.27.4. The signed-release workflow lies under the updater audit's code paths
-  and its ledger acknowledges the change, now at 6 of 8 (#878).
-- `check:audits` no longer counts a change to comments and layout as audit
-  drift, so a javadoc edit under an audit's `Code paths` needs no
-  acknowledgement in `docs/audit-freshness.json`. Java, TypeScript, JavaScript
-  and `.properties` are read exactly, with a lexer or the TypeScript parser;
-  every other file is still compared byte for byte (#867).
-- Development tools move up a patch or a minor: Playwright 1.65, Vitest 5.1,
-  ESLint 10.14, eslint-plugin-svelte 3.24 and Vite 8.3.6, with patches to knip,
-  msw, svelte-check and globals. Their fixes are to nothing the app is known to
-  have hit; the license list follows the tree (#873).
-- The JEP 483 AOT class cache, which release builds stopped shipping on
-  2026-11-01, does not come back once the runtime has the JDK-8376576 fix: the
-  extracted layout starts faster without it than the executable jar did with
-  it. Recorded in `docs/DECISIONS.md` with what reopens it, and the runbook
-  and the packaging script that promised its return point at it (#866).
-- The backend's build plugins move up: Spotless 3.11.0, whose new default of
-  google-java-format 2.0 does not apply here, since the formatter is the
-  pinned Eclipse 4.37, and PIT 1.30.2 for the mutation runs (#877).
-
-- The `v0.2.0-beta.3` sheet records what was taken after publishing, as its §9
-  approved: the first update through the updater itself, from 0.2.0-beta.2 on
-  the beta channel (#836), and §3a, §4 and §7 re-taken on the installation it
-  updated; §5 carries by the maintainer's decision, and its hand-run items over
-  the reworked palette and menus are named as not taken (#854).
-- The unit tests run on jsdom 31. It replaces its CSS parsing and selector
-  matching with its own engine and its canvas backend with `@napi-rs/canvas`;
-  the suite installs neither canvas package and passes unchanged, and the tree
-  loses the CSS libraries the old engine needed (#874).
-- The scheduled vulnerability scan generates the npm SBOM again. Since #847,
-  `npx` installed cyclonedx-npm under `frontend/.npmrc` and stopped on the
-  build script of libxmljs2, which the tool brings for XML validation the JSON
-  run does not use; `regen:sbom` now installs it with `--ignore-scripts`. The
-  SBOM job failed on 2026-11-03 and took the backend's Trivy gate with it; a
-  warm `npx` cache installs nothing, which is why the cut did not see it
-  (#855).
-- The scheduled vulnerability scan keeps its NVD database on a night the
-  OWASP gate trips, and closes its tracking issue only after a scan that
-  evaluated that gate. `actions/cache` saves only when the job succeeds, so
-  every night with a finding pulled ~420,000 records cold (111 minutes on
-  2026-11-04), and an NVD outage on 2026-11-05 ended the job green with nothing
-  evaluated, which closed #852 while its finding stood (#857).
+## [0.2.0-beta.4] - 2026-11-10
 
 ### Backend
 
@@ -178,8 +86,8 @@ Entries before 2026-09-17 predate that split and are left as written.
   internetu v této zprávě" while there is something to load. Opening a message
   puts the reading cursor in the body, past the banner, and the banner is
   silent by design, so until now it took the landmark key or Shift+Tab to find
-  it. PRIVACY.md describes the banner as it now reads; voxrox.org is not yet
-  resynced (#889).
+  it. PRIVACY.md describes the banner as it now reads, here and on voxrox.org
+  (#889).
 - Opening a message with Enter or a click now says "Obrázky z internetu jsou
   blokované." when it has images it did not load. The banner used to announce
   itself and was silenced, because in the split pane it did so on every arrow
@@ -318,6 +226,135 @@ Entries before 2026-09-17 predate that split and are left as written.
   autofill table without the setting and was not with it. Compose keeps its
   own address suggestions, which the page draws itself; saving passwords is a
   separate WebView2 setting, off by default (#858).
+
+### Known issues
+
+Provisional until §9 of the 2026-11-10 candidate sheet, per
+[RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) step 2. Unchanged from
+0.2.0-beta.3:
+
+- **A transient IMAP hiccup, `failed to create new store connection`, appears
+  in the log a couple of times a day.** A bounded retry with backoff recovers it
+  on the next attempt.
+- **Google sign-in works only for accounts on the test list.** The OAuth
+  consent screen stays in `Testing`.
+- **A hostile mail server can still run the mail service out of memory when
+  two such accounts sync at once.** What one account keeps is bounded by an
+  account budget, so a single hostile server costs only its own account. Three
+  restarts in a row still pause that account's sync.
+
+### Manual steps
+
+- **For the user:** an installation of 0.2.0-beta.2 or 0.2.0-beta.3 switched
+  to the beta channel takes this release through the updater. An installation
+  of 0.1.0 or 0.2.0-beta.1 trusts only the retired key and installs this
+  release by hand: run its installer over the existing installation, which
+  keeps mail, accounts and settings.
+- **For the operator:** take the RELEASE_CHECKLIST §3a updater item from an
+  installation of 0.2.0-beta.3 on the beta channel once this release is
+  published as a prerelease. Before 0.2.0 is promoted, listen with a screen
+  reader to what only an installed build can show or no candidate has been
+  heard on yet: the Windows notification for new mail with the window in the
+  notification area, and a click on it bringing the window back (#886, #887);
+  the blocked-images banner, its sentence on opening a message and
+  Ctrl+Shift+W (#889); the pane toggle at the foot of the rail (#861) and
+  "Vytisknout" in the row actions menu (#862); and the §5 items over the
+  command palette and the menus that 0.2.0-beta.3 left untaken.
+
+### Repo
+
+- [DECISIONS.md](docs/DECISIONS.md) records how remote-image trust works after
+  a comparison with Gmail, Outlook, Thunderbird and Apple Mail, and what was
+  considered and not built (domain trust, a global "always load"). The
+  IMAP/SMTP audit (1.85) and the content-rendering audit (2.2) are trued to it,
+  with the threat model's Boundary 4 row; the API-surface audit acknowledges
+  the new field of the content response (#889).
+- The backend build no longer asks the two repositories Flyway's parent POM
+  declares behind a login for their prefix file, so Maven stops logging two
+  `HTTP Status: 401` warnings on every run (#888).
+- The updater audit acknowledges the one line #887 changes in
+  `AboutSettings.svelte`, the count on the "Poslední synchronizace" line, which
+  no claim of the audit rests on (#887).
+- [DECISIONS.md](docs/DECISIONS.md) records why new mail is announced with a
+  Windows notification, when, and what it may say. The updater, API-surface and
+  IMAP/SMTP audits acknowledge the drift it brings under their code paths
+  (#886).
+- The AOT step of the sidecar build (`mvn -Paot package`) now runs with
+  `--enable-native-access=ALL-UNNAMED`, the flag the packaged sidecar already
+  had, so the DPAPI secret store's native lookup no longer warns there, and a
+  JDK that blocks the lookup by default will not fail the build (#885).
+- Tests now pin the OAuth audit claims a PIT sweep found no test held (#883):
+  the identity a new OAuth account is bound to, the line between a permanent
+  and a transient refresh rejection (a throttling 429 must not lock the
+  account), and every audit-log entry the threat model's Boundary 2
+  repudiation row rests on. The audit moves to 1.9 with its anchor unchanged
+  (#884).
+- The OAuth audit is re-verified against `0ea4017` (1.8), which clears its four
+  ledger acknowledgements before the 90-day cap. There is no finding. One claim
+  is corrected: Spring Security already gives the Google sign-in PKCE by
+  default, and the `SecurityConfig` customizer is a second layer, which
+  `SecurityConfigTest` now pins. B2-1's regression test is also seen failing
+  against the unfixed code at last (#882).
+- The crypto and local-storage audit is re-verified against `dc44cd5` (1.3),
+  which clears its five ledger acknowledgements a month before the 90-day cap.
+  No finding; three of its claims are corrected, the main one being that a
+  `crypto.fingerprint` mismatch stops the app only when the key comes from the
+  environment, while the desktop default rewrites it from `crypto.bin` (#881).
+- The updater audit is re-verified against `721bc6e` (1.26), which clears the
+  six acknowledgements its ledger held, two short of the cap. No finding; the
+  two releases the two-job release workflow has signed so far carry the new
+  updater key (#880).
+- `npm run tauri:build` checks the sidecar before it builds, through the
+  function `npm run tauri:dev` uses, so an installer is no longer built around
+  a sidecar packaged from other backend sources. `MAIL_ALLOW_STALE_SIDECAR=1`
+  lets a local build through by the dev run's rule, with a warning before and
+  after; why is in `docs/DECISIONS.md`. The release workflow packages and syncs
+  in the same job and passes unchanged (#879).
+- CI actions move up a patch or a minor, each still pinned to a commit:
+  `actions/setup-java` 6.2.0 and the CodeQL action 4.39.3, which takes CodeQL
+  2.27.4. The signed-release workflow lies under the updater audit's code paths
+  and its ledger acknowledges the change, now at 6 of 8 (#878).
+- `check:audits` no longer counts a change to comments and layout as audit
+  drift, so a javadoc edit under an audit's `Code paths` needs no
+  acknowledgement in `docs/audit-freshness.json`. Java, TypeScript, JavaScript
+  and `.properties` are read exactly, with a lexer or the TypeScript parser;
+  every other file is still compared byte for byte (#867).
+- Development tools move up a patch or a minor: Playwright 1.65, Vitest 5.1,
+  ESLint 10.14, eslint-plugin-svelte 3.24 and Vite 8.3.6, with patches to knip,
+  msw, svelte-check and globals. Their fixes are to nothing the app is known to
+  have hit; the license list follows the tree (#873).
+- The JEP 483 AOT class cache, which release builds stopped shipping on
+  2026-11-01, does not come back once the runtime has the JDK-8376576 fix: the
+  extracted layout starts faster without it than the executable jar did with
+  it. Recorded in `docs/DECISIONS.md` with what reopens it, and the runbook
+  and the packaging script that promised its return point at it (#866).
+- The backend's build plugins move up: Spotless 3.11.0, whose new default of
+  google-java-format 2.0 does not apply here, since the formatter is the
+  pinned Eclipse 4.37, and PIT 1.30.2 for the mutation runs (#877).
+- The `v0.2.0-beta.3` sheet records what was taken after publishing, as its §9
+  approved: the first update through the updater itself, from 0.2.0-beta.2 on
+  the beta channel (#836), and §3a, §4 and §7 re-taken on the installation it
+  updated; §5 carries by the maintainer's decision, and its hand-run items over
+  the reworked palette and menus are named as not taken (#854).
+- The unit tests run on jsdom 31. It replaces its CSS parsing and selector
+  matching with its own engine and its canvas backend with `@napi-rs/canvas`;
+  the suite installs neither canvas package and passes unchanged, and the tree
+  loses the CSS libraries the old engine needed (#874).
+- The scheduled vulnerability scan generates the npm SBOM again. Since #847,
+  `npx` installed cyclonedx-npm under `frontend/.npmrc` and stopped on the
+  build script of libxmljs2, which the tool brings for XML validation the JSON
+  run does not use; `regen:sbom` now installs it with `--ignore-scripts`. The
+  SBOM job failed on 2026-11-03 and took the backend's Trivy gate with it; a
+  warm `npx` cache installs nothing, which is why the cut did not see it
+  (#855).
+- The scheduled vulnerability scan keeps its NVD database on a night the
+  OWASP gate trips, and closes its tracking issue only after a scan that
+  evaluated that gate. `actions/cache` saves only when the job succeeds, so
+  every night with a finding pulled ~420,000 records cold (111 minutes on
+  2026-11-04), and an NVD outage on 2026-11-05 ended the job green with nothing
+  evaluated, which closed #852 while its finding stood (#857).
+- The `0.2.0-beta.4` cut: the version in the seven files `bump:version`
+  writes, and the 2026-11-10 candidate sheet with §0 to §2 ticked (#890).
 
 ## [0.2.0-beta.3] - 2026-11-03
 

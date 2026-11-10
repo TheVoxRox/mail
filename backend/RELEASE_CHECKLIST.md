@@ -396,6 +396,44 @@ Findings:
 - <what went wrong or stays open, and what to do before the next run>
 ````
 
+### Candidate 2026-11-10 — tag `v0.2.0-beta.4` (see the object ids below)
+
+```text
+Platform:  Windows 11 Pro x64, machine stolak (§0–§2)
+Tester:    machine half automated; §3–§9 are the maintainer's
+```
+
+| path                         | object id      |
+| ---------------------------- | -------------- |
+| `backend/src`                | `92010e86b0ed` |
+| `backend/pom.xml`            | `8ab23a24a561` |
+| `backend/scripts`            | `1cdffbb52cd9` |
+| `frontend/src`               | `66f40ffb9d3c` |
+| `frontend/src-tauri`         | `f648a3c8a583` |
+| `frontend/package.json`      | `f64bc5d87071` |
+| `frontend/package-lock.json` | `6b06678f89c6` |
+
+- [x] **§0 Version** — `npm run bump:version 0.2.0-beta.4` and `npm run check:versions` OK on all seven files.
+- [x] **§1 Backend build** — `clean verify` on the tree this cut tags, the version already bumped: 0 failures and 0 errors on surefire and failsafe; the one skip is `MailSyncQresyncDovecotIT` without Docker, which CI runs. SpotBugs reports no bug instance. `mail-backend-0.2.0-beta.4.jar` produced. Sidecar packaged by `npm run sidecar:rebuild:windows` with the OAuth values from `backend/.env`: the application jar and 107 libraries in `lib\`, "Google client-id baked into the launcher; no placeholder", all 10 JVM options present in the launcher, "A copy of the image outside target\ started to ready and exited", 14 of 14 modules declared for the runtime, and the packaged sidecar smoke passed. `regen:licenses:all` after `npm ci` changed `NOTICE.txt` beyond its `Generated:` line (first finding); the cut regenerates it before this section, and a second run after the packaging changed nothing. The run without a system JDK is taken on the installed candidate.
+- [x] **§2 Frontend automation** — on the same tree: `generate:api` (no drift in `schema.d.ts`), `check:i18n`, `build`, `test:unit`, and `test:e2e`, the functional project and then the a11y suite, all passed with no flake and no re-run.
+- [ ] **§3 Fresh install** — re-take: `frontend/src-tauri/src/lib.rs`, which registers `tauri-plugin-notification` with its command and click handler (#886) and builds the window with WebView2's general autofill off (#858). `backend/scripts/package-sidecar-windows.ps1` moved in a comment only (#866). Machine half: Release Candidate Smoke on the build of this tag.
+- [ ] **§3a Installer behaviour** — re-take: `AboutSettings.svelte`, one expression of the "Poslední synchronizace" line outside its update section (#887). The update smoke vN-1 → vN runs as on every candidate; the updater itself is taken from an installation of `v0.2.0-beta.3` on the beta channel once this tag is published as a prerelease.
+- [ ] **§4 Account flows** — re-take: the account form and its edit page (#860, #863, #865, #868), the wizard's steps (#869 to #871), a username saved without a new password and refused for OAuth2 (#864), and the remote-image senders list on the account page (#889). `SecurityConfig.java`, which the OAuth audit's `Code paths` bring in, moved in comments only (#882).
+- [ ] **§5 Mail workflows** — re-take: the mail backend and the whole UI moved (#861, #862, #886, #887, #889; bits-ui 2.20.6 in #872). By hand, what #886 to #889 reach: the Windows notification for new mail with the window in the notification area and a click on it, which only an installed build shows; the toast's count and account name; and the blocked-images banner with its sentence on open, Ctrl+Shift+W and the palette command. The hand-run items 0.2.0-beta.3 left untaken over the palette and the menus are still open.
+- [ ] **§6 Sidecar lifecycle** — re-take: `frontend/src-tauri/src/lib.rs` (#858, #886), which changes no line of the sidecar's spawn, supervision or exit; `package-sidecar-windows.ps1` moved in a comment only (#866). Machine half: Release Candidate Smoke on the build of this tag.
+- [ ] **§7 Diagnostics** — re-take: `AboutSettings.svelte`, the same one expression as §3a (#887), not **Stáhnout diagnostiku**.
+- [ ] **§8 Long run** — re-take: `feature/mail/service`, the arrived-mail count of a sync (#886) and remote-image trust off in junk (#889); `SecurityConfig.java` moved in comments only (#882). §8.2 is the weekly soak.
+- [ ] **§9** —
+
+Findings:
+
+- **`NOTICE.txt` had fallen behind the inventories it is written from.** #872, #873, #875, #876 and #886 each regenerated the license list they touch, and none ran `regen:notice`, so the notice the installer carries stayed at the tree of #857 (2026-11-07): 490 components where the tree has 502, with jsoup 1.23.2, bits-ui 2.20.2, `zip` 9.3.0 and no `tauri-plugin-notification`. The cut regenerates it in its own commit, before §1; no license group is added or dropped. §8a is still the first place this shows: a dependency pull request refreshes the inventories and nothing makes it refresh the notice.
+- **What no candidate has been heard on yet.** Six pull requests in this cut leave their screen-reader pass open: the Windows notification for new mail and a click on it bringing the window back (#886, #887), which only an installed build can show, since a dev build's toast is attributed to Windows PowerShell; the blocked-images banner, its sentence on opening a message and Ctrl+Shift+W (#889); the pane toggle at the foot of the rail (#861); "Vytisknout" in the row actions menu (#862); and the account wizard's first step (#869). They belong to §4 and §5 on this candidate's installation, with the hand-run items over the palette and the menus that the 2026-11-03 sheet left untaken, before 0.2.0 is promoted.
+- **The first candidate with `tauri-plugin-notification`.** #886 adds the plugin with one Rust command and a click handler, and no permission in `frontend/src-tauri/capabilities/default.json`; the updater audit's ledger acknowledges it. Release Candidate Smoke starts and stops the app, but nothing in it raises a notification, so the toast, its sound and the click are §5's to take by hand.
+- **The IMAP/SMTP audit's ledger holds 6 of its 8 acknowledgements.** A fix that merges during this beta under its `Code paths` and needs two more reaches the cap, and then only re-verifying the audit clears `check:audits`.
+- **This cut takes everything merged since `v0.2.0-beta.3` (`63159d4`):** #853 and #854 (the beta.3 release decision, notes and updater re-takes); #855 and #857 (the SBOM job, SQLite 3.54.1 for the nightly scan's CVEs); #858 to #865 and #868 to #871 (WebView2 autofill off, the account edit page and the wizard read the way a screen reader needs, a username saved without a new password, the pane toggle, Print in the row menu); #866 and #867 (the AOT cache decision, comment-only changes outside audit drift); #872 to #878 (dependency updates: bits-ui 2.20.6, Tailwind 4.3.4, jsoup 1.24.1, commonmark 0.32.0, `zip` 9.4.1, jsdom 31, build plugins, CI actions); #879 (`tauri:build` checks the sidecar first); #880 to #882 and #884 (the updater, crypto and OAuth audits re-verified, the OAuth claims pinned by tests); #885 and #888 (the AOT step's native access, Flyway's login-only repositories); #886 and #887 (the Windows notification for new mail, the toast for arrived mail by account name); and #889 (remote-image trust revocable, named and off in junk). Each fix that merges from here adds its number to the next item.
+- **Waiting for the next cut:** nothing yet.
+
 ### Candidate 2026-11-03 — tag `v0.2.0-beta.3` (see the object ids below)
 
 ```text
