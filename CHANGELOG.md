@@ -21,6 +21,13 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- `npm run check` fails when a license inventory has changed since the bundled
+  `NOTICE.txt` was last rendered: `regen:notice` records each inventory's
+  digest in `frontend/src-tauri/notice-inputs.json`, and `check:notice`
+  recomputes them from the committed inventories. Five dependency PRs had
+  regenerated an inventory without the notice until the v0.2.0-beta.4 cut
+  caught it by hand; the notice here is rendered again, identical to the
+  cut's (#891).
 - [DECISIONS.md](docs/DECISIONS.md) records how remote-image trust works after
   a comparison with Gmail, Outlook, Thunderbird and Apple Mail, and what was
   considered and not built (domain trust, a global "always load"). The

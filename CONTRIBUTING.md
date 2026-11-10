@@ -386,6 +386,7 @@ Many files in the repo are auto-generated — do not hand-edit them.
 | `backend/THIRD_PARTY_LICENSES.md`                  | `node backend/scripts/regen-third-party-licenses.mjs`                               |
 | `frontend/src-tauri/THIRD_PARTY_LICENSES.md`       | `node frontend/src-tauri/scripts/regen-third-party-licenses.mjs`                    |
 | `frontend/src-tauri/resources/NOTICE.txt`          | `npm run regen:sbom:all && npm run regen:notice` (from `frontend/`)                 |
+| `frontend/src-tauri/notice-inputs.json`            | written by `npm run regen:notice`, with `NOTICE.txt`                                |
 
 One-shot release regen of everything above — the three license
 inventories, the three CycloneDX SBOMs, and the bundled `NOTICE.txt`
@@ -393,6 +394,11 @@ inventories, the three CycloneDX SBOMs, and the bundled `NOTICE.txt`
 `frontend/`). The Tauri SBOM needs `cargo-cyclonedx`
 (`cargo install cargo-cyclonedx`); the script fails fast with that hint
 if it is missing.
+
+Regenerating an inventory means rendering the notice too, in the same
+PR. `npm run check:notice`, part of `npm run check`, compares the
+committed inventories with the digests `regen:notice` recorded in
+`notice-inputs.json` and fails while the notice is behind them.
 
 ## Localisation
 
