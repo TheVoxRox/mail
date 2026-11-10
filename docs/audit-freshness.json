@@ -127,7 +127,8 @@
   "docs/UPDATER_AUDIT.md": {
     "reviewedTrees": {
       "frontend/src-tauri/src": "c42d02f2cc33f82c9bbfd69e93d256223faba5e7",
-      "frontend/src/lib/components/settings/AboutSettings.svelte": "9f99e7c594061b7095430a61c76c6e8218a64ecd"
+      "frontend/src/lib/components/settings/AboutSettings.svelte": "9f99e7c594061b7095430a61c76c6e8218a64ecd",
+      "frontend/src-tauri/tauri.conf.json": "6ff89fcbc96c3546349c8b5dd79a6b92f0d0280e"
     },
     "acknowledgements": [
       {
@@ -137,6 +138,10 @@
       {
         "date": "2026-11-09",
         "note": "#887. One expression in AboutSettings.svelte, outside its update section: the 'last sync' line of the connection block reads the SSE event's arrivedMessagesCount instead of newMessagesCount, with a comment saying so. The audit cites this file for the manual update check and its failure UI (checkForUpdateManually, RELEASES_URL), the channel switch and the startup-check toggle; none of those lines, their handlers or the imports they use changed. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-10",
+        "note": "#890, the v0.2.0-beta.4 cut. The one change in tauri.conf.json since the audited 721bc6e is the top-level version, 0.2.0-beta.3 to 0.2.0-beta.4, written by bump:version (git diff v0.2.0-beta.3 shows that line alone). plugins.updater (endpoints, pubkey 068F68E532BCF6DC) and bundle (the NSIS template, installMode) are untouched. No claim of the audit rests on the value: the build gate compares the tag with this field, the version pin compares the manifest with the version the prompt named, and beta.4 orders after beta.3 and before 0.2.0 under semver, which is the order the beta channel and the later promotion need. Verdict unchanged."
       }
     ]
   }
