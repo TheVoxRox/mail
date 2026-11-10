@@ -63,8 +63,10 @@ depends on what the candidate is:
   Candidate Smoke covers, §3a's other items, §4–§7 and §8.1 — are not taken on
   a prerelease (docs/DECISIONS.md, "A beta takes no manual section; the
   promotion takes them once"). The sheet keeps their lines unticked, and §9
-  names what the beta's pull requests left for a person to see or hear, for the
-  promotion's pass. `npm run release:status` goes past them to §9 on a
+  names what nobody has seen or heard yet, for the promotion's pass: a pull
+  request's own "Not verified" note is its author's, and a pass the maintainer
+  took during development, written on the pull request as
+  `Heard by the maintainer: …`, counts. `npm run release:status` goes past them to §9 on a
   prerelease tag. The §3a updater item is the one manual check tied to a beta:
   it is taken after the beta is published, from an installation of the
   previous beta on the beta channel, and before the promotion.
@@ -311,7 +313,7 @@ judgement call:
 - [ ] On a stable candidate, checklist §3–§7 and §8.1 ticked **on this
       candidate's sheet** — taken on it, or carried with the earlier sheet
       named ("What a release runs"). A beta does not take them, and its §9
-      names what its pull requests left for the promotion's pass. Either way §9
+      names what nobody has seen or heard yet, for the promotion's pass. Either way §9
       carries no open blocker. §8.2 is not a gate: RELEASE_CHECKLIST
       §8.2 records what replaces it, and until that automation exists §9
       records the absence of the overnight run as an accepted risk.
