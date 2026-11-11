@@ -24,13 +24,16 @@ import {
 	parseLsRemote,
 	parseSectionInputs,
 	parseSha256File,
-	planCarry,
+	parseSheets,
 	pickCiResult,
 	pickInstaller,
 	pickProvenance,
 	pickScan,
 	pickSignedRun,
 	pickSmokeRun,
+	planCarry,
+	promotedBeta,
+	promotionTicks,
 	readGhAnswer,
 	readProvenance,
 	releaseNotesPath,
@@ -152,6 +155,10 @@ const tagOnMain =
  * This sheet's ids are the candidate's — the steps below hold the tag to them.
  * The history is read a few versions at a time and only as far back as the
  * oldest tick it needs, which is usually the version just before this sheet.
+ * A stable candidate that promotes a beta compares against that beta's sheet
+ * instead, for every section but the updater: the passes are taken during
+ * development and at the latest on the beta, so what it owes by hand is only
+ * what moved since the beta (docs/DECISIONS.md, 2026-11-11).
  */
 const HISTORY_CHUNK = 16;
 
@@ -173,12 +180,15 @@ function* checklistHistory() {
 // A sheet whose ids cannot all be read stops at that in decideNextStep; it carries nothing either.
 const sheetComparable = sheet !== null && sheetIds.length > 0 && sheet.unparsedRows.length === 0;
 const sectionInputs = sheetComparable ? parseSectionInputs(checklistAtMain) : null;
+const beta = sheetComparable ? promotedBeta(parseSheets(checklistAtMain), tag) : null;
 let carry = null;
 if (sectionInputs && openManualSections(sheet).length > 0) {
-	const ticks = lastTicks(
-		checklistHistory(),
-		sheet,
-		openManualSections(sheet).map((section) => section.id)
+	const wanted = openManualSections(sheet).map((section) => section.id);
+	const ticks = promotionTicks(
+		lastTicks(checklistHistory(), sheet, wanted),
+		beta,
+		wanted,
+		mainCommit
 	);
 	const plan = planCarry({
 		sheet,
@@ -391,7 +401,12 @@ if (mainLocal) {
 			}
 		}
 		if (sheetComparable && openManualSections(sheet).length > 0) {
-			out.push('', 'Manual sections, against the last sheet that ticked each');
+			out.push(
+				'',
+				beta
+					? `Manual sections, against ${beta.tag}, the beta this promotes; the updater against the last sheet that ticked it`
+					: 'Manual sections, against the last sheet that ticked each'
+			);
 			if (!sectionInputs) {
 				out.push(
 					`  ${CHECKLIST} on main has no "| section | rests on |" table, so no section can carry.`

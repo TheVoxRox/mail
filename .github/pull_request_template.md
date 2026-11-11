@@ -40,6 +40,6 @@ THIRD_PARTY_LICENSES.md), etc.
 A check only a person can take (a screen-reader pass, an installed build) that
 the author did not take goes in as `Not verified: …`. When the maintainer takes
 it during development, add `Heard by the maintainer: …`: a release counts that
-and does not ask for the pass again (docs/DECISIONS.md, "A beta takes no
-manual section; the promotion takes them once").
+and does not ask for the pass again (docs/DECISIONS.md, "A beta's sheet takes
+no manual section; the promotion carries them from the beta").
 -->

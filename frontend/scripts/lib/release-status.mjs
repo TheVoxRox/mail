@@ -9,6 +9,8 @@
 
 /** A dated per-candidate worksheet in backend/RELEASE_CHECKLIST.md. */
 const SHEET_HEADING = /^### Candidate (\d{4}-\d{2}-\d{2})\b/;
+/** The tag a sheet's heading names, `— tag \`v0.2.0-beta.4\``. */
+const SHEET_TAG = /\btag `(v[^`\s]+)`/;
 /** A row of a sheet's object id table: | `path` | `object id prefix` |. */
 const OBJECT_ROW = /^\|\s*`([^`]+)`\s*\|\s*`([0-9a-fA-F]{7,40})`\s*\|/;
 /** A Markdown table separator row, `| --- | :--: |`. */
@@ -72,6 +74,7 @@ export function parseSheets(markdown) {
 		sheets.push({
 			date: heading[1],
 			heading: line.slice(4).trim(),
+			tag: SHEET_TAG.exec(line)?.[1] ?? null,
 			objectIds,
 			unparsedRows,
 			sections
@@ -277,6 +280,41 @@ export function lastTicks(versions, current, wanted) {
 }
 
 /**
+ * The sheet of the beta a stable tag promotes: the newest sheet whose tag is a
+ * prerelease of the same version, `v0.2.0-beta.4` for `v0.2.0`. Null for a
+ * prerelease tag, and for a stable tag no beta of its version was cut for.
+ */
+export function promotedBeta(sheets, tag) {
+	if (!tag || promotionOf(tag) !== null) return null;
+	return (
+		sheets
+			.filter((sheet) => sheet.tag?.startsWith(`${tag}-`))
+			.reduce((newest, sheet) => (newest && newest.date >= sheet.date ? newest : sheet), null) ??
+		null
+	);
+}
+
+/**
+ * The ticks a promotion compares against: the beta it promotes, for every
+ * section but the updater. The manual sections are taken during development
+ * and at the latest on the beta, not on the stable candidate
+ * (docs/DECISIONS.md, 2026-11-11), so what a promotion owes by hand is what
+ * moved since the beta, which no tester had. The beta's sheet ticks none of
+ * them and does not need to: it is the code the testers ran, and its object
+ * ids are what that code was. The updater keeps its own last tick, since it is
+ * proven through the channel and the beta proves nothing about it by existing.
+ * `commit` is the commit whose checklist holds the beta's sheet.
+ */
+export function promotionTicks(ticks, beta, wanted, commit) {
+	if (!beta) return ticks;
+	const promoted = new Map(ticks);
+	for (const id of wanted) {
+		if (id !== UPDATER_SECTION) promoted.set(id, { ...beta, commit, promotes: beta.tag });
+	}
+	return promoted;
+}
+
+/**
  * What has to be compared for each open manual section: its inputs, each with
  * the revspec reaching it under the ticking sheet's rows (`before`) and under
  * the current sheet's (`now`). `inputs` is null for a section the table does
@@ -445,6 +483,21 @@ export function describeCarry({ section, tick, carry, always, expired, moved, co
 	const name = label(section);
 	if (always) return `${name}: re-take, as on every candidate`;
 	if (!tick) return `${name}: re-take, no earlier sheet ticked it`;
+	if (tick.promotes) {
+		const beta = `${tick.promotes}, the beta this promotes`;
+		if (expired)
+			return (
+				`${name}: re-take: the ${tick.date} sheet of ${beta}, is ${expired} days older than ` +
+				`this one, past the ${CARRY_DAYS}-day limit on carrying`
+			);
+		const notCounted =
+			commented.length > 0
+				? `; changed only in comments, not counted: ${commented.join('; ')}`
+				: '';
+		return carry
+			? `${name}: carry from ${beta}: nothing it rests on moved since its ${tick.date} sheet${notCounted}`
+			: `${name}: re-take what moved since ${beta}, which no tester had: ${moved.join('; ')}${notCounted}`;
+	}
 	if (expired)
 		return (
 			`${name}: re-take: the ${tick.date} sheet, the last to tick it, is ${expired} days ` +
@@ -460,9 +513,9 @@ export function describeCarry({ section, tick, carry, always, expired, moved, co
 
 /**
  * The stable tag a prerelease tag is promoted to, `v0.2.0` for
- * `v0.2.0-beta.4`; null for a stable tag. A beta does not take the manual
- * sections: they are taken once, on the candidate that promotes it
- * (docs/DECISIONS.md, 2026-11-10).
+ * `v0.2.0-beta.4`; null for a stable tag. A beta's sheet does not tick the
+ * manual sections: they are taken during development, and the candidate that
+ * promotes the beta carries them from it (docs/DECISIONS.md, 2026-11-11).
  */
 export function promotionOf(tag) {
 	const match = /^(v\d+\.\d+\.\d+)-/.exec(tag ?? '');
@@ -931,7 +984,8 @@ export function decideNextStep(facts) {
 				`RELEASE_PROCESS step 6 needs its cause named before publishing: ${scan.url}`
 		);
 	}
-	// A beta takes no manual section; the candidate that promotes it does (RELEASE_PROCESS "What a release runs").
+	// A beta's sheet ticks no manual section; the candidate that promotes it carries them from it
+	// (RELEASE_PROCESS "What a release runs").
 	const promotion = promotionOf(tag);
 	const deferred = promotion
 		? openManualSections(sheet).filter((section) => section.id !== '§9')
@@ -939,9 +993,10 @@ export function decideNextStep(facts) {
 	const onPromotion = deferred.filter((section) => section.id !== UPDATER_SECTION);
 	if (onPromotion.length > 0) {
 		notes.push(
-			`${onPromotion.map((section) => section.id).join(', ')} are not taken on a beta. They are taken ` +
-				`once, on the candidate that promotes ${promotion}; Manual sections above says what moved ` +
-				'since each was last ticked.'
+			`${onPromotion.map((section) => section.id).join(', ')} are not ticked on the sheet of a beta. They ` +
+				'are taken during development, and the candidate that promotes this beta to ' +
+				`${promotion} carries them from it. Name in §9 what nobody has seen or heard yet; it is ` +
+				'heard before the promotion is published.'
 		);
 	}
 	// The updater needs the beta published, and is taken by hand only when it does not carry.
@@ -963,9 +1018,21 @@ export function decideNextStep(facts) {
 	if (open.length > 0) {
 		if (open.length > 1) notes.push(`Open after it: ${open.slice(1).map(label).join(', ')}.`);
 		const carried = promotion ? [] : (facts.carry ?? []).filter((verdict) => verdict.carry);
-		if (carried.length > 0) {
+		const fromBeta = carried.filter((verdict) => verdict.tick?.promotes);
+		if (fromBeta.length > 0) {
+			const beta = fromBeta[0].tick;
 			notes.push(
-				`${carried.map((verdict) => verdict.section.id).join(', ')} can carry: tick each with the ` +
+				`${fromBeta.map((verdict) => verdict.section.id).join(', ')} carry from ${beta.promotes}, ` +
+					`the beta this promotes: tick each as carried from its ${beta.date} sheet. The record of ` +
+					'the passes is that sheet and the "Heard by the maintainer:" notes of the pull requests; ' +
+					'what its §9 names as not seen or heard yet is heard before publishing, on the beta ' +
+					'or on this candidate.'
+			);
+		}
+		const fromSheet = carried.filter((verdict) => !verdict.tick?.promotes);
+		if (fromSheet.length > 0) {
+			notes.push(
+				`${fromSheet.map((verdict) => verdict.section.id).join(', ')} can carry: tick each with the ` +
 					'sheet it carries from named on the line. Manual sections above says what moved for the rest.'
 			);
 		}

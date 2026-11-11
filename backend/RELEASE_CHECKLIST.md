@@ -319,17 +319,27 @@ nothing merged later invalidates it. One window stays open because the process
 needs it: §0–§2 run before the version bump and the changelog cut that get
 tagged, so keep that window to minutes. The object id table is what lets
 `npm run release:status` (from `frontend/`) tell whether the sheet still
-describes `main` and the tag; it reads the newest sheet, its object id rows and
-its `- [x] **§N**` lines, so keep those three shapes.
+describes `main` and the tag; it reads the newest sheet, its object id rows,
+its `- [x] **§N**` lines and the tag each sheet's heading names, so keep
+those four shapes.
 
 **A manual section carries when what it rests on has not moved.** A stable
-candidate re-takes by hand only what changed. A beta takes none of §3 to §8
-(RELEASE_PROCESS "What a release runs"): its sheet leaves their lines
-unticked, so the next sheet to tick them is the stable candidate's. Each section from §3
-to §8 carries from the last sheet that ticked it when none of its inputs in the
-table below moved between that sheet's object ids and this sheet's, which are
-the tag's. Its line then says it was carried from the `YYYY-MM-DD` sheet and why
-the carry holds, as §3a on the 2026-10-19 sheet does. When an input moved, the
+candidate re-takes by hand only what changed. A beta's sheet ticks none of §3
+to §8 (RELEASE_PROCESS "What a release runs"): the maintainer takes them during
+development and at the latest on the beta, and the pull requests record those
+passes as `Heard by the maintainer: …`. So a stable candidate that promotes a
+beta carries each section from the beta: from the newest sheet whose tag is a
+prerelease of this version, when none of the section's inputs in the table
+below moved between that sheet's object ids and this sheet's, which are the
+tag's. Its line then says it was carried from the beta and names the beta's
+sheet, which with the pull requests' notes is the record of the passes; what
+that sheet's §9 named as not yet seen or heard is heard before publishing, on
+the beta or on this candidate. A stable candidate with no beta of its version
+carries each section from the last sheet that ticked it, on the same
+comparison, and its line says it was carried from the `YYYY-MM-DD` sheet and
+why the carry holds, as §3a on the 2026-10-19 sheet does. §3b never carries
+from the beta, which proves nothing about the updater by existing; it carries
+from the last sheet that ticked it. When an input moved, the
 section is re-taken: the items the moved paths can reach are taken on this
 candidate, and the line says what it carried for the rest. Carrying a section
 whose inputs moved is the maintainer's decision, written on the line as one.
@@ -362,8 +372,9 @@ How the table is read, by `npm run release:status` and by hand:
   `jsoup.version`.
   That names `tauri.conf.json`, the lockfile and the pom without the version
   `npm run bump:version` writes: no input names a file the bump writes whole, so
-  a version bump alone moves nothing. A promotion moves nothing since its beta;
-  what it re-takes is what moved since the last sheet that ticked each section.
+  a version bump alone moves nothing. A promotion moves nothing since its beta
+  unless a change that ships was merged after it, and release tooling such as
+  `frontend/scripts` lies under no input.
 - An input that moved only in comments and layout has not moved, in the
   languages `check:audits` reads exactly (Java, TypeScript, JavaScript,
   `.properties`; `frontend/scripts/lib/comment-only-objects.mjs` holds the rule
@@ -376,9 +387,11 @@ How the table is read, by `npm run release:status` and by hand:
   code does. A carry over a change that touched only tests is the maintainer's
   decision like any other.
 
-`release:status` walks the checklist's history on `main` for the last sheet
-that ticked each open section and reports "carry from" it, or "re-take:" with
-the inputs that moved. It reads this table by its header and the backticked
+`release:status` finds the beta a stable tag promotes among the sheets on
+`main` and compares every open section but §3b against it; for §3b, and on a
+stable tag no beta was cut for, it walks the checklist's history on `main` for
+the last sheet that ticked each open section. It reports "carry from" the beta
+or the sheet, or "re-take" with the inputs that moved. It reads this table by its header and the backticked
 tokens of each row, so keep both shapes. A section the table does not name is
 taken on every candidate.
 
