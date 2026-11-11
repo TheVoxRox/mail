@@ -27,6 +27,10 @@ Entries before 2026-09-17 predate that split and are left as written.
   maintainer takes those passes during development and at the latest on the
   beta, and the `v0.2.0` promotion had to carry them by decision because the
   report compared against the 2026-11-03 sheet (#899).
+- `todo-archive.md` is gone. Nothing has read it since `todo.md` was retired,
+  and its unticked items looked like open work to anyone searching the tree;
+  its last text is `git show 4998e9e1:todo-archive.md`. Older entries below
+  keep their links to it as the record of what was there (#900).
 
 ## [0.2.0] - 2026-11-11
 

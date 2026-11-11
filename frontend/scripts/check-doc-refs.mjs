@@ -34,7 +34,7 @@ const repoRoot = path.join(process.cwd(), '..');
 /**
  * Documents that describe the past on purpose. Their dead refs are the point.
  *
- * The changelogs and the archived todo come from a shared list because
+ * The changelogs come from a shared list because
  * `check:npm-callers` has to skip exactly the same files for the same reason;
  * the rest are historical for this gate alone.
  */

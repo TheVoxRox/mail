@@ -209,7 +209,7 @@ coverage, add a per-file threshold rather than lowering a global floor.
 
 - `npm run check:refs` (part of `check`) — every repo path and `npm run`
   script named in a doc or a source comment must exist. Historical documents
-  (changelogs, `todo-archive.md`, snapshot docs) are skipped: their dead
+  (changelogs, snapshot docs) are skipped: their dead
   references are the record, not a defect.
 - `npm run check:nul` (part of `check`, and on staged files in the pre-commit
   hook) — fails when a file carries a NUL byte without being declared binary
@@ -427,8 +427,7 @@ text, and a translated quote stops matching the screen.
 `CHANGELOG.md` is written in English from 2026-09-09 on; older entries are
 Czech and stay that way, because a changelog is a dated record of what was
 written at the time. How an entry is shaped, user-visible against internal,
-is in the header of the file itself. The task archive (`todo-archive.md`)
-predates all of this and is left alone.
+is in the header of the file itself.
 
 ## Filing Issues and PRs
 
