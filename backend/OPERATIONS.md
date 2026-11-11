@@ -431,7 +431,7 @@ A beta candidate is checked by the machine half of the release checklist and §9
 
 ### Promotion to stable
 
-Ship a full version (no suffix) through the ordinary release process, in its promotion shape: [RELEASE_PROCESS.md](../docs/RELEASE_PROCESS.md) "What a release runs" — the machine half, the update smoke and the channel check run again, and the manual sections carry from the beta it promotes, so only what moved since the beta is taken by hand on it. Publishing triggers `beta-channel.yml` here too, so beta users converge onto the same stable build (SemVer: `0.2.0` > `0.2.0-beta.1`) and the beta channel never lags behind stable.
+Ship a full version (no suffix) through the ordinary release process, in its promotion shape: [RELEASE_PROCESS.md](../docs/RELEASE_PROCESS.md) step 1 — the machine half, the update smoke and the channel check run again, and the manual sections carry from the beta it promotes, so only what moved since the beta is taken by hand on it. Publishing triggers `beta-channel.yml` here too, so beta users converge onto the same stable build (SemVer: `0.2.0` > `0.2.0-beta.1`) and the beta channel never lags behind stable.
 
 ### HALT — withdrawing a faulty beta
 

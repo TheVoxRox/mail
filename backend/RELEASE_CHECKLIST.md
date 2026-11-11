@@ -27,7 +27,7 @@ the appendix. A tick with no candidate attached cannot be read by the next
 release, so the body no longer holds one. The dated `Notes:` blocks stay: they
 carry their own date and read as history, which is what they are.
 
-**Not every candidate re-takes every section.** A beta takes none of the sections done by hand on the installed candidate, §3 to §8: they are taken once, on the stable candidate that promotes it. There a section carries from the last sheet that ticked it when nothing it rests on has moved since, a change only in comments aside, and only what moved is re-taken; the appendix holds the rule and what each section rests on. [RELEASE_PROCESS.md](../docs/RELEASE_PROCESS.md) "What a release runs" says what runs on every candidate regardless, and why.
+**Not every candidate re-takes every section.** A beta's sheet ticks none of the sections done by hand on the installed candidate, §3 to §8: the maintainer takes them during development. The stable candidate that promotes the beta carries each of them from it when nothing the section rests on has moved since, a change only in comments aside, and only what moved is re-taken; the appendix holds the rule and what each section rests on. [RELEASE_PROCESS.md](../docs/RELEASE_PROCESS.md) step 1 says what runs on every candidate regardless.
 
 ## 0. Version
 
@@ -325,7 +325,7 @@ those four shapes.
 
 **A manual section carries when what it rests on has not moved.** A stable
 candidate re-takes by hand only what changed. A beta's sheet ticks none of §3
-to §8 (RELEASE_PROCESS "What a release runs"): the maintainer takes them during
+to §8 (RELEASE_PROCESS step 1): the maintainer takes them during
 development and at the latest on the beta, and the pull requests record those
 passes as `Heard by the maintainer: …`. So a stable candidate that promotes a
 beta carries each section from the beta: from the newest sheet whose tag is a

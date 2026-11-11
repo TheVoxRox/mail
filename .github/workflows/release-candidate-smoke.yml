@@ -7,7 +7,7 @@ run-name: Release Candidate Smoke ${{ inputs.tag || github.event.workflow_run.he
 # on a clean windows-latest profile and runs
 # frontend/scripts/installed-app-smoke.mjs against it: RELEASE_CHECKLIST §3,
 # part of §3a and the orphan half of §6, on the exact file a user downloads.
-# RELEASE_PROCESS step 4a runs it after the signed build and before the manual
+# RELEASE_PROCESS step 3 runs it after the signed build and before the manual
 # sections.
 #
 # It runs from main with the tag as an input, not from the tag. A workflow run
