@@ -339,9 +339,19 @@ function crateVersion(text, name) {
  * The pom's own `<version>` is what `npm run bump:version` writes, and no key
  * reads it, so a version bump alone moves nothing here either. Comments are
  * dropped first: the pom's comments name elements, `<properties>` among them.
+ * They are cut out by splitting on the markers rather than by a replace, which
+ * CodeQL reads as an incomplete HTML sanitizer; an unclosed comment drops the
+ * rest of the file, as an XML parser would refuse it.
  */
 function pomValue(text, name) {
-	const xml = text.replace(/<!--[\s\S]*?-->/g, '');
+	const xml = text
+		.split('<!--')
+		.map((part, index) => {
+			if (index === 0) return part;
+			const end = part.indexOf('-->');
+			return end === -1 ? '' : part.slice(end + 3);
+		})
+		.join('');
 	const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 	const block =
 		name === 'parent'
