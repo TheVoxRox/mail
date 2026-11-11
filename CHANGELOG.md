@@ -32,7 +32,7 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Known issues
 
-Provisional until §9 of the 2026-11-11 candidate sheet, per
+Reconciled with §9 of the 2026-11-11 candidate sheet, per
 [RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) step 6. Unchanged from
 0.2.0-beta.4:
 
@@ -53,13 +53,12 @@ Provisional until §9 of the 2026-11-11 candidate sheet, per
   0.1.0 or 0.2.0-beta.1 trusts only the retired signing key and installs this
   release by hand: run its installer over the existing installation, which
   keeps mail, accounts and settings.
-- **For the operator:** this is the first candidate since 0.1.0 to take the
-  manual sections, §3 to §8.1 on the installed candidate, under the carry rule;
-  every one of them re-takes (#892). The screen-reader passes the beta pull
-  requests named were heard during development (#894), so what is left is
-  what only an installed build shows: the install and the sidecar it starts,
-  the Windows notification under the app's name (#886), and the account flows
-  against the real providers.
+- **For the operator:** none beyond publishing. The manual sections §3 to §8
+  carry by the maintainer's decision: the carry table reports each as re-take,
+  since no beta ticks them (#892), but the maintainer took what moved during
+  development, at the latest on 0.2.0-beta.4 (#894), and this installer is
+  that beta's code. Once published, an installation of 0.2.0-beta.4 on the
+  beta channel takes 0.2.0 through the updater.
 
 ### Repo
 
@@ -98,6 +97,10 @@ Provisional until §9 of the 2026-11-11 candidate sheet, per
   Until now no row named the backend's libraries at all (#896).
 - The `0.2.0` cut: the version in the seven files `bump:version` writes, and
   the 2026-11-11 candidate sheet with §0 to §2 ticked (#897).
+- The `v0.2.0` release decision: §9 of the 2026-11-11 sheet, with no open
+  blocker and the known issues of 0.2.0-beta.4, §3 to §8 carried by the
+  maintainer's decision, and the release notes in `docs/release-notes/v0.2.0.md`
+  (#898).
 
 ## [0.2.0-beta.4] - 2026-11-10
 
