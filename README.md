@@ -130,7 +130,6 @@ Work tracking:
 
 - [GitHub Issues](https://github.com/TheVoxRox/mail/issues) — open work
 - [`docs/DECISIONS.md`](docs/DECISIONS.md) — standing decisions, the reason behind each and the condition that reopens it
-- [`todo-archive.md`](todo-archive.md) — closed work from before the task list moved to issues (snapshot, Czech)
 
 ## License
 

@@ -23,9 +23,7 @@ someone a rework at least once. For the human-facing versions see
   Czech **with diacritics**. Quoted Czech UI strings inside an English doc also
   stay as they are — they are the product's own text, and translating a quote
   makes it stop matching what is on screen.
-- `todo-archive.md` is the standing exception to both rules: Czech,
-  diacritics-free, from before any of this was written, and not maintained at
-  all. GitHub issues are written in English, like PR descriptions.
+- GitHub issues are written in English, like PR descriptions.
 - `CHANGELOG.md` is **written in English from 2026-09-09 on**. Entries dated
   before that are Czech and stay so — a changelog is a dated record of what was
   written at the time, and the file says this in its own header.
