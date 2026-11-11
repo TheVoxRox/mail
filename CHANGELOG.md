@@ -19,6 +19,48 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+## [0.2.0] - 2026-11-11
+
+### Tauri / Release
+
+- 0.2.0 is the stable release of 0.2.0-beta.4, promoted with no change to what
+  the installer carries: since that beta only the release tooling and the
+  documentation moved, none of it bundled. What 0.2.0 brings over 0.1.0 is
+  recorded in the four beta sections below, 0.2.0-beta.1 to 0.2.0-beta.4. The
+  stable channel, every installation's default, serves it, and the beta
+  channel moves onto it too, since 0.2.0 is newer than every 0.2.0 beta.
+
+### Known issues
+
+Provisional until §9 of the 2026-11-11 candidate sheet, per
+[RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) step 6. Unchanged from
+0.2.0-beta.4:
+
+- **A transient IMAP hiccup, `failed to create new store connection`, appears
+  in the log a couple of times a day.** A bounded retry with backoff recovers it
+  on the next attempt.
+- **Google sign-in works only for accounts on the test list.** The OAuth
+  consent screen stays in `Testing`.
+- **A hostile mail server can still run the mail service out of memory when
+  two such accounts sync at once.** What one account keeps is bounded by an
+  account budget, so a single hostile server costs only its own account. Three
+  restarts in a row still pause that account's sync.
+
+### Manual steps
+
+- **For the user:** an installation of 0.2.0-beta.2, 0.2.0-beta.3 or
+  0.2.0-beta.4 takes this release through the updater. An installation of
+  0.1.0 or 0.2.0-beta.1 trusts only the retired signing key and installs this
+  release by hand: run its installer over the existing installation, which
+  keeps mail, accounts and settings.
+- **For the operator:** this is the first candidate since 0.1.0 to take the
+  manual sections, §3 to §8.1 on the installed candidate, under the carry rule;
+  every one of them re-takes (#892). The screen-reader passes the beta pull
+  requests named were heard during development (#894), so what is left is
+  what only an installed build shows: the install and the sidecar it starts,
+  the Windows notification under the app's name (#886), and the account flows
+  against the real providers.
+
 ### Repo
 
 - `npm run check` fails when a license inventory has changed since the bundled
@@ -54,6 +96,8 @@ Entries before 2026-09-17 predate that split and are left as written.
   and from `backend/pom.xml` the Spring Boot parent, `jsoup`, `commonmark` and
   `sqlite-jdbc`, which `npm run release:status` reads as one version each.
   Until now no row named the backend's libraries at all (#896).
+- The `0.2.0` cut: the version in the seven files `bump:version` writes, and
+  the 2026-11-11 candidate sheet with §0 to §2 ticked (#897).
 
 ## [0.2.0-beta.4] - 2026-11-10
 

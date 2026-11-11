@@ -439,6 +439,42 @@ Findings:
 - <what went wrong or stays open, and what to do before the next run>
 ````
 
+### Candidate 2026-11-11 — tag `v0.2.0` (see the object ids below)
+
+```text
+Platform:  Windows 11 Pro x64, machine stolak (§0–§2)
+Tester:    machine half automated; §3–§9 are the maintainer's
+```
+
+| path                         | object id      |
+| ---------------------------- | -------------- |
+| `backend/src`                | `92010e86b0ed` |
+| `backend/pom.xml`            | `6c420cd58427` |
+| `backend/scripts`            | `1cdffbb52cd9` |
+| `frontend/src`               | `1fcb35d087d2` |
+| `frontend/src-tauri`         | `22d5d4042355` |
+| `frontend/package.json`      | `8b1bed5f18cc` |
+| `frontend/package-lock.json` | `78dfdd5adf71` |
+
+- [x] **§0 Version** — `npm run bump:version 0.2.0` and `npm run check:versions` OK on all seven files.
+- [x] **§1 Backend build** — `clean verify` on the tree this cut tags, the version already bumped: 0 failures and 0 errors on surefire and failsafe; the one skip is `MailSyncQresyncDovecotIT` without Docker, which CI runs. SpotBugs reports no bug instance. `mail-backend-0.2.0.jar` produced. Sidecar packaged by `npm run sidecar:rebuild:windows` with the OAuth values from `backend/.env`: the application jar and 107 libraries in `lib\`, "Google client-id baked into the launcher; no placeholder", all 10 JVM options present in the launcher, "A copy of the image outside target\ started to ready and exited", 14 of 14 modules declared for the runtime, and the packaged sidecar smoke passed. `regen:licenses:all` after `npm ci`, before this section, changed only the `Generated:` line. The run without a system JDK is taken on the installed candidate.
+- [x] **§2 Frontend automation** — on the same tree: `generate:api` (no drift in `schema.d.ts`), `check:i18n`, `build`, `test:unit`, and `test:e2e`, the functional project and then the a11y suite, all passed with no flake and no re-run of a test. The first `test:e2e` launched no browser: `@playwright/test` 1.65.0 wants Chromium revision 1254 and the machine held 1248, so every test stopped at `browserType.launch`. After `npx playwright install chromium` the suite ran whole, on the revision CI uses.
+- [ ] **§3 Fresh install** — re-take: `frontend/src-tauri/src/lib.rs`, which registers `tauri-plugin-notification` with its command and click handler (#886) and builds the window with WebView2's general autofill off (#858). `backend/scripts/package-sidecar-windows.ps1` moved in a comment only (#866). Machine half: Release Candidate Smoke on the build of this tag.
+- [ ] **§3a Installer behaviour** — re-take: `AboutSettings.svelte`, one expression of the "Poslední synchronizace" line outside its update section (#887). The update smoke vN-1 → vN runs as on every candidate, here from the published `v0.1.0`; the updater itself is §3b.
+- [x] **§3b Updater** — carried from the 2026-11-10 sheet: nothing in its row moved since `v0.2.0-beta.4`, and the signing key is still `068F68E532BCF6DC`. An installation of `v0.2.0-beta.4` on the beta channel takes this release through the updater once it is published, as a check of the channel rather than of the updater.
+- [ ] **§4 Account flows** — re-take: the account form and its edit page (#860, #863, #865, #868), the wizard's steps (#869 to #871), a username saved without a new password and refused for OAuth2 (#864), and the remote-image senders list on the account page (#889). `SecurityConfig.java`, which the OAuth audit's `Code paths` bring in, moved in comments only (#882). The OAuth clients and the Azure registration are those of the 2026-11-03 sheet.
+- [ ] **§5 Mail workflows** — re-take: the mail backend and the whole UI moved (#861, #862, #886, #887, #889; bits-ui 2.20.6 in #872), and since #896 the libraries too: `tauri-plugin-notification` (new in #886), jsoup 1.24.1 and commonmark 0.32.0 (#876). The screen-reader passes over what these reach were heard during development (#894); what only an installed build shows is the Windows notification under the app's name.
+- [ ] **§6 Sidecar lifecycle** — re-take: `frontend/src-tauri/src/lib.rs` (#858, #886), which changes no line of the sidecar's spawn, supervision or exit; `package-sidecar-windows.ps1` moved in a comment only (#866); and since #896 `sqlite-jdbc` 3.54.1.0 (#857). Machine half: Release Candidate Smoke on the build of this tag.
+- [ ] **§7 Diagnostics** — re-take: `AboutSettings.svelte`, the same one expression as §3a (#887), and since #896 the `zip` crate 9.4.1 that writes the logs archive (#875).
+- [ ] **§8 Long run** — re-take: `feature/mail/service`, the arrived-mail count of a sync (#886) and remote-image trust off in junk (#889); `SecurityConfig.java` moved in comments only (#882). §8.2 is the weekly soak.
+- [ ] **§9** — the maintainer's, after the manual sections.
+
+Findings:
+
+- **A promotion in substance, not by the letter of RELEASE_PROCESS.** `git diff --name-only v0.2.0-beta.4 main` lists, beside Markdown and the files `bump:version` writes, the release tooling of #891, #892, #895 and #896 (`frontend/scripts/`, the `check:notice` entry of `frontend/package.json`) and `frontend/src-tauri/notice-inputs.json`. None of it is bundled: `tauri.conf.json` bundles `resources/NOTICE.txt` alone, and against `v0.2.0-beta.4` the shipped paths moved only in the version (`backend/src` keeps its object id). The installer this tag builds is the beta's code under a new version.
+- **`regen:licenses:all` after `npm ci` changed only the `Generated:` line of `NOTICE.txt`**, discarded per §8a: the inventories and the notice match the tree.
+- **This cut takes everything merged since `v0.2.0-beta.4` (`5f3fc39`):** #891 (`npm run check` fails while `NOTICE.txt` is behind an inventory), #892 (a beta takes no manual section), #893 (the beta.4 release decision and notes), #894 (the maintainer's own screen-reader passes count), #895 (§3b taken only when the updater changed) and #896 (a carry capped at 90 days, libraries as inputs). Tooling and documents only.
+
 ### Candidate 2026-11-10 — tag `v0.2.0-beta.4` (see the object ids below)
 
 ```text
