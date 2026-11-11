@@ -402,13 +402,16 @@ describe('carrying a manual section', () => {
 	const NOW_SRC = '222222222222';
 	const THEN_TAURI = '333333333333';
 	const THEN_SRC = '444444444444';
+	const NOW_POM = '555555555555';
+	const THEN_POM = '666666666666';
 	const section = (id, title, done = false) => ({ id, title, done });
 	const current = {
 		date: '2026-10-19',
 		heading: 'Candidate 2026-10-19',
 		objectIds: [
 			{ path: 'frontend/src-tauri', id: NOW_TAURI },
-			{ path: 'backend/src', id: NOW_SRC }
+			{ path: 'backend/src', id: NOW_SRC },
+			{ path: 'backend/pom.xml', id: NOW_POM }
 		],
 		unparsedRows: [],
 		sections: [
@@ -425,7 +428,8 @@ describe('carrying a manual section', () => {
 		heading: 'Candidate 2026-10-13',
 		objectIds: [
 			{ path: 'frontend/src-tauri', id: THEN_TAURI },
-			{ path: 'backend/src', id: THEN_SRC }
+			{ path: 'backend/src', id: THEN_SRC },
+			{ path: 'backend/pom.xml', id: THEN_POM }
 		],
 		commit: OTHER
 	};
@@ -588,6 +592,60 @@ describe('carrying a manual section', () => {
 
 		expect(lines[0]).toContain(
 			'frontend/src-tauri/Cargo.lock#tauri-plugin-updater, which this candidate does not have'
+		);
+	});
+
+	it('reads a pom.xml key as the parent’s version or a property, not as the whole pom', () => {
+		const pom = ({ own, boot, jsoup }) =>
+			[
+				'<project>',
+				'<parent>',
+				'<artifactId>spring-boot-starter-parent</artifactId>',
+				`<version>${boot}</version>`,
+				'</parent>',
+				`<version>${own}</version>`,
+				'<!-- <properties><jsoup.version>0.0.1</jsoup.version></properties> -->',
+				'<properties>',
+				`<jsoup.version>${jsoup}</jsoup.version>`,
+				'</properties>',
+				'</project>'
+			].join('\n');
+		const rows = new Map([
+			['§3a', ['backend/pom.xml#parent']],
+			['§4', ['backend/pom.xml#jsoup.version']]
+		]);
+		const before = pom({ own: '0.2.0-beta.4', boot: '4.1.2', jsoup: '1.24.1' });
+		const bumped = (changes) => ({
+			[`${THEN_POM}`]: before,
+			[`${NOW_POM}`]: pom({ own: '0.2.0', boot: '4.1.2', jsoup: '1.24.1', ...changes })
+		});
+
+		expect(judge({ rows, blobs: bumped({}) }).lines.slice(0, 2)).toEqual([
+			'§3a Installer behaviour: carry from the 2026-10-13 sheet as of a2caa27',
+			'§4 Account flows: carry from the 2026-10-13 sheet as of a2caa27'
+		]);
+		expect(
+			judge({ rows, blobs: bumped({ boot: '4.1.3', jsoup: '1.25.1' }) }).lines.slice(0, 2)
+		).toEqual([
+			'§3a Installer behaviour: re-take: backend/pom.xml#parent. ' +
+				'Against the 2026-10-13 sheet as of a2caa27',
+			'§4 Account flows: re-take: backend/pom.xml#jsoup.version. ' +
+				'Against the 2026-10-13 sheet as of a2caa27'
+		]);
+	});
+
+	it('re-takes a section whose last tick is more than 90 days older, without comparing', () => {
+		const old = (date) => new Map([['§3a', { ...earlier, date }]]);
+
+		// 2026-07-21 is 90 days before the current sheet's 2026-10-19: still carried.
+		expect(judge({ ticks: old('2026-07-21') }).lines[0]).toBe(
+			'§3a Installer behaviour: carry from the 2026-07-21 sheet as of a2caa27'
+		);
+		const { plan, lines } = judge({ ticks: old('2026-07-20') });
+		expect(carrySpecs(plan)).toEqual({ objects: [], blobs: [] });
+		expect(lines[0]).toBe(
+			'§3a Installer behaviour: re-take: the 2026-07-20 sheet, the last to tick it, is 91 days ' +
+				'older than this one, past the 90-day limit on carrying'
 		);
 	});
 

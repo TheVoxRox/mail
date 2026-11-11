@@ -75,8 +75,9 @@ depends on what the candidate is:
   and before the promotion.
 - **On a stable candidate, the manual sections, once.** Each **carries from
   the last sheet that ticked it when nothing it rests on moved**, a change only
-  in comments and layout aside, and is re-taken where something did. The rule,
-  and the table of the paths each section rests on, are in the
+  in comments and layout aside, and is re-taken where something did or when
+  that sheet is more than 90 days older than this one. The rule, and the table
+  of the paths and libraries each section rests on, are in the
   RELEASE_CHECKLIST appendix ("A manual section carries when what it rests on
   has not moved"). `npm run release:status` reports for each open section
   "carry from" the sheet, or "re-take:" with the inputs that moved.

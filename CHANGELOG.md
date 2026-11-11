@@ -48,6 +48,12 @@ Entries before 2026-09-17 predate that split and are left as written.
   `npm run release:status` reads a `Cargo.lock#<crate>` input as that crate's
   version; the update from 0.2.0-beta.3 to 0.2.0-beta.4 on 2026-11-10 is the
   first tick (#895).
+- A manual section of the release checklist no longer carries from a sheet
+  more than 90 days old, and a library update now moves the sections it can
+  break: `tauri`, `wry`, `webview2-com` and the plugins a section exercises,
+  and from `backend/pom.xml` the Spring Boot parent, `jsoup`, `commonmark` and
+  `sqlite-jdbc`, which `npm run release:status` reads as one version each.
+  Until now no row named the backend's libraries at all (#896).
 
 ## [0.2.0-beta.4] - 2026-11-10
 

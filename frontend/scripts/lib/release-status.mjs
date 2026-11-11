@@ -139,6 +139,18 @@ const INPUTS_HEADER = /^\|\s*section\s*\|\s*rests on\s*\|\s*$/i;
 const INPUTS_ROW = /^\|\s*(§\d+[a-z]?)\s*\|(.*)\|\s*$/;
 /** An audit document, which stands for that audit's `Code paths`. */
 const AUDIT_DOC = /(?:^|\/)[A-Z0-9_]+_AUDIT\.md$/;
+/**
+ * The oldest sheet a section carries from, in days before the current sheet.
+ * What a section rests on outside the repository (the WebView2 runtime,
+ * Windows, the screen readers, the providers) moves without moving any input,
+ * so a carry that never expires would vouch for a pass taken on a world that is
+ * gone. The same 90 days that cap the audit acknowledgements in
+ * docs/audit-freshness.json.
+ */
+export const CARRY_DAYS = 90;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const daysBetween = (earlier, later) =>
+	Math.round((Date.parse(later) - Date.parse(earlier)) / DAY_MS);
 
 /** The open sections of a sheet that are taken by hand on the installed candidate. */
 export const openManualSections = (sheet) =>
@@ -268,13 +280,16 @@ export function lastTicks(versions, current, wanted) {
  * What has to be compared for each open manual section: its inputs, each with
  * the revspec reaching it under the ticking sheet's rows (`before`) and under
  * the current sheet's (`now`). `inputs` is null for a section the table does
- * not name, which is taken on every candidate.
+ * not name, which is taken on every candidate. `expired` holds the age in days
+ * of a ticking sheet older than CARRY_DAYS, whose inputs are not compared.
  */
 export function planCarry({ sheet, inputs, ticks, codePathsOf }) {
 	return openManualSections(sheet).map((section) => {
 		const tick = ticks.get(section.id) ?? null;
 		const tokens = inputs.get(section.id) ?? null;
 		if (tokens === null || tick === null) return { section, tick, inputs: tokens && [] };
+		const age = daysBetween(tick.date, sheet.date);
+		if (age > CARRY_DAYS) return { section, tick, inputs: [], expired: age };
 		return {
 			section,
 			tick,
@@ -318,13 +333,46 @@ function crateVersion(text, name) {
 }
 
 /**
+ * A version a `pom.xml` sets: `parent` is the parent's version (Spring Boot,
+ * and with it every library its BOM manages), any other name a property of
+ * `<properties>`, so `pom.xml#sqlite-jdbc.version` moves with that override.
+ * The pom's own `<version>` is what `npm run bump:version` writes, and no key
+ * reads it, so a version bump alone moves nothing here either. Comments are
+ * dropped first: the pom's comments name elements, `<properties>` among them.
+ * They are cut out by splitting on the markers rather than by a replace, which
+ * CodeQL reads as an incomplete HTML sanitizer; an unclosed comment drops the
+ * rest of the file, as an XML parser would refuse it.
+ */
+function pomValue(text, name) {
+	const xml = text
+		.split('<!--')
+		.map((part, index) => {
+			if (index === 0) return part;
+			const end = part.indexOf('-->');
+			return end === -1 ? '' : part.slice(end + 3);
+		})
+		.join('');
+	const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	const block =
+		name === 'parent'
+			? /<parent>([\s\S]*?)<\/parent>/.exec(xml)?.[1]
+			: /<properties>([\s\S]*?)<\/properties>/.exec(xml)?.[1];
+	const element = name === 'parent' ? 'version' : escaped;
+	return block
+		? new RegExp(`<${element}>\\s*([^<]*?)\\s*</${element}>`).exec(block)?.[1]
+		: undefined;
+}
+
+/**
  * The value under `key` of an input's file: the JSON text under that key of a
- * JSON file, or a crate's version in a `Cargo.lock`. Undefined when the file,
+ * JSON file, a crate's version in a `Cargo.lock`, or a version a `pom.xml`
+ * sets. Undefined when the file,
  * its contents or the key is not there.
  */
 function valueAt(text, key, path = '') {
 	if (text === null || text === undefined) return undefined;
 	if (path.endsWith('Cargo.lock')) return key.length === 1 ? crateVersion(text, key[0]) : undefined;
+	if (path.endsWith('pom.xml')) return pomValue(text, key.join('.'));
 	try {
 		const value = key.reduce(
 			(node, part) =>
@@ -378,10 +426,11 @@ function compareInput(input, objects, blobs, onlyComments) {
  * the sidecar packaging script among its reasons to re-take §3, §4, §6 and §8.
  */
 export function judgeCarry(plan, objects, blobs, onlyComments = () => false) {
-	return plan.map(({ section, tick, inputs }) => {
+	return plan.map(({ section, tick, inputs, expired }) => {
 		const none = { moved: [], commented: [] };
 		if (inputs === null) return { section, tick, carry: false, always: true, ...none };
 		if (tick === null) return { section, tick, carry: false, always: false, ...none };
+		if (expired) return { section, tick, carry: false, always: false, expired, ...none };
 		const compared = inputs
 			.map((input) => compareInput(input, objects, blobs, onlyComments))
 			.filter(Boolean);
@@ -392,10 +441,15 @@ export function judgeCarry(plan, objects, blobs, onlyComments = () => false) {
 }
 
 /** One line of the report, in words, since it is read with a screen reader. */
-export function describeCarry({ section, tick, carry, always, moved, commented = [] }) {
+export function describeCarry({ section, tick, carry, always, expired, moved, commented = [] }) {
 	const name = label(section);
 	if (always) return `${name}: re-take, as on every candidate`;
 	if (!tick) return `${name}: re-take, no earlier sheet ticked it`;
+	if (expired)
+		return (
+			`${name}: re-take: the ${tick.date} sheet, the last to tick it, is ${expired} days ` +
+			`older than this one, past the ${CARRY_DAYS}-day limit on carrying`
+		);
 	const from = `the ${tick.date} sheet as of ${shortSha(tick.commit)}`;
 	const comments =
 		commented.length > 0 ? ` (changed only in comments, not counted: ${commented.join('; ')})` : '';

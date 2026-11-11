@@ -369,6 +369,40 @@ channel and checks the version and the signature it names. The update from
 **Revisit when:** an update through an unchanged updater fails in the field,
 or the signing key moves somewhere the release environment does not hold it.
 
+### A manual section carries for 90 days at most, and its libraries are inputs
+
+**Decided 2026-11-11** (maintainer). Two limits on the carry rule of
+[RELEASE_CHECKLIST.md](../backend/RELEASE_CHECKLIST.md) (appendix, "A manual
+section carries when what it rests on has not moved"):
+
+- **No section carries from a sheet more than 90 days older than the current
+  one**, whatever its inputs did. `npm run release:status` reports such a
+  section as re-take and says why.
+- **The libraries a section's by-hand items rest on are inputs**, read as one
+  version each rather than as the whole manifest: `tauri`, `wry` and
+  `webview2-com` from `Cargo.lock` for §3, §5 and §6, the plugins a section
+  exercises, `@tauri-apps/api`, and from `backend/pom.xml` the Spring Boot
+  parent for §4, §5, §6 and §8 with the `jsoup`, `commonmark` and
+  `sqlite-jdbc` properties where they reach.
+
+Why: the rule compares paths in the repository, and two kinds of change moved
+none of them. A library update edits a manifest, and until this no row named
+`backend/pom.xml` at all, nor any audit's `Code paths` ("Dependency manifests
+are not part of an audit's `Code paths`" below), nor any Tauri crate but the
+updater plugin; a Spring Boot or Tauri update therefore carried every section
+it could break. And what the sections rest on outside the repository (the
+WebView2 runtime, Windows, NVDA and JAWS, Gmail and Outlook) moves with no
+commit at all. Impact analysis is normally paired with a periodic full pass
+for that second reason. Reading one version per library, not the manifest,
+keeps the noise that decision measured out: in the 90 days before this one the
+Spring Boot parent took three values and `tauri` with `wry` six, against
+manifests that changed every few days. The 90 days are those of the audit
+acknowledgement cap in `docs/audit-freshness.json`.
+
+**Revisit when:** a section re-taken only for its age finds nothing over
+several stable releases, which would make the limit ceremony; or a library
+outside the rows breaks a by-hand item after its section carried.
+
 ### The release after v0.1.0 is 0.2.0: the number follows the content
 
 **Decided 2026-10-20** as `0.1.1`, because everything since v0.1.0 had been
