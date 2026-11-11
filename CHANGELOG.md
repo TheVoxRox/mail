@@ -19,6 +19,15 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Repo
+
+- A stable candidate that promotes a beta carries the manual sections §3 to §8
+  from that beta: `npm run release:status` compares each section's inputs
+  against the beta's sheet and reports as re-take only what moved since. The
+  maintainer takes those passes during development and at the latest on the
+  beta, and the `v0.2.0` promotion had to carry them by decision because the
+  report compared against the 2026-11-03 sheet (#899).
+
 ## [0.2.0] - 2026-11-11
 
 ### Tauri / Release

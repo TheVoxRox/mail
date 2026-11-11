@@ -26,7 +26,9 @@ import {
 	pickSignedRun,
 	pickSmokeRun,
 	planCarry,
+	promotedBeta,
 	promotionOf,
+	promotionTicks,
 	readGhAnswer,
 	readProvenance
 } from './lib/release-status.mjs';
@@ -681,6 +683,84 @@ describe('carrying a manual section', () => {
 		expect(lines[1]).toBe('§4 Account flows: re-take, no earlier sheet ticked it');
 	});
 
+	it('finds the beta a stable tag promotes by the tag in each sheet’s heading', () => {
+		const sheets = parseSheets(
+			[
+				'### Candidate 2026-11-11 — tag `v0.2.0` (see the object ids below)',
+				'### Candidate 2026-11-10 — tag `v0.2.0-beta.4` (see the object ids below)',
+				'### Candidate 2026-11-03 — tag `v0.2.0-beta.3` (see the object ids below)',
+				'### Candidate 2026-12-01 — tag `v0.3.0-beta.1` (see the object ids below)',
+				'### Candidate 2026-10-19 — tenth cut'
+			].join('\n\n')
+		);
+
+		expect(sheets.map((sheet) => sheet.tag)).toEqual([
+			'v0.2.0',
+			'v0.2.0-beta.4',
+			'v0.2.0-beta.3',
+			'v0.3.0-beta.1',
+			null
+		]);
+		expect(promotedBeta(sheets, 'v0.2.0')).toMatchObject({ date: '2026-11-10' });
+		// A beta promotes nothing, and a release no beta was cut for has none to carry from.
+		expect(promotedBeta(sheets, 'v0.2.0-beta.4')).toBeNull();
+		expect(promotedBeta(sheets, 'v0.1.0')).toBeNull();
+		expect(promotedBeta(sheets, null)).toBeNull();
+	});
+
+	it('compares a promotion against its beta for every section but the updater', () => {
+		const updater = { ...earlier, date: '2026-11-10' };
+		const ticks = new Map([
+			['§3a', earlier],
+			['§3b', updater]
+		]);
+		const beta = { ...earlier, date: '2026-11-10', tag: 'v0.2.0-beta.4' };
+
+		const promoted = promotionTicks(ticks, beta, ['§3a', '§3b', '§4'], OTHER);
+
+		expect(promoted.get('§3a')).toMatchObject({ date: '2026-11-10', promotes: 'v0.2.0-beta.4' });
+		expect(promoted.get('§4')).toMatchObject({ commit: OTHER, promotes: 'v0.2.0-beta.4' });
+		expect(promoted.get('§3b')).toBe(updater);
+		expect(promotionTicks(ticks, null, ['§3a', '§4'], OTHER)).toBe(ticks);
+	});
+
+	it('carries a promotion from its beta, and re-takes only what moved since the beta', () => {
+		const fromBeta = { ...earlier, date: '2026-10-13', promotes: 'v0.2.0-beta.4' };
+		const ticks = new Map([
+			['§3a', fromBeta],
+			['§4', fromBeta]
+		]);
+
+		expect(judge({ ticks }).lines.slice(0, 2)).toEqual([
+			'§3a Installer behaviour: carry from v0.2.0-beta.4, the beta this promotes: nothing it ' +
+				'rests on moved since its 2026-10-13 sheet',
+			'§4 Account flows: carry from v0.2.0-beta.4, the beta this promotes: nothing it rests on ' +
+				'moved since its 2026-10-13 sheet'
+		]);
+		const moved = judge({
+			ticks,
+			objects: { [`${NOW_SRC}:auth`]: { oid: 'c'.repeat(40), type: 'tree' } },
+			onlyComments: (path) => path === 'backend/src/auth'
+		});
+		expect(moved.lines[1]).toBe(
+			'§4 Account flows: carry from v0.2.0-beta.4, the beta this promotes: nothing it rests on ' +
+				'moved since its 2026-10-13 sheet; changed only in comments, not counted: backend/src/auth'
+		);
+		const changed = judge({
+			ticks,
+			objects: { [`${NOW_SRC}:auth`]: { oid: 'c'.repeat(40), type: 'tree' } }
+		});
+		expect(changed.lines[1]).toBe(
+			'§4 Account flows: re-take what moved since v0.2.0-beta.4, the beta this promotes, which ' +
+				'no tester had: backend/src/auth'
+		);
+		const stale = { ...fromBeta, date: '2026-07-20' };
+		expect(judge({ ticks: new Map([['§3a', stale]]) }).lines[0]).toBe(
+			'§3a Installer behaviour: re-take: the 2026-07-20 sheet of v0.2.0-beta.4, the beta this ' +
+				'promotes, is 91 days older than this one, past the 90-day limit on carrying'
+		);
+	});
+
 	it('names the sections that can carry in the next step', () => {
 		const decision = decideNextStep(
 			facts({
@@ -969,7 +1049,8 @@ describe('a beta and the manual sections', () => {
 
 		expect(decision.summary).toContain('Next on the sheet: §9.');
 		expect(decision.notes.join(' ')).toContain(
-			'§3 are not taken on a beta. They are taken once, on the candidate that promotes v0.2.0'
+			'§3 are not ticked on the sheet of a beta. They are taken during development, and the candidate ' +
+				'that promotes this beta to v0.2.0 carries them from it.'
 		);
 		expect(decision.notes.join(' ')).not.toContain('can carry');
 	});
@@ -1002,7 +1083,7 @@ describe('a beta and the manual sections', () => {
 			})
 		).notes.join(' ');
 
-		expect(open).toContain('§3 are not taken on a beta.');
+		expect(open).toContain('§3 are not ticked on the sheet of a beta.');
 		expect(open).toContain('§3b is taken once this beta is published');
 		expect(carried).toContain('§3b carries: nothing the updater rests on moved');
 		expect(carried).not.toContain('§3b is taken once');
@@ -1020,6 +1101,29 @@ describe('a beta and the manual sections', () => {
 
 		expect(decision.summary).toContain('Next on the sheet: §3 Fresh install.');
 		expect(decision.notes.join(' ')).not.toContain('not taken on a beta');
+	});
+
+	it('tells the promotion which sections carry from its beta, and where the record is', () => {
+		const fromBeta = { date: '2026-11-10', promotes: 'v0.2.0-beta.4' };
+		const notes = decideNextStep(
+			facts({
+				tag: 'v0.2.0',
+				provenance: { commit: TAG, ref: 'refs/tags/v0.2.0' },
+				sheet: ticked((id) => id !== '§3'),
+				carry: [
+					{ section: { id: '§3', title: 'Fresh install' }, tick: fromBeta, carry: true },
+					{ section: { id: '§4', title: 'Account flows' }, tick: fromBeta, carry: false },
+					{ section: { id: '§3b', title: 'Updater' }, tick: { date: '2026-11-10' }, carry: true }
+				]
+			})
+		).notes.join(' ');
+
+		expect(notes).toContain(
+			'§3 carry from v0.2.0-beta.4, the beta this promotes: tick each as carried from its ' +
+				'2026-11-10 sheet. The record of the passes is that sheet and the "Heard by the ' +
+				'maintainer:" notes of the pull requests'
+		);
+		expect(notes).toContain('§3b can carry: tick each with the sheet it carries from named');
 	});
 });
 

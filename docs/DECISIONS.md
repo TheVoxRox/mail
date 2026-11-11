@@ -294,18 +294,32 @@ beta testers then do not get the fix until the next beta.
 **Revisit when:** the beta opens to a larger audience, where the delay of a
 stable fix stops being acceptable.
 
-### A beta takes no manual section; the promotion takes them once
+### A beta's sheet takes no manual section; the promotion carries them from the beta
 
-**Decided 2026-11-10** (maintainer, #892). A beta candidate runs what a machine
-checks: §0–§2 of [RELEASE_CHECKLIST.md](../backend/RELEASE_CHECKLIST.md), the
-signed build, Release Candidate Smoke with its update job, §8a, §8b, §9, and
-Release Channel Check after publishing. It takes none of the sections done by
-hand on the installed candidate, §3 to §8. Those are taken once per stable
-version, on the candidate that promotes the last beta, under the carry rule
-that re-takes only what moved since the last sheet that ticked each section.
-The updater taken by hand stays tied to the beta: from an installation of the
-previous beta on the beta channel, once the beta is published, and only when it
-does not carry (§3b since #895, the next entry).
+**Decided 2026-11-10** (maintainer, #892), **revised 2026-11-11** (maintainer,
+#899). A beta candidate runs what a machine checks: §0–§2 of
+[RELEASE_CHECKLIST.md](../backend/RELEASE_CHECKLIST.md), the signed build,
+Release Candidate Smoke with its update job, §8a, §8b, §9, and Release Channel
+Check after publishing. Its sheet ticks none of the sections done by hand on
+the installed candidate, §3 to §8. The maintainer takes those during
+development and at the latest on the beta, once it is published.
+
+The stable candidate that promotes the beta does not take them again. Each
+section **carries from the beta**: `npm run release:status` compares the
+section's inputs, the same table and the same comparison as the carry rule,
+between the beta's sheet and the candidate's, and only what moved since the
+beta, which no tester had, is taken by hand on the installed candidate. When
+the installer is the beta's code under a new version, as it is for a
+promotion, nothing is. The record of a carried section is the beta's sheet and
+the `Heard by the maintainer: …` notes on the pull requests it shipped. The
+machine half still runs on the stable candidate as on every candidate,
+including the update smoke from the previous stable release. A stable
+candidate with no beta of its version, which only `v0.1.0` has been, carries
+from the last sheet that ticked each section as before. The updater taken by
+hand stays tied to the beta: from an installation of the previous beta on the
+beta channel, once the beta is published, and only when it does not carry
+(§3b since #895, the next entry). It never carries from the beta, which proves
+nothing about the updater by existing.
 
 Why: the manual half is about half a day by
 [RELEASE_PROCESS.md](RELEASE_PROCESS.md)'s own count, and four betas were cut
@@ -326,8 +340,9 @@ verified" note says what its author could not check, and an agent cannot
 listen with a screen reader, so the note alone is not that list: the
 maintainer's own pass during development counts, and is written on the pull
 request as `Heard by the maintainer: …` so that a release does not ask for it
-again. Only what neither covered is taken in the promotion's pass, or earlier
-on the beta if the maintainer chooses. Revised 2026-11-10 (#894): the
+again. Only what neither covered is taken by hand: on the beta once it is
+published, or at the latest on the installed stable candidate before it is
+published. Revised 2026-11-10 (#894): the
 0.2.0-beta.4 cut had listed six pull requests' passes as unheard from their
 notes alone, and the maintainer had heard every one of them during
 development.
@@ -336,10 +351,29 @@ In the same change, a section's inputs that moved only in comments and layout
 no longer count as moved, read the way `check:audits` reads audit drift ("A
 change only in comments is not audit drift" below).
 
+Why the revision of 2026-11-11: as first written, the promotion took the manual
+sections "once, under the carry rule", and the carry rule compares against the
+last sheet that ticked each section. No beta ticks one, by this same decision,
+so the comparison reached back past every beta since: on the `v0.2.0`
+promotion `release:status` reported every section as re-take against the
+2026-11-03 sheet of 0.2.0-beta.3, the last cut before #892. That is the half day the decision set out to save, moved to
+a candidate whose installer is the beta's code under a new version number.
+The maintainer had taken the passes during development and on 0.2.0-beta.4,
+and the 2026-11-11 sheet ticked §3 to §8 as carried by the maintainer's
+decision, with a finding saying the table could not see where the passes were
+taken (#898). The next promotion would have met the same mismatch. What a
+version number can change, the new pair of versions, the installer over a
+running installation, the manifest and its signature, the machine checks on
+every candidate.
+
 **Revisit when:** a beta ships a defect that a manual section would have
 caught and that a roll-forward cannot undo (lost or damaged mail, an update
 that does not arrive), or when the beta grows beyond the closed beta of about
-45 testers, for example once Google sign-in leaves its tester list (#838).
+45 testers, for example once Google sign-in leaves its tester list (#838). For
+the revision: a stable release ships a defect in a by-hand item that a pass on
+the installed stable candidate would have caught and the beta's testers did
+not meet, or the beta cycle grows so short that the beta's testers stop being
+a check on the build the promotion ships.
 
 ### The updater is taken by hand only when it changed
 
