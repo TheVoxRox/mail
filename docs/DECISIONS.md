@@ -354,9 +354,9 @@ change only in comments is not audit drift" below).
 Why the revision of 2026-11-11: as first written, the promotion took the manual
 sections "once, under the carry rule", and the carry rule compares against the
 last sheet that ticked each section. No beta ticks one, by this same decision,
-so that sheet was always the previous stable cut's, and on the `v0.2.0`
+so the comparison reached back past every beta since: on the `v0.2.0`
 promotion `release:status` reported every section as re-take against the
-2026-11-03 sheet. That is the half day the decision set out to save, moved to
+2026-11-03 sheet of 0.2.0-beta.3, the last cut before #892. That is the half day the decision set out to save, moved to
 a candidate whose installer is the beta's code under a new version number.
 The maintainer had taken the passes during development and on 0.2.0-beta.4,
 and the 2026-11-11 sheet ticked §3 to §8 as carried by the maintainer's
