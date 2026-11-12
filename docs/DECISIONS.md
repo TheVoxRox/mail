@@ -27,11 +27,11 @@ state is in git history.
 - The Tauri desktop bundle carries the frontend and the backend sidecar; after
   a backend change the sidecar is repackaged and copied into the frontend
   (`npm run sidecar:rebuild:windows`).
-- Commit messages are Conventional Commits in English, scoped by the part of
-  the monorepo: `backend`, `frontend`, `tauri`, `ci`, `docs`, `repo`,
-  `release`.
-- The canonical changelog is the root `CHANGELOG.md`; module changelogs hold
-  only technical and migration detail.
+- Commit messages are Conventional Commits in English; the types and scopes
+  are listed in [CONTRIBUTING.md](../CONTRIBUTING.md) "Commit Conventions".
+- The changelog is the root `CHANGELOG.md`, for every module.
+  `backend/CHANGELOG.md` is a snapshot of the backend's notes up to
+  2026-09-17 and is not written to.
 
 ## Product and data
 
@@ -798,12 +798,39 @@ version, so the next bump of that package asks again.
 What it does not cover: a compromised package's code still runs wherever the
 build or the tests import it (vite and its plugins, vitest), and Maven plugins
 and crate build scripts run as before. It closes the path that needs nothing to
-import the package.
+import the package. The next entry narrows the other path for the updates
+dependabot proposes.
 
 **Revisit when:** npm blocks unnamed scripts by default (then check whether the
 default fails the install or skips the script, and whether
 `strict-allow-scripts` still adds anything); or a dependency turns out to need
 its install script (then it gets a pinned approval, and its reason goes here).
+
+### Dependabot proposes a release only once it is a week old
+
+**Decided 2026-11-12** (maintainer, #903). Every ecosystem in
+[dependabot.yml](../.github/dependabot.yml) carries `cooldown` with
+`default-days: 7`: a version update is proposed only once the release is seven
+days old. Security updates are not held back; the cooldown applies to version
+updates only.
+
+Why: the entry above leaves open the code that a build or a test imports, and
+a compromised release reaches that path on the first `npm ci` of its dependabot
+branch: in CI, and on the maintainer's machine when the branch is checked out
+for its record commit. The compromised npm releases of 2025 were found and
+pulled within hours to days, so a release that has stood for a week has been
+looked at by more people than this repository. The same holds for crates,
+Maven artifacts and actions, which run in the build as well.
+
+The cost is a week on every ordinary update: on a weekly schedule a release
+was proposed within six days, now within thirteen. An update that cannot wait
+is bumped by hand, which the cooldown does not hold back, so that is the moment
+to look at how old the release is.
+
+**Revisit when:** an update the project needs is held back by it twice (then
+exclude that package or shorten the window), or the package managers refuse a
+release younger than a set age on install, which would cover the hand bumps
+too.
 
 ### No `distributionSha256Sum` in the Maven wrapper
 
@@ -828,3 +855,25 @@ already when written: Maven Wrapper support landed in dependabot-core on
 
 **Revisit when:** pinning starts systematically, for the whole pom rather than
 this one file.
+
+## Repository
+
+### `main` takes squash merges only, and no push, the maintainer's included
+
+**Decided 2026-11-12** (maintainer, #902). The repository allows only squash
+merges, and the `main` ruleset lists only `squash` among its merge methods. The
+ruleset's one bypass actor, the admin role, bypasses in `pull_request` mode:
+the maintainer can still merge a pull request without waiting for its checks,
+but cannot push to `main` directly. The release tag ruleset keeps its bypass,
+since tags are pushed, not merged.
+
+Why: the process already rested on both and the settings enforced neither.
+Squash is what the audit ledger's object ids, the changelog's "the squash merge
+keeps" and the release runbook assume, while merge commits and rebase merges
+stayed one click away. [CODE_SIGNING_POLICY.md](../CODE_SIGNING_POLICY.md) says
+changes reach `main` through pull requests, which held only by habit: the
+bypass was `always`, and the last direct push was on 2026-08-17. A signing
+policy that holds by habit is a weak thing to put in front of SignPath.
+
+**Revisit when:** a second maintainer joins (then a required review is the
+question), or a workflow has to commit to `main` itself.

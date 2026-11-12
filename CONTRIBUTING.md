@@ -15,8 +15,9 @@ frontend/     SvelteKit 3 + Svelte 5 desktop UI (static adapter)
 frontend/src-tauri/  Tauri 2 wrapper that bundles the JAR sidecar
 ```
 
-Each module is a self-contained build with its own README, dependency
-inventory (`THIRD_PARTY_LICENSES.md`) and changelog where applicable.
+Each module is a self-contained build with its own README and dependency
+inventory (`THIRD_PARTY_LICENSES.md`). The changelog is the root
+[CHANGELOG.md](CHANGELOG.md), for every module.
 
 ## Local Setup
 
@@ -112,7 +113,8 @@ Hooks live in the tracked `.githooks/` directory. Activate them once per clone
 git config core.hooksPath .githooks
 ```
 
-- **pre-commit** (fast): when the commit touches `frontend/`, runs
+- **pre-commit** (fast): on every commit, the NUL byte check over the staged
+  files (`check:nul`); when the commit touches `frontend/`, runs
   `prettier --check`, i18n key parity (`check:i18n`), and the strict translation
   whitelist (`check:translations:strict`); when it touches the backend
   `messages*.properties` bundles, runs the backend i18n parity guard
@@ -331,7 +333,10 @@ decide whether everything else is allowed to land.
   one file per red run. `--target=backend` switches trees. It is a diagnostic,
   not a gate, which is why it is not in `npm run check`.
 
-- `npm audit --audit-level=high` — must report 0 high+ vulnerabilities.
+- `npm run audit:ci` — `npm audit`, failing on anything at high or above.
+  Through a script rather than `npm audit --audit-level=high`, because npm
+  exits the same way when it finds something and when it cannot reach the
+  advisory registry; the script reads the verdict and retries only the second.
 - `npm run test:unit:coverage` — vitest with thresholds (≥ 65% global,
   per-file 90/85/90 for `content-sanitizer.ts`, 85/80/80 for
   `client.ts`).
@@ -339,10 +344,18 @@ decide whether everything else is allowed to land.
 - `npm run test:a11y` — Playwright a11y.
 - `npm run test:performance` — initial-load budget.
 
-**Tauri Rust (`cd frontend/src-tauri && cargo check && cargo clippy`)**
+**Tauri Rust (`cd frontend/src-tauri`)**
 
+- `cargo fmt --check` — no rustfmt diff.
 - `cargo check` — clean compile.
 - `cargo clippy --no-deps -- -D warnings` — clean, no warnings.
+- `cargo test --lib -- redact::` — the log redactor against the vectors it
+  shares with the backend; the one Rust test CI runs.
+- `cargo audit` — no RustSec vulnerability advisory; accepted warnings live in
+  `frontend/src-tauri/.cargo/audit.toml`.
+
+CI builds the crate on Linux, so it never compiles the `cfg(windows)` code.
+A change to that code needs `cargo check` and `cargo clippy` on Windows too.
 
 If any gate fails locally, fix it before pushing. The CI is not where to
 discover regressions.
@@ -350,24 +363,32 @@ discover regressions.
 ## Commit Conventions
 
 We use [Conventional Commits](https://www.conventionalcommits.org/) in
-**English**. Scopes are the top-level module the change touches:
+**English**. The type is one of `feat`, `fix`, `perf`, `refactor`, `test`,
+`docs`, `build`, `ci` and `chore`. The scope says where the change lives:
 
-- `backend` — anything under `backend/`.
-- `frontend` — anything under `frontend/src/`, `frontend/scripts/`,
-  `frontend/static/` (not src-tauri).
+- `backend` — `backend/`.
+- `frontend` — `frontend/` outside `src-tauri/`.
 - `tauri` — `frontend/src-tauri/`.
-- `ci` — `.github/`, CI scripts.
-- `docs` — root + module README/OPERATIONS/CHANGELOG/PRIVACY/SECURITY.
-- `repo` — `package.json`, `pom.xml` (build infra), `.gitignore`, etc.
-- `release` — version bumps + changelog updates around a release tag.
+- `mail` — a mail feature that spans the backend and the frontend.
+- `ci` — `.github/` and what only CI runs.
+- `repo` — the repository as a whole: build infrastructure, repo-wide tooling,
+  docs that belong to no module.
+- `release`, `audit`, `security` — the release process and its records, the
+  security audits in `docs/`, and the threat model and security policy, whichever
+  files they touch.
+- `deps`, `deps-dev` — what dependabot writes on its own pull requests.
+
+The repository squash-merges, so a pull request's title becomes the commit on
+`main` once it has more than one commit: write the title in the same form.
 
 Examples:
 
 ```
-feat(backend): add full QRESYNC SELECT with VANISHED
-fix(frontend): strip $_ second arg from toErrorMessage callers
-chore(tauri): regen Cargo dependency licenses
-ci: add cargo clippy gate
+feat(mail): make remote-image trust revocable, named, and off in junk
+fix(backend): refuse a damaged database before touching it, and say why
+docs(audit): re-verify the updater audit against 721bc6e (1.26)
+docs(release): cut v0.2.0-beta.4 on the 2026-11-10 candidate sheet
+build(deps): bump the npm-production group in /frontend with 4 updates
 ```
 
 `BREAKING CHANGE:` in the footer for backend API shape changes (any

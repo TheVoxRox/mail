@@ -11,10 +11,9 @@ name: CodeQL
 #     published queries find existing issues without waiting for a code change
 #
 # Findings are uploaded as SARIF; they show up under the repository's
-# Security > Code scanning alerts tab. Failed CodeQL runs do not currently
-# block merging — they are advisory in this iteration. To make them blocking,
-# wire the workflow into branch protection rules once we are happy with the
-# noise level on first runs.
+# Security > Code scanning alerts tab. Both Analyze jobs are required checks on
+# main, so a run that fails blocks the merge; the alerts it raises do not
+# (docs/STATIC_ANALYSIS.md, "Cross-language (CodeQL)").
 
 on:
   push:

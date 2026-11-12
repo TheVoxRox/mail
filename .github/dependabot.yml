@@ -7,6 +7,13 @@
 # lands as its own PR for manual review — a lone major that outruns its peers
 # (e.g. typescript ahead of typescript-eslint) is exactly the kind of
 # breaking/peer-conflict change that must not be auto-bundled.
+#
+# Cooldown: every ecosystem waits until a release is seven days old before it
+# proposes it. A compromised release is usually found and pulled within that
+# window, and its code would otherwise run here on the first install of the
+# dependabot branch, in CI and on the maintainer's machine. Security updates
+# are not held back by it. Why seven days: docs/DECISIONS.md, "Dependabot
+# proposes a release only once it is a week old".
 version: 2
 updates:
   - package-ecosystem: npm
@@ -17,6 +24,8 @@ updates:
       time: '08:00'
       timezone: Europe/Prague
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     groups:
       npm-production:
         dependency-type: production
@@ -37,6 +46,8 @@ updates:
       time: '08:30'
       timezone: Europe/Prague
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     groups:
       cargo-minor-patch:
         update-types:
@@ -73,6 +84,8 @@ updates:
       time: '08:45'
       timezone: Europe/Prague
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     groups:
       maven-production:
         dependency-type: production
@@ -98,6 +111,8 @@ updates:
       time: '09:00'
       timezone: Europe/Prague
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     groups:
       github-actions-minor-patch:
         update-types:
