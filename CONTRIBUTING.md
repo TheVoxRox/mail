@@ -458,8 +458,9 @@ is in the header of the file itself.
   requests may use the [feature template](.github/ISSUE_TEMPLATE/feature.yml)
   directly.
 - Bug reports use the [bug template](.github/ISSUE_TEMPLATE/bug.yml).
-- Security issues go to **info@voxrox.org**, never the public tracker —
-  see [SECURITY.md](SECURITY.md).
+- Security issues are reported privately, through GitHub's private
+  vulnerability reporting or to **info@voxrox.org**, never in the public
+  tracker — see [SECURITY.md](SECURITY.md).
 - PRs should include a one-line summary + a checklist of which gates
   were run locally.
 

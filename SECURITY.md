@@ -30,8 +30,17 @@ covered.
 
 **Please do not open a public GitHub issue for security reports.**
 
-Instead, send an email to
-**info@voxrox.org** with:
+Report it privately, in either of two ways:
+
+- **GitHub private vulnerability reporting** (preferred): the **Report a
+  vulnerability** button on the repository's
+  [Security tab](https://github.com/TheVoxRox/mail/security/advisories/new).
+  The report, the conversation about it and the fix stay together in one
+  private draft advisory until it is published.
+- **Email** to **info@voxrox.org**, if you have no GitHub account or would
+  rather not use it.
+
+Please include:
 
 - A description of the issue and how to reproduce it.
 - The affected version (Settings → Help → About in the desktop app, or the
@@ -41,8 +50,7 @@ Instead, send an email to
 - A proof-of-concept if you have one, in any format.
 
 You should receive an acknowledgement **within 7 calendar days**. If you
-do not, please follow up — the alternative contact is the maintainer's
-GitHub profile in the repository's `About` section.
+do not, please follow up through the other channel.
 
 We will work with you on the timeline. Our default disclosure window is
 **90 days** from the initial report, extended by mutual agreement if a
@@ -75,6 +83,8 @@ Examples of issues we treat as security-sensitive:
 
 ## After the Fix
 
-We will credit reporters in the release notes unless they prefer to
-remain anonymous. Public CVE assignment is decided case-by-case; we
-will pursue a CVE for issues that ship in a public release.
+The fix is published as a GitHub security advisory and named in the
+release notes, and both credit the reporter unless they prefer to remain
+anonymous. For an issue that shipped in a public release we request a CVE
+through that advisory; GitHub assigns CVE identifiers as a CVE Numbering
+Authority.
