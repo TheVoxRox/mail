@@ -37,7 +37,9 @@ Entries before 2026-09-17 predate that split and are left as written.
   commits use, the Rust gates include `cargo fmt`, `cargo test` and
   `cargo audit`, and the pull request template asks for the changelog bullet
   and the linked issue. `backend/CHANGELOG.md`, untouched since 2026-09-17, is
-  marked a snapshot (#902).
+  marked a snapshot. `main` now takes squash merges only and no direct push,
+  the maintainer's included, which the audit ledger and the code signing
+  policy already assumed; the decision is in `docs/DECISIONS.md` (#902).
 
 ## [0.2.0] - 2026-11-11
 

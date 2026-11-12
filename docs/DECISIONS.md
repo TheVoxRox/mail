@@ -779,3 +779,25 @@ already when written: Maven Wrapper support landed in dependabot-core on
 
 **Revisit when:** pinning starts systematically, for the whole pom rather than
 this one file.
+
+## Repository
+
+### `main` takes squash merges only, and no push, the maintainer's included
+
+**Decided 2026-11-12** (maintainer, #902). The repository allows only squash
+merges, and the `main` ruleset lists only `squash` among its merge methods. The
+ruleset's one bypass actor, the admin role, bypasses in `pull_request` mode:
+the maintainer can still merge a pull request without waiting for its checks,
+but cannot push to `main` directly. The release tag ruleset keeps its bypass,
+since tags are pushed, not merged.
+
+Why: the process already rested on both and the settings enforced neither.
+Squash is what the audit ledger's object ids, the changelog's "the squash merge
+keeps" and the release runbook assume, while merge commits and rebase merges
+stayed one click away. [CODE_SIGNING_POLICY.md](../CODE_SIGNING_POLICY.md) says
+changes reach `main` through pull requests, which held only by habit: the
+bypass was `always`, and the last direct push was on 2026-08-17. A signing
+policy that holds by habit is a weak thing to put in front of SignPath.
+
+**Revisit when:** a second maintainer joins (then a required review is the
+question), or a workflow has to commit to `main` itself.
