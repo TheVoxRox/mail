@@ -7,21 +7,29 @@ Thank you for the PR. Keep the description short — the diff explains the
 
 <!-- 1–3 bullets on the user-visible change and the motivation. -->
 
+Closes #
+
+## What no gate checks
+
+- [ ] `CHANGELOG.md` has a bullet under `## Unreleased` for this change.
+- [ ] A decision that should outlive this PR is in `docs/DECISIONS.md`.
+- [ ] Tests that depend on a changed behaviour or affordance are updated here.
+
 ## Pre-Push Gate (delete what does not apply)
 
 I have run the relevant gates locally and they are **all green**:
 
-- [ ] `mvn verify` (backend) — Spotless, SpotBugs, unit + IT, Jacoco threshold
-- [ ] `npm run lint` (frontend) — Prettier, ESLint, i18n parity
+- [ ] `mvn clean verify` (backend) — Spotless, SpotBugs, unit + IT, Jacoco threshold
+- [ ] `npm run lint` (frontend) — Prettier, Markdown, ESLint, i18n parity
 - [ ] `npm run check:i18n:backend` (frontend) — backend `messages.properties` cs/en parity
 - [ ] `npm run knip` (frontend) — dead-code analysis
 - [ ] `npm run knip:production` (frontend) — dead-code analysis without the test graph
 - [ ] `npm run check:rename-residue -- --base <ref>` (frontend) — leftovers of a rename
-- [ ] `npm run check` (frontend) — version sync, schema drift, svelte-check
+- [ ] `npm run check` (frontend) — the repo gates listed in CONTRIBUTING.md, then svelte-check
 - [ ] `npm run test:unit:coverage` (frontend) — passing thresholds
 - [ ] `npm run test:functional` (frontend)
 - [ ] `npm run test:a11y` (frontend)
-- [ ] `cargo check && cargo clippy -- -D warnings` (Tauri)
+- [ ] `cargo fmt --check`, `cargo check`, `cargo clippy --no-deps -- -D warnings` (Tauri; on Windows when `cfg(windows)` code changed)
 
 ## Docs & Web Sync (delete if not applicable)
 

@@ -27,11 +27,11 @@ state is in git history.
 - The Tauri desktop bundle carries the frontend and the backend sidecar; after
   a backend change the sidecar is repackaged and copied into the frontend
   (`npm run sidecar:rebuild:windows`).
-- Commit messages are Conventional Commits in English, scoped by the part of
-  the monorepo: `backend`, `frontend`, `tauri`, `ci`, `docs`, `repo`,
-  `release`.
-- The canonical changelog is the root `CHANGELOG.md`; module changelogs hold
-  only technical and migration detail.
+- Commit messages are Conventional Commits in English; the types and scopes
+  are listed in [CONTRIBUTING.md](../CONTRIBUTING.md) "Commit Conventions".
+- The changelog is the root `CHANGELOG.md`, for every module.
+  `backend/CHANGELOG.md` is a snapshot of the backend's notes up to
+  2026-09-17 and is not written to.
 
 ## Product and data
 

@@ -31,6 +31,13 @@ Entries before 2026-09-17 predate that split and are left as written.
   and its unticked items looked like open work to anyone searching the tree;
   its last text is `git show 4998e9e1:todo-archive.md`. Older entries below
   keep their links to it as the record of what was there (#900).
+- The contributor docs say what the repository does again: CodeQL's two
+  `Analyze` jobs are required checks and only its alerts are advisory, Spotless
+  runs in `mvn verify` and not before a push, the commit scopes are the ones
+  commits use, the Rust gates include `cargo fmt`, `cargo test` and
+  `cargo audit`, and the pull request template asks for the changelog bullet
+  and the linked issue. `backend/CHANGELOG.md`, untouched since 2026-09-17, is
+  marked a snapshot (#902).
 
 ## [0.2.0] - 2026-11-11
 
