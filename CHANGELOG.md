@@ -31,11 +31,6 @@ Entries before 2026-09-17 predate that split and are left as written.
   and its unticked items looked like open work to anyone searching the tree;
   its last text is `git show 4998e9e1:todo-archive.md`. Older entries below
   keep their links to it as the record of what was there (#900).
-- `SECURITY.md` names GitHub's private vulnerability reporting, which the
-  repository already had switched on, as the preferred channel, with the e-mail
-  address beside it, and says that a fix is published as a GitHub security
-  advisory, through which a CVE is requested. voxrox.org is resynced in CS and
-  EN (#904).
 - `docs/RELEASE_PROCESS.md` is now a runbook of five steps with their
   commands, a beta and a promotion side by side, and keeps no reasons or
   history; it was 412 lines and the maintainer found it hard to follow. The
@@ -57,6 +52,11 @@ Entries before 2026-09-17 predate that split and are left as written.
   ecosystem, so a compromised release has a week to be found before its code
   runs here; security updates are not held back. The reason and its cost are in
   `docs/DECISIONS.md` (#903).
+- `SECURITY.md` names GitHub's private vulnerability reporting, which the
+  repository already had switched on, as the preferred channel, with the e-mail
+  address beside it, and says that a fix is published as a GitHub security
+  advisory, through which a CVE is requested. voxrox.org is resynced in CS and
+  EN (#904).
 
 ## [0.2.0] - 2026-11-11
 
