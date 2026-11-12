@@ -39,6 +39,12 @@ Entries before 2026-09-17 predate that split and are left as written.
   follow the new order. The checklist's two older sheet skeletons give way to
   the runbook's, and OPERATIONS no longer tells a beta to set its version by
   hand; its copy of the beta model's reasons moved to DECISIONS (#901).
+- `npm run check:audits` no longer counts a release version bump as drift: a
+  JSON file whose text changed only in its top-level `version`, as
+  `bump:version` writes it into the updater audit's `tauri.conf.json`, passes
+  and is named on the green run. Every release used to cost that audit one of
+  the eight acknowledgements its cap allows. The runbook's audit step now
+  expects nothing to acknowledge (#905).
 
 ## [0.2.0] - 2026-11-11
 

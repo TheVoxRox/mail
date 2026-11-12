@@ -86,7 +86,10 @@ someone a rework at least once. For the human-facing versions see
     acknowledgement, in the languages `frontend/scripts/lib/comment-only.mjs`
     reads exactly (Java, TS/JS, `.properties`). Do not widen it with a scanner:
     its one forbidden error is calling code a comment, so whatever it cannot
-    read exactly must stay drift.
+    read exactly must stay drift. Neither is a release version bump: a JSON
+    file whose text changed only in its top-level `version` value
+    (`frontend/scripts/lib/version-only.mjs`), which is what `bump:version`
+    writes into the updater audit's `tauri.conf.json`.
   - `check:refs` — every repo path and `npm run` script named in prose or in a
     comment exists.
   - `check:npm-callers` — the other direction of that pair: an entry in

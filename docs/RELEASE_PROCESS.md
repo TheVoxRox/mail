@@ -72,9 +72,10 @@ from `frontend/` unless a step says otherwise.
 
    `generate:api` must leave no diff.
 
-5. **Audit drift.** `npm run check:audits`. The version line in
-   `tauri.conf.json` counts as drift for the updater audit. Acknowledge it with
-   the ids the check prints, in `docs/audit-freshness.json`.
+5. **Audit drift.** `npm run check:audits` must pass with nothing to
+   acknowledge: the version `bump:version` writes into `tauri.conf.json` is not
+   drift. If it reports drift, something besides the version moved under an
+   audit; find out what before going on.
 6. **Candidate sheet.** Add a new sheet at the top of the appendix of
    `backend/RELEASE_CHECKLIST.md` (skeleton below). Fill the object id table
    from the committed bump:
