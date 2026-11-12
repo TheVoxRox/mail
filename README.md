@@ -117,7 +117,7 @@ Engineering records:
 History:
 
 - [`CHANGELOG.md`](CHANGELOG.md) — release-level history of the entire monorepo
-- [`backend/CHANGELOG.md`](backend/CHANGELOG.md) — backend technical changes and migration notes
+- [`backend/CHANGELOG.md`](backend/CHANGELOG.md) — backend technical notes up to 2026-09-17 (snapshot)
 
 Legal / compliance:
 

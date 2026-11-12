@@ -1,6 +1,12 @@
 # Changelog
 
-Backend technical changes and migration notes live in this file.
+> **HISTORICAL SNAPSHOT.** The backend's own notes, last written on 2026-09-17
+> (#517) and not updated since. Every change after that, the backend's
+> included, is in the root [CHANGELOG.md](../CHANGELOG.md). The "Unreleased"
+> section below was written before v0.1.0 and never cut, and the compatibility
+> matrix describes the 0.0.x builds of that time.
+
+Backend technical changes and migration notes lived in this file.
 The release-level changelog for the whole monorepo is in `../CHANGELOG.md`.
 
 ## Compatibility matrix

@@ -40,7 +40,8 @@ The project has one maintainer, who holds every role:
 | Committers and reviewers | [@Luke-Lacina](https://github.com/Luke-Lacina) |
 | Approvers                | [@Luke-Lacina](https://github.com/Luke-Lacina) |
 
-Changes reach `main` through pull requests. A change from anyone else,
+Changes reach `main` through pull requests: the repository's ruleset admits no
+direct push to `main`, the maintainer's included. A change from anyone else,
 dependency updates opened by Dependabot included, is reviewed by the maintainer
 before it merges, and every signing request is approved by hand. Every team
 member is required to use multi-factor authentication for GitHub and for
