@@ -798,12 +798,39 @@ version, so the next bump of that package asks again.
 What it does not cover: a compromised package's code still runs wherever the
 build or the tests import it (vite and its plugins, vitest), and Maven plugins
 and crate build scripts run as before. It closes the path that needs nothing to
-import the package.
+import the package. The next entry narrows the other path for the updates
+dependabot proposes.
 
 **Revisit when:** npm blocks unnamed scripts by default (then check whether the
 default fails the install or skips the script, and whether
 `strict-allow-scripts` still adds anything); or a dependency turns out to need
 its install script (then it gets a pinned approval, and its reason goes here).
+
+### Dependabot proposes a release only once it is a week old
+
+**Decided 2026-11-12** (maintainer, #903). Every ecosystem in
+[dependabot.yml](../.github/dependabot.yml) carries `cooldown` with
+`default-days: 7`: a version update is proposed only once the release is seven
+days old. Security updates are not held back; the cooldown applies to version
+updates only.
+
+Why: the entry above leaves open the code that a build or a test imports, and
+a compromised release reaches that path on the first `npm ci` of its dependabot
+branch: in CI, and on the maintainer's machine when the branch is checked out
+for its record commit. The compromised npm releases of 2025 were found and
+pulled within hours to days, so a release that has stood for a week has been
+looked at by more people than this repository. The same holds for crates,
+Maven artifacts and actions, which run in the build as well.
+
+The cost is a week on every ordinary update: on a weekly schedule a release
+was proposed within six days, now within thirteen. An update that cannot wait
+is bumped by hand, which the cooldown does not hold back, so that is the moment
+to look at how old the release is.
+
+**Revisit when:** an update the project needs is held back by it twice (then
+exclude that package or shorten the window), or the package managers refuse a
+release younger than a set age on install, which would cover the hand bumps
+too.
 
 ### No `distributionSha256Sum` in the Maven wrapper
 
