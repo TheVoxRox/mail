@@ -39,6 +39,24 @@ Entries before 2026-09-17 predate that split and are left as written.
   follow the new order. The checklist's two older sheet skeletons give way to
   the runbook's, and OPERATIONS no longer tells a beta to set its version by
   hand; its copy of the beta model's reasons moved to DECISIONS (#901).
+- The contributor docs say what the repository does again: CodeQL's two
+  `Analyze` jobs are required checks and only its alerts are advisory, Spotless
+  runs in `mvn verify` and not before a push, the commit scopes are the ones
+  commits use, the Rust gates include `cargo fmt`, `cargo test` and
+  `cargo audit`, and the pull request template asks for the changelog bullet
+  and the linked issue. `backend/CHANGELOG.md`, untouched since 2026-09-17, is
+  marked a snapshot. `main` now takes squash merges only and no direct push,
+  the maintainer's included, which the audit ledger and the code signing
+  policy already assumed; the decision is in `docs/DECISIONS.md` (#902).
+- Dependabot proposes a release only once it is seven days old, in every
+  ecosystem, so a compromised release has a week to be found before its code
+  runs here; security updates are not held back. The reason and its cost are in
+  `docs/DECISIONS.md` (#903).
+- `SECURITY.md` names GitHub's private vulnerability reporting, which the
+  repository already had switched on, as the preferred channel, with the e-mail
+  address beside it, and says that a fix is published as a GitHub security
+  advisory, through which a CVE is requested. voxrox.org is resynced in CS and
+  EN (#904).
 - `npm run check:audits` no longer counts a release version bump as drift: a
   JSON file whose text changed only in its top-level `version`, as
   `bump:version` writes it into the updater audit's `tauri.conf.json`, passes

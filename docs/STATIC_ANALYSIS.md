@@ -17,7 +17,7 @@ records the _policy_ behind all three.
 | javac doclint, `reference` group        | every `javac` run (main + test) | a `{@link}`/`@see`/`@throws` that does not resolve fails the build   |
 | `check:java-callers`                    | `npm run check` / pre-push      | a main-source declaration with no caller (three verdicts, see below) |
 | SpotBugs (effort Max, threshold Medium) | `mvn verify`                    | fails the build                                                      |
-| Spotless (Eclipse formatter)            | `mvn verify` / pre-push         | fails the build                                                      |
+| Spotless (Eclipse formatter)            | `mvn verify`                    | fails the build                                                      |
 | JaCoCo merged check                     | `mvn verify`                    | instruction 70 % / branch 50 % / line 70 % floors                    |
 
 Error Prone needs `jdk.compiler` add-exports flags; they live in
@@ -253,12 +253,14 @@ had by then drifted from rustfmt in four places that nothing was looking at.
 `security-and-quality` suite over a Java + JS/TS matrix on push, on pull
 requests, and on a weekly cron. SARIF lands in the GitHub Security tab.
 
-**Advisory only, deliberately.** CodeQL is not wired into branch protection:
-its quality queries carry a false-positive rate this codebase has not yet
-characterised, and a gate nobody trusts gets bypassed rather than fixed. The
+**The run is required, its alerts are advisory, deliberately.** Both
+`Analyze` jobs are required checks on `main`, so an analysis that fails to
+build or run blocks the merge. The alerts it raises do not: the ruleset has no
+code scanning rule, because the quality queries carry a false-positive rate
+this codebase has not yet characterised, and a gate nobody trusts gets
+bypassed rather than fixed. Gate on alerts once the noise level is known. The
 weekly cron exists because the query packs improve independently of our code —
-a finding can appear in a file nobody has touched. Promote it to a required
-check once the noise level is known.
+a finding can appear in a file nobody has touched.
 
 Dismissing an alert needs a written reason. The log-injection class (72 alerts,
 closed 2026-06-18) is the standing example: `CrlfSafeMessageConverter`
