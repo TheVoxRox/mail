@@ -272,6 +272,46 @@ shown or not, or the foot of the rail is wanted for something else.
 
 ## Release process
 
+### The release runbook holds steps; the reasons for them live here
+
+**Decided 2026-11-11** (maintainer, #901).
+[RELEASE_PROCESS.md](RELEASE_PROCESS.md) says what to do, in order, with the
+commands. It does not say why. Why a rule exists is an entry in this section,
+how the channels behave is OPERATIONS "Release channels", and what a section
+checks is [RELEASE_CHECKLIST.md](../backend/RELEASE_CHECKLIST.md).
+
+Why: the maintainer found the process hard to follow. The runbook had grown to
+412 lines, and the history and reasoning of each rule sat beside its step,
+mostly a second copy of an entry here. Its steps and the checklist's sections
+were so interleaved that it opened with a paragraph on how to read "§"
+against "step", and it gave verifying the candidate a step of its own,
+because, in its own words, the two documents interleaved there and neither
+said so.
+
+Four reasons the runbook held and no entry did, kept here:
+
+- **Tag first, then build from the tag.** A GitHub draft creates its tag only
+  when it is published, from its `target_commitish`, and the draft of
+  2026-06-17 held `main` there. Publishing it would have tagged whatever `main`
+  was at that moment, not the commit its installer was built from, and a
+  published tag cannot move. Windows Signed Release now refuses a tag that
+  does not exist on origin, names another commit, is not on `main` or has no
+  green CI run.
+- **§9 on the sheet is the approval record, not the release page**, whose body
+  can be edited after publishing without a trace. Merging the pull request
+  that writes §9 is the approval.
+- **The release notes live in `docs/release-notes/`, and the draft body is a
+  copy.** Until 2026-09-13 the body was the only copy. A re-tag that deleted
+  the draft had to save the text outside the repository first, and nothing
+  reviewed it. `npm run release:status` compares the two.
+- **The changelog section is cut before §9 exists.** Its known issues are
+  provisional and are reconciled with §9 before approval. The section is
+  grouped by artifact for a reader who was not there, and it stays the record
+  when the release page is edited.
+
+**Revisit when:** a release goes wrong because a step was followed without its
+reason at hand.
+
 ### Everything ships through beta
 
 **Decided 2026-08-28.** Every change ships first as a beta and is promoted to
@@ -287,9 +327,19 @@ current beta manifest is therefore not a legitimate state, and a red
 `beta-channel.yml` is the right signal, not noise.
 
 The cost: a fix reaches stable users only after a beta cycle. Accepted for the
-closed beta (~45 testers). The escape route for a fix that cannot wait is in
+closed beta. The escape route for a fix that cannot wait is in
 [OPERATIONS.md](../backend/OPERATIONS.md) "The release model", including that
 beta testers then do not get the fix until the next beta.
+
+**The one exception was the first ship, `v0.1.0`, straight to stable**
+(decided 2026-09-09). There was no second audience to protect: the closed beta
+was the whole audience. And a prerelease tag would have left the stable channel
+empty, since the `releases/latest` redirect skips prereleases, while `stable`
+is every installation's default channel; the startup check on a channel with
+no manifest fails silently, by design, so a tester who never switched channels
+would never have been told of an update. The "beta" label was carried by the
+status badge on voxrox.org and the release title instead. It does not repeat:
+from the release after `v0.1.0` on there is a stable channel to protect.
 
 **Revisit when:** the beta opens to a larger audience, where the delay of a
 stable fix stops being acceptable.
@@ -321,8 +371,7 @@ beta channel, once the beta is published, and only when it does not carry
 (§3b since #895, the next entry). It never carries from the beta, which proves
 nothing about the updater by existing.
 
-Why: the manual half is about half a day by
-[RELEASE_PROCESS.md](RELEASE_PROCESS.md)'s own count, and four betas were cut
+Why: the manual half is about half a day, and four betas were cut
 between 2026-11-01 and 2026-11-10. The carry rule seldom spared any of it,
 because §5 rests on the whole UI. The rule was already being worked around:
 the 0.2.0-beta.3 sheet took §3a, §4, §5 and §7 after publishing, on the

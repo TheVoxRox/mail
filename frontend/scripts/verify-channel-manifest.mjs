@@ -16,8 +16,8 @@ import { wait } from './lib/run.mjs';
  * this installer and the signature attached next to it, and that the installer
  * URL answers.
  *
- * RELEASE_PROCESS step 7 called this "the one part of the chain that a green
- * build does not prove": the signed workflow uploads latest.json but never reads
+ * This is the one part of the chain that a green build does not prove: the
+ * signed workflow uploads latest.json but never reads
  * it back through the stable redirect or the beta release, so a publish that
  * left the stable channel on an older release — or on none — looked the same as
  * one that worked. release-channel-check.yml runs it on every published release

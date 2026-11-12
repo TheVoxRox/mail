@@ -90,7 +90,7 @@ Module-level entry points:
 
 Operations and release:
 
-- [`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md) — the ordered mechanics of cutting a release (version, tag, notes, draft to public, publish decision); opens with the map of what the neighbouring release docs own
+- [`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md) — the release runbook: the steps of a beta and of a promotion, in order, with their commands; why each rule exists is in `docs/DECISIONS.md` "Release process"
 - [`backend/OPERATIONS.md`](backend/OPERATIONS.md) — operations runbook (data directory, logs, recovery, release channels)
 - [`backend/RELEASE_CHECKLIST.md`](backend/RELEASE_CHECKLIST.md) — release checklist + per-candidate smoke worksheet appendix (worksheet)
 - [`backend/PERFORMANCE_BASELINE.md`](backend/PERFORMANCE_BASELINE.md) — dated cold-start measurements and what each was measured on

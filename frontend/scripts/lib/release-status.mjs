@@ -583,7 +583,7 @@ export function pickCiResult(runs) {
 
 /**
  * The newest signed run dispatched FROM the tag. A run from a branch at the
- * same commit is not one: RELEASE_PROCESS step 4 builds from the tag, and a
+ * same commit is not one: RELEASE_PROCESS step 3 builds from the tag, and a
  * branch run is the draft-before-tag path it exists to close.
  */
 export function pickSignedRun(runs, tag, tagCommit) {
@@ -635,7 +635,7 @@ export function pickInstaller(names, version) {
 	return names.find((name) => name.endsWith(`-${version}${INSTALLER_SUFFIX}`)) ?? null;
 }
 
-/** The assets a publishable draft needs (RELEASE_PROCESS step 6) that this one lacks. */
+/** The assets a publishable draft needs (RELEASE_PROCESS step 5) that this one lacks. */
 export function findMissingAssets(names, version) {
 	const installer = pickInstaller(names, version);
 	const expected = installer
@@ -810,7 +810,7 @@ export function decideNextStep(facts) {
 	}
 	if (facts.release?.isDraft === false) {
 		return step(
-			`${tag} is already published. What is left is RELEASE_PROCESS step 7: ` +
+			`${tag} is already published. What is left is RELEASE_PROCESS step 5: ` +
 				'confirm the manifest is reachable through the channel URL.'
 		);
 	}
@@ -866,7 +866,7 @@ export function decideNextStep(facts) {
 		if (mainNotGreen) return step(`${mainNotGreen} Wait for it or fix it before tagging.`);
 		return step(
 			`main (${shortSha(mainCommit)}) matches the ${sheet.date} sheet, §0–§2 are ticked and CI is green. ` +
-				'Tag it (RELEASE_PROCESS step 3), then build from the tag (step 4):',
+				'Tag it, then build from the tag (RELEASE_PROCESS step 3):',
 			[...tagCommands, buildCommand]
 		);
 	}
@@ -880,10 +880,10 @@ export function decideNextStep(facts) {
 		notes.push(
 			'Do not publish the draft between deleting the tag and pushing the new one: ' +
 				'without its tag it falls back to target_commitish "main".',
-			'RELEASE_PROCESS step 3 also says to delete the draft release. Its body is the ' +
-				'only copy of the release notes, so save it first if you do.'
+			'RELEASE_PROCESS "When something goes wrong" also deletes the draft release. Its body ' +
+				'is a copy of the release notes file, so nothing is lost with it.'
 		);
-		return step(`${stale} Re-tag main (RELEASE_PROCESS step 3):`, [
+		return step(`${stale} Re-tag main (RELEASE_PROCESS "When something goes wrong"):`, [
 			`git tag -d ${tag}`,
 			`git push origin :refs/tags/${tag}`,
 			...tagCommands
@@ -912,7 +912,7 @@ export function decideNextStep(facts) {
 	const run = facts.signedRun;
 	if (!run) {
 		return step(
-			`Nothing has been built from ${tag} yet. Run Windows Signed Release from the tag (RELEASE_PROCESS step 4):`,
+			`Nothing has been built from ${tag} yet. Run Windows Signed Release from the tag (RELEASE_PROCESS step 3):`,
 			[buildCommand]
 		);
 	}
@@ -954,14 +954,14 @@ export function decideNextStep(facts) {
 		return step(`latest.json in the draft is wrong: ${facts.manifestProblems.join('; ')}.`);
 	}
 
-	// RELEASE_PROCESS step 4a: nothing manual is worth doing on an installer the
+	// RELEASE_PROCESS step 3: nothing manual is worth doing on an installer the
 	// candidate smoke has not passed.
 	const smoke = facts.smokeRun;
 	const smokeCommand = `gh workflow run ${SMOKE_WORKFLOW} --ref main -f tag=${tag}`;
 	if (!smoke) {
 		return step(
 			'Release Candidate Smoke has not run against the build now on the draft. It starts on its own ' +
-				'after a successful Windows Signed Release; run it by hand if it did not (RELEASE_PROCESS step 4a):',
+				'after a successful Windows Signed Release; run it by hand if it did not (RELEASE_PROCESS step 3):',
 			[smokeCommand]
 		);
 	}
@@ -981,11 +981,11 @@ export function decideNextStep(facts) {
 	if (scan && scan.conclusion !== 'success') {
 		notes.push(
 			`The last completed scheduled vulnerability scan ended ${scan.conclusion}. ` +
-				`RELEASE_PROCESS step 6 needs its cause named before publishing: ${scan.url}`
+				`RELEASE_PROCESS step 4 needs its cause named before publishing: ${scan.url}`
 		);
 	}
 	// A beta's sheet ticks no manual section; the candidate that promotes it carries them from it
-	// (RELEASE_PROCESS "What a release runs").
+	// (RELEASE_PROCESS step 1).
 	const promotion = promotionOf(tag);
 	const deferred = promotion
 		? openManualSections(sheet).filter((section) => section.id !== '§9')
@@ -1041,14 +1041,14 @@ export function decideNextStep(facts) {
 				`Next on the sheet: ${label(open[0])}.`
 		);
 	}
-	// RELEASE_PROCESS step 5: the file on main is the record, the draft body a copy.
+	// RELEASE_PROCESS steps 4 and 5: the file on main is the record, the draft body a copy.
 	const notesPath = releaseNotesPath(tag);
 	const notesCommand = `gh release edit ${tag} --notes-file ${notesPath}`;
 	const bodyState = compareReleaseNotes(facts.releaseNotesFile ?? null, facts.release?.body);
 	if (bodyState === 'missing') {
 		return step(
 			`${everyTicked}, but main has no ${notesPath}. Write the ` +
-				'release notes (RELEASE_PROCESS step 5), merge them, then set the draft body from the file, ' +
+				'release notes (RELEASE_PROCESS step 4), merge them, then set the draft body from the file, ' +
 				'from the repository root:',
 			[notesCommand]
 		);
@@ -1062,6 +1062,6 @@ export function decideNextStep(facts) {
 	}
 	return step(
 		`${everyTicked}. Check the conditions in ` +
-			'RELEASE_PROCESS step 6, record the decision in §9, then publish (step 7).'
+			'RELEASE_PROCESS step 4, record the decision in §9, then publish (step 5).'
 	);
 }

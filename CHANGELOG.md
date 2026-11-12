@@ -31,6 +31,14 @@ Entries before 2026-09-17 predate that split and are left as written.
   and its unticked items looked like open work to anyone searching the tree;
   its last text is `git show 4998e9e1:todo-archive.md`. Older entries below
   keep their links to it as the record of what was there (#900).
+- `docs/RELEASE_PROCESS.md` is now a runbook of five steps with their
+  commands, a beta and a promotion side by side, and keeps no reasons or
+  history; it was 412 lines and the maintainer found it hard to follow. The
+  four reasons no `docs/DECISIONS.md` entry held moved into a new one, and the
+  step numbers that `npm run release:status` and the workflow comments name
+  follow the new order. The checklist's two older sheet skeletons give way to
+  the runbook's, and OPERATIONS no longer tells a beta to set its version by
+  hand; its copy of the beta model's reasons moved to DECISIONS (#901).
 - The contributor docs say what the repository does again: CodeQL's two
   `Analyze` jobs are required checks and only its alerts are advisory, Spotless
   runs in `mvn verify` and not before a push, the commit scopes are the ones
