@@ -327,9 +327,19 @@ current beta manifest is therefore not a legitimate state, and a red
 `beta-channel.yml` is the right signal, not noise.
 
 The cost: a fix reaches stable users only after a beta cycle. Accepted for the
-closed beta (~45 testers). The escape route for a fix that cannot wait is in
+closed beta. The escape route for a fix that cannot wait is in
 [OPERATIONS.md](../backend/OPERATIONS.md) "The release model", including that
 beta testers then do not get the fix until the next beta.
+
+**The one exception was the first ship, `v0.1.0`, straight to stable**
+(decided 2026-09-09). There was no second audience to protect: the closed beta
+was the whole audience. And a prerelease tag would have left the stable channel
+empty, since the `releases/latest` redirect skips prereleases, while `stable`
+is every installation's default channel; the startup check on a channel with
+no manifest fails silently, by design, so a tester who never switched channels
+would never have been told of an update. The "beta" label was carried by the
+status badge on voxrox.org and the release title instead. It does not repeat:
+from the release after `v0.1.0` on there is a stable channel to protect.
 
 **Revisit when:** the beta opens to a larger audience, where the delay of a
 stable fix stops being acceptable.

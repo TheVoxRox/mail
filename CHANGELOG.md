@@ -36,7 +36,9 @@ Entries before 2026-09-17 predate that split and are left as written.
   history; it was 412 lines and the maintainer found it hard to follow. The
   four reasons no `docs/DECISIONS.md` entry held moved into a new one, and the
   step numbers that `npm run release:status` and the workflow comments name
-  follow the new order (#901).
+  follow the new order. The checklist's two older sheet skeletons give way to
+  the runbook's, and OPERATIONS no longer tells a beta to set its version by
+  hand; its copy of the beta model's reasons moved to DECISIONS (#901).
 
 ## [0.2.0] - 2026-11-11
 

@@ -7,16 +7,8 @@ release is cut" — version, tag, changelog split, release notes, draft vs.
 publish, approval — is answered by [docs/RELEASE_PROCESS.md](../docs/RELEASE_PROCESS.md),
 which refers back to this checklist wherever one of its steps needs per-candidate evidence.
 
-Fill in per candidate:
-
-```text
-Release:
-Date:
-Backend commit:
-Frontend commit:
-Platform:
-Tester:
-```
+Each candidate is recorded on its own sheet in the appendix, started from the
+skeleton in [RELEASE_PROCESS.md](../docs/RELEASE_PROCESS.md) "Templates".
 
 **The boxes in this document are the template: they stay unticked.** The
 per-candidate record is the worksheet in the appendix, which is where a tick
@@ -39,7 +31,7 @@ carry their own date and read as history, which is what they are.
 
 - [ ] `mvn -Dapp.data-dir=target/test-data clean verify` — one command, not `spotless:check` + `package` separately. `clean` because otherwise SpotBugs analyses the `__BeanDefinitions` left by an earlier `-Paot package` and fails on generated code; `verify` because `package` does not fire the failsafe integration tests. Spotless and SpotBugs both run inside it. From PowerShell, quote the `-D` argument (`'-Dapp.data-dir=target/test-data'`): unquoted, PowerShell splits it at the first dot and Maven stops on the unknown lifecycle phase `.data-dir=target/test-data` before building anything.
 - [ ] Verify that the build reports `Failures: 0, Errors: 0, Skipped: 0` on both suites — surefire and failsafe. The test count is not recorded: it rotates faster than the checklist is read, and no gate recomputes it here.
-- [ ] The artifact `target/mail-backend-0.1.0.jar` was produced.
+- [ ] The artifact `target/mail-backend-<version>.jar` was produced.
 - [ ] The Windows sidecar packaging passed through `scripts/package-sidecar-windows.ps1`.
 - [ ] The sidecar launcher `app/voxrox-mail-backend-x86_64-pc-windows-msvc.cfg` carries the baked-in `...google.client-id` (not a `mail-local-*` placeholder). Both the signed workflow and `package-sidecar-dev-windows.ps1` ensure this; a bare `package-sidecar-windows.ps1` without the OAuth env now fails the build unless it runs with `-AllowPlaceholderOAuth`. **Verified 2026-06-26** (`package-sidecar-dev-windows.ps1 -SkipTests`): 3 OAuth values injected, the built-in verification step reports "Google client-id baked into the launcher; no placeholder"; the `.cfg` carries `google.client-id` + `google.client-secret` + `microsoft.client-id`, with no `mail-local-*`.
 - [ ] The sidecar output contains `voxrox-mail-backend-x86_64-pc-windows-msvc.exe`, `app/` and `runtime/`. **Verified 2026-06-26:** top-level `mail-x86_64-pc-windows-msvc.exe` (a 495 KB launcher) + `app/` (jar 77.9 MiB + `.cfg` + `.jpackage.xml`) + `runtime/` (a 123 MB bundled JRE).
@@ -316,8 +308,9 @@ section the new sheet carries from it names it on the line.
 **The candidate is the tag, not a commit on `main`.** A tick recorded against a
 branch commit goes stale as soon as anything merges; a tag cannot move, so
 nothing merged later invalidates it. One window stays open because the process
-needs it: §0–§2 run before the version bump and the changelog cut that get
-tagged, so keep that window to minutes. The object id table is what lets
+needs it: §0–§2 run on the cut branch, before its squash merge makes the commit
+that gets tagged, so nothing else merges until the tag exists (RELEASE_PROCESS
+step 2). The object id table is what lets
 `npm run release:status` (from `frontend/`) tell whether the sheet still
 describes `main` and the tag; it reads the newest sheet, its object id rows,
 its `- [x] **§N**` lines and the tag each sheet's heading names, so keep
@@ -430,27 +423,8 @@ of §7. Until 2026-11-11 no row named a library but `bits-ui`, `svelte`,
 SvelteKit and the updater plugin, and a Spring Boot or Tauri update carried
 every section.
 
-Shape:
-
-````markdown
-### Candidate YYYY-MM-DD — tag `vX.Y.Z` (`<commit>`)
-
-```text
-Platform:  Windows 11 Pro x64, machine <name>
-Tester:    <who took §3–§9>
-```
-
-| path          | object id |
-| ------------- | --------- |
-| `backend/src` | `<id>`    |
-
-- [ ] **§0 Version** — <result>; <evidence>
-- [ ] **§9** — <decision>
-
-Findings:
-
-- <what went wrong or stays open, and what to do before the next run>
-````
+The skeleton of a new sheet is in [RELEASE_PROCESS.md](../docs/RELEASE_PROCESS.md)
+"Templates", next to the commands that fill its object id table.
 
 ### Candidate 2026-11-11 — tag `v0.2.0` (see the object ids below)
 
