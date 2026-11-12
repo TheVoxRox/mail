@@ -3,6 +3,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { changedOnlyInComments as onlyCommentsBetween } from './lib/comment-only-objects.mjs';
+import { changedOnlyInVersion as onlyVersionBetween } from './lib/version-only.mjs';
 import { resolveObjects } from './lib/git-objects.mjs';
 
 /*
@@ -91,6 +92,13 @@ import { resolveObjects } from './lib/git-objects.mjs';
  * still count as drift. The recorded baseline stays where it was, so the next
  * real change is diffed against the state somebody actually reviewed, and the
  * green run names every path it let through this way.
+ *
+ * The same holds for a release version bump. `npm run bump:version` writes the
+ * top-level `version` of tauri.conf.json, which the updater audit claims, and
+ * every release used to cost that audit an acknowledgement saying no claim
+ * rests on the value. A JSON file whose text changed in that one value and
+ * nowhere else, as lib/version-only.mjs reads it, has not drifted either, and
+ * the green run names it on its own.
  */
 
 const repoRoot = path.join(process.cwd(), '..');
@@ -121,9 +129,9 @@ const todayUtc = Math.floor(Date.now() / DAY_MS) * DAY_MS;
 const daysSince = (isoDate) => Math.floor((todayUtc - Date.parse(isoDate)) / DAY_MS);
 
 /*
- * Only two things still shell out per path, and only for a path whose object
- * id has already moved: the comment-only comparison and the drift report's
- * commit list. Every object id goes through resolveObjects.
+ * Only three things still shell out per path, and only for a path whose object
+ * id has already moved: the comment-only and version-only comparisons and the
+ * drift report's commit list. Every object id goes through resolveObjects.
  */
 function git(args) {
 	return execFileSync('git', args, { cwd: repoRoot, encoding: 'utf8' }).trim();
@@ -393,6 +401,7 @@ for (const { rel, auditedCommit, codePaths } of audits) {
 
 	const drifted = [];
 	const commentOnly = [];
+	const versionOnly = [];
 	for (const p of codePaths) {
 		// Baseline: what the reviewer signed off on, or failing that the state
 		// the audit itself was written against.
@@ -407,6 +416,7 @@ for (const { rel, auditedCommit, codePaths } of audits) {
 		const current = objectIdAt('HEAD', p);
 		if (current === baseline) continue;
 		if (current && changedOnlyInComments(p, baseline, current)) commentOnly.push(p);
+		else if (current && onlyVersionBetween(repoRoot, p, baseline, current)) versionOnly.push(p);
 		else drifted.push(p);
 	}
 
@@ -424,6 +434,7 @@ for (const { rel, auditedCommit, codePaths } of audits) {
 		rel,
 		acknowledged,
 		commentOnly: commentOnly.length,
+		versionOnly: versionOnly.length,
 		acknowledgements: acknowledgements.length
 	});
 
@@ -462,6 +473,7 @@ if (problems.length > 0) {
 } else {
 	const behind = rows.filter((r) => r.acknowledged > 0);
 	const commented = rows.filter((r) => r.commentOnly > 0);
+	const versioned = rows.filter((r) => r.versionOnly > 0);
 	/*
 	 * The acknowledgement count is printed on the GREEN run too. The failure
 	 * this gate now guards against grew invisibly for seventeen days precisely
@@ -485,6 +497,10 @@ if (problems.length > 0) {
 			(commented.length > 0
 				? `; changed only in comments since the last review, not counted as drift: ` +
 					commented.map((r) => `${path.basename(r.rel)} ${r.commentOnly} path(s)`).join('; ')
+				: '') +
+			(versioned.length > 0
+				? `; changed only in the top-level version since the last review, not counted as drift: ` +
+					versioned.map((r) => `${path.basename(r.rel)} ${r.versionOnly} path(s)`).join('; ')
 				: '')
 	);
 }

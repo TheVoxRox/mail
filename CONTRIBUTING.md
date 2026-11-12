@@ -198,8 +198,10 @@ coverage, add a per-file threshold rather than lowering a global floor.
   during a PR stay valid after the squash merge: squashing rewrites history,
   not content. The SHA-based version cost a follow-up commit per
   acknowledgement, six of them in two days. A change only to comments and
-  layout does not trip it in Java, TypeScript, JavaScript or `.properties`;
-  every other file is compared byte for byte.
+  layout does not trip it in Java, TypeScript, JavaScript or `.properties`,
+  and neither does a JSON file whose text changed only in its top-level
+  `version`, which is what `bump:version` writes; every other change is
+  compared byte for byte.
 
   Acknowledging is **capped**: records are dated, and a run of them ends at 8
   records or 90 days from the oldest, whichever comes first. Past either, only

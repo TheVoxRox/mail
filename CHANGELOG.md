@@ -57,6 +57,12 @@ Entries before 2026-09-17 predate that split and are left as written.
   address beside it, and says that a fix is published as a GitHub security
   advisory, through which a CVE is requested. voxrox.org is resynced in CS and
   EN (#904).
+- `npm run check:audits` no longer counts a release version bump as drift: a
+  JSON file whose text changed only in its top-level `version`, as
+  `bump:version` writes it into the updater audit's `tauri.conf.json`, passes
+  and is named on the green run. Every release used to cost that audit one of
+  the eight acknowledgements its cap allows. The runbook's audit step now
+  expects nothing to acknowledge (#905).
 
 ## [0.2.0] - 2026-11-11
 

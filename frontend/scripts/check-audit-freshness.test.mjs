@@ -672,4 +672,81 @@ describe('check-audit-freshness', () => {
 			expect(result.stderr).toContain('changed since the last review');
 		});
 	});
+
+	/*
+	 * `bump:version` writes the top-level version of tauri.conf.json, which the
+	 * updater audit claims, so every release cost that audit an acknowledgement.
+	 * These cases hold the plumbing around lib/version-only.mjs, whose own suite
+	 * holds what counts as a bump: a bump alone goes through and is named, and a
+	 * bump with anything else riding along is still drift.
+	 */
+	describe('changes only in the top-level version', () => {
+		const config = (version, pubkey = 'AAA') =>
+			`{\n\t"version": "${version}",\n\t"plugins": { "updater": { "pubkey": "${pubkey}" } }\n}\n`;
+
+		function seedConfigAudit() {
+			repo.write('src/tauri.conf.json', config('0.2.0-beta.4'));
+			repo.write(
+				'docs/FIXTURE_AUDIT.md',
+				auditDoc({ auditedCommit: 'PLACEHOLDER', codePaths: ['src/tauri.conf.json'] })
+			);
+			const sha = repo.commit('seed');
+			repo.write(
+				'docs/FIXTURE_AUDIT.md',
+				auditDoc({ auditedCommit: sha, codePaths: ['src/tauri.conf.json'] })
+			);
+			repo.commit('anchor the audit');
+		}
+
+		it('does not count a version bump of an audited JSON file, and says so', () => {
+			seedConfigAudit();
+			repo.write('src/tauri.conf.json', config('0.2.0'));
+			repo.commit('bump the version');
+
+			const result = repo.run('check-audit-freshness.mjs');
+
+			expect(result.status).toBe(0);
+			expect(result.stdout).toContain(
+				'changed only in the top-level version since the last review'
+			);
+			expect(result.stdout).toContain('FIXTURE_AUDIT.md 1 path(s)');
+		});
+
+		it('keeps judging a run of bumps against the reviewed state', () => {
+			seedConfigAudit();
+			repo.write('src/tauri.conf.json', config('0.2.0'));
+			repo.commit('bump to 0.2.0');
+			repo.write('src/tauri.conf.json', config('0.3.0-beta.1'));
+			repo.commit('bump to 0.3.0-beta.1');
+
+			expect(repo.run('check-audit-freshness.mjs').status).toBe(0);
+		});
+
+		it('counts a bump with another change riding along as drift', () => {
+			seedConfigAudit();
+			repo.write('src/tauri.conf.json', config('0.2.0', 'BBB'));
+			repo.commit('bump the version and swap the key');
+
+			const result = repo.run('check-audit-freshness.mjs');
+
+			expect(result.status).toBe(1);
+			expect(result.stderr).toContain('1 audited path(s) changed since the last review');
+		});
+
+		it('counts a later real change against the reviewed state, the bump in the diff', () => {
+			seedConfigAudit();
+			repo.write('src/tauri.conf.json', config('0.2.0'));
+			repo.commit('bump the version');
+			expect(repo.run('check-audit-freshness.mjs').status).toBe(0);
+
+			repo.write('src/tauri.conf.json', config('0.2.0', 'BBB'));
+			repo.commit('swap the key');
+
+			const result = repo.run('check-audit-freshness.mjs');
+
+			expect(result.status).toBe(1);
+			expect(result.stderr).toContain('bump the version');
+			expect(result.stderr).toContain('swap the key');
+		});
+	});
 });

@@ -87,6 +87,14 @@ and for a source it cannot read exactly. The baseline does not move with such
 a change, so the next real change is diffed against the state that was
 reviewed, comment edits included.
 
+**Nor is a release version bump.** A `Code paths` entry that names a JSON
+file, and whose text changed only in the value of its top-level `version`, has
+not drifted; [version-only.mjs](../frontend/scripts/lib/version-only.mjs)
+decides that byte for byte, and the green run names it apart from the comment
+edits. It exists for the updater audit's `tauri.conf.json`, whose version
+`bump:version` writes on every release. The baseline stays where it was here
+too.
+
 ## 3. Method statement (required)
 
 State what was done **and what was not**: static trace vs. dynamic testing,

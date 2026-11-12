@@ -755,6 +755,35 @@ keep costing acknowledgements (then add that language with a parser, not a
 scanner); or an audit's verdict turns out to rest on what a comment says
 rather than on the code.
 
+### A release version bump is not audit drift
+
+**Decided 2026-11-12** (maintainer, #905). `check:audits` does not count a
+`Code paths` entry as drifted when it names a JSON file whose text changed
+only in the value of its top-level `version`, as
+`frontend/scripts/lib/version-only.mjs` reads it: the new text must be the old
+one with that single value replaced, byte for byte. The green run names such a
+path apart from the comment edits, and the baseline does not move.
+
+Why: `npm run bump:version` writes the version of
+`frontend/src-tauri/tauri.conf.json`, which the updater audit claims, so every
+release cost that audit an acknowledgement. Two of the four standing on the
+day were exactly that, each arguing again that no claim rests on the value:
+the signed build compares the tag with it, the update prompt pins the version
+it names, and the channels order releases by it. Five releases between
+2026-11-01 and 2026-11-11 would have spent five of the cap's eight on a
+sentence, and an acknowledgement written by rote is the habit the cap exists
+to break.
+
+Narrowing the audit's `Code paths` to the keys that matter was the other way,
+and `release:status` already compares inputs by JSON key. It was not taken:
+which keys of `tauri.conf.json` the updater rests on is the audit's own claim,
+and a narrower scope stops the gate from seeing a key nobody thought to list.
+The version rule takes one value out and leaves the rest of the file watched.
+
+**Revisit when:** an audit's verdict comes to rest on the version value
+itself, or `bump:version` starts writing a second value into an audited file
+(then that is drift until a rule says otherwise).
+
 ### Dependency install scripts are denied
 
 **Decided 2026-11-03** (#847). In `frontend/`, an install runs a dependency's
