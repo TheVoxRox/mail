@@ -1062,7 +1062,7 @@ describe('a beta and the manual sections', () => {
 
 		expect(decision.summary).toBe(
 			'Every section a beta takes is ticked on the 2026-09-11 sheet, but main has no ' +
-				'docs/release-notes/v0.2.0-beta.4.md. Write the release notes (RELEASE_PROCESS step 5), ' +
+				'docs/release-notes/v0.2.0-beta.4.md. Write the release notes (RELEASE_PROCESS step 4), ' +
 				'merge them, then set the draft body from the file, from the repository root:'
 		);
 	});
@@ -1408,7 +1408,7 @@ describe('decideNextStep', () => {
 			})
 		);
 
-		expect(decision.summary).toContain('RELEASE_PROCESS step 6');
+		expect(decision.summary).toContain('RELEASE_PROCESS step 4');
 		expect(decision.notes.join(' ')).toContain('ended failure');
 		expect(decision.notes.join(' ')).toContain('https://example.test/scan');
 	});

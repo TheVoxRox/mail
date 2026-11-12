@@ -1,6 +1,6 @@
 name: Release Channel Check
 
-# RELEASE_PROCESS step 7: after a release is published, confirm the update
+# RELEASE_PROCESS step 5: after a release is published, confirm the update
 # channel it belongs to actually serves it — latest.json fetched through the URL
 # an installation polls (the stable releases/latest redirect, or the moving beta
 # release), naming this version, this installer and its attached signature.

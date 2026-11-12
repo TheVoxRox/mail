@@ -407,31 +407,27 @@ It applies only to releases published after it was enabled, and that is what kee
 
 ### The release model: everything goes through beta
 
-Decided 2026-08-28. **Every change ships as a beta first and is promoted to stable only after testing.** Beta is not a parking place for unfinished work — it carries finished features that already passed developer testing; beta only means a wider circle of users.
+**Every change ships as a beta first and is promoted to stable after testing.** Why, and the one exception, the first ship `v0.1.0`, are in [DECISIONS.md](../docs/DECISIONS.md) "Everything ships through beta". Two properties follow, and the rest of this section rests on them:
 
-Two properties follow, and the rest of this section rests on them:
-
-- **There is no stable release that skipped beta** — with a single recorded exception, the first ship `v0.1.0` (see below).
-- **There is no beta that cannot be promoted** — when stable needs a fix, the fix goes into the beta line and is promoted with it. There is never a need to ship a stable patch such as `0.2.1` alongside a running beta `0.3.0-beta.1`, because `0.3.0` is releasable by definition.
-
-**Exception: the first ship `v0.1.0` goes straight to stable.** Decided 2026-09-09. The model protects the stable audience by putting a beta cycle in front of it — but at the first ship there is no second audience; the closed beta _is_ the whole audience. The second half is what decides it: a prerelease-suffixed tag would leave the **stable channel empty** (the `releases/latest` redirect skips prereleases), while the default channel of every installation is `stable`. Anyone who does not switch the channel in Settings → About would sit on a channel with no manifest, and the startup check would fail **silently** — the background check only `console.warn`s, deliberately, so that it does not raise a dialog on every cold start. Silently not receiving updates is the worst failure shape that path has. With stable-first, by contrast, a tester who never touches the settings rides the stable line and gets every promotion. The "beta" label does not hang on the tag: it is carried by the status badge on [voxrox.org](https://voxrox.org) and by the release title. **From the release after `v0.1.0` on the model holds literally** and the exception does not repeat.
-
-**The model does not set the version number; the content does.** Decided 2026-10-20 that the release after `v0.1.0` would be `0.1.1`, because everything it carried was a fix and a minor bump comes with the first new feature; on 2026-10-26 the first new feature landed (#797, the maintainer's call to merge it before the cut), so the release is `0.2.0` (`0.2.0-beta.1`, then promoted). The model only rules out a stable patch next to a running beta of a newer version, and none runs: the beta manifest is on `0.1.0`, so the guard accepts `0.2.0-beta.1`.
+- **No stable release skips beta.**
+- **Every beta can be promoted.** When stable needs a fix, the fix goes into the beta line and is promoted with it, so a stable patch such as `0.2.1` next to a running beta `0.3.0-beta.1` is never needed: `0.3.0` is releasable by definition.
 
 **This is why a red `beta-channel.yml` is a signal, not noise.** The guard rejects a candidate older than the current beta manifest, and in this model such a candidate has no legitimate way to arise — red means something happened outside the model, typically a re-publish of an old tag. **Do not solve it with `force=true`**; that is reserved for the HALT below. First find out which publish triggered it.
 
-**What the model costs:** a fix reaches stable users only after a beta cycle, not immediately. For a closed beta (~45 testers) that is acceptable. If a fix genuinely could not wait, you are outside the model — the procedure is then: build the next patch from the last stable tag with that fix alone (e.g. `0.2.1` from `v0.2.0` while `0.3.0-beta.1` runs), publish it (stable users get it), **expect `beta-channel.yml` to end red and leave it that way** (the beta manifest must not be overwritten, it would send testers backwards), and get the fix into the beta line separately as the next beta (`0.3.0-beta.2`). Until then the beta testers are on an unfixed version — which is exactly why this path is not used.
+**A fix that cannot wait for a beta cycle** is outside the model. Build the next patch from the last stable tag with that fix alone (e.g. `0.2.1` from `v0.2.0` while `0.3.0-beta.1` runs), publish it (stable users get it), **expect `beta-channel.yml` to end red and leave it that way** (the beta manifest must not be overwritten, it would send testers backwards), and get the fix into the beta line separately as the next beta (`0.3.0-beta.2`). Until then the beta testers are on an unfixed version — which is exactly why this path is not used.
 
 ### Shipping a beta build
 
-1. Set the prerelease version (`0.2.0-beta.1`) in `tauri.conf.json`/`package.json`/`version.ts` and tag `v0.2.0-beta.1`. The release workflow checks that the tag matches the version, and a prerelease-suffixed tag creates the release with `--prerelease`; if the release already exists (pre-drafted notes, a partial earlier run), the workflow adds the flag through `gh release edit` — without it, publishing would hand the beta build to the `releases/latest` redirect of the stable channel.
-2. After a manual Publish of the release, `beta-channel.yml` overwrites `beta/latest.json`. The stable channel does not see the build — the `releases/latest` redirect skips prereleases.
+A beta is cut by [RELEASE_PROCESS.md](../docs/RELEASE_PROCESS.md), and its version is written by `npm run bump:version`, never by hand. What the channels do with it:
+
+1. A prerelease-suffixed tag makes Windows Signed Release create the draft with `--prerelease`; if the release already exists (pre-drafted notes, a partial earlier run), the workflow adds the flag through `gh release edit` — without it, publishing would hand the beta build to the `releases/latest` redirect of the stable channel.
+2. After the release is published, `beta-channel.yml` overwrites `beta/latest.json`. The stable channel does not see the build — the `releases/latest` redirect skips prereleases.
 
 A beta candidate is checked by the machine half of the release checklist and §9, not by its manual sections, which the maintainer takes during development and at the latest on the beta ([DECISIONS.md](../docs/DECISIONS.md), "A beta's sheet takes no manual section; the promotion carries them from the beta"); the testers on the beta channel are the wider circle the model is for.
 
 ### Promotion to stable
 
-Ship a full version (no suffix) through the ordinary release process, in its promotion shape: [RELEASE_PROCESS.md](../docs/RELEASE_PROCESS.md) "What a release runs" — the machine half, the update smoke and the channel check run again, and the manual sections carry from the beta it promotes, so only what moved since the beta is taken by hand on it. Publishing triggers `beta-channel.yml` here too, so beta users converge onto the same stable build (SemVer: `0.2.0` > `0.2.0-beta.1`) and the beta channel never lags behind stable.
+Ship a full version (no suffix) through the ordinary release process, in its promotion shape: [RELEASE_PROCESS.md](../docs/RELEASE_PROCESS.md) step 1 — the machine half, the update smoke and the channel check run again, and the manual sections carry from the beta it promotes, so only what moved since the beta is taken by hand on it. Publishing triggers `beta-channel.yml` here too, so beta users converge onto the same stable build (SemVer: `0.2.0` > `0.2.0-beta.1`) and the beta channel never lags behind stable.
 
 ### HALT — withdrawing a faulty beta
 
