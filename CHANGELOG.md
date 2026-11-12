@@ -48,6 +48,10 @@ Entries before 2026-09-17 predate that split and are left as written.
   marked a snapshot. `main` now takes squash merges only and no direct push,
   the maintainer's included, which the audit ledger and the code signing
   policy already assumed; the decision is in `docs/DECISIONS.md` (#902).
+- Dependabot proposes a release only once it is seven days old, in every
+  ecosystem, so a compromised release has a week to be found before its code
+  runs here; security updates are not held back. The reason and its cost are in
+  `docs/DECISIONS.md` (#903).
 
 ## [0.2.0] - 2026-11-11
 
