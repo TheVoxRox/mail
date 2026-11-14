@@ -124,7 +124,7 @@ History:
 
 Legal / compliance:
 
-- [`PRIVACY.md`](PRIVACY.md) / [`PRIVACY.en.md`](PRIVACY.en.md) — privacy policy (draft; published at [voxrox.org/privacy](https://voxrox.org/privacy/))
+- [`PRIVACY.md`](PRIVACY.md) / [`PRIVACY.en.md`](PRIVACY.en.md) — privacy policy (preliminary until its legal review; published at [voxrox.org/privacy](https://voxrox.org/privacy/))
 - [`backend/THIRD_PARTY_LICENSES.md`](backend/THIRD_PARTY_LICENSES.md) — Maven third-party license inventory
 - [`frontend/THIRD_PARTY_LICENSES.md`](frontend/THIRD_PARTY_LICENSES.md) — npm third-party license inventory
 - [`frontend/src-tauri/THIRD_PARTY_LICENSES.md`](frontend/src-tauri/THIRD_PARTY_LICENSES.md) — Cargo + bundled OpenJDK license inventory

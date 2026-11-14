@@ -1,7 +1,7 @@
 # Privacy Policy — VoxRox Mail
 
-_Version: 2026-11-10 (draft, pre-first-release). This version is preliminary
-and has not yet been reviewed by a lawyer — see "Open items" at the bottom._
+_Version: 2026-11-14. This version is preliminary: it has not yet been
+reviewed by a lawyer — see "Open items" at the bottom._
 
 _Česká verze: [PRIVACY.md](PRIVACY.md)._
 
@@ -304,12 +304,12 @@ If you discover a vulnerability or security issue in the application,
 
 ## Changes to this policy
 
-This version is preliminary. Before the first public release and on every
+This version is preliminary until it has passed a legal review. On every
 material change (e.g. introducing telemetry, changing the list of third
 parties) this document is updated. The current version is always available
 in the project repository and at [voxrox.org/en/privacy](https://voxrox.org/en/privacy/).
 
-## Open items before the first release
+## Open items
 
 These items will be filled in before this document is finalized:
 

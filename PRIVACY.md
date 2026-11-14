@@ -1,7 +1,7 @@
 # Zásady ochrany soukromí — VoxRox Mail
 
-_Verze: 2026-11-10 (návrh před prvním vydáním). Tato verze je předběžná a ještě
-nebyla schválena právníkem — viz sekce „Otevřené body" na konci dokumentu._
+_Verze: 2026-11-14. Tato verze je předběžná: ještě nebyla schválena právníkem —
+viz sekce „Otevřené body" na konci dokumentu._
 
 _English version: [PRIVACY.en.md](PRIVACY.en.md)._
 
@@ -288,12 +288,12 @@ kontakt jako pro běžnou podporu).
 
 ## Změny těchto zásad
 
-Tato verze je předběžná. Před prvním veřejným vydáním a při každé materiální
+Tato verze je předběžná, dokud neprojde právním review. Při každé materiální
 změně (např. zapojení telemetrie, změna seznamu třetích stran) tento dokument
 aktualizujeme. Aktuální verze je vždy v repozitáři projektu a na
 [voxrox.org/privacy](https://voxrox.org/privacy/).
 
-## Otevřené body před prvním vydáním
+## Otevřené body
 
 Tyto položky budou doplněny předtím, než je tento dokument finalizován:
 
