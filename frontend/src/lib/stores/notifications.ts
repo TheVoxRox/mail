@@ -108,11 +108,11 @@ export function handleStreamNotification(event: StreamNotification): void {
 	}
 	/*
 	 * Any other whitelisted event (currently only `thread_updated`) has no
-	 * V0.1.0 consumer. Ignore it — previously it fell through to
+	 * consumer. Ignore it — previously it fell through to
 	 * handleSyncCompleted, which set `lastSync` to a payload with an undefined
 	 * folder/count (breaking the "last sync" render) and fired a spurious
-	 * refreshFolders on every thread-membership change. The V0.2 conversation
-	 * UI will subscribe here.
+	 * refreshFolders on every thread-membership change. The conversation
+	 * listing refreshes on `sync_completed`, which follows every sync.
 	 */
 }
 

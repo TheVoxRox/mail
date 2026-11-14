@@ -27,9 +27,9 @@ type ErrorListener = (err: Error) => void;
 type OpenListener = () => void;
 
 // `thread_updated` is whitelisted so the SSE client does not drop the event
-// payload at parse time. V0.1.0 has no UI consumer for it yet — the
-// notifications store records and discards it, leaving room for the V0.2
-// conversation UI to subscribe without a backend-side change.
+// payload at parse time. Nothing in the UI consumes it: the notifications
+// store discards it, and the conversation listing refreshes on
+// `sync_completed` instead.
 const KNOWN_EVENT_TYPES = new Set([
 	'sync_completed',
 	'sync_cycle_completed',

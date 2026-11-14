@@ -2,14 +2,14 @@
 #
 # Policy: the build FAILS on any `vulnerability` advisory (cargo-audit default,
 # exit code 1). Most IDs listed below are `unmaintained` / `unsound` *warnings*
-# that have been reviewed and accepted for the V0.1.0 Windows release. Ignoring
+# that have been reviewed and accepted for the Windows release. Ignoring
 # an advisory ID only suppresses that specific notice — a future *vulnerability*
 # in the same crate has a different ID and will still fail the audit.
 #
 # A `vulnerability` may be ignored only TEMPORARILY, with the exposure analysis
 # and the removal condition written next to it (see the last section below).
 #
-# Reviewed: 2026-06-13 (cargo audit over Cargo.lock, 597 crate deps, 0 vulns).
+# Reviewed: 2026-06-13 (cargo audit over Cargo.lock, 0 vulns).
 # Re-reviewed: 2026-07-02 (RUSTSEC-2026-0194, see below).
 # Re-reviewed: 2026-09-08 — both temporary ignores cleared by upgrade rather than
 #   re-accepted, and RUSTSEC-2026-0190 (anyhow, unsound) was answered the same
@@ -20,27 +20,23 @@
 #   was built without its `zip` feature (see the comment in Cargo.toml), and the
 #   four rustls advisories of 2026-10-14 (RUSTSEC-2026-0346 to -0349) by
 #   `cargo update -p rustls`, 0.23.45 -> 0.23.46. The three zbus entries are new.
+# Re-reviewed: 2026-11-14 — seventeen entries removed because `cargo audit` run
+#   without this file no longer reports them: the ten gtk-rs GTK3 binding
+#   notices, fxhash, the five unic-* crates and rand (the crates of the last
+#   seven left Cargo.lock). An entry that matches nothing hides nothing, and it
+#   reads as an accepted risk that is not there. To repeat the check, copy
+#   Cargo.lock to an empty directory and run `cargo audit -f Cargo.lock` there.
 # Re-review when a NEW advisory appears (the whole point of the scheduled scan).
 # Check the fixed version before adding an ID: an advisory whose fix is already
 # reachable by `cargo update` does not belong on this list.
 
 [advisories]
 ignore = [
-    # --- gtk-rs GTK3 bindings: unmaintained (gtk-rs moved to GTK4) ---
-    # Linux-only transitive deps of webkit2gtk via Tauri. V0.1.0 ships
-    # Windows-only (see SECURITY_THREAT_MODEL.md §intro), so these crates are
-    # not compiled into the release binary at all.
-    "RUSTSEC-2024-0411", # gdkwayland-sys
-    "RUSTSEC-2024-0412", # gdk
-    "RUSTSEC-2024-0413", # atk
-    "RUSTSEC-2024-0414", # gdkx11-sys
-    "RUSTSEC-2024-0415", # gtk
-    "RUSTSEC-2024-0416", # atk-sys
-    "RUSTSEC-2024-0417", # gdkx11
-    "RUSTSEC-2024-0418", # gdk-sys
-    "RUSTSEC-2024-0419", # gtk3-macros
-    "RUSTSEC-2024-0420", # gtk-sys
-    "RUSTSEC-2024-0429", # glib — unsound VariantStrIter (same Linux-only GTK stack)
+    # --- gtk-rs GTK3 stack: glib ---
+    # Linux-only transitive dep of webkit2gtk via Tauri. The release ships
+    # Windows-only (see SECURITY_THREAT_MODEL.md §intro), so the crate is not
+    # compiled into the release binary at all.
+    "RUSTSEC-2024-0429", # glib — unsound VariantStrIter
 
     # --- zbus 5 helper crates: unmaintained (merged into zbus 6) ---
     # Linux-only: tauri-plugin-single-instance talks D-Bus through zbus 5 there,
@@ -53,17 +49,6 @@ ignore = [
 
     # --- Other unmaintained transitive deps (no maintained drop-in; not our direct deps) ---
     "RUSTSEC-2024-0370", # proc-macro-error — build-time proc-macro only, not in the runtime binary
-    "RUSTSEC-2025-0057", # fxhash — transitive hash impl
-    "RUSTSEC-2025-0075", # unic-char-range
-    "RUSTSEC-2025-0080", # unic-common
-    "RUSTSEC-2025-0081", # unic-char-property
-    "RUSTSEC-2025-0098", # unic-ucd-version
-    "RUSTSEC-2025-0100", # unic-ucd-ident
-
-    # --- Conditional unsoundness, accepted for V0.1.0 ---
-    # rand 0.7.3 + 0.8.5 (transitive). Unsound only when a custom global logger
-    # itself calls rand::rng() during rand init — not a pattern this app uses.
-    "RUSTSEC-2026-0097", # rand
 
     # --- TEMPORARY vulnerability ignores (remove as soon as upstream allows) ---
     # None right now. The two quick-xml entries that lived here (RUSTSEC-2026-0194

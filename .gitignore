@@ -24,7 +24,6 @@ desktop.ini
 *.env
 !.env.example
 !**/.env.example
-!**/.env.test
 !**/.env.e2e
 *.key
 *.pem

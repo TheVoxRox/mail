@@ -94,7 +94,6 @@
 		"@sveltejs/vite-plugin-svelte": "^7.3.1",
 		"@tauri-apps/cli": "^2.12.4",
 		"@vitest/coverage-v8": "^5.1.0",
-		"@vitest/ui": "^5.0.5",
 		"eslint": "^10.14.0",
 		"eslint-plugin-svelte": "^3.24.0",
 		"globals": "^17.14.0",
@@ -142,7 +141,6 @@
 		]
 	},
 	"imports": {
-		"#lib": "./src/lib/index.js",
 		"#lib/*": "./src/lib/*"
 	},
 	"allowScripts": {

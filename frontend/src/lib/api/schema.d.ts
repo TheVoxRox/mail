@@ -1374,7 +1374,7 @@ export interface components {
 			/** @description Stable message identifier for the REST API. The client uses it for message detail and message actions. */
 			stableId?: string;
 			subject?: string;
-			/** @description Conversation identifier — every message of the same thread shares it. Null only until the threading backfill has processed the message (see /api/internal/threading/recompute). Frontends MAY group rows by this id; the V0.1.0 desktop client ignores it. */
+			/** @description Conversation identifier — every message of the same thread shares it. Null only until the threading backfill has processed the message (see /api/internal/threading/recompute). The desktop client groups rows by this id when the listing is set to conversations. */
 			threadId?: string | null;
 		};
 		MoveRequest: {

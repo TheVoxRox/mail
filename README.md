@@ -22,6 +22,9 @@ The backend runs as a local Tauri sidecar bound to 127.0.0.1 on a random port. T
 ```text
 backend/    Spring Boot mail backend (runs as a Tauri sidecar)
 frontend/   SvelteKit + Tauri desktop UI
+docs/       Security audits, decisions, release process and release notes
+.github/    CI and release workflows, issue and pull request templates
+.githooks/  pre-commit and pre-push gates (git config core.hooksPath .githooks)
 LICENSE     MIT
 ```
 

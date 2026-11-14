@@ -15,7 +15,7 @@ import java.util.Locale;
  * another machine or user account is then useless. On other platforms there is
  * no OS store wired up yet, so {@link NoopSecretStore} is an identity transform
  * and confidentiality continues to rest on the data dir's filesystem
- * permissions (the desktop V0.1.0 release is Windows-only).
+ * permissions (the desktop release is Windows-only).
  *
  * <p>
  * Implementations are plain classes, not Spring beans:

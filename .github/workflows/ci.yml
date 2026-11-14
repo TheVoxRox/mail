@@ -407,9 +407,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Check API schema drift
-        run: npm run check:api
-
       - name: Translation whitelist lint
         run: npm run check:translations:strict
 
@@ -584,9 +581,6 @@ jobs:
     defaults:
       run:
         working-directory: backend
-    env:
-      MAIL_CRYPTO_KEY: ci-only-dummy-crypto-key-must-be-32-chars-min
-      MAIL_CRYPTO_SALT: ci-only-dummy-crypto-salt
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -598,16 +592,11 @@ jobs:
           java-version: 25
           cache: maven
 
+      # The jar is built and thrown away: nothing downloads it. The release
+      # builds its own from the tag (windows-signed-release.yml), so the job
+      # only proves that a package without tests still assembles.
       - name: Package JAR
         run: mvn --batch-mode -DskipTests package
-
-      - name: Upload backend JAR
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: backend-jar
-          path: backend/target/mail-backend-*.jar
-          retention-days: 7
-          if-no-files-found: error
 
   frontend-build:
     name: Frontend build
@@ -630,13 +619,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Not uploaded, for the same reason as the backend jar above.
       - name: Build frontend
         run: npm run build
-
-      - name: Upload frontend build
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: frontend-build
-          path: frontend/build/
-          retention-days: 7
-          if-no-files-found: error

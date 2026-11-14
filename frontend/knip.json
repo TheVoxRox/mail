@@ -1,5 +1,5 @@
 {
-	"$schema": "https://unpkg.com/knip@5/schema.json",
+	"$schema": "https://unpkg.com/knip@6/schema.json",
 	"entry": [
 		"src/routes/**/+{page,layout,server,error}.{svelte,ts,js}!",
 		"src/app.html!",
@@ -36,7 +36,7 @@
 		"scripts/**/*.{mjs,ts,js}"
 	],
 	"ignore": ["src/test-stubs/**"],
-	"ignoreDependencies": ["openapi-typescript", "tw-animate-css"],
+	"ignoreDependencies": ["openapi-typescript"],
 	"ignoreBinaries": ["pwsh", "icacls"],
 	"ignoreExportsUsedInFile": true
 }

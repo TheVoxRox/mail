@@ -21,6 +21,13 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- A pass over what no gate reads removed residue that had stopped being true:
+  the Tauri crate's `rust-version` (1.77.2, while Tauri itself needs 1.90),
+  seventeen `cargo audit` ignores that no longer matched an advisory, the
+  `#lib` import that pointed at a missing file, an unused `@vitest/ui`, eleven
+  icons no bundle target uses, and comments that still described the 0.1.0
+  client. `backend/pom.xml` comments are English now, and CI no longer runs
+  `check:api` twice or uploads two build artifacts nothing downloads (#906).
 - A stable candidate that promotes a beta carries the manual sections §3 to §8
   from that beta: `npm run release:status` compares each section's inputs
   against the beta's sheet and reports as re-take only what moved since. The
