@@ -21,6 +21,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- `frontend/scripts/collect-first-launch-evidence.ps1` is gone. It was written
+  for the "no window on the first launch" finding of 2026-09-10, which no
+  sheet or issue carries any more, and nothing referred to it; one of its
+  three hypotheses, the wry bug, is fixed in the Tauri the app ships. The
+  other removals that pass decided wait for an audit re-verification
+  (#908, #909) (#910).
 - The privacy policy (both languages) and the threat model stopped describing
   a product before its first release: 0.1.0 and 0.2.0 have shipped. The policy
   stays preliminary for the one reason that still holds, its open legal
