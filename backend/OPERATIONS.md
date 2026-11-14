@@ -114,6 +114,29 @@ $session = Get-Content "$env:LOCALAPPDATA\VoxRox\Mail\session.json" | ConvertFro
 Invoke-WebRequest "$($session.baseUrl)/internal/diagnostic-dump" -Headers @{ "X-API-KEY" = $session.apiKey } -OutFile "$env:TEMP\mail-diagnostic.zip"
 ```
 
+## Maintenance endpoints
+
+Two repairs the application does not offer in its UI. Both take one account, run on the calling request rather than in the background, and answer `200` with a count once they are done; on a large mailbox that is minutes, not seconds. Both are hidden from the OpenAPI document and protected by the same `X-API-KEY` as the health check. Neither talks to the mail server: they work on what is already in `mail.db`.
+
+```text
+POST /api/internal/threading/recompute?accountId=<id>
+POST /api/internal/correspondent/rebuild?accountId=<id>
+```
+
+**`threading/recompute`** assigns a conversation to every message of the account that has none, and fills in the reference index and the normalized subjects that threading reads. The same pass runs by itself at every start, so on a healthy database the call finds nothing to do and answers `0`. It is for a database whose threading columns were cleared by hand, or one filled by something other than the sync. It skips nothing a start would not skip, with one exception: a start leaves out an account that needs sign-in or is inactive, the call does not. The count is the number of messages newly assigned.
+
+**`correspondent/rebuild`** drops the account's harvested addresses, the ones the recipient field suggests, and harvests them again from the stored mail. The pass at start cannot do this: it runs only for an account whose cache is empty, so a harvest that was interrupted half way, or an account that needed sign-in when the pass ran, keeps a partial cache for good. The rebuild is the way out of both. It also brings back every address the user removed from the suggestions, because a removal is not recorded anywhere but in the cache itself. The count is the number of messages read. The log gains two `[API]` lines around the run, and `audit.log` a `correspondent_rebuild` record with the number of addresses dropped.
+
+Windows PowerShell, with the application running:
+
+```powershell
+$session = Get-Content "$env:LOCALAPPDATA\VoxRox\Mail\session.json" | ConvertFrom-Json
+$headers = @{ "X-API-KEY" = $session.apiKey }
+# The ids to pass as accountId
+Invoke-RestMethod "$($session.baseUrl)/v1/accounts" -Headers $headers | Select-Object id, email
+Invoke-RestMethod "$($session.baseUrl)/internal/correspondent/rebuild?accountId=1" -Method Post -Headers $headers
+```
+
 ## Logs
 
 Main log:

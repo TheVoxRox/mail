@@ -21,6 +21,11 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- `backend/OPERATIONS.md` describes the two maintenance endpoints,
+  `threading/recompute` and `correspondent/rebuild`: what each repairs, why a
+  start cannot do the second, and that a rebuild brings back addresses the
+  user removed from the suggestions. They were named only in javadoc and in a
+  snapshot design document (#911).
 - `frontend/scripts/collect-first-launch-evidence.ps1` is gone. It was written
   for the "no window on the first launch" finding of 2026-09-10, which no
   sheet or issue carries any more, and nothing referred to it; one of its
