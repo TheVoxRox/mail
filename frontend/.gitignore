@@ -2,10 +2,6 @@ node_modules
 .npm-cache
 
 # Output
-.output
-.vercel
-.netlify
-.wrangler
 /.svelte-kit
 /build
 /target
@@ -37,7 +33,6 @@ Thumbs.db
 .env
 .env.*
 !.env.example
-!.env.test
 !.env.e2e
 
 # Vite

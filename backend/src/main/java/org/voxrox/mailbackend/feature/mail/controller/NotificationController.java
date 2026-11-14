@@ -46,9 +46,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
  * payload is {@link SendNotification} with {@code errorCode} populated.</li>
  * <li>{@code thread_updated} — emitted when the membership of a conversation
  * changes (new message lands in a thread, or a late-arriving parent merges
- * orphan chains); payload is {@link ThreadUpdated}. V0.1.0 desktop client does
- * not subscribe to this event yet — see {@code
- * backend/docs/THREADING_DESIGN.md}.</li>
+ * orphan chains); payload is {@link ThreadUpdated}. The desktop client does not
+ * act on this event: it refreshes its listing on {@code sync_completed}. The
+ * design is in {@code backend/docs/THREADING_DESIGN.md}.</li>
  * </ul>
  *
  * The client correlates {@code send_*} events with the originating request via

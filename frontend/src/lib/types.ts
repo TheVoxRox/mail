@@ -546,8 +546,8 @@ export interface SendNotification {
  * conversation changes — a new message landed in the thread, or a
  * late-arriving parent caused two orphan chains to merge. The payload is
  * intentionally minimal: the frontend refetches the affected thread (or
- * the surrounding folder listing) to get the new state. V0.1.0 UI does
- * not yet subscribe to this event — see THREADING_DESIGN.md.
+ * the surrounding folder listing) to get the new state. The UI does not
+ * act on this event — it refreshes on `sync_completed`.
  */
 export interface ThreadUpdated {
 	type: 'thread_updated';

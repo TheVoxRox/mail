@@ -267,7 +267,7 @@ public class SecurityConfig {
          * even though the desktop model is loopback-only. `@tauri-apps/plugin-http`
          * forwards this Origin header, so the server-side check still applies. -
          * tauri://localhost — the equivalent webview origin on macOS/Linux, kept for
-         * parity even though V0.1.0 ships Windows-only.
+         * parity even though the release ships Windows-only.
          */
         configuration.setAllowedOriginPatterns(List.of("http://localhost:[*]", "http://127.0.0.1:[*]",
                 "http://tauri.localhost", "tauri://localhost", "file://*"));

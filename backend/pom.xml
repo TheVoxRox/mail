@@ -448,11 +448,11 @@
 					</execution>
 					<execution>
 						<!--
-							Springdoc je v produkcnim sidecaru zbytecny — docs endpointy
-							jsou vypnute (springdoc.api-docs.enabled=false). Vylouceni
-							z fat jar setri cca 200-500 ms cold startu (Spring uz nemusi
-							skenovat springdoc auto-configuration classes) a snizuje
-							velikost binarky o ~3 MB.
+							The production sidecar has no use for springdoc: the docs
+							endpoints are off (springdoc.api-docs.enabled=false). Leaving
+							it out of the fat jar saves about 200-500 ms of cold start
+							(Spring no longer scans springdoc's auto-configuration
+							classes) and about 3 MB of binary.
 
 							Springdoc itself has to go through excludeGroupIds:
 							<excludes> requires groupId AND artifactId, and a groupId-only
@@ -461,10 +461,11 @@
 							<excludes> below, because they need artifact-level precision
 							— see the comment there. The two filters are additive.
 
-							Konfigurace je schvalne na
-							exekuci `repackage`, ne na pluginu: `mvn spring-boot:run`
-							tak jede s compile classpath vcetne springdoc a Swagger UI
-							pri vyvoji funguje. Pro fat jar s docs viz profile `openapi`.
+							The configuration sits on the `repackage` execution on
+							purpose, not on the plugin: `mvn spring-boot:run` then runs
+							on the compile classpath, springdoc included, and Swagger UI
+							works in development. For a fat jar with the docs see the
+							`openapi` profile.
 						-->
 						<id>repackage</id>
 						<configuration>
@@ -818,40 +819,6 @@
 
 	<profiles>
 		<!--
-			Mutacni testovani (PIT) — hleda testy, ktere nic netvrdi. Zamerne
-			NENI brana a NENI navazany na zadnou fazi: burn-down vsech prezivsich
-			mutantu by byl vlastni projekt, kdezto obcasny cileny sweep najde
-			presne to, kvuli cemu tohle vzniklo — test, ktery kod spusti, ale
-			nic o nem netvrdi, a proto projde i po regresi.
-
-			Spousteni (scope je povinny, cely strom by bezel hodiny):
-
-			  mvn -Ppit -Dpit.targetClasses=org.voxrox.mailbackend.feature.mail.service.* \
-			      -Dpit.targetTests=org.voxrox.mailbackend.* \
-			      test-compile org.pitest:pitest-maven:mutationCoverage
-
-			`test-compile` v tom prikazu je POVINNY, ne zvyk. Surefire argLine
-			nese -javaagent:${org.mockito:mockito-core:jar} a tu property plni
-			dependency:properties na fazi `initialize`; holy goal lifecycle
-			preskoci, PIT preda minionu doslovny `${...}` jako cestu k agentovi
-			a spadne na `MINION_DIED` s hlaskou o poskozenem zipu, ktera na
-			skutecnou pricinu neukazuje.
-
-			Obe hodnoty jsou JEDEN glob, ne seznam: mojo je bere jako jeden
-			<param>, takze carkami oddeleny vycet se nerozpadne a PIT hlasi
-			"No mutations found" misto chyby. Na vic balicku pust vic behu.
-			`targetTests` nechavej siroky — PIT si testy vybira podle pokryti,
-			zuzeni jen skryje mutanty, ktere zabiji test odjinud.
-
-			Report: target/pit-reports/index.html. Zajimavi jsou SURVIVED
-			mutanti v kodu, ktery test prokazatelne prochazi — tam bud chybi
-			assertion, nebo tvrdi neco jineho, nez si mysli. NO_COVERAGE je jina
-			trida nalezu (nepokryty kod), na tenhle sweep nepatri.
-
-			JaCoCo agent se PITu do cesty neplete: PIT si forkuje vlastni JVM
-			a surefire argLine do nej neputuje.
-		-->
-		<!--
 			Accelerated soak: mvn -Psoak verify [-Dsoak.duration=PT30M]
 			[-Dsoak.small-disk=/mnt/soak]. Packages the jar, then runs only the
 			tests tagged "soak" (SyncSoakIT), which start that jar as a process of
@@ -893,6 +860,41 @@
 			</build>
 		</profile>
 
+		<!--
+			Mutation testing (PIT) - finds tests that assert nothing. Deliberately
+			NOT a gate and NOT bound to any phase: burning down every surviving
+			mutant would be a project of its own, while an occasional targeted
+			sweep finds exactly what this exists for - a test that runs the code
+			but asserts nothing about it, and so passes after a regression too.
+
+			Running it (the scope is required, the whole tree would take hours):
+
+			  mvn -Ppit -Dpit.targetClasses=org.voxrox.mailbackend.feature.mail.service.* \
+			      -Dpit.targetTests=org.voxrox.mailbackend.* \
+			      test-compile org.pitest:pitest-maven:mutationCoverage
+
+			`test-compile` in that command is REQUIRED, not a habit. The Surefire
+			argLine carries -javaagent:${org.mockito:mockito-core:jar}, and that
+			property is filled by dependency:properties in the `initialize` phase;
+			a bare goal skips the lifecycle, PIT hands the minion the literal
+			`${...}` as the agent path, and it dies with `MINION_DIED` and a
+			message about a corrupt zip that does not point at the real cause.
+
+			Each value is ONE glob, not a list: the mojo takes it as a single
+			<param>, so a comma-separated enumeration is not split and PIT reports
+			"No mutations found" instead of an error. For several packages, run it
+			several times. Keep `targetTests` wide - PIT picks tests by coverage,
+			and narrowing it only hides mutants a test elsewhere would kill.
+
+			Report: target/pit-reports/index.html. The interesting ones are
+			SURVIVED mutants in code a test demonstrably runs through - there an
+			assertion is either missing or claims something other than it seems
+			to. NO_COVERAGE is a different class of finding (uncovered code) and
+			does not belong to this sweep.
+
+			The JaCoCo agent does not get in PIT's way: PIT forks a JVM of its own
+			and the Surefire argLine does not travel into it.
+		-->
 		<profile>
 			<id>pit</id>
 			<properties>
@@ -907,7 +909,7 @@
 						<version>1.30.2</version>
 						<dependencies>
 							<dependency>
-								<!-- Bez tohohle PIT sadu JUnit 5 vubec nenajde a nahlasi 0 testu. -->
+								<!-- Without this PIT does not find the JUnit 5 suite at all and reports 0 tests. -->
 								<groupId>org.pitest</groupId>
 								<artifactId>pitest-junit5-plugin</artifactId>
 								<version>1.2.3</version>
@@ -924,9 +926,9 @@
 								<param>HTML</param>
 								<param>XML</param>
 							</outputFormats>
-							<!-- Stabilni cesta k reportu, at jde diffovat mezi behy. -->
+							<!-- A stable report path, so two runs can be diffed. -->
 							<timestampedReports>false</timestampedReports>
-							<!-- Sweep hlasi nalezy, neshazuje build — prah by z nej udelal branu. -->
+							<!-- The sweep reports findings, it does not fail the build - a threshold would make it a gate. -->
 							<failWhenNoMutations>false</failWhenNoMutations>
 							<mutationThreshold>0</mutationThreshold>
 						</configuration>
@@ -936,13 +938,14 @@
 		</profile>
 
 		<!--
-			Spring AOT mode pro produkcni sidecar build. Generuje AOT artefakty
-			(reflection metadata, optimalizovany bean factory) do jar. Pri behu
-			je aktivuje JVM option -Dspring.aot.enabled=true (viz
-			backend/scripts/package-sidecar-windows.ps1). Default mvn package /
-			mvn test profil tohle NEspousti, aby se nezpomalil dev build a
-			nezatezovaly testy, ktere process-aot interne spousti AppContext.
-			Aktivace: mvn -Paot package
+			Spring AOT mode for the production sidecar build. Generates the AOT
+			artifacts (reflection metadata, an optimized bean factory) into the
+			jar. At run time the JVM option -Dspring.aot.enabled=true turns them
+			on (see backend/scripts/package-sidecar-windows.ps1). A default
+			mvn package / mvn test does NOT run this, so the dev build stays fast
+			and the tests are not loaded with process-aot, which starts an
+			application context of its own.
+			Activation: mvn -Paot package
 		-->
 		<profile>
 			<id>aot</id>
@@ -969,11 +972,11 @@
 									-->
 									<jvmArguments>--enable-native-access=ALL-UNNAMED</jvmArguments>
 									<!--
-										Stejne vylouceni jako u repackage: bez nej by
-										process-aot vygeneroval springdoc
-										__BeanDefinitions classy, ktere by za behu
-										(spring.aot.enabled=true) odkazovaly na classy
-										chybejici ve fat jaru.
+										The same exclusion as on repackage: without it
+										process-aot would generate springdoc
+										__BeanDefinitions classes that at run time
+										(spring.aot.enabled=true) refer to classes the
+										fat jar does not carry.
 									-->
 									<excludeGroupIds>org.springdoc</excludeGroupIds>
 									<!--
@@ -1028,12 +1031,12 @@
 			</build>
 		</profile>
 		<!--
-			Volitelny profil pro fat jar S springdoc dependencies (Swagger UI
-			endpointy). Resetuje excludes z default buildu. Pouziti:
+			Optional profile for a fat jar WITH the springdoc dependencies (the
+			Swagger UI endpoints). Resets the excludes of the default build. Usage:
 			   mvn -Popenapi package -Dspringdoc.api-docs.enabled=true \
 			       -Dspringdoc.swagger-ui.enabled=true
-			Slouzi pro standalone debug instalace; bezny produkcni sidecar
-			docs nepotrebuje, tak default fat jar je bez springdoc.
+			For standalone debug installations; the ordinary production sidecar
+			does not need the docs, so the default fat jar has no springdoc.
 		-->
 		<profile>
 			<id>openapi</id>
@@ -1051,8 +1054,8 @@
 								</configuration>
 							</execution>
 							<execution>
-								<!-- Bez <goals> nic nespousti — jen resetuje exclude,
-								     kdyz je aktivni zaroven profil `aot`. -->
+								<!-- Runs nothing without <goals> - it only resets the excludes
+								     when the `aot` profile is active as well. -->
 								<id>process-aot</id>
 								<configuration>
 									<excludeGroupIds combine.self="override"/>
