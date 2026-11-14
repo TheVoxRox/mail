@@ -21,6 +21,11 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The privacy policy (both languages) and the threat model stopped describing
+  a product before its first release: 0.1.0 and 0.2.0 have shipped. The policy
+  stays preliminary for the one reason that still holds, its open legal
+  review, and the threat model's header names what is released rather than a
+  version number nothing recomputes (#907).
 - A pass over what no gate reads removed residue that had stopped being true:
   the Tauri crate's `rust-version` (1.77.2, while Tauri itself needs 1.90),
   seventeen `cargo audit` ignores that no longer matched an advisory, the
