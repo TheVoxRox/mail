@@ -1177,7 +1177,7 @@
             "type" : "string"
           },
           "threadId" : {
-            "description" : "Conversation identifier — every message of the same thread shares it. Null only until the threading backfill has processed the message (see /api/internal/threading/recompute). The desktop client groups rows by this id when the listing is set to conversations.",
+            "description" : "Conversation identifier — every message of the same thread shares it. Null only until the threading backfill has processed the message (see /api/internal/threading/recompute). The conversation listing is grouped by this id on the server; the desktop client reads it from the conversation summary, not from this field.",
             "type" : [ "string", "null" ]
           }
         },

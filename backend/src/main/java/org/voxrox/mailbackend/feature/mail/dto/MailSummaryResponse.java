@@ -15,8 +15,9 @@ public record MailSummaryResponse(Long id,
         LocalDateTime receivedAt, boolean seen, boolean flagged, boolean answered, boolean hasAttachments,
         @Schema(nullable = true, description = "Conversation identifier — every message of the same thread shares it. "
                 + "Null only until the threading backfill has processed the message "
-                + "(see /api/internal/threading/recompute). The desktop client groups rows by this "
-                + "id when the listing is set to conversations.") String threadId,
+                + "(see /api/internal/threading/recompute). The conversation listing is grouped by this "
+                + "id on the server; the desktop client reads it from the conversation summary, not from "
+                + "this field.") String threadId,
         @Schema(nullable = true, description = "RFC 5322 Message-ID. Copies of one mail stored in several folders "
                 + "(Gmail's INBOX + All Mail) share it while having different stableIds, so a client rendering a "
                 + "thread must collapse rows by this value to match the server's messageCount. Null when the "

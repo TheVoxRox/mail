@@ -43,6 +43,15 @@ public enum FolderRole {
      */
     private static final List<String> NAMESPACE_PREFIXES = List.of("inbox.", "inbox/", "[gmail]/", "[google mail]/");
 
+    /**
+     * The longest name {@link #fromNameFallback} looks at. The name is the server's
+     * and {@link #normalize} decomposes it, which costs the square of a run of
+     * combining marks (audit B1-28): a megabyte of them held the folder listing for
+     * minutes. The longest name that means a role is 32 characters with its prefix,
+     * so a longer one is a user folder without being read.
+     */
+    static final int MAX_ROLE_NAME_CHARS = 128;
+
     private static final Pattern COMBINING_MARKS = Pattern.compile("\\p{M}+");
     private static final Pattern WHITESPACE = Pattern.compile("\\s+");
 
@@ -84,7 +93,7 @@ public enum FolderRole {
      * "Archiv 2024" Archive and "Newsletter from Dr Novak" Newsletters.
      */
     public static FolderRole fromNameFallback(@Nullable String name) {
-        if (name == null) {
+        if (name == null || name.length() > MAX_ROLE_NAME_CHARS) {
             return USER;
         }
         return ROLE_BY_NAME.getOrDefault(normalize(name), USER);
