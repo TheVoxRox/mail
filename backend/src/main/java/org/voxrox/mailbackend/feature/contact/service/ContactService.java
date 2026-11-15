@@ -12,7 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.voxrox.mailbackend.exception.ContactLabelNotFoundException;
 import org.voxrox.mailbackend.exception.ContactNotFoundException;
 import org.voxrox.mailbackend.exception.DuplicateContactException;
-import org.voxrox.mailbackend.exception.ResourceNotFoundException;
 import org.voxrox.mailbackend.exception.ValidationException;
 import org.voxrox.mailbackend.feature.account.service.AccountService;
 import org.voxrox.mailbackend.feature.contact.EmailLabel;
@@ -20,7 +19,6 @@ import org.voxrox.mailbackend.feature.contact.dto.ContactAutocompleteResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactCountsResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactCreateRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactEmailRequest;
-import org.voxrox.mailbackend.feature.contact.dto.ContactEmailResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactLabelCountResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactMergeRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactPatchRequest;
@@ -421,9 +419,8 @@ public class ContactService {
      * {@code ux_contact_emails_contact_email} sees a duplicate for every address
      * that survives the edit. Either one fails the save with
      * SQLITE_CONSTRAINT_UNIQUE, so <em>every</em> edit of an existing contact did,
-     * not only one that moves the primary. Same shape as the demote-flush-promote
-     * in {@link #setPrimaryEmail}: make the intermediate state legal instead of
-     * relying on statement order. Covered by
+     * not only one that moves the primary. The intermediate state is made legal
+     * instead of relying on statement order. Covered by
      * {@code ContactRepositoryIT#updateContactReordersPrimary} and
      * {@code #updateContactKeepsOrder}.
      */
@@ -442,122 +439,6 @@ public class ContactService {
         contactRepository.delete(entity);
 
         AuditLog.success("contact_delete", AUDIT_ACTOR, "contact_id=" + contactId + " email=" + maskedEmail);
-    }
-
-    /**
-     * Adds a new e-mail address to a contact. Does not change the primary flag of
-     * existing addresses — the new email is added as non-primary. Follows the
-     * {@link #checkNoDuplicates} convention: a duplicate within this contact's own
-     * list → {@link ValidationException} (400, the client fixes its own form), a
-     * collision with another contact → {@link DuplicateContactException} (409,
-     * conflict with an existing record).
-     */
-    @Transactional
-    public ContactEmailResponse addEmail(Long contactId, ContactEmailRequest request) {
-        ContactEntity entity = getContactOrThrow(contactId);
-
-        // request.email() is @NotBlank-validated, so the normalized form exists.
-        String normalized = Objects.requireNonNull(contactMapper.normalizeEmail(request.email()));
-        if (entity.getEmails().stream().anyMatch(e -> normalized.equals(e.getEmail()))) {
-            // Internal message is log-bound (GlobalExceptionHandler) -> masked;
-            // the localized client response carries the raw argument.
-            throw new ValidationException(
-                    "The contact already has the e-mail address " + LogMasker.maskEmail(normalized) + ".",
-                    "validation.contact.emailAlreadyOnContact", normalized);
-        }
-        contactRepository.findByAnyEmail(normalized).stream().filter(other -> !other.getId().equals(contactId))
-                .findFirst().ifPresent(other -> {
-                    throw new DuplicateContactException(normalized);
-                });
-
-        ContactEmailEntity newEmail = new ContactEmailEntity();
-        newEmail.setContact(entity);
-        newEmail.setEmail(normalized);
-        newEmail.setLabel(request.label());
-        newEmail.setPrimary(entity.getEmails().isEmpty());
-        entity.getEmails().add(newEmail);
-
-        ContactEntity saved = contactRepository.save(entity);
-        ContactEmailEntity persisted = saved.getEmails().stream().filter(e -> normalized.equals(e.getEmail()))
-                .findFirst().orElseThrow(() -> new IllegalStateException("Added email was not found after save."));
-
-        AuditLog.success("contact_email_add", AUDIT_ACTOR,
-                "contact_id=" + contactId + " email=" + LogMasker.maskEmail(normalized));
-        return new ContactEmailResponse(persisted.getId(), persisted.getEmail(), persisted.getLabel(),
-                persisted.isPrimary());
-    }
-
-    /**
-     * Removes an address from a contact. If it was primary, promotes the first
-     * remaining one (deterministically by ID). 400 when it is the contact's last
-     * email.
-     */
-    @Transactional
-    public void deleteEmail(Long contactId, Long emailId) {
-        ContactEntity entity = getContactOrThrow(contactId);
-
-        ContactEmailEntity target = entity.getEmails().stream().filter(e -> emailId.equals(e.getId())).findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "E-mail with id=" + emailId + " for contact " + contactId + " not found.",
-                        "error.contact.emailNotFound"));
-
-        if (entity.getEmails().size() == 1) {
-            throw new ValidationException("At least one e-mail address is required.",
-                    "validation.contact.emailRequired");
-        }
-
-        String removedEmail = target.getEmail();
-        boolean wasPrimary = target.isPrimary();
-        entity.getEmails().remove(target);
-
-        if (wasPrimary) {
-            entity.getEmails().stream().min((a, b) -> Long.compare(a.getId(), b.getId()))
-                    .ifPresent(promote -> promote.setPrimary(true));
-        }
-
-        contactRepository.save(entity);
-
-        AuditLog.success("contact_email_delete", AUDIT_ACTOR,
-                "contact_id=" + contactId + " email=" + LogMasker.maskEmail(removedEmail));
-    }
-
-    /**
-     * Marks the chosen address as primary. The contact's other addresses get
-     * {@code primary=false}. 404 when the address does not belong to the contact.
-     */
-    @Transactional
-    public ContactResponse setPrimaryEmail(Long contactId, Long emailId) {
-        ContactEntity entity = getContactOrThrow(contactId);
-
-        ContactEmailEntity target = entity.getEmails().stream().filter(e -> emailId.equals(e.getId())).findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "E-mail with id=" + emailId + " for contact " + contactId + " not found.",
-                        "error.contact.emailNotFound"));
-
-        // Demote the current primary and flush first, so the DB briefly holds zero
-        // primaries, before promoting the target. A single-pass flag swap lets
-        // Hibernate flush the promote (->primary) UPDATE ahead of the demote
-        // (->non-primary) UPDATE when the promoted row sorts first by id, producing a
-        // transient two-primaries state that trips the partial unique index
-        // ux_contact_emails_contact_primary (see
-        // ContactRepositoryIT#promoteLowerIdEmailToPrimary).
-        boolean demotedAny = false;
-        for (ContactEmailEntity e : entity.getEmails()) {
-            if (e.isPrimary() && !emailId.equals(e.getId())) {
-                e.setPrimary(false);
-                demotedAny = true;
-            }
-        }
-        if (demotedAny) {
-            contactRepository.saveAndFlush(entity);
-        }
-        target.setPrimary(true);
-
-        ContactEntity saved = contactRepository.save(entity);
-
-        AuditLog.success("contact_email_set_primary", AUDIT_ACTOR,
-                "contact_id=" + contactId + " email=" + LogMasker.maskEmail(target.getEmail()));
-        return contactMapper.toResponse(saved);
     }
 
     /**

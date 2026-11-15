@@ -31,7 +31,6 @@ import org.voxrox.mailbackend.exception.AccountNotFoundException;
 import org.voxrox.mailbackend.exception.ContactLabelNotFoundException;
 import org.voxrox.mailbackend.exception.ContactNotFoundException;
 import org.voxrox.mailbackend.exception.DuplicateContactException;
-import org.voxrox.mailbackend.exception.ResourceNotFoundException;
 import org.voxrox.mailbackend.exception.ValidationException;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.account.service.AccountService;
@@ -438,7 +437,6 @@ class ContactServiceTest {
                 null, null, null, null));
 
         verify(contactRepository).findByAnyEmailIn(any());
-        verify(contactRepository, never()).findByAnyEmail(anyString());
     }
 
     @Test
@@ -534,140 +532,6 @@ class ContactServiceTest {
         assertThatThrownBy(() -> service.searchContacts("alice", 0, 10, null, 99L))
                 .isInstanceOf(ContactLabelNotFoundException.class);
         verify(contactRepository, never()).search(any(), any(), any());
-    }
-
-    @Test
-    @DisplayName("addEmail — adds the email, does not change the primary one, stores normalized")
-    void addEmailAppends() {
-        ContactEntity existing = contact(CONTACT_ID, EMAIL);
-        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(existing));
-        when(contactRepository.findByAnyEmail("new@x.cz")).thenReturn(List.of());
-        when(contactRepository.save(existing)).thenAnswer(inv -> {
-            ContactEntity e = inv.getArgument(0);
-            e.getEmails().stream().filter(em -> em.getId() == null).forEach(em -> em.setId(123L));
-            return e;
-        });
-
-        ContactEmailResponse added = service.addEmail(CONTACT_ID,
-                new ContactEmailRequest("  New@X.cz  ", EmailLabel.HOME));
-
-        assertThat(added.email()).isEqualTo("new@x.cz");
-        assertThat(added.primary()).isFalse();
-        assertThat(existing.getEmails()).hasSize(2);
-        assertThat(existing.getEmails().get(0).isPrimary()).isTrue();
-    }
-
-    @Test
-    @DisplayName("addEmail — collision with another contact -> DuplicateContactException")
-    void addEmailDuplicate() {
-        ContactEntity existing = contact(CONTACT_ID, EMAIL);
-        ContactEntity other = contact(99L, "taken@x.cz");
-        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(existing));
-        when(contactRepository.findByAnyEmail("taken@x.cz")).thenReturn(List.of(other));
-
-        assertThatThrownBy(() -> service.addEmail(CONTACT_ID, new ContactEmailRequest("taken@x.cz", null)))
-                .isInstanceOf(DuplicateContactException.class);
-
-        verify(contactRepository, never()).save(any());
-    }
-
-    @Test
-    @DisplayName("addEmail — duplicate within the contact's own list -> ValidationException (400)")
-    void addEmailOwnDuplicateIsValidationError() {
-        ContactEntity existing = contact(CONTACT_ID, EMAIL);
-        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(existing));
-
-        // The contact already has EMAIL — per the checkNoDuplicates
-        // convention this is "fix your own form" (400), not a cross-contact
-        // conflict (409).
-        assertThatThrownBy(() -> service.addEmail(CONTACT_ID, new ContactEmailRequest("  " + EMAIL + "  ", null)))
-                .isInstanceOf(ValidationException.class);
-
-        verify(contactRepository, never()).save(any());
-    }
-
-    @Test
-    @DisplayName("addEmail — missing contact -> ContactNotFoundException")
-    void addEmailContactMissing() {
-        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> service.addEmail(CONTACT_ID, new ContactEmailRequest("x@x.cz", null)))
-                .isInstanceOf(ContactNotFoundException.class);
-    }
-
-    @Test
-    @DisplayName("deleteEmail — deletes non-primary, primary stays")
-    void deleteEmailRemovesNonPrimary() {
-        ContactEntity existing = contact(CONTACT_ID, EMAIL, "second@x.cz");
-        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(existing));
-        when(contactRepository.save(existing)).thenReturn(existing);
-
-        service.deleteEmail(CONTACT_ID, 2L);
-
-        assertThat(existing.getEmails()).hasSize(1);
-        assertThat(existing.getEmails().get(0).getEmail()).isEqualTo(EMAIL);
-        assertThat(existing.getEmails().get(0).isPrimary()).isTrue();
-    }
-
-    @Test
-    @DisplayName("deleteEmail — deletes primary -> promotes the next one (lowest ID)")
-    void deleteEmailPromotesNext() {
-        ContactEntity existing = contact(CONTACT_ID, EMAIL, "second@x.cz");
-        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(existing));
-        when(contactRepository.save(existing)).thenReturn(existing);
-
-        service.deleteEmail(CONTACT_ID, 1L);
-
-        assertThat(existing.getEmails()).hasSize(1);
-        assertThat(existing.getEmails().get(0).getEmail()).isEqualTo("second@x.cz");
-        assertThat(existing.getEmails().get(0).isPrimary()).isTrue();
-    }
-
-    @Test
-    @DisplayName("deleteEmail — last email -> ValidationException (400)")
-    void deleteEmailLastOneRejected() {
-        ContactEntity existing = contact(CONTACT_ID, EMAIL);
-        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(existing));
-
-        assertThatThrownBy(() -> service.deleteEmail(CONTACT_ID, 1L)).isInstanceOf(ValidationException.class)
-                .hasMessageContaining("At least one");
-
-        verify(contactRepository, never()).save(any());
-    }
-
-    @Test
-    @DisplayName("deleteEmail — email ID does not belong to the contact -> ResourceNotFoundException")
-    void deleteEmailNotFound() {
-        ContactEntity existing = contact(CONTACT_ID, EMAIL, "second@x.cz");
-        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(existing));
-
-        assertThatThrownBy(() -> service.deleteEmail(CONTACT_ID, 999L)).isInstanceOf(ResourceNotFoundException.class);
-    }
-
-    @Test
-    @DisplayName("setPrimaryEmail — changes the primary one, sets the others to false")
-    void setPrimaryEmailSwitches() {
-        ContactEntity existing = contact(CONTACT_ID, EMAIL, "second@x.cz");
-        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(existing));
-        when(contactRepository.save(existing)).thenReturn(existing);
-
-        ContactResponse r = service.setPrimaryEmail(CONTACT_ID, 2L);
-
-        assertThat(existing.getEmails().get(0).isPrimary()).isFalse();
-        assertThat(existing.getEmails().get(1).isPrimary()).isTrue();
-        assertThat(r.emails()).hasSize(2);
-    }
-
-    @Test
-    @DisplayName("setPrimaryEmail — non-existing emailId -> ResourceNotFoundException")
-    void setPrimaryEmailNotFound() {
-        ContactEntity existing = contact(CONTACT_ID, EMAIL);
-        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(existing));
-
-        assertThatThrownBy(() -> service.setPrimaryEmail(CONTACT_ID, 999L))
-                .isInstanceOf(ResourceNotFoundException.class);
-
-        verify(contactRepository, never()).save(any());
     }
 
     private ContactEntity namedContact(Long id, String name, String surname, String... emails) {

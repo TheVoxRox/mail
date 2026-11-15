@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.assertj.core.api.Assertions.tuple;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
@@ -301,6 +302,48 @@ class ImapFolderServiceTest {
             mockFolderListing(nested("Projects", "Projects", '\0'), nested("Projects/2024", "Projects/2024", '\0'));
 
             List<FolderResponse> result = service.getFolders(ACCOUNT_ID);
+
+            assertThat(result).extracting(FolderResponse::parentRef).containsOnlyNulls();
+        }
+
+        @Test
+        @DisplayName("A name past the limit is not walked for ancestors and is listed at the top level (B1-27)")
+        void overlongNameIsNotWalked() throws Exception {
+            String atLimit = "Projects/"
+                    + "x".repeat(ImapFolderService.MAX_HIERARCHY_NAME_CHARS - "Projects/".length());
+            String pastLimit = atLimit + "x";
+            mockFolderListing(nested("Projects", "Projects", '/'), nested("x", atLimit, '/'),
+                    nested("x", pastLimit, '/'));
+
+            List<FolderResponse> result = service.getFolders(ACCOUNT_ID);
+
+            assertThat(result).extracting(FolderResponse::parentRef).containsExactly(null, "Projects", null);
+        }
+
+        @Test
+        @DisplayName("An ancestor is looked for a bounded number of levels up, then the folder is top-level (B1-27)")
+        void ancestorsAreLookedForABoundedNumberOfLevelsUp() throws Exception {
+            // Neither folder has a listed ancestor but "A": one finds it at the last step
+            // it is allowed, the other would need one step more.
+            String withinReach = "A" + "/b".repeat(ImapFolderService.MAX_HIERARCHY_LEVELS);
+            String outOfReach = "A" + "/c".repeat(ImapFolderService.MAX_HIERARCHY_LEVELS + 1);
+            mockFolderListing(nested("A", "A", '/'), nested("b", withinReach, '/'), nested("c", outOfReach, '/'));
+
+            List<FolderResponse> result = service.getFolders(ACCOUNT_ID);
+
+            assertThat(result).extracting(FolderResponse::parentRef).containsExactly(null, "A", null);
+        }
+
+        @Test
+        @DisplayName("A name of nothing but delimiters costs the listing no time to speak of (B1-27)")
+        void aNameOfDelimitersDoesNotStallTheListing() throws Exception {
+            // 400 000 characters took the unbounded walk 5.8 s where this was measured,
+            // and four times that for each doubling.
+            String delimiters = "x" + "/".repeat(400_000);
+            mockFolderListing(nested("x", "x", '/'), nested("", delimiters, '/'));
+
+            List<FolderResponse> result = assertTimeoutPreemptively(Duration.ofSeconds(2),
+                    () -> service.getFolders(ACCOUNT_ID));
 
             assertThat(result).extracting(FolderResponse::parentRef).containsOnlyNulls();
         }

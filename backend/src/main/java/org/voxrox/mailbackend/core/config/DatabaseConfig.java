@@ -1,6 +1,7 @@
 package org.voxrox.mailbackend.core.config;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -106,6 +107,7 @@ public class DatabaseConfig {
     FlywayMigrationStrategy preMigrationBackupStrategy(DatabaseBackupService databaseBackupService) {
         return flyway -> {
             verifyIntegrity();
+            refuseDatabaseWithoutHistory(flyway.getConfiguration().getTable());
 
             List<ValidateOutput> alteredMigrations = alteredAppliedMigrations(flyway.validateWithResult());
             boolean hasPendingMigrations = flyway.info().pending().length > 0;
@@ -154,6 +156,55 @@ public class DatabaseConfig {
             throw damaged(problem, null);
         }
         log.info("{} SQLite quick_check=ok", LogCategory.DATABASE);
+    }
+
+    /**
+     * Refuses a database that holds schema objects but no migration history: this
+     * application did not create it. Every database it creates has the history
+     * table from the first start on, and Flyway makes that table in the same
+     * {@code migrate()} that makes the rest, so a file with tables and no history
+     * came from somewhere else.
+     * <p>
+     * With {@code baseline-on-migrate} on, such a file used to be marked as having
+     * V1 applied and the application started over a schema it knew nothing about.
+     * It is off now, and Flyway refuses the file on its own, but only inside
+     * {@code migrate()}: after the pre-migration snapshot, which would take a place
+     * among the kept backups for a database that is not ours, and as an exception
+     * the client cannot name. Checked here, before both.
+     * <p>
+     * A database that could not be read is left to {@code migrate()} to report.
+     */
+    private void refuseDatabaseWithoutHistory(String historyTable) {
+        int objects;
+        int history;
+        try (Connection connection = dataSource.getConnection();
+                PreparedStatement statement = connection.prepareStatement(
+                        "SELECT count(*), coalesce(sum(type = 'table' AND name = ?), 0) FROM sqlite_master;")) {
+            statement.setString(1, historyTable);
+            try (ResultSet rs = statement.executeQuery()) {
+                if (!rs.next()) {
+                    return;
+                }
+                objects = rs.getInt(1);
+                history = rs.getInt(2);
+            }
+        } catch (SQLException e) {
+            log.warn("{} Could not tell whether the database has a migration history: {}", LogCategory.DATABASE,
+                    e.getMessage());
+            return;
+        }
+        if (objects == 0 || history > 0) {
+            return;
+        }
+        log.error("{} The database holds {} schema object(s) and no migration history table ({}): it was not "
+                + "created by this application.", LogCategory.DATABASE, objects, historyTable);
+        AuditLog.critical("db_without_migration_history", "system", "objects=" + objects);
+        AuditLog.critical("startup_health_gate_failed", "system", "db_without_migration_history");
+        throw new StartupFailure(Reason.DATABASE_DAMAGED,
+                "Application failed to start: the database file has tables but no migration history, so it is not "
+                        + "one this application created. Restore the latest backup-pre-v* snapshot, or move the "
+                        + "database aside to start with an empty one (" + RUNBOOK + ").",
+                null);
     }
 
     /**

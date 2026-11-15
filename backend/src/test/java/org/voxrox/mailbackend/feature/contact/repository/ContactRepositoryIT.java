@@ -208,27 +208,6 @@ class ContactRepositoryIT {
                 "b@x.cz", "c@x.cz");
     }
 
-    @Test
-    @DisplayName("findByAnyEmail — finds the contact by any email")
-    void findByAnyEmail() {
-        ContactEntity c = newContact("primary@x.cz", "Alice", null);
-        ContactEmailEntity second = new ContactEmailEntity();
-        second.setEmail("secondary@x.cz");
-        second.setLabel(EmailLabel.HOME);
-        second.setPrimary(false);
-        second.setContact(c);
-        c.getEmails().add(second);
-        contactRepository.saveAndFlush(c);
-        em.clear();
-
-        List<ContactEntity> byPrimary = contactRepository.findByAnyEmail("primary@x.cz");
-        List<ContactEntity> bySecondary = contactRepository.findByAnyEmail("secondary@x.cz");
-
-        assertThat(byPrimary).hasSize(1);
-        assertThat(bySecondary).hasSize(1);
-        assertThat(bySecondary.get(0).getId()).isEqualTo(byPrimary.get(0).getId());
-    }
-
     @Nested
     @DisplayName("Contact counts")
     class Counts {
@@ -280,52 +259,6 @@ class ContactRepositoryIT {
             assertThat(counts).containsExactlyInAnyOrder(new ContactLabelCount(family.getId(), 2L),
                     new ContactLabelCount(clients.getId(), 1L));
         }
-    }
-
-    @Test
-    @DisplayName("setPrimaryEmail promoting a lower-id email must not violate the one-primary index")
-    void setPrimaryEmailPromotesLowerId() {
-        // Two emails; the CURRENT primary is the higher-id one. 'low' is inserted
-        // first so it gets the lower AUTOINCREMENT id. A single-pass flag swap would
-        // flush the lower-id promote (->primary) before the higher-id demote
-        // (->non-primary), producing a transient two-primaries state that the partial
-        // unique index ux_contact_emails_contact_primary rejects.
-        ContactEntity c = new ContactEntity();
-        LocalDateTime now = LocalDateTime.now();
-        c.setCreatedAt(now);
-        c.setUpdatedAt(now);
-        ContactEmailEntity low = new ContactEmailEntity();
-        low.setEmail("low@x.cz");
-        low.setPrimary(false);
-        low.setContact(c);
-        ContactEmailEntity high = new ContactEmailEntity();
-        high.setEmail("high@x.cz");
-        high.setPrimary(true);
-        high.setContact(c);
-        c.getEmails().add(low);
-        c.getEmails().add(high);
-        ContactEntity saved = contactRepository.saveAndFlush(c);
-        Long contactId = saved.getId();
-        Long lowId = saved.getEmails().stream().filter(e -> "low@x.cz".equals(e.getEmail())).findFirst().orElseThrow()
-                .getId();
-        em.clear();
-
-        AccountService accountService = mock(AccountService.class);
-        when(accountService.getAccountOrThrow(account.getId())).thenReturn(account);
-        ContactLabelService labelService = new ContactLabelService(labelRepository, contactRepository);
-        ContactService service = new ContactService(contactRepository, labelRepository, labelService,
-                mock(CorrespondentService.class), accountService, new ContactMapper());
-
-        // Called directly (no @Transactional proxy), so setPrimaryEmail joins the
-        // test's transaction and its final change flushes here rather than on commit.
-        // The flush is where a single-pass swap would trip the partial unique index.
-        assertThatCode(() -> {
-            service.setPrimaryEmail(contactId, lowId);
-            em.flush();
-        }).doesNotThrowAnyException();
-
-        em.clear();
-        assertThat(primaryEmail(contactRepository.findById(contactId).orElseThrow())).isEqualTo("low@x.cz");
     }
 
     @Test

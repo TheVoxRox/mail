@@ -39,7 +39,6 @@ import org.voxrox.mailbackend.core.config.mail.SyncProperties;
 import org.voxrox.mailbackend.core.security.InternalApiKeyProvider;
 import org.voxrox.mailbackend.exception.ContactNotFoundException;
 import org.voxrox.mailbackend.exception.DuplicateContactException;
-import org.voxrox.mailbackend.exception.ResourceNotFoundException;
 import org.voxrox.mailbackend.exception.ValidationException;
 import org.voxrox.mailbackend.feature.contact.EmailLabel;
 import org.voxrox.mailbackend.feature.contact.dto.BulkContactCreateRequest;
@@ -289,98 +288,6 @@ class ContactControllerTest {
 
         mockMvc.perform(delete("/api/v1/contacts/{cid}", CONTACT_ID)).andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.errorCode").value("CONTACT_NOT_FOUND"));
-    }
-
-    @Test
-    @DisplayName("POST /{cid}/emails -> 201 with the added address")
-    void addEmail() throws Exception {
-        var req = new ContactEmailRequest("new@x.cz", EmailLabel.HOME);
-        when(contactService.addEmail(eq(CONTACT_ID), any()))
-                .thenReturn(new ContactEmailResponse(7L, "new@x.cz", EmailLabel.HOME, false));
-
-        mockMvc.perform(post("/api/v1/contacts/{cid}/emails", CONTACT_ID).contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(req))).andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(7)).andExpect(jsonPath("$.email").value("new@x.cz"))
-                .andExpect(jsonPath("$.label").value("HOME")).andExpect(jsonPath("$.primary").value(false));
-    }
-
-    @Test
-    @DisplayName("POST /{cid}/emails duplicate → 409")
-    void addEmailDuplicate() throws Exception {
-        var req = new ContactEmailRequest("dup@x.cz", null);
-        when(contactService.addEmail(eq(CONTACT_ID), any())).thenThrow(new DuplicateContactException("dup@x.cz"));
-
-        mockMvc.perform(post("/api/v1/contacts/{cid}/emails", CONTACT_ID).contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(req))).andExpect(status().isConflict())
-                .andExpect(jsonPath("$.errorCode").value("CONTACT_DUPLICATE"));
-    }
-
-    @Test
-    @DisplayName("POST /{cid}/emails with an invalid body -> 400")
-    void addEmailInvalidBody() throws Exception {
-        var bad = new ContactEmailRequest("not-an-email", null);
-
-        mockMvc.perform(post("/api/v1/contacts/{cid}/emails", CONTACT_ID).contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(bad))).andExpect(status().isBadRequest());
-    }
-
-    @Test
-    @DisplayName("DELETE /{cid}/emails/{eid} → 204")
-    void deleteEmail() throws Exception {
-        mockMvc.perform(delete("/api/v1/contacts/{cid}/emails/{eid}", CONTACT_ID, 3L))
-                .andExpect(status().isNoContent());
-
-        verify(contactService).deleteEmail(CONTACT_ID, 3L);
-    }
-
-    @Test
-    @DisplayName("DELETE /{cid}/emails/{eid} last -> 400 VALIDATION_ERROR")
-    void deleteEmailLast() throws Exception {
-        org.mockito.Mockito.doThrow(new ValidationException("Contact must have at least one email address.",
-                "validation.contact.emailRequired")).when(contactService).deleteEmail(CONTACT_ID, 1L);
-
-        mockMvc.perform(delete("/api/v1/contacts/{cid}/emails/{eid}", CONTACT_ID, 1L))
-                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"));
-    }
-
-    @Test
-    @DisplayName("DELETE /{cid}/emails/{eid} not found -> 404 RESOURCE_NOT_FOUND")
-    void deleteEmailMissing() throws Exception {
-        org.mockito.Mockito.doThrow(new ResourceNotFoundException("Email with ID 999 for contact 42 was not found.",
-                "error.contact.emailNotFound")).when(contactService).deleteEmail(CONTACT_ID, 999L);
-
-        mockMvc.perform(delete("/api/v1/contacts/{cid}/emails/{eid}", CONTACT_ID, 999L))
-                .andExpect(status().isNotFound()).andExpect(jsonPath("$.errorCode").value("RESOURCE_NOT_FOUND"));
-    }
-
-    @Test
-    @DisplayName("PATCH /{cid}/emails/{eid}/primary -> 200 with the updated contact")
-    void setPrimaryEmail() throws Exception {
-        ContactResponse resp = new ContactResponse(CONTACT_ID,
-                List.of(new ContactEmailResponse(1L, "a@x.cz", EmailLabel.WORK, false),
-                        new ContactEmailResponse(2L, "b@x.cz", EmailLabel.HOME, true)),
-                List.of(), "Alice", "Liddell", null, LocalDateTime.now(), LocalDateTime.now());
-        when(contactService.setPrimaryEmail(CONTACT_ID, 2L)).thenReturn(resp);
-
-        mockMvc.perform(patch("/api/v1/contacts/{cid}/emails/{eid}/primary", CONTACT_ID, 2L)).andExpect(status().isOk())
-                .andExpect(jsonPath("$.emails[0].primary").value(false))
-                .andExpect(jsonPath("$.emails[1].primary").value(true));
-    }
-
-    @Test
-    @DisplayName("PATCH /{cid}/emails/{eid}/primary non-existing emailId -> 404")
-    void setPrimaryEmailMissing() throws Exception {
-        when(contactService.setPrimaryEmail(CONTACT_ID, 999L)).thenThrow(new ResourceNotFoundException(
-                "Email with ID 999 for contact 42 was not found.", "error.contact.emailNotFound"));
-
-        mockMvc.perform(patch("/api/v1/contacts/{cid}/emails/{eid}/primary", CONTACT_ID, 999L))
-                .andExpect(status().isNotFound()).andExpect(jsonPath("$.errorCode").value("RESOURCE_NOT_FOUND"));
-    }
-
-    @Test
-    @DisplayName("DELETE /{cid}/emails/{eid} with emailId=0 -> 400 @Positive")
-    void deleteEmailInvalidId() throws Exception {
-        mockMvc.perform(delete("/api/v1/contacts/{cid}/emails/0", CONTACT_ID)).andExpect(status().isBadRequest());
     }
 
     @Test

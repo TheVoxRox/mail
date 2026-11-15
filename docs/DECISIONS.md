@@ -87,6 +87,25 @@ the database key sealed by the existing `SecretStore`/DPAPI.
 
 **Revisit when:** the appetite for protecting data at rest changes.
 
+### A database without a migration history is refused
+
+**Decided 2026-11-14** (#908). `spring.flyway.baseline-on-migrate` is off, and
+`DatabaseConfig` refuses, before the pre-migration snapshot, a `mail.db` that
+holds tables but no Flyway history table: exit code 65 with
+`db_without_migration_history` in the audit log, the same way out as a damaged
+database ([OPERATIONS.md](../backend/OPERATIONS.md), "Damaged database").
+
+Why: baselining was a leftover from when Hibernate created the schema. Every
+database the application creates has the history table from its first start,
+so the setting could only ever apply to a file the application did not make,
+and there it marked the file "V1 applied" and started over a schema it knew
+nothing about, with the errors arriving at run time. Refusing first also keeps
+such a file out of the three kept backups, where it would have pushed out a
+real one.
+
+**Revisit when:** importing a database made by another tool becomes a feature.
+That needs its own path with a schema check, not baselining.
+
 ### The desktop shortcut is always created
 
 **Decided 2026-09-07** while revising the release checklist (#418). The

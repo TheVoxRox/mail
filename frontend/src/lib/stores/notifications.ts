@@ -104,16 +104,7 @@ export function handleStreamNotification(event: StreamNotification): void {
 	}
 	if (event.type === 'sync_failed' || event.type === 'sync_recovered') {
 		void handleSyncStatus(event as SyncStatusNotification);
-		return;
 	}
-	/*
-	 * Any other whitelisted event (currently only `thread_updated`) has no
-	 * consumer. Ignore it — previously it fell through to
-	 * handleSyncCompleted, which set `lastSync` to a payload with an undefined
-	 * folder/count (breaking the "last sync" render) and fired a spurious
-	 * refreshFolders on every thread-membership change. The conversation
-	 * listing refreshes on `sync_completed`, which follows every sync.
-	 */
 }
 
 /**

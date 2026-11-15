@@ -26,18 +26,15 @@ type Listener = (event: StreamNotification) => void;
 type ErrorListener = (err: Error) => void;
 type OpenListener = () => void;
 
-// `thread_updated` is whitelisted so the SSE client does not drop the event
-// payload at parse time. Nothing in the UI consumes it: the notifications
-// store discards it, and the conversation listing refreshes on
-// `sync_completed` instead.
+// An event of any other type is dropped before it is parsed, so the listeners
+// only ever see a StreamNotification.
 const KNOWN_EVENT_TYPES = new Set([
 	'sync_completed',
 	'sync_cycle_completed',
 	'sync_failed',
 	'sync_recovered',
 	'send_completed',
-	'send_failed',
-	'thread_updated'
+	'send_failed'
 ]);
 const INITIAL_BACKOFF_MS = 1000;
 const MAX_BACKOFF_MS = 30_000;

@@ -6,7 +6,6 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -25,10 +24,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.slf4j.LoggerFactory;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
-import org.voxrox.mailbackend.feature.mail.dto.ThreadUpdated;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.feature.mail.entity.MessageReferenceEntity;
 import org.voxrox.mailbackend.feature.mail.repository.MessageReferenceRepository;
@@ -51,7 +47,6 @@ class ThreadingServiceTest {
 
     private MessageRepository repo;
     private MessageReferenceRepository refRepo;
-    private SseNotificationService sse;
     private ThreadingService service;
     private Map<String, List<MessageEntity>> messagesByMessageId;
     private Map<String, Integer> maxPositionByThreadId;
@@ -60,8 +55,7 @@ class ThreadingServiceTest {
     void setUp() {
         repo = mock(MessageRepository.class);
         refRepo = mock(MessageReferenceRepository.class);
-        sse = mock(SseNotificationService.class);
-        service = new ThreadingService(repo, refRepo, sse);
+        service = new ThreadingService(repo, refRepo);
         messagesByMessageId = new HashMap<>();
         maxPositionByThreadId = new HashMap<>();
 
@@ -112,7 +106,6 @@ class ThreadingServiceTest {
             assertThat(msg.getThreadId()).isNotNull();
             assertThat(msg.getThreadRootMessageId()).isEqualTo("<m1@example.com>");
             assertThat(msg.getThreadPosition()).isEqualTo(1);
-            verify(sse, never()).broadcast(any(ThreadUpdated.class));
         }
 
         @Test
@@ -145,7 +138,6 @@ class ThreadingServiceTest {
             assertThat(child.getThreadId()).isEqualTo(parent.getThreadId());
             assertThat(child.getThreadRootMessageId()).isEqualTo("<p1@example.com>");
             assertThat(child.getThreadPosition()).isEqualTo(2);
-            verify(sse).broadcast(any(ThreadUpdated.class));
         }
 
         @Test
@@ -341,8 +333,7 @@ class ThreadingServiceTest {
             // ...but step 4 reconciles: the orphan thread (just-created
             // allMail's own thread) merges into inbox's thread because both
             // share the same Message-ID. The repository stub returns no
-            // orphan ids by default, so verify by counting broadcast events
-            // — at least one fires if a merge happens.
+            // orphan ids by default, so the merge itself is not seen here.
             //
             // For this test we verify the simpler invariant: a child of the
             // shared Message-ID lands in inbox's thread.
@@ -382,8 +373,6 @@ class ThreadingServiceTest {
             service.assignThread(parent, ACCOUNT);
 
             assertThat(reassignCalls.get()).isEqualTo(1);
-            // thread_updated should have fired (the orphan merge).
-            verify(sse, atLeastOnce()).broadcast(any(ThreadUpdated.class));
         }
 
         @Test
@@ -519,60 +508,6 @@ class ThreadingServiceTest {
     }
 
     @Nested
-    @DisplayName("SSE broadcast deferral")
-    class BroadcastDeferral {
-
-        /**
-         * assignThread runs inside MessageDownloader's batch transaction. The
-         * thread_updated event must not reach the wire until that transaction commits —
-         * otherwise a client could refetch the thread before the rows are visible (a
-         * stale read). With an active synchronization the broadcast is registered and
-         * only fires on afterCommit.
-         */
-        @Test
-        @DisplayName("thread_updated is held until the transaction commits, not fired inline")
-        void broadcastDeferredUntilAfterCommit() {
-            TransactionSynchronizationManager.initSynchronization();
-            try {
-                MessageEntity parent = newMessage("<p1@example.com>", null, null);
-                service.assignThread(parent, ACCOUNT); // startNewThread — no broadcast
-                register(parent);
-
-                MessageEntity child = newMessage("<c1@example.com>", "<p1@example.com>", null);
-                service.assignThread(child, ACCOUNT); // attaches — schedules a broadcast
-
-                // Inside the transaction nothing has been broadcast yet.
-                verify(sse, never()).broadcast(any(ThreadUpdated.class));
-
-                // Commit: every registered synchronization fires.
-                for (TransactionSynchronization sync : TransactionSynchronizationManager.getSynchronizations()) {
-                    sync.afterCommit();
-                }
-                verify(sse).broadcast(any(ThreadUpdated.class));
-            } finally {
-                TransactionSynchronizationManager.clearSynchronization();
-            }
-        }
-
-        /**
-         * Outside a transaction (a plain unit-test or non-transactional caller) the
-         * broadcast falls back to firing inline, so existing behaviour is preserved.
-         */
-        @Test
-        @DisplayName("Without an active transaction the broadcast fires inline")
-        void broadcastInlineWithoutTransaction() {
-            MessageEntity parent = newMessage("<p1@example.com>", null, null);
-            service.assignThread(parent, ACCOUNT);
-            register(parent);
-
-            MessageEntity child = newMessage("<c1@example.com>", "<p1@example.com>", null);
-            service.assignThread(child, ACCOUNT);
-
-            verify(sse).broadcast(any(ThreadUpdated.class));
-        }
-    }
-
-    @Nested
     @DisplayName("References-only reconciliation (message_reference index)")
     class ReferencesOnlyReconciliation {
 
@@ -597,7 +532,6 @@ class ThreadingServiceTest {
 
             verify(repo).reassignThreads(eq(ACCOUNT_ID), eq(List.of(orphanThreadId)), anyString(),
                     eq("<late-parent@example.com>"));
-            verify(sse, atLeastOnce()).broadcast(any(ThreadUpdated.class));
         }
 
         @Test

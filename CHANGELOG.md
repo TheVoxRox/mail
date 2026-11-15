@@ -19,8 +19,34 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Backend
+
+- A folder name can no longer stall an account. To show the folder hierarchy
+  the backend looked up each folder's nearest listed ancestor, and that lookup
+  cost the square of the name's length: a mail server listing a folder whose
+  name is megabytes of delimiters kept the account's folder list and sync
+  waiting, and a core busy, for hours. A name over 1000 characters, or an
+  ancestor more than 64 levels up, is no longer looked for, and such a folder
+  is listed at the top level (audit B1-27, Low).
+- A `mail.db` that has tables but no migration history is refused at start,
+  with exit code 65 and the damaged-database message. Flyway used to be told
+  to accept such a file as already migrated, a leftover from when Hibernate
+  created the schema, and the application then ran over a schema it had not
+  made. Every database the application creates has the history from its first
+  start, so no existing installation is affected.
+- The notification stream no longer sends `thread_updated`. The backend sent
+  one for every message that joined a conversation, many of them during a
+  first sync, and the client discarded each: its listing reloads on
+  `sync_completed`. Three contact endpoints the client never called are gone
+  too (add, delete and promote a single address); a contact's addresses are
+  still edited as a whole.
+
 ### Repo
 
+- The IMAP/SMTP and API audits are re-verified against `22132a8`, clearing
+  ten acknowledgements; the pass found B1-27 above. The fix and the removals
+  it took with it (#908, #909) wait for an independent pass, as each audit and
+  the ledger say (#912).
 - `backend/OPERATIONS.md` describes the two maintenance endpoints,
   `threading/recompute` and `correspondent/rebuild`: what each repairs, why a
   start cannot do the second, and that a rebuild brings back addresses the

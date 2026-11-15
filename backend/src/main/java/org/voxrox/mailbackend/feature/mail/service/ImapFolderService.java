@@ -27,6 +27,20 @@ import module java.base;
 @Service
 public class ImapFolderService {
     private static final Logger log = LoggerFactory.getLogger(ImapFolderService.class);
+
+    /**
+     * The longest folder name whose ancestors are looked up. A path a person made
+     * is tens of characters; a LIST response may carry a name of megabytes, and the
+     * lookup costs the square of its length (audit B1-27).
+     */
+    static final int MAX_HIERARCHY_NAME_CHARS = 1000;
+
+    /**
+     * How many delimiters up from a folder its nearest listed ancestor is looked
+     * for. With {@link #MAX_HIERARCHY_NAME_CHARS} it bounds what one folder costs,
+     * so a listing costs in proportion to its size.
+     */
+    static final int MAX_HIERARCHY_LEVELS = 64;
     private final ImapConnectionManager imapConnectionManager;
     private final ImapFolderExecutor imapFolderExecutor;
     private final FolderSyncStateRepository folderSyncStateRepository;
@@ -184,6 +198,13 @@ public class ImapFolderService {
      * <p>
      * A server without hierarchy reports no delimiter (NIL), which Angus returns as
      * {@code '\0'}: no name contains it, so every folder is top-level.
+     *
+     * <p>
+     * The walk is bounded twice, because the name is the server's and each step
+     * copies and hashes a prefix of it (audit B1-27): a name longer than
+     * {@link #MAX_HIERARCHY_NAME_CHARS} is not walked at all, and no name is walked
+     * more than {@link #MAX_HIERARCHY_LEVELS} delimiters up. Either way the folder
+     * is shown at the top level, as it is when no ancestor is listed.
      */
     private @Nullable String parentRef(Folder folder, Map<String, String> listedRefs) {
         char delimiter;
@@ -197,7 +218,13 @@ public class ImapFolderService {
             return null;
         }
         String fullName = folder.getFullName();
-        for (int cut = fullName.lastIndexOf(delimiter); cut > 0; cut = fullName.lastIndexOf(delimiter, cut - 1)) {
+        if (fullName.length() > MAX_HIERARCHY_NAME_CHARS) {
+            return null;
+        }
+        int levels = 0;
+        for (int cut = fullName.lastIndexOf(delimiter); cut > 0
+                && levels < MAX_HIERARCHY_LEVELS; cut = fullName.lastIndexOf(delimiter, cut - 1)) {
+            levels++;
             String ancestor = listedRefs.get(canonicalInbox(fullName.substring(0, cut)));
             if (ancestor != null) {
                 return ancestor;

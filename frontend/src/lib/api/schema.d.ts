@@ -468,66 +468,6 @@ export interface paths {
 		patch: operations['patchContact'];
 		trace?: never;
 	};
-	'/api/v1/contacts/{contactId}/emails': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		get?: never;
-		put?: never;
-		/**
-		 * Add an e-mail address to a contact
-		 * @description Adds a new address without touching the primary flag of the others. The new e-mail only becomes primary if the contact had no address before.
-		 */
-		post: operations['addEmail'];
-		delete?: never;
-		options?: never;
-		head?: never;
-		patch?: never;
-		trace?: never;
-	};
-	'/api/v1/contacts/{contactId}/emails/{emailId}': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		get?: never;
-		put?: never;
-		post?: never;
-		/**
-		 * Delete an e-mail address from a contact
-		 * @description If the primary address is being deleted, the first remaining one (by ID) is promoted. The last address cannot be deleted — a contact must have at least one.
-		 */
-		delete: operations['deleteEmail'];
-		options?: never;
-		head?: never;
-		patch?: never;
-		trace?: never;
-	};
-	'/api/v1/contacts/{contactId}/emails/{emailId}/primary': {
-		parameters: {
-			query?: never;
-			header?: never;
-			path?: never;
-			cookie?: never;
-		};
-		get?: never;
-		put?: never;
-		post?: never;
-		delete?: never;
-		options?: never;
-		head?: never;
-		/**
-		 * Mark an address as primary
-		 * @description Marks the chosen address as primary; the other addresses of the contact have their primary flag cleared.
-		 */
-		patch: operations['setPrimaryEmail'];
-		trace?: never;
-	};
 	'/api/v1/contacts/{targetId}/merge': {
 		parameters: {
 			query?: never;
@@ -821,7 +761,7 @@ export interface paths {
 		};
 		/**
 		 * SSE notification stream
-		 * @description Opens a Server-Sent Events stream. The server emits one of: `sync_completed` (after a folder sync produced new messages), `sync_cycle_completed` (a user-triggered whole-account sync pass finished, whatever it found; scheduled passes stay silent), `sync_failed` / `sync_recovered` (the account's standing sync error changed; emitted on the transition only, payload carries the AccountLastErrorCode in `errorCode`, null on recovery), `send_completed` (asynchronous SMTP send finished successfully), `send_failed` (asynchronous SMTP send failed; payload carries the AccountLastErrorCode in `errorCode`), or `thread_updated` (a conversation gained a message or two orphan chains merged). A heartbeat comment is emitted every 30 s so intermediaries do not close the connection.
+		 * @description Opens a Server-Sent Events stream. The server emits one of: `sync_completed` (after a folder sync produced new messages), `sync_cycle_completed` (a user-triggered whole-account sync pass finished, whatever it found; scheduled passes stay silent), `sync_failed` / `sync_recovered` (the account's standing sync error changed; emitted on the transition only, payload carries the AccountLastErrorCode in `errorCode`, null on recovery), `send_completed` (asynchronous SMTP send finished successfully), or `send_failed` (asynchronous SMTP send failed; payload carries the AccountLastErrorCode in `errorCode`). A heartbeat comment is emitted every 30 s so intermediaries do not close the connection.
 		 */
 		get: operations['streamNotifications'];
 		put?: never;
@@ -1374,7 +1314,7 @@ export interface components {
 			/** @description Stable message identifier for the REST API. The client uses it for message detail and message actions. */
 			stableId?: string;
 			subject?: string;
-			/** @description Conversation identifier — every message of the same thread shares it. Null only until the threading backfill has processed the message (see /api/internal/threading/recompute). Frontends MAY group rows by this id; the V0.1.0 desktop client ignores it. */
+			/** @description Conversation identifier — every message of the same thread shares it. Null only until the threading backfill has processed the message (see /api/internal/threading/recompute). The desktop client groups rows by this id when the listing is set to conversations. */
 			threadId?: string | null;
 		};
 		MoveRequest: {
@@ -1578,12 +1518,6 @@ export interface components {
 			 * @description Unread messages of the conversation. With folderRef only those in that folder (matching the row's unreadCount); otherwise all unseen members.
 			 */
 			unreadCount?: number;
-		};
-		ThreadUpdated: {
-			/** Format: int64 */
-			accountId?: number;
-			threadId?: string;
-			type?: string;
 		};
 	};
 	responses: never;
@@ -3297,192 +3231,6 @@ export interface operations {
 			};
 		};
 	};
-	addEmail: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				contactId: number;
-			};
-			cookie?: never;
-		};
-		requestBody: {
-			content: {
-				'application/json': components['schemas']['ContactEmailRequest'];
-			};
-		};
-		responses: {
-			/** @description Created */
-			201: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactEmailResponse'];
-				};
-			};
-			/** @description Invalid input (validation error). */
-			400: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Contact does not exist (CONTACT_NOT_FOUND). */
-			404: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactEmailResponse'];
-				};
-			};
-			/** @description The e-mail is already used by another contact or by this contact (CONTACT_DUPLICATE). */
-			409: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactEmailResponse'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	deleteEmail: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				contactId: number;
-				emailId: number;
-			};
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description No Content */
-			204: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-			/** @description Attempted to delete the last address of a contact (VALIDATION_ERROR). */
-			400: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Contact or address does not exist (CONTACT_NOT_FOUND / RESOURCE_NOT_FOUND). */
-			404: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	setPrimaryEmail: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				contactId: number;
-				emailId: number;
-			};
-			cookie?: never;
-		};
-		requestBody?: never;
-		responses: {
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Contact or address does not exist (CONTACT_NOT_FOUND / RESOURCE_NOT_FOUND). */
-			404: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactResponse'];
-				};
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
 	mergeContacts: {
 		parameters: {
 			query?: never;
@@ -4307,8 +4055,7 @@ export interface operations {
 						| components['schemas']['SyncNotification']
 						| components['schemas']['SyncCycleNotification']
 						| components['schemas']['SyncStatusNotification']
-						| components['schemas']['SendNotification']
-						| components['schemas']['ThreadUpdated'];
+						| components['schemas']['SendNotification'];
 				};
 			};
 			/** @description Missing or invalid X-API-KEY. */

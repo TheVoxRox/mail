@@ -174,7 +174,7 @@ busy_timeout=5000
 cache_size=-20000
 ```
 
-On startup, before Flyway reads or migrates anything, the backend runs `PRAGMA quick_check`. A damaged file (a result other than `ok`, or a file SQLite refuses as not a database) fails the start with exit code 65 and writes `db_corruption_detected` into the audit log; a damaged database is therefore never snapshotted or migrated. A database that cannot be opened at all (a full disk, missing permissions, a file another process holds) fails with exit code 74. See "Damaged database" below and the exit code table in "Sidecar startup failures".
+On startup, before Flyway reads or migrates anything, the backend runs `PRAGMA quick_check`. A damaged file (a result other than `ok`, or a file SQLite refuses as not a database) fails the start with exit code 65 and writes `db_corruption_detected` into the audit log; a damaged database is therefore never snapshotted or migrated. A database that cannot be opened at all (a full disk, missing permissions, a file another process holds) fails with exit code 74. A file that is a sound database but holds tables and no Flyway history table was not created by this application: it also fails with exit code 65, with `db_without_migration_history` in the audit log, before any snapshot of it is taken, and the way out is the same. See "Damaged database" below and the exit code table in "Sidecar startup failures".
 
 A safe backup:
 

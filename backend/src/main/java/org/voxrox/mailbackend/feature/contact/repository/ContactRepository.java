@@ -63,21 +63,6 @@ public interface ContactRepository extends JpaRepository<ContactEntity, Long> {
     Page<ContactEntity> search(@Param("q") String q, @Param("labelId") @Nullable Long labelId, Pageable pageable);
 
     /**
-     * Finds contacts that have {@code email} among their addresses. Used for the
-     * duplicate check before saving. Returns List instead of Optional — uniqueness
-     * is enforced only at the application level, so if data leaks in through
-     * another channel (manual SQL, future import), a duplicate must not blow up
-     * with {@link org.springframework.dao.IncorrectResultSizeDataAccessException}.
-     * Callers use {@code stream().findFirst()}.
-     */
-    @Query("""
-            SELECT c FROM ContactEntity c
-            JOIN c.emails e
-            WHERE e.email = :email
-            """)
-    List<ContactEntity> findByAnyEmail(@Param("email") String email);
-
-    /**
      * Batch variant of the duplicate check for create/update/patch contact. Returns
      * contacts that have at least one of the given emails; emails are fetched via
      * entity graph so the service does not have to issue further lazy queries to
