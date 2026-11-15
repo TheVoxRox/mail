@@ -110,6 +110,19 @@ class DatabaseRecoveryTest {
     }
 
     @Test
+    @DisplayName("a database with tables and no migration history is refused, before any backup of it")
+    void databaseWithoutHistoryIsRefused() throws Exception {
+        createForeignTable();
+
+        assertThatThrownBy(() -> start("1.0.0")).isInstanceOfSatisfying(StartupFailure.class,
+                failure -> assertThat(failure.reason()).isEqualTo(Reason.DATABASE_DAMAGED));
+
+        // Nothing of ours was added to it, and it took no place among the backups.
+        assertThat(tables()).containsExactly("foreign_table");
+        assertThat(backups()).isEmpty();
+    }
+
+    @Test
     @DisplayName("the OPERATIONS.md restore brings a damaged database back from the pre-migration backup")
     void restoreFromPreMigrationBackup() throws Exception {
         start("1.0.0");
@@ -149,8 +162,7 @@ class DatabaseRecoveryTest {
             DatabaseBackupService backupService = new DatabaseBackupService(new StorageProperties(dataDir.toString()),
                     new BackupProperties(3), appVersion, dataSource);
             Flyway flyway = Flyway.configure().dataSource(dataSource)
-                    .locations("filesystem:" + migrationDir.toAbsolutePath()).baselineOnMigrate(true)
-                    .baselineVersion("1").load();
+                    .locations("filesystem:" + migrationDir.toAbsolutePath()).load();
             new DatabaseConfig(dataSource, new StartupTimingService()).preMigrationBackupStrategy(backupService)
                     .migrate(flyway);
         }
@@ -195,6 +207,29 @@ class DatabaseRecoveryTest {
             assertThat(pages).as("database pages to damage").isGreaterThan(8);
             file.seek((pages / 2) * pageSize);
             file.write(noise);
+        }
+    }
+
+    /** A table made by something other than this application's migrations. */
+    private void createForeignTable() throws SQLException {
+        try (HikariDataSource dataSource = pool();
+                Connection connection = dataSource.getConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE foreign_table (id INTEGER PRIMARY KEY);");
+        }
+    }
+
+    private List<String> tables() throws SQLException {
+        try (HikariDataSource dataSource = pool();
+                Connection connection = dataSource.getConnection();
+                Statement statement = connection.createStatement();
+                ResultSet rs = statement
+                        .executeQuery("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")) {
+            List<String> names = new java.util.ArrayList<>();
+            while (rs.next()) {
+                names.add(rs.getString(1));
+            }
+            return names;
         }
     }
 

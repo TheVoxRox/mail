@@ -28,8 +28,6 @@ import org.voxrox.mailbackend.feature.contact.dto.BulkContactDeleteResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactAutocompleteResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactCountsResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactCreateRequest;
-import org.voxrox.mailbackend.feature.contact.dto.ContactEmailRequest;
-import org.voxrox.mailbackend.feature.contact.dto.ContactEmailResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactMergeRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactPatchRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactResponse;
@@ -234,36 +232,5 @@ public class ContactController {
             @Valid @RequestBody ContactMergeRequest request) {
         log.info("{} Merge contacts target={} sources={}", LogCategory.API, targetId, request.source().size());
         return contactService.merge(targetId, request);
-    }
-
-    @Operation(summary = "Add an e-mail address to a contact", description = "Adds a new address without touching the primary flag of the others. The new e-mail only becomes primary if the contact had no address before.")
-    @ApiResponses({@ApiResponse(responseCode = "404", description = "Contact does not exist (CONTACT_NOT_FOUND)."),
-            @ApiResponse(responseCode = "409", description = "The e-mail is already used by another contact or by this contact (CONTACT_DUPLICATE).")})
-    @PostMapping("/{contactId}/emails")
-    @ResponseStatus(HttpStatus.CREATED)
-    public ContactEmailResponse addEmail(@PathVariable @Positive(message = "{validation.positive}") Long contactId,
-            @Valid @RequestBody ContactEmailRequest request) {
-        log.info("{} Adding e-mail to contact {}", LogCategory.API, contactId);
-        return contactService.addEmail(contactId, request);
-    }
-
-    @Operation(summary = "Delete an e-mail address from a contact", description = "If the primary address is being deleted, the first remaining one (by ID) is promoted. The last address cannot be deleted — a contact must have at least one.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "400", description = "Attempted to delete the last address of a contact (VALIDATION_ERROR)."),
-            @ApiResponse(responseCode = "404", description = "Contact or address does not exist (CONTACT_NOT_FOUND / RESOURCE_NOT_FOUND).")})
-    @DeleteMapping("/{contactId}/emails/{emailId}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteEmail(@PathVariable @Positive(message = "{validation.positive}") Long contactId,
-            @PathVariable @Positive(message = "{validation.positive}") Long emailId) {
-        contactService.deleteEmail(contactId, emailId);
-    }
-
-    @Operation(summary = "Mark an address as primary", description = "Marks the chosen address as primary; the other addresses of the contact have their primary flag cleared.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "404", description = "Contact or address does not exist (CONTACT_NOT_FOUND / RESOURCE_NOT_FOUND).")})
-    @PatchMapping("/{contactId}/emails/{emailId}/primary")
-    public ContactResponse setPrimaryEmail(@PathVariable @Positive(message = "{validation.positive}") Long contactId,
-            @PathVariable @Positive(message = "{validation.positive}") Long emailId) {
-        return contactService.setPrimaryEmail(contactId, emailId);
     }
 }

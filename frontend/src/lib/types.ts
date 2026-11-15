@@ -542,20 +542,6 @@ export interface SendNotification {
 }
 
 /**
- * Payload of the `thread_updated` event. Emitted when the membership of a
- * conversation changes — a new message landed in the thread, or a
- * late-arriving parent caused two orphan chains to merge. The payload is
- * intentionally minimal: the frontend refetches the affected thread (or
- * the surrounding folder listing) to get the new state. The UI does not
- * act on this event — it refreshes on `sync_completed`.
- */
-export interface ThreadUpdated {
-	type: 'thread_updated';
-	threadId: string;
-	accountId: number;
-}
-
-/**
  * Payload of the `sync_failed` / `sync_recovered` events — the account's
  * standing sync error started, changed kind, or cleared.
  *
@@ -563,7 +549,7 @@ export interface ThreadUpdated {
  * five minutes, so a per-pass event would notify that often for as long as a
  * server stays unreachable.
  *
- * Like {@link ThreadUpdated} the payload is minimal. The message placeholders
+ * The payload is minimal. The message placeholders
  * (folder, error class, detail) live in the account's `lastErrorArgs`, so the
  * client refetches accounts instead of carrying a second copy here — the
  * notification and Settings → Accounts then cannot disagree about the same
@@ -580,8 +566,4 @@ export interface SyncStatusNotification {
 
 /** Any event delivered over `/notifications/stream`. */
 export type StreamNotification =
-	| SyncNotification
-	| SyncCycleNotification
-	| SyncStatusNotification
-	| SendNotification
-	| ThreadUpdated;
+	SyncNotification | SyncCycleNotification | SyncStatusNotification | SendNotification;

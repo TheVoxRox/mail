@@ -14,14 +14,12 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
-import org.voxrox.mailbackend.feature.mail.dto.ThreadUpdated;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.feature.mail.entity.MessageReferenceEntity;
 import org.voxrox.mailbackend.feature.mail.repository.MessageReferenceRepository;
 import org.voxrox.mailbackend.feature.mail.repository.MessageRepository;
 import org.voxrox.mailbackend.util.LogCategory;
 import org.voxrox.mailbackend.util.SubjectNormalizer;
-import org.voxrox.mailbackend.util.TransactionCallbacks;
 
 /**
  * Materializes conversation membership at sync time using a JWZ-light algorithm
@@ -52,10 +50,10 @@ import org.voxrox.mailbackend.util.TransactionCallbacks;
  * directly replies to this message's own {@code Message-ID} (its children
  * arrived first), is a cross-folder duplicate rooted at it, or is a cluster of
  * headerless replies this message is the subject-fallback parent of, merge
- * those threads into this message's thread, re-root and renumber the result,
- * and broadcast a {@code thread_updated} SSE event per affected thread. The
- * subject branch matters because the downloader walks UIDs newest-first, so a
- * reply is normally threaded <em>before</em> its parent.</li>
+ * those threads into this message's thread, and re-root and renumber the
+ * result. The subject branch matters because the downloader walks UIDs
+ * newest-first, so a reply is normally threaded <em>before</em> its
+ * parent.</li>
  * </ol>
  *
  * Unconditional subject-based clustering (JWZ §5) is still skipped — false
@@ -92,22 +90,19 @@ public class ThreadingService {
 
     private final MessageRepository messageRepository;
     private final MessageReferenceRepository messageReferenceRepository;
-    private final SseNotificationService sseNotificationService;
 
-    public ThreadingService(MessageRepository messageRepository, MessageReferenceRepository messageReferenceRepository,
-            SseNotificationService sseNotificationService) {
+    public ThreadingService(MessageRepository messageRepository,
+            MessageReferenceRepository messageReferenceRepository) {
         this.messageRepository = messageRepository;
         this.messageReferenceRepository = messageReferenceRepository;
-        this.sseNotificationService = sseNotificationService;
     }
 
     /**
      * Assigns thread membership to {@code msg}. Mutates the entity (sets
-     * {@code threadId}, {@code threadRootMessageId}, {@code threadPosition}) and
-     * may broadcast {@code thread_updated} SSE events as a side effect if
-     * late-arriving-parent reconciliation merges orphan threads. The broadcasts are
-     * deferred until after the surrounding transaction commits (see
-     * {@link #broadcastThreadUpdatedAfterCommit}).
+     * {@code threadId}, {@code threadRootMessageId}, {@code threadPosition}), and
+     * late-arriving-parent reconciliation may reassign rows of other threads. The
+     * client learns of either from the {@code sync_completed} event of the cycle
+     * that stored the message; there is no event per thread.
      *
      * <p>
      * Callers must invoke this within a JPA transaction so the orphan
@@ -175,21 +170,6 @@ public class ThreadingService {
             entity.setReferencedMessageId(reference);
             messageReferenceRepository.save(entity);
         }
-    }
-
-    /**
-     * Broadcasts a {@code thread_updated} event, but only after the surrounding
-     * transaction commits. {@link #assignThread} runs inside
-     * {@code MessageDownloader}'s batch transaction; firing the SSE event inline
-     * would (1) let a client refetch the thread before the rows are committed
-     * (pre-commit visibility — a stale read) and (2) hold the single-writer SQLite
-     * write transaction open across the blocking {@code emitter.send}. Deferring to
-     * {@code afterCommit} fixes both. With no active transaction (a plain unit-test
-     * invocation) we broadcast inline so behaviour is unchanged for callers outside
-     * a transaction.
-     */
-    private void broadcastThreadUpdatedAfterCommit(ThreadUpdated event) {
-        TransactionCallbacks.runAfterCommit(() -> sseNotificationService.broadcast(event));
     }
 
     /**
@@ -292,12 +272,6 @@ public class ThreadingService {
         msg.setThreadId(parent.getThreadId());
         msg.setThreadRootMessageId(parent.getThreadRootMessageId());
         placeInThread(msg, account);
-
-        // Notify subscribers that the thread gained a message. Deferred to
-        // after commit so the client refetch sees the persisted row. This may
-        // fire many events during a bulk initial sync; SSE clients are expected
-        // to coalesce.
-        broadcastThreadUpdatedAfterCommit(ThreadUpdated.of(msg.getThreadId(), account.getId()));
     }
 
     /**
@@ -418,11 +392,6 @@ public class ThreadingService {
         // often carries an address, so it stays out of the log.
         log.info("{} Reconciled {} orphan thread(s) ({} message rows) onto thread {} for account {}.", LogCategory.SYNC,
                 orphanThreadIds.size(), moved, msg.getThreadId(), account.getId());
-        // One thread_updated event per affected thread keeps the wire format
-        // simple — the merged thread inherits the inbound message's id, the
-        // orphans no longer exist as standalone aggregates. Deferred to after
-        // commit so the client refetch sees the reassigned rows.
-        broadcastThreadUpdatedAfterCommit(ThreadUpdated.of(msg.getThreadId(), account.getId()));
     }
 
     /**

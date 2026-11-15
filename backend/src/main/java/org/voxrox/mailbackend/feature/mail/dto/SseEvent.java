@@ -6,7 +6,7 @@ package org.voxrox.mailbackend.feature.mail.dto;
  * is serialized (Jackson) as the event data payload.
  */
 public sealed interface SseEvent
-        permits SyncNotification, SyncCycleNotification, SyncStatusNotification, SendNotification, ThreadUpdated {
+        permits SyncNotification, SyncCycleNotification, SyncStatusNotification, SendNotification {
 
     String type();
 }

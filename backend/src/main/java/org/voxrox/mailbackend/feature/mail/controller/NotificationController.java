@@ -9,7 +9,6 @@ import org.voxrox.mailbackend.feature.mail.dto.SendNotification;
 import org.voxrox.mailbackend.feature.mail.dto.SyncCycleNotification;
 import org.voxrox.mailbackend.feature.mail.dto.SyncNotification;
 import org.voxrox.mailbackend.feature.mail.dto.SyncStatusNotification;
-import org.voxrox.mailbackend.feature.mail.dto.ThreadUpdated;
 import org.voxrox.mailbackend.feature.mail.service.SseNotificationService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -44,12 +43,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
  * successfully; payload is {@link SendNotification}.</li>
  * <li>{@code send_failed} — emitted when an asynchronous SMTP send fails;
  * payload is {@link SendNotification} with {@code errorCode} populated.</li>
- * <li>{@code thread_updated} — emitted when the membership of a conversation
- * changes (new message lands in a thread, or a late-arriving parent merges
- * orphan chains); payload is {@link ThreadUpdated}. The desktop client does not
- * act on this event: it refreshes its listing on {@code sync_completed}. The
- * design is in {@code backend/docs/THREADING_DESIGN.md}.</li>
  * </ul>
+ *
+ * There is no event for a conversation that gained a message or merged with
+ * another: the client reloads its listing on {@code sync_completed}, which
+ * every cycle that stored a message sends.
  *
  * The client correlates {@code send_*} events with the originating request via
  * {@code sendId} (returned in the 202 body of the send endpoint).
@@ -72,14 +70,13 @@ public class NotificationController {
             + "`sync_failed` / `sync_recovered` (the account's standing sync error changed; "
             + "emitted on the transition only, payload carries the AccountLastErrorCode in "
             + "`errorCode`, null on recovery), " + "`send_completed` (asynchronous SMTP send finished successfully), "
-            + "`send_failed` (asynchronous SMTP send failed; payload carries the "
-            + "AccountLastErrorCode in `errorCode`), or `thread_updated` (a "
-            + "conversation gained a message or two orphan chains merged). A "
+            + "or `send_failed` (asynchronous SMTP send failed; payload carries the "
+            + "AccountLastErrorCode in `errorCode`). A "
             + "heartbeat comment is emitted every 30 s so intermediaries do not " + "close the connection.")
     @ApiResponse(responseCode = "200", description = "Long-lived event stream. Each event has a `type` "
             + "field that identifies the variant and matches the SSE event name.", content = @Content(mediaType = MediaType.TEXT_EVENT_STREAM_VALUE, schema = @Schema(oneOf = {
                     SyncNotification.class, SyncCycleNotification.class, SyncStatusNotification.class,
-                    SendNotification.class, ThreadUpdated.class})))
+                    SendNotification.class})))
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream() {
         return sseNotificationService.register();

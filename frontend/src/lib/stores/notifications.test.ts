@@ -20,8 +20,7 @@ import type {
 	AccountResponse,
 	SendNotification,
 	SyncNotification,
-	SyncStatusNotification,
-	ThreadUpdated
+	SyncStatusNotification
 } from '#lib/types.js';
 
 vi.mock('#lib/api/accounts.js', () => ({ listAccounts: vi.fn() }));
@@ -42,19 +41,6 @@ vi.mock('#lib/api/notifications.js', () => ({
 beforeAll(() => {
 	addMessages('cs', csMessages);
 	void init({ fallbackLocale: 'cs', initialLocale: 'cs' });
-});
-
-describe('handleStreamNotification', () => {
-	it('ignores thread_updated — leaves lastSync untouched (no consumer)', () => {
-		lastSync.set(null);
-
-		const event: ThreadUpdated = { type: 'thread_updated', threadId: 't1', accountId: 5 };
-		handleStreamNotification(event);
-
-		// Previously this fell through to the sync handler and stored a malformed
-		// SyncNotification (undefined folder/count), breaking the "last sync" render.
-		expect(get(lastSync)).toBeNull();
-	});
 });
 
 describe('pending send outcome handling', () => {

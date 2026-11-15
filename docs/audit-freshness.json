@@ -50,57 +50,27 @@
   ],
   "docs/API_SURFACE_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/resources/application.properties": "6f4dcc647382dd679f0ff713b79931a3b92c2d48",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "b053b02dfdcab5d71112c38303af639fbec32f1e"
+      "backend/src/main/resources/application.properties": "62acec37c9feebec38a999296bfa35021632ba66",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller": "81e0df93482d983158d6a0ecd21da6a7e6d413d7",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/contact/controller": "ca0ce95eae3767b83dacf5bc4aad459e63175bf9",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "e88e7bd9e99b48d0a22fcdda9de5dc6d61c301a3"
     },
     "acknowledgements": [
       {
-        "date": "2026-10-31",
-        "note": "One key added, springdoc.swagger-ui.version=@swagger-ui.version@, Maven-filtered from the new swagger-ui.version property in backend/pom.xml, which pins the org.webjars:swagger-ui webjar to 5.34.1 (DOMPurify 3.4.17) ahead of the 5.32.14 springdoc manages; the nightly OWASP scan failed on five DOMPurify advisories against the older bundle (#806). The key only names the versioned webjar directory springdoc serves /swagger-ui/** from, so the UI resolves when it is switched on. Section 1's springdoc claim holds: springdoc.api-docs.enabled and springdoc.swagger-ui.enabled still default to false, the PUBLIC_ENDPOINTS list is untouched, and repackage and process-aot still exclude both org.springdoc and the swagger-ui webjar (check:repackage-excludes agrees on the same 9 artifacts), so the sidecar serves nothing new and carries no new code. No other key changed. Verdict unchanged."
-      },
-      {
-        "date": "2026-11-01",
-        "note": "#815. FolderResponse, the body of GET /api/v1/accounts/{accountId}/folders, gains a nullable parentRef: the folderRef of another folder in the same response, or null. It carries nothing the response did not hold: every value is a folderRef already in that list, and the folder names were in it already as folderRef and displayName. The compact constructor drops a blank parentRef or one equal to the folder's own ref; a four-argument constructor keeps the old shape with parentRef null. No endpoint, request body, validation, authentication or error path changed, and no other DTO in the package moved; the OpenAPI snapshot gains the one field. Verdict unchanged."
-      },
-      {
-        "date": "2026-11-09",
-        "note": "#886. SyncNotification, the payload of the sync_completed SSE event, gains an int arrivedMessagesCount: the part of newMessagesCount that arrived above the folder's existing mirror into Inbox or Newsletters, which the client may announce with a Windows notification. Both counts gain a @Schema description. The event carries no new kind of data, only a second count of messages newMessagesCount already counted, for the account and folder it already names, over the same loopback stream behind the same API key. No endpoint, request body, validation, authentication or error path changed, and no other DTO in the package moved; the OpenAPI snapshot gains the field and the two descriptions. Verdict unchanged."
-      },
-      {
-        "date": "2026-11-10",
-        "note": "MailContentResponse gains one boolean, remoteImageTrustOffered, false for a message in a folder the sync recorded as JUNK, and its record documentation says remoteImagesAllowedForSender is always false there. A response field only: GET /messages/{stableId}/content takes the same path variable and no new input, no endpoint, method, validation constraint, size bound or authentication rule moved, and the allow-list controller is byte-identical — the client now calls its GET and DELETE, which the audit already enumerates. The OpenAPI golden snapshot carries the field. Verdict unchanged."
+        "date": "2026-11-14",
+        "note": "Audit 1.27 (#908, #909), on top of the re-verification of 1.26 against 22132a8 and waiting for its independent pass. ContactController loses three endpoints the client never called, POST /contacts/{contactId}/emails, DELETE /contacts/{contactId}/emails/{emailId} and PATCH /contacts/{contactId}/emails/{emailId}/primary; every other mapping, its validation and its error responses are untouched. NotificationController and SseEvent lose the thread_updated variant of the SSE stream and the ThreadUpdated record is deleted; the stream, its endpoint and the other four variants are as before. MailSummaryResponse.threadId changes its description only. application.properties loses spring.profiles.active=prod, which nothing read, and turns Flyway baselining off (baseline-version and baseline-description go with it). The surface only shrinks: no endpoint, request field, response field, validation rule or authentication rule is added, PUBLIC_ENDPOINTS and the security chain are untouched, and the OpenAPI snapshot follows. Verdict unchanged."
       }
     ]
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/resources/application.properties": "6f4dcc647382dd679f0ff713b79931a3b92c2d48",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "5fa4d95ddc572659bc0104940b7482e6f478ced1"
+      "backend/src/main/resources/application.properties": "62acec37c9feebec38a999296bfa35021632ba66",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "5c148ba45e56dd7250fbe7b4dfd5302c826fa6db"
     },
     "acknowledgements": [
       {
-        "date": "2026-10-31",
-        "note": "One key added, springdoc.swagger-ui.version=@swagger-ui.version@, Maven-filtered from the swagger-ui webjar pin in backend/pom.xml (5.34.1, DOMPurify 3.4.17, for the five DOMPurify advisories that failed the nightly scan, #806). It only names the webjar directory springdoc serves Swagger UI from in dev; this audit makes no claim about springdoc, and no mail.client.*, spring.mail.*, IMAP, SMTP, timeout, sync or connection key moved. Verdict unchanged."
-      },
-      {
-        "date": "2026-11-01",
-        "note": "#812, recorded in the audit as 1.84 (§5) and waiting for its independent pass. BoundedImapProtocol.parseBounded reads a FETCH that Angus rejected once more with each empty list in its structure written NIL (EmptyListsAsNil, new), for the (\"inline\" ()) disposition Seznam writes. Only after the rejection, at most 1 MiB, and only a () inside a BODYSTRUCTURE or BODY value after a string or an atom; what it hands back goes through the same DepthBoundedFetchResponse and type check, so no bound moves, and the copy it makes is at most 1.5 MiB. A FETCH it does not rescue is now logged with Angus's reason, cut to 200 characters, before the skip it always had. Verdict unchanged."
-      },
-      {
-        "date": "2026-11-01",
-        "note": "Folder display order. FolderDisplayOrder (new) sorts the list MailFacade.getFolders returns to GET /api/v1/accounts/{accountId}/folders: INBOX, its USER subfolders (unless a system folder also lives under INBOX, the Courier namespace layout), the other system roles in a fixed order, then USER folders by path in the request's collation. It is an in-memory sort of the FolderResponse list ImapFolderService already produced: no IMAP command, no folder opened, no bound moved, and nothing held beyond a copy of the list. The cached list and every internal caller of ImapFolderService.getFolders (the sync's folder listing, role resolution, the move target check) keep the server's order, and folders sharing a role keep their relative order in the sorted list too, so the folder a role resolves to does not move. Verdict unchanged."
-      },
-      {
-        "date": "2026-11-01",
-        "note": "#815, folder hierarchy. ImapFolderService.listFolders gives each FolderResponse a parentRef: the nearest ancestor, by Folder.getSeparator(), that is in the same listing (an ancestor spelled Inbox finds INBOX), else null. The delimiter is the one Angus holds from the LIST response for every listed folder, so no IMAP command is added and no folder is opened; the walk cuts the folder's own name at each delimiter and looks the prefix up in a map of the listed names, so it is bounded by the name's length and holds nothing beyond the listing. A MessagingException from getSeparator is logged at TRACE and leaves the folder top-level instead of failing the listing. FolderDisplayOrder now orders from parentRef rather than from the delimiter read out of folderRef: roots in the fixed role order, each followed by its subfolders, walked with its own stack so a hierarchy as deep as the server makes it cannot overflow the request thread (FolderDisplayOrderTest places 100,000 levels; the recursive form overflows on it, run and seen). The parentRef it returns is the display one: a system folder is top-level, and on the Courier namespace layout INBOX's children are. Still an in-memory reorder of the list ImapFolderService produced, which the cache and the internal callers keep in the server's order and with the server's parentRef; folders sharing a role keep their relative order. Verdict unchanged."
-      },
-      {
-        "date": "2026-11-09",
-        "note": "#886. MailSyncService.syncFolderOnce labels part of what a folder cycle downloads as arrived, for MailSyncCompletedEvent: the forward download's count when the folder already had a mirror (MessageDownloader.takesInitialWindow, new, asked before the download) and its stored role delivers new mail; zero otherwise, holes refilled by reconcileServerOnlyUids included. syncNewMessages asks the same helper in place of `lastUid <= UID_INITIAL`, the same test, since a null uid already fails the unboxing above it. No IMAP command, bound, timeout, lock, retry, window, persistence step or role decision moved; the count only describes downloads the cycle already made. Verdict unchanged."
-      },
-      {
-        "date": "2026-11-10",
-        "note": "Audit 1.85. MailFacade.getMessageContentOnly asks the new ImapFolderService.isRecordedWithRole whether the message sits in a folder recorded as JUNK and, if so, reports the sender as not trusted for remote images and the trust as not offered; elsewhere it asks RemoteImageAllowlistService.isAllowed as before. isRecordedWithRole is one read of folder_sync_state through the existing findFolderNamesByRole query and never reaches IMAP, so no command, bound, timeout, lock, retry or persistence step moved, and a folder with no recorded role answers false. The change narrows the one security-load path from From that §3 traces; §3 now says so. Verdict unchanged."
+        "date": "2026-11-14",
+        "note": "Audit 1.87 (#908), on top of the re-verification of 1.86 against 22132a8 and waiting for its independent pass. ImapFolderService.parentRef gains two bounds, B1-27 (§4ab): a name longer than 1000 characters is not walked for ancestors and no name is walked more than 64 delimiters up, either way leaving the folder at the top level; no IMAP command is added and the listing is otherwise as it was. ThreadingService no longer broadcasts thread_updated after a message joins a thread or orphan threads merge, and loses its SseNotificationService dependency; thread assignment, merging and renumbering are byte-for-byte the same statements without the two calls. application.properties loses spring.profiles.active=prod, which nothing read, and turns Flyway baselining off; no mail.client.*, IMAP, SMTP, timeout, sync or connection key moved. No bound, timeout, lock, retry or persistence step moved. Verdict unchanged."
       }
     ]
   },

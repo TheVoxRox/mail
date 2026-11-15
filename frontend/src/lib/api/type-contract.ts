@@ -115,6 +115,3 @@ type _SyncNotificationMatchesSchema = Assert<
 type _SendNotificationMatchesSchema = Assert<
 	LocalDtoMatchesSchema<Local.SendNotification, Generated.SendNotification>
 >;
-type _ThreadUpdatedMatchesSchema = Assert<
-	LocalDtoMatchesSchema<Local.ThreadUpdated, Generated.ThreadUpdated>
->;

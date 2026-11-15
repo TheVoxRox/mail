@@ -115,15 +115,13 @@ class FlywayAlteredMigrationDetectionTest {
 
     /**
      * Mirrors the production Flyway setup ({@code application.properties}):
-     * baseline settings on, validation left at its {@code validate-on-migrate=true}
-     * default. The baseline options are a no-op against an empty database and are
-     * kept so the test cannot pass by accident under a laxer configuration than the
-     * app ships.
+     * baselining off, validation left at its {@code validate-on-migrate=true}
+     * default, so the test cannot pass by accident under a laxer configuration than
+     * the app ships.
      */
     private Flyway flyway() {
         return Flyway.configure().dataSource(jdbcUrl, null, null)
-                .locations("filesystem:" + migrationDir.toAbsolutePath()).baselineOnMigrate(true).baselineVersion("1")
-                .load();
+                .locations("filesystem:" + migrationDir.toAbsolutePath()).load();
     }
 
     private FlywayMigrationStrategy restartStrategy(DatabaseBackupService service) {

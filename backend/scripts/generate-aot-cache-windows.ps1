@@ -129,7 +129,6 @@ function Invoke-Phase {
         $file = "java"
         $arguments = $AotOptions + @(
             "-Dspring.aot.enabled=true",
-            "-Dspring.profiles.active=prod",
             "-Dfile.encoding=UTF-8",
             "--enable-native-access=ALL-UNNAMED",
             "-jar",

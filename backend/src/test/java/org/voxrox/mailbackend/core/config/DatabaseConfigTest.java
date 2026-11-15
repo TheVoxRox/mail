@@ -3,12 +3,14 @@ package org.voxrox.mailbackend.core.config;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.List;
@@ -20,6 +22,7 @@ import org.flywaydb.core.api.CoreErrorCode;
 import org.flywaydb.core.api.ErrorDetails;
 import org.flywaydb.core.api.MigrationInfo;
 import org.flywaydb.core.api.MigrationInfoService;
+import org.flywaydb.core.api.configuration.Configuration;
 import org.flywaydb.core.api.output.ValidateOutput;
 import org.flywaydb.core.api.output.ValidateResult;
 import org.junit.jupiter.api.DisplayName;
@@ -58,6 +61,23 @@ class DatabaseConfigTest {
                 .hasMessageContaining("OPERATIONS.md");
 
         // A damaged file is neither migrated nor kept as if it were a restore point.
+        verify(flyway, never()).validateWithResult();
+        verify(backupService, never()).createPreMigrationBackup();
+        verify(flyway, never()).migrate();
+    }
+
+    @Test
+    @DisplayName("a database with schema objects and no migration history fails startup before any backup")
+    void preMigrationHookRefusesDatabaseWithoutHistory() throws Exception {
+        DatabaseBackupService backupService = mock(DatabaseBackupService.class);
+        Flyway flyway = flywayWith(validationSuccess(), 1);
+        FlywayMigrationStrategy strategy = strategy(backupService, 3, false);
+
+        assertThatThrownBy(() -> strategy.migrate(flyway))
+                .isInstanceOfSatisfying(StartupFailure.class,
+                        failure -> assertThat(failure.reason()).isEqualTo(Reason.DATABASE_DAMAGED))
+                .hasMessageContaining("no migration history").hasMessageContaining("OPERATIONS.md");
+
         verify(flyway, never()).validateWithResult();
         verify(backupService, never()).createPreMigrationBackup();
         verify(flyway, never()).migrate();
@@ -154,19 +174,35 @@ class DatabaseConfigTest {
         return strategy(backupService, 1);
     }
 
+    /** A database Flyway has migrated before, unless it holds nothing at all. */
     private FlywayMigrationStrategy strategy(DatabaseBackupService backupService, int schemaObjects) throws Exception {
+        return strategy(backupService, schemaObjects, schemaObjects > 0);
+    }
+
+    private FlywayMigrationStrategy strategy(DatabaseBackupService backupService, int schemaObjects, boolean hasHistory)
+            throws Exception {
         DataSource dataSource = dataSourceWithResults("wal", "1", "1", "5000", "-20000", "ok");
         ResultSet count = mock(ResultSet.class);
         when(count.next()).thenReturn(true, false);
         when(count.getInt(1)).thenReturn(schemaObjects);
         when(dataSource.getConnection().createStatement().executeQuery("SELECT count(*) FROM sqlite_master;"))
                 .thenReturn(count);
+        ResultSet history = mock(ResultSet.class);
+        when(history.next()).thenReturn(true, false);
+        when(history.getInt(1)).thenReturn(schemaObjects);
+        when(history.getInt(2)).thenReturn(hasHistory ? 1 : 0);
+        PreparedStatement historyQuery = mock(PreparedStatement.class);
+        when(historyQuery.executeQuery()).thenReturn(history);
+        when(dataSource.getConnection().prepareStatement(anyString())).thenReturn(historyQuery);
         return new DatabaseConfig(dataSource, new StartupTimingService()).preMigrationBackupStrategy(backupService);
     }
 
     private Flyway flywayWith(ValidateResult validation, int pendingCount) {
         Flyway flyway = mock(Flyway.class);
         MigrationInfoService infoService = mock(MigrationInfoService.class);
+        Configuration configuration = mock(Configuration.class);
+        when(configuration.getTable()).thenReturn("flyway_schema_history");
+        when(flyway.getConfiguration()).thenReturn(configuration);
         when(flyway.validateWithResult()).thenReturn(validation);
         when(flyway.info()).thenReturn(infoService);
         when(infoService.pending()).thenReturn(new MigrationInfo[pendingCount]);

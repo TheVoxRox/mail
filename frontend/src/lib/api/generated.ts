@@ -22,7 +22,6 @@ export type MoveRequest = Schema<'MoveRequest'>;
 // SSE notification stream — backend-defined payloads for every event variant.
 export type SyncNotification = Schema<'SyncNotification'>;
 export type SendNotification = Schema<'SendNotification'>;
-export type ThreadUpdated = Schema<'ThreadUpdated'>;
 
 // Conversation detail endpoint shape.
 export type ThreadResponse = Schema<'ThreadResponse'>;
