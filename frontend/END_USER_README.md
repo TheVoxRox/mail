@@ -103,18 +103,34 @@ Frontend z nich čte adresu backendu a API klíč. Tyto hodnoty neupravujte ruč
 
 ## Účty a hesla
 
-U providerů bez OAuth může aplikace vyžadovat aplikační heslo. To je samostatné
-heslo vygenerované v nastavení poskytovatele e-mailu. Nepoužívejte hlavní heslo
-k účtu, pokud poskytovatel doporučuje aplikační hesla.
+Jak se účet přihlašuje, záleží na poskytovateli. Průvodce přidáním účtu ho
+pozná podle adresy a nabídne jen to, co u něj funguje. Heslo aplikace je
+samostatné heslo, které si vytvoříte v nastavení účtu u poskytovatele a které
+platí jen pro poštovní programy.
 
-Přihlášení přes OAuth je podporované pro Google (Gmail i Google Workspace)
-a Microsoft (Outlook/Hotmail/Live i pracovní a školní účty Microsoft 365).
-Když průvodce doménu adresy nezná, nabídne vedle ručního nastavení serverů
-i přihlášení přes Microsoft a Google. U pracovního nebo školního účtu může
-být potřeba, aby aplikaci nejdřív schválil správce organizace; správce také
-může mít pro schránku vypnutý přístup přes IMAP nebo odesílání přes SMTP.
-iCloud OAuth zatím podporovaný není — u iCloudu
-použijte aplikační heslo.
+- **Gmail a Google Workspace:** tlačítko „Přihlásit přes Google", nebo „Použít
+  IMAP a heslo aplikace". Přihlášení přes Google zatím funguje jen pro účty,
+  které vývojář aplikace přidal mezi testovací uživatele; ostatní účty přidejte
+  přes heslo aplikace. Google přes IMAP nepřijme hlavní heslo k účtu, jen heslo
+  aplikace, a to jde vytvořit až se zapnutým dvoufázovým ověřením. Google heslo
+  ukazuje ve čtyřech skupinách po čtyřech písmenech; vložit ho můžete i s
+  mezerami, aplikace je vynechá. U účtu Google Workspace může hesla aplikace
+  vypnout správce organizace.
+- **Outlook, Hotmail, Live a pracovní nebo školní účty Microsoft 365:** jen
+  „Přihlásit přes Microsoft". Microsoft přes IMAP nepřijme heslo k účtu ani
+  heslo aplikace. U pracovního nebo školního účtu může být potřeba, aby
+  aplikaci nejdřív schválil správce organizace; správce také může mít pro
+  schránku vypnutý přístup přes IMAP nebo odesílání přes SMTP.
+- **Seznam.cz:** heslo k účtu. Máte-li na Seznamu zapnuté dvoufázové ověření,
+  použijte místo něj heslo aplikace.
+- **Ostatní poskytovatelé a vlastní servery:** heslo, které poskytovatel pro
+  poštovní programy vyžaduje. Kde doporučuje heslo aplikace, nepoužívejte
+  hlavní heslo k účtu. Přihlášení k iCloudu přes OAuth aplikace zatím
+  nepodporuje, použijte heslo aplikace.
+
+Když průvodce doménu adresy nezná, nabídne vedle ručního nastavení serverů i
+přihlášení přes Microsoft a Google: pracovní a školní účty se přihlašují pod
+vlastní doménou organizace.
 
 ## Aktualizace
 

@@ -55,6 +55,15 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- The end-user README says how each provider signs in. It said OAuth was
+  supported for Google and Microsoft and that providers without it may need
+  an app password, which left out the two things a user needs: Google
+  sign-in works only for accounts on the test list while the consent screen
+  stays in `Testing`, so other Gmail accounts go through "Použít IMAP a heslo
+  aplikace" with two-step verification on; and Microsoft takes no password
+  over IMAP, an app password included, so its only route is the sign-in.
+  Seznam and other providers are described as the account form describes
+  them.
 - A Gmail account set up over IMAP sends its app password without spaces.
   Google shows the password in groups of four ("abcd efgh ijkl mnop"), and the
   form sent whatever was pasted or typed, spaces included; guides disagree on
