@@ -8,8 +8,8 @@ attached to the component. The product itself is licensed under
 the terms of the LICENSE file shipped alongside this notice in the
 installation directory.
 
-Total third-party components: 509
-  npm    120
+Total third-party components: 512
+  npm    123
   maven  106
   cargo  283
 
@@ -20,7 +20,7 @@ published alongside the installer on the GitHub Releases page.
 
 ------------------------------------------------------------------
 
-## MIT  —  149 component(s)
+## MIT  —  152 component(s)
 
 License text:
 
@@ -81,6 +81,10 @@ Components and their copyright notices:
   * cookie 2.0.1  [npm]
       Roman Shtylman
       git+https://github.com/jshttp/cookie.git
+
+  * core 1.11.1  [npm]
+      toyobayashi
+      git+https://github.com/toyobayashi/emnapi.git
 
   * core 1.8.0  [npm]
       atomiks
@@ -318,7 +322,7 @@ Components and their copyright notices:
       Matt Brubeck <mbrubeck@limpet.net>, Jonathan Reem <jonathan.reem@gmail.com>
       https://github.com/mbrubeck/rust-debug-unreachable
 
-  * node 4.3.4  [npm]
+  * node 4.3.5  [npm]
       (no author in package.json — see git+https://github.com/tailwindlabs/tailwindcss.git#packages/@tailwindcss-node)
       git+https://github.com/tailwindlabs/tailwindcss.git#packages/@tailwindcss-node
 
@@ -338,15 +342,15 @@ Components and their copyright notices:
       Jack O'Connor
       https://github.com/oconnor663/os_pipe.rs
 
-  * oxide 4.3.4  [npm]
+  * oxide 4.3.5  [npm]
       (no author in package.json — see git+https://github.com/tailwindlabs/tailwindcss.git#crates/node)
       git+https://github.com/tailwindlabs/tailwindcss.git#crates/node
 
-  * oxide-wasm32-wasi 4.3.4  [npm]
+  * oxide-wasm32-wasi 4.3.5  [npm]
       (no author in package.json — see git+https://github.com/tailwindlabs/tailwindcss.git#crates/node)
       git+https://github.com/tailwindlabs/tailwindcss.git#crates/node
 
-  * oxide-win32-x64-msvc 4.3.4  [npm]
+  * oxide-win32-x64-msvc 4.3.5  [npm]
       (no author in package.json — see git+https://github.com/tailwindlabs/tailwindcss.git#crates/node/npm/win32-x64-msvc)
       git+https://github.com/tailwindlabs/tailwindcss.git#crates/node/npm/win32-x64-msvc
 
@@ -405,6 +409,10 @@ Components and their copyright notices:
   * runed 0.35.1  [npm]
       Thomas G. Lopes
       git+https://github.com/svecosystem/runed.git#packages/runed
+
+  * runtime 1.11.1  [npm]
+      toyobayashi
+      git+https://github.com/toyobayashi/emnapi.git
 
   * runtime 1.11.3  [npm]
       toyobayashi
@@ -482,7 +490,7 @@ Components and their copyright notices:
       Junior Garcia
       git+https://github.com/heroui-inc/tailwind-variants.git
 
-  * tailwindcss 4.3.4  [npm]
+  * tailwindcss 4.3.5  [npm]
       (no author in package.json — see git+https://github.com/tailwindlabs/tailwindcss.git#packages/tailwindcss)
       git+https://github.com/tailwindlabs/tailwindcss.git#packages/tailwindcss
 
@@ -578,7 +586,7 @@ Components and their copyright notices:
       atomiks
       git+https://github.com/floating-ui/floating-ui.git#packages/utils
 
-  * vite 4.3.4  [npm]
+  * vite 4.3.5  [npm]
       Evan You
       git+https://github.com/tailwindlabs/tailwindcss.git#packages/@tailwindcss-vite
 
@@ -597,6 +605,10 @@ Components and their copyright notices:
   * want 0.3.2  [cargo]
       Sean McArthur <sean@seanmonstar.com>
       https://github.com/seanmonstar/want
+
+  * wasi-threads 1.2.2  [npm]
+      toyobayashi
+      git+https://github.com/toyobayashi/emnapi.git
 
   * wasi-threads 1.2.3  [npm]
       toyobayashi

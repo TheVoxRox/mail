@@ -97,6 +97,13 @@ Entries before 2026-09-17 predate that split and are left as written.
   it for: one opened for Seznam and switched to Microsoft asked for a password
   and offered no sign-in at all. The sign-in checks the address first, as
   "Vytvořit účet" does, instead of opening with none.
+- The styles are built with Tailwind CSS 4.3.5 instead of 4.3.4. Its fixes are
+  to a `color-mix()` without an interpolation method, HTML comments between
+  CSS rules and the WebAssembly fallback where no native binary loads; the
+  stylesheet's one `color-mix()` names its method, so nothing in the app's
+  styles is meant to change. With 4.3.5, npm installs the fallback's runtime
+  both inside the Tailwind package and at the top of `node_modules`, at two
+  versions of three packages, and the notice names both (#915).
 
 ### Tauri / Release
 
@@ -105,8 +112,8 @@ Entries before 2026-09-17 predate that split and are left as written.
   Its generator read only the top, so three versions of magic-string,
   estree-walker and `@oxc-project/types` were never in it, and Tailwind's
   WebAssembly runtime, which #906 moved inside `@tailwindcss/oxide-wasm32-wasi`,
-  would have dropped out of the next render. The notice's npm part now lists
-  the same packages as the frontend's license list.
+  would have dropped out of the next render. The notice's npm part now names
+  every package the frontend's license list does (#923).
 - Save logs writes its archive with the `zip` crate 9.5.0 instead of 9.4.1 and
   unpacks rotated `.gz` logs with flate2 1.1.11 instead of 1.1.10. zip 9.4.2
   merged security fixes to reading, extracting and encrypting archives, none
