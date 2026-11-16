@@ -107,6 +107,12 @@ Entries before 2026-09-17 predate that split and are left as written.
   WebAssembly runtime, which #906 moved inside `@tailwindcss/oxide-wasm32-wasi`,
   would have dropped out of the next render. The notice's npm part now lists
   the same packages as the frontend's license list.
+- Save logs writes its archive with the `zip` crate 9.5.0 instead of 9.4.1 and
+  unpacks rotated `.gz` logs with flate2 1.1.11 instead of 1.1.10. zip 9.4.2
+  merged security fixes to reading, extracting and encrypting archives, none
+  of which the shell does, and brings `constant_time_eq` and `zeroize_derive`
+  with it; flate2's fixes are to gzip header and partial reads, the path the
+  rotated logs take. The shell's license list and the notice follow (#918).
 
 ### Repo
 
