@@ -98,6 +98,16 @@ Entries before 2026-09-17 predate that split and are left as written.
   and offered no sign-in at all. The sign-in checks the address first, as
   "Vytvořit účet" does, instead of opening with none.
 
+### Tauri / Release
+
+- The `NOTICE.txt` the installer carries also names the npm packages that npm
+  installs inside another package rather than at the top of `node_modules`.
+  Its generator read only the top, so three versions of magic-string,
+  estree-walker and `@oxc-project/types` were never in it, and Tailwind's
+  WebAssembly runtime, which #906 moved inside `@tailwindcss/oxide-wasm32-wasi`,
+  would have dropped out of the next render. The notice's npm part now lists
+  the same packages as the frontend's license list.
+
 ### Repo
 
 - A second independent pass confirmed the fix of B1-28 and found no way around
@@ -178,6 +188,10 @@ Entries before 2026-09-17 predate that split and are left as written.
   and is named on the green run. Every release used to cost that audit one of
   the eight acknowledgements its cap allows. The runbook's audit step now
   expects nothing to acknowledge (#905).
+- Two development tools move up a patch: eslint-plugin-svelte 3.24.1, whose
+  fixes are to rule autofixes and to rules that missed `<script module>`, and
+  knip 6.44.2, which follows more extended configuration files. Neither reaches
+  the build, so the license list does not move (#916).
 
 ## [0.2.0] - 2026-11-11
 

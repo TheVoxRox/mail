@@ -8,19 +8,19 @@ attached to the component. The product itself is licensed under
 the terms of the LICENSE file shipped alongside this notice in the
 installation directory.
 
-Total third-party components: 502
-  npm    115
+Total third-party components: 507
+  npm    120
   maven  106
   cargo  281
 
-Generated: 2026-11-10
+Generated: 2026-11-16
 
 Machine-readable CycloneDX SBOM files for each ecosystem are
 published alongside the installer on the GitHub Releases page.
 
 ------------------------------------------------------------------
 
-## MIT  —  144 component(s)
+## MIT  —  149 component(s)
 
 License text:
 
@@ -82,13 +82,13 @@ Components and their copyright notices:
       Roman Shtylman
       git+https://github.com/jshttp/cookie.git
 
-  * core 1.11.1  [npm]
-      toyobayashi
-      git+https://github.com/toyobayashi/emnapi.git
-
   * core 1.8.0  [npm]
       atomiks
       git+https://github.com/floating-ui/floating-ui.git#packages/core
+
+  * core 1.11.3  [npm]
+      toyobayashi
+      git+https://github.com/toyobayashi/emnapi.git
 
   * darling 0.24.1  [cargo]
       Ted Driggs <ted.driggs@outlook.com>
@@ -161,6 +161,10 @@ Components and their copyright notices:
   * estree 1.0.9  [npm]
       (no author in package.json — see git+https://github.com/DefinitelyTyped/DefinitelyTyped.git#types/estree)
       git+https://github.com/DefinitelyTyped/DefinitelyTyped.git#types/estree
+
+  * estree-walker 2.0.2  [npm]
+      Rich Harris
+      git+https://github.com/Rich-Harris/estree-walker.git
 
   * event-emitter 0.3.5  [npm]
       Mariusz Nowak
@@ -274,7 +278,19 @@ Components and their copyright notices:
       pieroxy
       git+https://github.com/pieroxy/lz-string.git
 
+  * magic-string 1.4.5  [npm]
+      Rich Harris
+      git+https://github.com/Rich-Harris/magic-string.git
+
+  * magic-string 1.4.3  [npm]
+      Rich Harris
+      git+https://github.com/Rich-Harris/magic-string.git
+
   * magic-string 0.30.21  [npm]
+      Rich Harris
+      git+https://github.com/Rich-Harris/magic-string.git
+
+  * magic-string 1.2.0  [npm]
       Rich Harris
       git+https://github.com/Rich-Harris/magic-string.git
 
@@ -390,7 +406,7 @@ Components and their copyright notices:
       Thomas G. Lopes
       git+https://github.com/svecosystem/runed.git#packages/runed
 
-  * runtime 1.11.1  [npm]
+  * runtime 1.11.3  [npm]
       toyobayashi
       git+https://github.com/toyobayashi/emnapi.git
 
@@ -538,6 +554,10 @@ Components and their copyright notices:
       Luca Bosin
       git+https://github.com/Wombosvideo/tw-animate-css.git
 
+  * types 0.156.0  [npm]
+      Boshen and oxc contributors
+      git+https://github.com/oxc-project/oxc.git#npm/oxc-types
+
   * types 8.72.1  [npm]
       (no author in package.json — see git+https://github.com/typescript-eslint/typescript-eslint.git#packages/types)
       git+https://github.com/typescript-eslint/typescript-eslint.git#packages/types
@@ -578,7 +598,7 @@ Components and their copyright notices:
       Sean McArthur <sean@seanmonstar.com>
       https://github.com/seanmonstar/want
 
-  * wasi-threads 1.2.2  [npm]
+  * wasi-threads 1.2.3  [npm]
       toyobayashi
       git+https://github.com/toyobayashi/emnapi.git
 
