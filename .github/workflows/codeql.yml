@@ -5,14 +5,21 @@ name: CodeQL
 # deserialization, injection) and high-impact code-smell rules across both the
 # Java backend and the SvelteKit/TypeScript frontend.
 #
+# The third leg, `actions`, reads the workflow files themselves: expression
+# injection into run: blocks, untrusted checkouts under privileged triggers,
+# cache and artifact poisoning, and jobs that run with a broader token than
+# they declare. Nothing else here looks at .github/workflows/, and the release
+# workflows among those files sign the installer and write to releases.
+#
 # Triggers:
 #   - push to main and PRs into main: gate every change like the rest of CI
 #   - weekly cron: re-scan against the current CodeQL query packs, so newly
 #     published queries find existing issues without waiting for a code change
 #
 # Findings are uploaded as SARIF; they show up under the repository's
-# Security > Code scanning alerts tab. Both Analyze jobs are required checks on
-# main, so a run that fails blocks the merge; the alerts it raises do not
+# Security > Code scanning alerts tab. The java-kotlin and javascript-typescript
+# Analyze jobs are required checks on main, so a run that fails blocks the
+# merge; the alerts it raises do not. Analyze (actions) is not a required check
 # (docs/STATIC_ANALYSIS.md, "Cross-language (CodeQL)").
 
 on:
@@ -48,6 +55,10 @@ jobs:
           - language: java-kotlin
             build-mode: autobuild
           - language: javascript-typescript
+            build-mode: none
+          # Workflow YAML is read, not built; `none` is the only mode the
+          # actions extractor has.
+          - language: actions
             build-mode: none
     steps:
       - name: Checkout

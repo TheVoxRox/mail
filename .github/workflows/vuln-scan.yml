@@ -7,6 +7,16 @@ on:
     - cron: '0 4 * * 1-5'
   workflow_dispatch:
 
+# The token of every job that declares nothing: the two audits and the SBOM
+# job read the repository and upload artifacts, which go through the runner's
+# own Actions runtime token, not this one. Declared for the same reason as in
+# ci.yml, rather than left to the repository default. Each job that writes
+# something through GITHUB_TOKEN says so on itself, and a job-level block
+# replaces this one whole, so those blocks name contents: read again where
+# they still check out.
+permissions:
+  contents: read
+
 jobs:
   owasp-backend:
     name: Backend OWASP Dependency-Check
@@ -38,8 +48,7 @@ jobs:
     # thin margin is recorded rather than bought with a bigger budget — if a
     # cold night is cancelled again, this is the number to start from.
     timeout-minutes: 180
-    # The SARIF upload step needs security-events: write; without an explicit
-    # block the job runs with the repo's default read-only token and the upload
+    # The SARIF upload step needs security-events: write; without it the upload
     # dies with "Resource not accessible by integration".
     permissions:
       contents: read
@@ -263,9 +272,10 @@ jobs:
     name: Generate CycloneDX SBOMs (npm / Maven / Cargo)
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    permissions:
-      contents: read
-      security-events: write
+    # No block of its own: this job writes nothing through GITHUB_TOKEN. It had
+    # security-events: write for an upload of the Trivy SARIF that was dropped
+    # in #29 (see the note above the raw-report upload), and the grant outlived
+    # the step it was for.
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -457,10 +467,10 @@ jobs:
     # left its entries behind.
     if: ${{ always() }}
     runs-on: ubuntu-latest
-    # The only job here that writes anything through the Actions API, and the
-    # only one that needs more than the default read token. `pull-requests` is
-    # for telling a closed pull request from an open one; the repo is public,
-    # so the read would pass without it, but the job should say what it uses.
+    # The only job here that writes anything through the Actions API. It checks
+    # nothing out, so it has no contents: read. `pull-requests` is for telling
+    # a closed pull request from an open one; the repo is public, so the read
+    # would pass without it, but the job should say what it uses.
     permissions:
       actions: write
       pull-requests: read

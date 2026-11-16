@@ -250,12 +250,18 @@ had by then drifted from rustfmt in four places that nothing was looking at.
 ## Cross-language (CodeQL)
 
 [.github/workflows/codeql.yml](../.github/workflows/codeql.yml) runs the
-`security-and-quality` suite over a Java + JS/TS matrix on push, on pull
-requests, and on a weekly cron. SARIF lands in the GitHub Security tab.
+`security-and-quality` suite over a Java + JS/TS + GitHub Actions matrix on
+push, on pull requests, and on a weekly cron. SARIF lands in the GitHub
+Security tab. The `actions` leg reads the workflow files themselves —
+expression injection, untrusted checkouts under privileged triggers, cache and
+artifact poisoning, a workflow with no `permissions:` block — and needs no
+build.
 
-**The run is required, its alerts are advisory, deliberately.** Both
-`Analyze` jobs are required checks on `main`, so an analysis that fails to
-build or run blocks the merge. The alerts it raises do not: the ruleset has no
+**The run is required, its alerts are advisory, deliberately.** The
+`Analyze (java-kotlin)` and `Analyze (javascript-typescript)` jobs are required
+checks on `main`, so an analysis that fails to build or run blocks the merge.
+`Analyze (actions)` came later and is not required yet. The alerts a run raises
+do not block either: the ruleset has no
 code scanning rule, because the quality queries carry a false-positive rate
 this codebase has not yet characterised, and a gate nobody trusts gets
 bypassed rather than fixed. Gate on alerts once the noise level is known. The
