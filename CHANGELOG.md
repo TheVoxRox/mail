@@ -28,6 +28,12 @@ Entries before 2026-09-17 predate that split and are left as written.
   waiting, and a core busy, for hours. A name over 1000 characters, or an
   ancestor more than 64 levels up, is no longer looked for, and such a folder
   is listed at the top level (audit B1-27, Low).
+- Nor can a folder name made of combining marks. Deciding whether a folder is
+  Sent or Trash by its name strips the diacritics first, and that step cost
+  the square of a long run of marks: a name of 100 000 of them held the folder
+  list for five seconds, ten times the case above. A name longer than 128
+  characters is now a user folder without being read; the longest name that
+  means a system folder is 32 (audit B1-28, Low).
 - A `mail.db` that has tables but no migration history is refused at start,
   with exit code 65 and the damaged-database message. Flyway used to be told
   to accept such a file as already migrated, a leftover from when Hibernate
@@ -43,6 +49,11 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- An independent pass confirmed #912: the fix of B1-27, the three removals and
+  the new database check, with nothing added to the API. It found B1-28 above
+  and corrected four sentences, one of them the `threadId` description #912
+  had written. Both audits are re-verified against `41ae063`; the fix of
+  B1-28 waits for a pass of its own (#913).
 - The IMAP/SMTP and API audits are re-verified against `22132a8`, clearing
   ten acknowledgements; the pass found B1-27 above. The fix and the removals
   it took with it (#908, #909) wait for an independent pass, as each audit and

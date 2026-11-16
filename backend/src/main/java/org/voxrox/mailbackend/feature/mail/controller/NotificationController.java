@@ -46,8 +46,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
  * </ul>
  *
  * There is no event for a conversation that gained a message or merged with
- * another: the client reloads its listing on {@code sync_completed}, which
- * every cycle that stored a message sends.
+ * another: the client reloads its listing on a {@code sync_completed} for the
+ * folder it shows, which every folder cycle that finishes having downloaded a
+ * message sends. A lazily fetched page, the history backfill, the threading
+ * backfill and a change arriving through another folder send none.
  *
  * The client correlates {@code send_*} events with the originating request via
  * {@code sendId} (returned in the 202 body of the send endpoint).

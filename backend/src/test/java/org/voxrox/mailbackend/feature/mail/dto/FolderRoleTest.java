@@ -1,6 +1,9 @@
 package org.voxrox.mailbackend.feature.mail.dto;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
+
+import java.time.Duration;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -74,6 +77,32 @@ class FolderRoleTest {
         @DisplayName("A null name is a user folder")
         void nullNameIsUser() {
             assertThat(FolderRole.fromNameFallback(null)).isEqualTo(FolderRole.USER);
+        }
+
+        @Test
+        @DisplayName("A name past the limit is a user folder without being read (B1-28)")
+        void overlongNameIsNotRead() {
+            // Padding that the normalization would strip: at the limit the name still
+            // means Sent, one character past it nobody looks.
+            String atLimit = " ".repeat(FolderRole.MAX_ROLE_NAME_CHARS - "sent".length()) + "sent";
+
+            assertThat(FolderRole.fromNameFallback(atLimit)).isEqualTo(FolderRole.SENT);
+            assertThat(FolderRole.fromNameFallback(" " + atLimit)).isEqualTo(FolderRole.USER);
+        }
+
+        @Test
+        @DisplayName("A name of combining marks costs no time to speak of (B1-28)")
+        void aNameOfCombiningMarksIsNotDecomposed() {
+            // Two runs of marks in descending class order: canonical ordering moves
+            // every mark of the second past the first, the square of the length.
+            // 100 000 characters took the decomposition alone 2.5 s where this was
+            // measured, and four times that for each doubling.
+            String marks = "a" + "̕".repeat(100_000) + "̀".repeat(100_000);
+
+            FolderRole role = assertTimeoutPreemptively(Duration.ofSeconds(2),
+                    () -> FolderRole.fromNameFallback(marks));
+
+            assertThat(role).isEqualTo(FolderRole.USER);
         }
     }
 }

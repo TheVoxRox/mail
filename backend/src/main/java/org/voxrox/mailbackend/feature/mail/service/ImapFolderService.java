@@ -37,8 +37,8 @@ public class ImapFolderService {
 
     /**
      * How many delimiters up from a folder its nearest listed ancestor is looked
-     * for. With {@link #MAX_HIERARCHY_NAME_CHARS} it bounds what one folder costs,
-     * so a listing costs in proportion to its size.
+     * for. With {@link #MAX_HIERARCHY_NAME_CHARS} it bounds what one folder's walk
+     * costs, so the walk costs in proportion to the listing's size.
      */
     static final int MAX_HIERARCHY_LEVELS = 64;
     private final ImapConnectionManager imapConnectionManager;

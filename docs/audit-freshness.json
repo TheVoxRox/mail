@@ -50,27 +50,23 @@
   ],
   "docs/API_SURFACE_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/resources/application.properties": "62acec37c9feebec38a999296bfa35021632ba66",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/controller": "81e0df93482d983158d6a0ecd21da6a7e6d413d7",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/contact/controller": "ca0ce95eae3767b83dacf5bc4aad459e63175bf9",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "e88e7bd9e99b48d0a22fcdda9de5dc6d61c301a3"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "6686143186904f3075a4fe152928b266075069e1"
     },
     "acknowledgements": [
       {
-        "date": "2026-11-14",
-        "note": "Audit 1.27 (#908, #909), on top of the re-verification of 1.26 against 22132a8 and waiting for its independent pass. ContactController loses three endpoints the client never called, POST /contacts/{contactId}/emails, DELETE /contacts/{contactId}/emails/{emailId} and PATCH /contacts/{contactId}/emails/{emailId}/primary; every other mapping, its validation and its error responses are untouched. NotificationController and SseEvent lose the thread_updated variant of the SSE stream and the ThreadUpdated record is deleted; the stream, its endpoint and the other four variants are as before. MailSummaryResponse.threadId changes its description only. application.properties loses spring.profiles.active=prod, which nothing read, and turns Flyway baselining off (baseline-version and baseline-description go with it). The surface only shrinks: no endpoint, request field, response field, validation rule or authentication rule is added, PUBLIC_ENDPOINTS and the security chain are untouched, and the OpenAPI snapshot follows. Verdict unchanged."
+        "date": "2026-11-15",
+        "note": "Audit 1.29, on top of the re-verification of 1.28 against 41ae063 and waiting for its independent pass. Two files in the package. MailSummaryResponse.threadId changes its description only, to the wording the pass proposed: the server groups the conversation listing by the id and the client reads it from the conversation summary. FolderRole.fromNameFallback returns USER for a name longer than 128 characters before normalizing it (IMAP/SMTP B1-28); the enum constants, their attributes and the JSON form of FolderRole in FolderResponse are unchanged, and a name of 128 characters or fewer is decided exactly as before. No endpoint, request field, response field, validation rule or authentication rule moved; the OpenAPI snapshot changes in that one description. Verdict unchanged."
       }
     ]
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/resources/application.properties": "62acec37c9feebec38a999296bfa35021632ba66",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "5c148ba45e56dd7250fbe7b4dfd5302c826fa6db"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto/FolderRole.java": "c3428a72e5bfb8148b02d83c3d74f32cab6c42aa"
     },
     "acknowledgements": [
       {
-        "date": "2026-11-14",
-        "note": "Audit 1.87 (#908), on top of the re-verification of 1.86 against 22132a8 and waiting for its independent pass. ImapFolderService.parentRef gains two bounds, B1-27 (§4ab): a name longer than 1000 characters is not walked for ancestors and no name is walked more than 64 delimiters up, either way leaving the folder at the top level; no IMAP command is added and the listing is otherwise as it was. ThreadingService no longer broadcasts thread_updated after a message joins a thread or orphan threads merge, and loses its SseNotificationService dependency; thread assignment, merging and renumbering are byte-for-byte the same statements without the two calls. application.properties loses spring.profiles.active=prod, which nothing read, and turns Flyway baselining off; no mail.client.*, IMAP, SMTP, timeout, sync or connection key moved. No bound, timeout, lock, retry or persistence step moved. Verdict unchanged."
+        "date": "2026-11-15",
+        "note": "Audit 1.89, on top of the re-verification of 1.88 against 41ae063 and waiting for its independent pass. FolderRole.fromNameFallback gains one bound, B1-28 (§4ac): a name longer than MAX_ROLE_NAME_CHARS, 128, is answered USER before normalize runs, so the NFD decomposition never sees a long run of combining marks. A name of 128 characters or fewer goes through the same normalize and the same lookup as before, and the longest name in the lookup is 32 characters with its prefix, so a folder that had a role by name loses it only if its name exceeded 128 characters through whitespace or combining marks the normalization removed (§4ac, Residual). fromAttribute, deliversNewMail and the role names are untouched. No IMAP command, timeout, lock, retry or persistence step moved, and no other bound. Verdict unchanged."
       }
     ]
   },
