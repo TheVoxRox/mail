@@ -34,6 +34,14 @@ export interface ProviderPreset {
 	appPassword: 'always' | 'twoFactor' | 'never';
 	/** URL of the guide for creating an App Password (anchor in provider docs). */
 	appPasswordHelpUrl?: string;
+	/**
+	 * The provider shows its app password in groups split by spaces that are
+	 * not part of it (Google: "abcd efgh ijkl mnop"), and its IMAP takes no
+	 * other password, so whitespace is never part of what the user means.
+	 * Guides disagree on whether the server forgives the spaces; removing them
+	 * makes a pasted or retyped password work either way.
+	 */
+	appPasswordHasDisplaySpaces?: boolean;
 }
 
 export const KNOWN_PRESETS: ProviderPreset[] = [
@@ -43,7 +51,8 @@ export const KNOWN_PRESETS: ProviderPreset[] = [
 		oauth2RegistrationId: 'google',
 		flow: 'oauth',
 		appPassword: 'always',
-		appPasswordHelpUrl: 'https://support.google.com/accounts/answer/185833'
+		appPasswordHelpUrl: 'https://support.google.com/accounts/answer/185833',
+		appPasswordHasDisplaySpaces: true
 	},
 	{
 		key: 'outlook',
@@ -91,4 +100,14 @@ export function presetForProvider(
 			(preset) => preset.backendName != null && preset.backendName.toLowerCase() === target
 		) ?? null
 	);
+}
+
+/**
+ * The password as the provider's server takes it: without whitespace where
+ * the provider's app password only shows spaces (see
+ * `appPasswordHasDisplaySpaces`), as typed everywhere else, since an ordinary
+ * account password may contain a space.
+ */
+export function passwordForPreset(preset: ProviderPreset | null, password: string): string {
+	return preset?.appPasswordHasDisplaySpaces ? password.replace(/\s/g, '') : password;
 }

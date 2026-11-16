@@ -163,6 +163,39 @@ test.describe('Accounts', () => {
 		).toHaveAttribute('href', 'https://support.google.com/accounts/answer/185833');
 	});
 
+	test('Gmail přes IMAP pošle heslo aplikace bez mezer, se kterými ho Google ukazuje', async ({
+		page
+	}) => {
+		await openApp(page, '/settings/accounts/new');
+
+		await page.locator('#wizard-email').fill('jana@gmail.com');
+		await page.getByRole('button', { name: 'Pokračovat' }).click();
+		await page.getByRole('button', { name: 'Použít IMAP a heslo aplikace' }).click();
+		// As Google's dialog shows it: four groups of four.
+		await page.locator('#acc-password').fill('abcd efgh ijkl mnop');
+
+		const probeRequest = page.waitForRequest(
+			(request) =>
+				request.url().endsWith('/api/v1/accounts/test-connection') && request.method() === 'POST'
+		);
+		const createRequest = page.waitForRequest(
+			(request) => request.url().endsWith('/api/v1/accounts') && request.method() === 'POST'
+		);
+		await page.getByRole('button', { name: 'Vytvořit účet' }).click();
+
+		expect((await probeRequest).postDataJSON()).toMatchObject({
+			providerId: 3,
+			username: 'jana@gmail.com',
+			password: 'abcdefghijklmnop'
+		});
+		expect((await createRequest).postDataJSON()).toMatchObject({
+			providerId: 3,
+			username: 'jana@gmail.com',
+			password: 'abcdefghijklmnop'
+		});
+		await expect(page).toHaveURL(/\/settings\/accounts$/);
+	});
+
 	test('auto-resolve providera reaguje i na změnu e-mailové domény', async ({ page }) => {
 		await openApp(page, '/settings/accounts/new');
 

@@ -53,6 +53,17 @@ Entries before 2026-09-17 predate that split and are left as written.
   too (add, delete and promote a single address); a contact's addresses are
   still edited as a whole.
 
+### Frontend
+
+- A Gmail account set up over IMAP sends its app password without spaces.
+  Google shows the password in groups of four ("abcd efgh ijkl mnop"), and the
+  form sent whatever was pasted or typed, spaces included; guides disagree on
+  whether Gmail forgives them, so whether the account signed in depended on
+  how the password was entered. Google's IMAP takes nothing but an app
+  password, which never contains whitespace, so the form now drops it. Other
+  providers still get the password as typed, since an account password may
+  contain a space.
+
 ### Repo
 
 - A second independent pass confirmed the fix of B1-28 and found no way around
