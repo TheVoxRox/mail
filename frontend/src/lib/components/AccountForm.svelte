@@ -1,7 +1,11 @@
 <script lang="ts">
 	import { listProviders } from '#lib/api/providers.js';
 	import { testAccountConnection } from '#lib/api/accounts.js';
-	import { presetForProvider, type ProviderPreset } from '#lib/accounts/providerPresets.js';
+	import {
+		passwordForPreset,
+		presetForProvider,
+		type ProviderPreset
+	} from '#lib/accounts/providerPresets.js';
 	import { createProviderResolver, type ProviderResolver } from '#lib/accounts/providerResolver.js';
 	import {
 		FIELD_INPUT_IDS,
@@ -271,6 +275,20 @@
 			helpLabel: $_('accounts.form.appPasswordHelp', { values: { provider } })
 		};
 	});
+	/*
+	 * The password as it is checked and sent: Google's app password without the
+	 * spaces it is shown with (see passwordForPreset). The field keeps what was
+	 * typed, so nothing changes under the user's cursor. Keyed on the provider
+	 * the request names, not on activePreset: a wizard opened for Gmail keeps
+	 * that preset after the user picks Seznam from the list, and a Seznam
+	 * password may contain a space.
+	 */
+	let sentPassword = $derived(
+		passwordForPreset(
+			serverMode === 'provider' ? presetForProvider(selectedProvider) : null,
+			password
+		)
+	);
 	let providerDropdownHidden = $derived(
 		preset != null && preset.backendName != null && !showAdvancedProvider
 	);
@@ -423,7 +441,7 @@
 			email,
 			accountName,
 			username,
-			password,
+			password: sentPassword,
 			imapHost,
 			imapPort,
 			smtpHost,
@@ -489,7 +507,7 @@
 					email,
 					displayName: displayName || null,
 					username,
-					password,
+					password: sentPassword,
 					...server
 				};
 				await onSubmit(payload);
@@ -504,7 +522,7 @@
 					signature: signature.trim() ? signature : null,
 					signatureAutoInsert,
 					username,
-					password: password || null,
+					password: sentPassword || null,
 					active,
 					...server
 				};
@@ -540,7 +558,7 @@
 				accountId,
 				email,
 				username,
-				password: password || null,
+				password: sentPassword || null,
 				...server
 			});
 		} finally {
@@ -562,7 +580,7 @@
 	function shouldVerifyOnSave(): boolean {
 		if (!active) return false;
 		if (!initial) return true;
-		if (password) return true;
+		if (sentPassword) return true;
 		if (email.trim() !== initial.email || username.trim() !== initial.username) return true;
 
 		const wasCustom = initial.providerId == null;
@@ -612,7 +630,7 @@
 				accountId: mode === 'edit' ? initial?.id : null,
 				email,
 				username,
-				password: password || null,
+				password: sentPassword || null,
 				...buildServerPayload()
 			};
 			const result = await testAccountConnection(payload);
