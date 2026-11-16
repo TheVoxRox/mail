@@ -165,7 +165,7 @@ Entries before 2026-09-17 predate that split and are left as written.
   the dark palette's contrast was measured by nothing but the focus walk. New
   a11y tests hold the account switcher to switching only on a choice, the
   sender's link to its underline and the language options to their `lang`
-  (#PR).
+  (#929).
 - How a Dependabot pull request is landed (its record commit: merge `main`,
   regenerate the inventories and the notice, a changelog bullet) and how a red
   `vuln-scan.yml` run is triaged (a registry that refused the runner against a
