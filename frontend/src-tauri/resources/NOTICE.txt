@@ -8,10 +8,10 @@ attached to the component. The product itself is licensed under
 the terms of the LICENSE file shipped alongside this notice in the
 installation directory.
 
-Total third-party components: 507
+Total third-party components: 509
   npm    120
   maven  106
-  cargo  281
+  cargo  283
 
 Generated: 2026-11-16
 
@@ -634,7 +634,7 @@ Components and their copyright notices:
       (no author in package.json — see git+https://github.com/sveltejs/zimmerframe.git)
       git+https://github.com/sveltejs/zimmerframe.git
 
-  * zip 9.4.1  [cargo]
+  * zip 9.5.0  [cargo]
       Mathijs van de Nes <git@mathijs.vd-nes.nl>, Marli Frost <marli@frost.red>, Ryan Levick <ryan.levick@gmail.com>, Chris Hennick <hennickc@amazon.com>
       https://github.com/zip-rs/zip2
 
@@ -754,7 +754,7 @@ Components and their copyright notices:
       The image-rs Developers
       https://github.com/image-rs/fdeflate
 
-  * flate2 1.1.10  [cargo]
+  * flate2 1.1.11  [cargo]
       Alex Crichton <alex@alexcrichton.com>, Josh Triplett <josh@joshtriplett.org>
       https://github.com/rust-lang/flate2-rs
 
@@ -1770,7 +1770,7 @@ Components and their copyright notices:
 
 ------------------------------------------------------------------
 
-## Apache-2.0 OR MIT  —  33 component(s)
+## Apache-2.0 OR MIT  —  34 component(s)
 
 License text: see https://spdx.org/licenses/Apache-2.0%20OR%20MIT.html
 
@@ -1905,6 +1905,10 @@ Components and their copyright notices:
       https://github.com/tauri-apps/wry
 
   * zeroize 1.9.1  [cargo]
+      The RustCrypto Project Developers
+      https://github.com/RustCrypto/utils
+
+  * zeroize_derive 1.5.0  [cargo]
       The RustCrypto Project Developers
       https://github.com/RustCrypto/utils
 
@@ -2310,6 +2314,22 @@ Components and their copyright notices:
 
 ------------------------------------------------------------------
 
+## CC0-1.0 OR MIT-0 OR Apache-2.0  —  2 component(s)
+
+License text: see https://spdx.org/licenses/CC0-1.0%20OR%20MIT-0%20OR%20Apache-2.0.html
+
+Components and their copyright notices:
+
+  * constant_time_eq 0.6.1  [cargo]
+      Cesar Eduardo Barros <cesarb@cesarb.eti.br>
+      https://codeberg.org/cesarb/constant_time_eq
+
+  * dunce 1.0.5  [cargo]
+      Kornel <kornel@geekhood.net>
+      https://gitlab.com/kornelski/dunce
+
+------------------------------------------------------------------
+
 ## MIT OR Zlib OR Apache-2.0  —  2 component(s)
 
 License text: see https://spdx.org/licenses/MIT%20OR%20Zlib%20OR%20Apache-2.0.html
@@ -2503,18 +2523,6 @@ Components and their copyright notices:
   * HdrHistogram 2.2.2  [maven]
       (copyright not declared)
       scm:git:git://github.com/HdrHistogram/HdrHistogram.git
-
-------------------------------------------------------------------
-
-## CC0-1.0 OR MIT-0 OR Apache-2.0  —  1 component(s)
-
-License text: see https://spdx.org/licenses/CC0-1.0%20OR%20MIT-0%20OR%20Apache-2.0.html
-
-Components and their copyright notices:
-
-  * dunce 1.0.5  [cargo]
-      Kornel <kornel@geekhood.net>
-      https://gitlab.com/kornelski/dunce
 
 ------------------------------------------------------------------
 

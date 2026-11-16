@@ -4,7 +4,7 @@ The Windows build of the Tauri runtime that ships with VoxRox Mail compiles the 
 
 Dual-licensed crates (e.g. `MIT OR Apache-2.0`) are listed under their canonical license expression — pick either license when redistributing.
 
-Counts: 281 crates total. 136 MIT OR Apache-2.0, 56 MIT, 32 Apache-2.0 OR MIT, 18 Unicode-3.0, 5 MPL-2.0, 4 MIT/Apache-2.0, 4 Unlicense OR MIT, 3 BSD-3-Clause, 2 Apache-2.0, 2 Apache-2.0 OR ISC OR MIT, 2 ISC, 2 MIT OR Zlib OR Apache-2.0, 2 Unlicense/MIT, 1 (Apache-2.0 OR MIT) AND BSD-3-Clause, 1 (MIT OR Apache-2.0) AND Unicode-3.0, 1 0BSD OR MIT OR Apache-2.0, 1 Apache-2.0 / MIT, 1 Apache-2.0 AND ISC, 1 Apache-2.0 AND MIT, 1 Apache-2.0 OR BSL-1.0, 1 BSD-3-Clause AND MIT, 1 BSD-3-Clause/MIT, 1 CC0-1.0 OR MIT-0 OR Apache-2.0, 1 CDLA-Permissive-2.0, 1 MIT OR Apache-2.0 OR Zlib, 1 Zlib.
+Counts: 283 crates total. 136 MIT OR Apache-2.0, 56 MIT, 33 Apache-2.0 OR MIT, 18 Unicode-3.0, 5 MPL-2.0, 4 MIT/Apache-2.0, 4 Unlicense OR MIT, 3 BSD-3-Clause, 2 Apache-2.0, 2 Apache-2.0 OR ISC OR MIT, 2 CC0-1.0 OR MIT-0 OR Apache-2.0, 2 ISC, 2 MIT OR Zlib OR Apache-2.0, 2 Unlicense/MIT, 1 (Apache-2.0 OR MIT) AND BSD-3-Clause, 1 (MIT OR Apache-2.0) AND Unicode-3.0, 1 0BSD OR MIT OR Apache-2.0, 1 Apache-2.0 / MIT, 1 Apache-2.0 AND ISC, 1 Apache-2.0 AND MIT, 1 Apache-2.0 OR BSL-1.0, 1 BSD-3-Clause AND MIT, 1 BSD-3-Clause/MIT, 1 CDLA-Permissive-2.0, 1 MIT OR Apache-2.0 OR Zlib, 1 Zlib.
 
 ## MIT OR Apache-2.0 (136)
 
@@ -33,7 +33,7 @@ Counts: 281 crates total. 136 MIT OR Apache-2.0, 56 MIT, 32 Apache-2.0 OR MIT, 1
 - **dyn-clone** 1.0.20 — [https://github.com/dtolnay/dyn-clone](https://github.com/dtolnay/dyn-clone)
 - **erased-serde** 0.4.11 — [https://github.com/dtolnay/erased-serde](https://github.com/dtolnay/erased-serde)
 - **fdeflate** 0.3.7 — [https://github.com/image-rs/fdeflate](https://github.com/image-rs/fdeflate)
-- **flate2** 1.1.10 — [https://github.com/rust-lang/flate2-rs](https://github.com/rust-lang/flate2-rs)
+- **flate2** 1.1.11 — [https://github.com/rust-lang/flate2-rs](https://github.com/rust-lang/flate2-rs)
 - **form_urlencoded** 1.2.2 — [https://github.com/servo/rust-url](https://github.com/servo/rust-url)
 - **futures-core** 0.3.34 — [https://github.com/rust-lang/futures-rs](https://github.com/rust-lang/futures-rs)
 - **futures-channel** 0.3.34 — [https://github.com/rust-lang/futures-rs](https://github.com/rust-lang/futures-rs)
@@ -201,10 +201,10 @@ Counts: 281 crates total. 136 MIT OR Apache-2.0, 56 MIT, 32 Apache-2.0 OR MIT, 1
 - **webview2-com-macros** 0.8.1 — [https://github.com/wravery/webview2-rs](https://github.com/wravery/webview2-rs)
 - **webview2-com-sys** 0.39.1 — [https://github.com/wravery/webview2-rs](https://github.com/wravery/webview2-rs)
 - **winnow** 1.0.4 — [https://github.com/winnow-rs/winnow](https://github.com/winnow-rs/winnow)
-- **zip** 9.4.1 — [https://github.com/zip-rs/zip2](https://github.com/zip-rs/zip2)
+- **zip** 9.5.0 — [https://github.com/zip-rs/zip2](https://github.com/zip-rs/zip2)
 - **zmij** 1.0.23 — [https://github.com/dtolnay/zmij](https://github.com/dtolnay/zmij)
 
-## Apache-2.0 OR MIT (32)
+## Apache-2.0 OR MIT (33)
 
 - **atomic-waker** 1.1.2 — [https://github.com/smol-rs/atomic-waker](https://github.com/smol-rs/atomic-waker)
 - **bit-set** 0.8.0 — [https://github.com/contain-rs/bit-set](https://github.com/contain-rs/bit-set)
@@ -238,6 +238,7 @@ Counts: 281 crates total. 136 MIT OR Apache-2.0, 56 MIT, 32 Apache-2.0 OR MIT, 1
 - **window-vibrancy** 0.8.1 — [https://github.com/tauri-apps/tauri-plugin-vibrancy](https://github.com/tauri-apps/tauri-plugin-vibrancy)
 - **wry** 0.57.1 — [https://github.com/tauri-apps/wry](https://github.com/tauri-apps/wry)
 - **zeroize** 1.9.1 — [https://github.com/RustCrypto/utils](https://github.com/RustCrypto/utils)
+- **zeroize_derive** 1.5.0 — [https://github.com/RustCrypto/utils](https://github.com/RustCrypto/utils)
 
 ## Unicode-3.0 (18)
 
@@ -298,6 +299,11 @@ Counts: 281 crates total. 136 MIT OR Apache-2.0, 56 MIT, 32 Apache-2.0 OR MIT, 1
 - **hyper-rustls** 0.27.10 — [https://github.com/rustls/hyper-rustls](https://github.com/rustls/hyper-rustls)
 - **rustls** 0.23.46 — [https://github.com/rustls/rustls](https://github.com/rustls/rustls)
 
+## CC0-1.0 OR MIT-0 OR Apache-2.0 (2)
+
+- **constant_time_eq** 0.6.1 — [https://codeberg.org/cesarb/constant_time_eq](https://codeberg.org/cesarb/constant_time_eq)
+- **dunce** 1.0.5 — [https://gitlab.com/kornelski/dunce](https://gitlab.com/kornelski/dunce)
+
 ## ISC (2)
 
 - **rustls-webpki** 0.103.16 — [https://github.com/rustls/webpki](https://github.com/rustls/webpki)
@@ -348,10 +354,6 @@ Counts: 281 crates total. 136 MIT OR Apache-2.0, 56 MIT, 32 Apache-2.0 OR MIT, 1
 ## BSD-3-Clause/MIT (1)
 
 - **brotli-decompressor** 6.2.0 — [https://github.com/dropbox/rust-brotli-decompressor](https://github.com/dropbox/rust-brotli-decompressor)
-
-## CC0-1.0 OR MIT-0 OR Apache-2.0 (1)
-
-- **dunce** 1.0.5 — [https://gitlab.com/kornelski/dunce](https://gitlab.com/kornelski/dunce)
 
 ## CDLA-Permissive-2.0 (1)
 
