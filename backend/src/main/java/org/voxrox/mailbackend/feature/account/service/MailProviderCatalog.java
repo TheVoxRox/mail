@@ -65,8 +65,9 @@ final class MailProviderCatalog {
     /**
      * Seznam stays PASSWORD-only — it publishes no OAuth2 API. Microsoft
      * (Outlook/Office 365) is OAuth-only in the opposite direction: basic auth for
-     * personal accounts was switched off on 2024-09-16, so the password form must
-     * never be offered for it.
+     * personal accounts was switched off on 2024-09-16, and for IMAP in every
+     * Microsoft 365 tenant by the end of 2022, past any admin's reach, so the
+     * password form must never be offered for it (docs/DECISIONS.md).
      */
     static final List<SystemProviderTemplate> SYSTEM_TEMPLATES = List.of(
             new SystemProviderTemplate("Google", ",gmail.com,googlemail.com,", "imap.gmail.com", 993, true,

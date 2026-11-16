@@ -64,3 +64,26 @@ describe('passwordForPreset', () => {
 		expect(passwordForPreset(null, 'moje heslo ')).toBe('moje heslo ');
 	});
 });
+
+describe('KNOWN_PRESETS', () => {
+	it('gives Microsoft no password sign-in, as the backend catalogue says', () => {
+		const outlook = KNOWN_PRESETS.find((preset) => preset.key === 'outlook');
+		expect(outlook?.flow).toBe('oauth');
+		expect(outlook?.imapPassword).toBe('none');
+	});
+
+	it('links an app-password guide only where the password is one', () => {
+		for (const preset of KNOWN_PRESETS) {
+			const appPassword =
+				preset.imapPassword === 'app' || preset.imapPassword === 'appWithTwoFactor';
+			expect(preset.appPasswordHelpUrl != null, preset.key).toBe(appPassword);
+		}
+	});
+
+	it('leaves no provider without a way in', () => {
+		// A preset with no password sign-in has to have the other one.
+		for (const preset of KNOWN_PRESETS.filter((p) => p.imapPassword === 'none')) {
+			expect(preset.oauth2RegistrationId, preset.key).toBeTruthy();
+		}
+	});
+});

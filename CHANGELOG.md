@@ -63,6 +63,15 @@ Entries before 2026-09-17 predate that split and are left as written.
   password, which never contains whitespace, so the form now drops it. Other
   providers still get the password as typed, since an account password may
   contain a space.
+- The account wizard no longer offers "Použít IMAP a heslo aplikace" next to
+  "Přihlásit přes Microsoft". Microsoft refuses a password over IMAP, an app
+  password included: for outlook.com, hotmail, live and msn addresses since
+  2024-09-16, and for work and school accounts in every Microsoft 365
+  organisation since 2022, with no admin able to allow it again. The button
+  led to a form that asked for a Microsoft app password, linked a guide to
+  making one, and then had the login refused every time. Google keeps the
+  button. A mail server an organisation runs itself is still added under
+  "Vlastní nastavení".
 
 ### Repo
 

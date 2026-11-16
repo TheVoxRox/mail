@@ -4,8 +4,9 @@
  * The backend seeds named templates (Google, Seznam, Microsoft). The wizard
  * decides:
  *   - what flow to create the account with (`oauth` vs `imap`),
- *   - whether to mention an App Password (always for Google/Microsoft, with
- *     two-factor authentication only for Seznam),
+ *   - what the password over IMAP is, if there is one: an App Password always
+ *     for Google, one only with two-factor authentication for Seznam, and none
+ *     at all for Microsoft, which signs in through OAuth only,
  *   - how to match the provider from `/accounts/providers` to a preset:
  *     OAuth providers pair on the stable `oauth2RegistrationId`, others
  *     fall back to the template `name`. The display name is never the key.
@@ -27,11 +28,17 @@ export interface ProviderPreset {
 	/** How the account is created. `custom` always uses `imap`. */
 	flow: ProviderFlow;
 	/**
-	 * When the account password is not enough for IMAP: `always` (Gmail/Outlook
-	 * in IMAP mode), `twoFactor` (only once two-factor authentication is on —
-	 * Seznam, whose plain accounts sign in with the account password) or `never`.
+	 * What the password field takes when the account signs in over IMAP:
+	 * `account` (the account password), `app` (always an App Password — Gmail),
+	 * `appWithTwoFactor` (an App Password only once two-factor authentication is
+	 * on — Seznam, whose plain accounts sign in with the account password) or
+	 * `none`. `none` means the provider has no password sign-in at all, so the
+	 * wizard does not offer IMAP with a password as an alternative to its OAuth
+	 * sign-in: Microsoft switched basic authentication off for personal accounts
+	 * on 2024-09-16, and for IMAP in every Microsoft 365 tenant by the end of
+	 * 2022, where no admin can switch it back on (docs/DECISIONS.md).
 	 */
-	appPassword: 'always' | 'twoFactor' | 'never';
+	imapPassword: 'account' | 'app' | 'appWithTwoFactor' | 'none';
 	/** URL of the guide for creating an App Password (anchor in provider docs). */
 	appPasswordHelpUrl?: string;
 	/**
@@ -50,7 +57,7 @@ export const KNOWN_PRESETS: ProviderPreset[] = [
 		backendName: 'Google',
 		oauth2RegistrationId: 'google',
 		flow: 'oauth',
-		appPassword: 'always',
+		imapPassword: 'app',
 		appPasswordHelpUrl: 'https://support.google.com/accounts/answer/185833',
 		appPasswordHasDisplaySpaces: true
 	},
@@ -59,22 +66,20 @@ export const KNOWN_PRESETS: ProviderPreset[] = [
 		backendName: 'Microsoft',
 		oauth2RegistrationId: 'microsoft',
 		flow: 'oauth',
-		appPassword: 'always',
-		appPasswordHelpUrl:
-			'https://support.microsoft.com/en-us/account-billing/5896ed9b-4263-e681-128a-a6f2979a7944'
+		imapPassword: 'none'
 	},
 	{
 		key: 'seznam',
 		backendName: 'Seznam',
 		flow: 'imap',
-		appPassword: 'twoFactor',
+		imapPassword: 'appWithTwoFactor',
 		appPasswordHelpUrl: 'https://o-seznam.cz/napoveda/ucet/dvoufazove-overeni/postovni-programy/'
 	},
 	{
 		key: 'custom',
 		backendName: null,
 		flow: 'imap',
-		appPassword: 'never'
+		imapPassword: 'account'
 	}
 ];
 
