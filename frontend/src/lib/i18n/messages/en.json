@@ -403,6 +403,7 @@
 			"appPasswordTwoFactorNote": "Enter your {provider} account password. If two-factor authentication is on there, use an app password instead.",
 			"appPasswordHelp": "How to create an app password for {provider}",
 			"oauthAvailable": "{provider} supports secure sign-in, so you don't need a password.",
+			"oauthRequired": "{provider} accepts no password, so this sign-in is the only way to add the account.",
 			"activeCheckbox": "Account is active (will sync)",
 			"errorSelectProvider": "Select a provider.",
 			"errorPasswordRequiredForTest": "Enter a password before testing a new account.",

@@ -43,6 +43,36 @@ authentication for personal accounts (outlook.com, hotmail, live, msn) on
 [providerPresets.ts](../frontend/src/lib/accounts/providerPresets.ts) use
 `flow: 'oauth'` and the seed sets `supports_oauth2`.
 
+**Extended 2026-11-16** to work and school accounts, and to the wizard. The
+entry above said the code matched while the wizard still offered "Použít IMAP
+a heslo aplikace" next to the Microsoft sign-in, and the preset described the
+password as a Microsoft app password with a guide to making one. App passwords
+are basic authentication too, so they went with it. Work and school accounts
+offer no way back either: Exchange Online disabled basic authentication for
+IMAP and POP in every tenant from 2022-10-01, and since 2022-12-31 neither an
+admin nor Microsoft support can enable it again
+([Microsoft Learn](https://learn.microsoft.com/en-us/exchange/clients-and-mobile-in-exchange-online/deprecation-of-basic-authentication-exchange-online)).
+The one survivor, SMTP AUTH, turns off by default at the end of December 2026
+([Exchange Team blog](https://techcommunity.microsoft.com/blog/exchange/updated-exchange-online-smtp-auth-basic-authentication-deprecation-timeline/4489835))
+and could not carry an account anyway, which needs IMAP. The Microsoft preset
+therefore says `imapPassword: 'none'`, the wizard shows the IMAP button only
+for a preset with a password, and no app-password guide is linked for
+Microsoft. An organisation's own Exchange Server is not affected: it answers
+under the organisation's host name, which "Vlastní nastavení" takes.
+
+The add-account form follows the same flag: Microsoft picked from its provider
+list shows the sign-in in place of the username, the password and the Create
+and Test connection buttons. The backend refuses a password for Microsoft as
+well, when an account is created on it, tested against it or moved onto it,
+with a message that says so rather than a login refused as a wrong password.
+Its flag is `passwordSignIn` in
+[MailProviderCatalog.java](../backend/src/main/java/org/voxrox/mailbackend/feature/account/service/MailProviderCatalog.java);
+the two say the same thing and change together.
+
+**Revisit when** Microsoft offers IMAP sign-in with a password again for
+personal or Microsoft 365 accounts, or a user shows a Microsoft-hosted mailbox
+that takes one today.
+
 ### One address book for the whole application, not one per account
 
 **Decided 2026-08-12**, before the first release, because later it would have

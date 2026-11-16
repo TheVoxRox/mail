@@ -340,9 +340,16 @@
 			>
 				{$_(`accounts.wizard.${step.preset.key}.loginButton`)}
 			</Button>
-			<Button type="button" variant="link" size="sm" class="ml-3" onclick={handleUseImapInstead}>
-				{$_('accounts.wizard.useImapInstead')}
-			</Button>
+			<!--
+				Only where the provider still takes a password over IMAP. Microsoft
+				does not, for personal or work accounts, and the way here led to a
+				login that was refused every time.
+			-->
+			{#if step.preset.imapPassword !== 'none'}
+				<Button type="button" variant="link" size="sm" class="ml-3" onclick={handleUseImapInstead}>
+					{$_('accounts.wizard.useImapInstead')}
+				</Button>
+			{/if}
 			{#if googleError}
 				<p class="mt-2 text-xs text-destructive-foreground" role="alert">{googleError}</p>
 			{/if}
