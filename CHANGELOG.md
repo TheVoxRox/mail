@@ -98,6 +98,16 @@ Entries before 2026-09-17 predate that split and are left as written.
   and offered no sign-in at all. The sign-in checks the address first, as
   "Vytvořit účet" does, instead of opening with none.
 
+### Tauri / Release
+
+- The `NOTICE.txt` the installer carries also names the npm packages that npm
+  installs inside another package rather than at the top of `node_modules`.
+  Its generator read only the top, so three versions of magic-string,
+  estree-walker and `@oxc-project/types` were never in it, and Tailwind's
+  WebAssembly runtime, which #906 moved inside `@tailwindcss/oxide-wasm32-wasi`,
+  would have dropped out of the next render. The notice's npm part now lists
+  the same packages as the frontend's license list.
+
 ### Repo
 
 - A second independent pass confirmed the fix of B1-28 and found no way around
