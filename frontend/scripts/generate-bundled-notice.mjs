@@ -215,6 +215,33 @@ function builtCargoComponents(bom) {
 	return distributed;
 }
 
+/*
+ * cyclonedx-npm puts a package that is installed inside another package's own
+ * node_modules, a bundled dependency or a version npm could not hoist, under
+ * that package's `components` rather than at the top level. Reading only the
+ * top level left those out of the notice while frontend/THIRD_PARTY_LICENSES.md,
+ * which walks node_modules, listed them; #906 moved five more there when npm
+ * started installing Tailwind's WebAssembly runtime inside
+ * `@tailwindcss/oxide-wasm32-wasi`. A package nested at one version in two
+ * places is one component, as it is one entry in the inventory.
+ */
+function installedNpmComponents(bom) {
+	const seen = new Set();
+	const installed = [];
+	const visit = (components) => {
+		for (const c of components ?? []) {
+			const key = `${c.group ?? ''}/${c.name}@${c.version}`;
+			if (!seen.has(key)) {
+				seen.add(key);
+				installed.push(c);
+			}
+			visit(c.components);
+		}
+	};
+	visit(bom.components);
+	return installed;
+}
+
 const licenseTexts = new Map();
 for (const file of readdirSync(templatesDir)) {
 	if (!file.endsWith('.txt')) continue;
@@ -233,7 +260,7 @@ for (const src of sbomSources) {
 			? distributedMavenComponents(bom)
 			: src.ecosystem === 'cargo'
 				? builtCargoComponents(bom)
-				: bom.components;
+				: installedNpmComponents(bom);
 	ecosystemCounts.set(src.ecosystem, components.length);
 	for (const c of components) {
 		const license = componentLicense(c);

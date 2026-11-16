@@ -8,19 +8,19 @@ attached to the component. The product itself is licensed under
 the terms of the LICENSE file shipped alongside this notice in the
 installation directory.
 
-Total third-party components: 502
-  npm    115
+Total third-party components: 509
+  npm    120
   maven  106
-  cargo  281
+  cargo  283
 
-Generated: 2026-11-10
+Generated: 2026-11-16
 
 Machine-readable CycloneDX SBOM files for each ecosystem are
 published alongside the installer on the GitHub Releases page.
 
 ------------------------------------------------------------------
 
-## MIT  —  144 component(s)
+## MIT  —  149 component(s)
 
 License text:
 
@@ -82,13 +82,13 @@ Components and their copyright notices:
       Roman Shtylman
       git+https://github.com/jshttp/cookie.git
 
-  * core 1.11.1  [npm]
-      toyobayashi
-      git+https://github.com/toyobayashi/emnapi.git
-
   * core 1.8.0  [npm]
       atomiks
       git+https://github.com/floating-ui/floating-ui.git#packages/core
+
+  * core 1.11.3  [npm]
+      toyobayashi
+      git+https://github.com/toyobayashi/emnapi.git
 
   * darling 0.24.1  [cargo]
       Ted Driggs <ted.driggs@outlook.com>
@@ -161,6 +161,10 @@ Components and their copyright notices:
   * estree 1.0.9  [npm]
       (no author in package.json — see git+https://github.com/DefinitelyTyped/DefinitelyTyped.git#types/estree)
       git+https://github.com/DefinitelyTyped/DefinitelyTyped.git#types/estree
+
+  * estree-walker 2.0.2  [npm]
+      Rich Harris
+      git+https://github.com/Rich-Harris/estree-walker.git
 
   * event-emitter 0.3.5  [npm]
       Mariusz Nowak
@@ -274,7 +278,19 @@ Components and their copyright notices:
       pieroxy
       git+https://github.com/pieroxy/lz-string.git
 
+  * magic-string 1.4.5  [npm]
+      Rich Harris
+      git+https://github.com/Rich-Harris/magic-string.git
+
+  * magic-string 1.4.3  [npm]
+      Rich Harris
+      git+https://github.com/Rich-Harris/magic-string.git
+
   * magic-string 0.30.21  [npm]
+      Rich Harris
+      git+https://github.com/Rich-Harris/magic-string.git
+
+  * magic-string 1.2.0  [npm]
       Rich Harris
       git+https://github.com/Rich-Harris/magic-string.git
 
@@ -390,7 +406,7 @@ Components and their copyright notices:
       Thomas G. Lopes
       git+https://github.com/svecosystem/runed.git#packages/runed
 
-  * runtime 1.11.1  [npm]
+  * runtime 1.11.3  [npm]
       toyobayashi
       git+https://github.com/toyobayashi/emnapi.git
 
@@ -538,6 +554,10 @@ Components and their copyright notices:
       Luca Bosin
       git+https://github.com/Wombosvideo/tw-animate-css.git
 
+  * types 0.156.0  [npm]
+      Boshen and oxc contributors
+      git+https://github.com/oxc-project/oxc.git#npm/oxc-types
+
   * types 8.72.1  [npm]
       (no author in package.json — see git+https://github.com/typescript-eslint/typescript-eslint.git#packages/types)
       git+https://github.com/typescript-eslint/typescript-eslint.git#packages/types
@@ -578,7 +598,7 @@ Components and their copyright notices:
       Sean McArthur <sean@seanmonstar.com>
       https://github.com/seanmonstar/want
 
-  * wasi-threads 1.2.2  [npm]
+  * wasi-threads 1.2.3  [npm]
       toyobayashi
       git+https://github.com/toyobayashi/emnapi.git
 
@@ -614,7 +634,7 @@ Components and their copyright notices:
       (no author in package.json — see git+https://github.com/sveltejs/zimmerframe.git)
       git+https://github.com/sveltejs/zimmerframe.git
 
-  * zip 9.4.1  [cargo]
+  * zip 9.5.0  [cargo]
       Mathijs van de Nes <git@mathijs.vd-nes.nl>, Marli Frost <marli@frost.red>, Ryan Levick <ryan.levick@gmail.com>, Chris Hennick <hennickc@amazon.com>
       https://github.com/zip-rs/zip2
 
@@ -734,7 +754,7 @@ Components and their copyright notices:
       The image-rs Developers
       https://github.com/image-rs/fdeflate
 
-  * flate2 1.1.10  [cargo]
+  * flate2 1.1.11  [cargo]
       Alex Crichton <alex@alexcrichton.com>, Josh Triplett <josh@joshtriplett.org>
       https://github.com/rust-lang/flate2-rs
 
@@ -1750,7 +1770,7 @@ Components and their copyright notices:
 
 ------------------------------------------------------------------
 
-## Apache-2.0 OR MIT  —  33 component(s)
+## Apache-2.0 OR MIT  —  34 component(s)
 
 License text: see https://spdx.org/licenses/Apache-2.0%20OR%20MIT.html
 
@@ -1885,6 +1905,10 @@ Components and their copyright notices:
       https://github.com/tauri-apps/wry
 
   * zeroize 1.9.1  [cargo]
+      The RustCrypto Project Developers
+      https://github.com/RustCrypto/utils
+
+  * zeroize_derive 1.5.0  [cargo]
       The RustCrypto Project Developers
       https://github.com/RustCrypto/utils
 
@@ -2290,6 +2314,22 @@ Components and their copyright notices:
 
 ------------------------------------------------------------------
 
+## CC0-1.0 OR MIT-0 OR Apache-2.0  —  2 component(s)
+
+License text: see https://spdx.org/licenses/CC0-1.0%20OR%20MIT-0%20OR%20Apache-2.0.html
+
+Components and their copyright notices:
+
+  * constant_time_eq 0.6.1  [cargo]
+      Cesar Eduardo Barros <cesarb@cesarb.eti.br>
+      https://codeberg.org/cesarb/constant_time_eq
+
+  * dunce 1.0.5  [cargo]
+      Kornel <kornel@geekhood.net>
+      https://gitlab.com/kornelski/dunce
+
+------------------------------------------------------------------
+
 ## MIT OR Zlib OR Apache-2.0  —  2 component(s)
 
 License text: see https://spdx.org/licenses/MIT%20OR%20Zlib%20OR%20Apache-2.0.html
@@ -2483,18 +2523,6 @@ Components and their copyright notices:
   * HdrHistogram 2.2.2  [maven]
       (copyright not declared)
       scm:git:git://github.com/HdrHistogram/HdrHistogram.git
-
-------------------------------------------------------------------
-
-## CC0-1.0 OR MIT-0 OR Apache-2.0  —  1 component(s)
-
-License text: see https://spdx.org/licenses/CC0-1.0%20OR%20MIT-0%20OR%20Apache-2.0.html
-
-Components and their copyright notices:
-
-  * dunce 1.0.5  [cargo]
-      Kornel <kornel@geekhood.net>
-      https://gitlab.com/kornelski/dunce
 
 ------------------------------------------------------------------
 
