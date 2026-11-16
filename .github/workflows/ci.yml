@@ -9,6 +9,17 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Every job here reads the repository and nothing else through GITHUB_TOKEN.
+# Caches and artifacts go through the runner's own Actions runtime token, which
+# this block does not govern, so neither needs a scope. Declared rather than
+# left to the repository default: that is a setting outside this file, today
+# contents and packages read (the "GITHUB_TOKEN Permissions" group in any job's
+# set-up log), and switching it to the permissive default would hand every job
+# here write access with no change to this file. A job that comes to need more
+# grants it on itself.
+permissions:
+  contents: read
+
 # Every job carries a timeout-minutes, and so do the three network installs --
 # the apt step in the Tauri job and the browser download in each test job.
 # Without them the GitHub default of 360 minutes applies, and a run that is
