@@ -123,6 +123,13 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- How a Dependabot pull request is landed (its record commit: merge `main`,
+  regenerate the inventories and the notice, a changelog bullet) and how a red
+  `vuln-scan.yml` run is triaged (a registry that refused the runner against a
+  real finding, NVD scores, lagging advisory mirrors, proving a fix by a manual
+  run) are written down in `CONTRIBUTING.md` "Maintaining Dependencies"; until
+  now they lived only in an agent's notes. Why the scan does not retry Maven
+  Central is a new `docs/DECISIONS.md` entry (#926).
 - Dependabot's hold on TypeScript 7 moved from an `@dependabot ignore` command
   on #147, where nobody reading the repository could see it, into
   `.github/dependabot.yml` with its reason and what lifts it. 7 is the native
