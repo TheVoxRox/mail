@@ -403,6 +403,7 @@
 			"appPasswordTwoFactorNote": "Zadejte heslo k účtu na {provider}. Máte-li tam zapnuté dvoufázové ověření, použijte místo něj heslo aplikace.",
 			"appPasswordHelp": "Jak vytvořit heslo aplikace pro {provider}",
 			"oauthAvailable": "{provider} umožňuje bezpečné přihlášení, heslo zadávat nemusíte.",
+			"oauthRequired": "{provider} nepřijímá přihlášení heslem, účet přidáte jen tímto přihlášením.",
 			"activeCheckbox": "Účet je aktivní (synchronizuje se)",
 			"errorSelectProvider": "Vyberte poskytovatele.",
 			"errorPasswordRequiredForTest": "Pro test nového účtu vyplňte heslo.",

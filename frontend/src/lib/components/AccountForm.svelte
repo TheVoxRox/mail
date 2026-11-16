@@ -218,9 +218,14 @@
 		return ids.length > 0 ? ids.join(' ') : undefined;
 	}
 
-	let activePreset = $derived(
-		preset?.backendName != null ? preset : (presetForProvider(selectedProvider) ?? preset)
-	);
+	/*
+	 * The selected provider's preset, and the wizard's until there is one (the
+	 * list is still loading). The wizard's used to win whenever it named a
+	 * provider, so picking another from the list kept the first one's password
+	 * description and sign-in offer: a form opened for Seznam and switched to
+	 * Microsoft asked for a password Microsoft refuses, and offered no sign-in.
+	 */
+	let activePreset = $derived(presetForProvider(selectedProvider) ?? preset);
 	/**
 	 * An OAuth-capable provider was selected in create mode: offer sign-in
 	 * (handled by the parent wizard's OAuth step) instead of forcing an IMAP
@@ -235,6 +240,38 @@
 			? activePreset
 			: null
 	);
+	/*
+	 * A provider that takes no password at all (Microsoft, see imapPassword)
+	 * leaves the sign-in as the form's only way on. The username and password
+	 * fields go, and so do Create and Test connection: both log in with the
+	 * password, which the server refuses every time. What is left to tab to
+	 * after the provider is the sign-in, its note read as its description.
+	 */
+	let signInOnly = $derived(oauthCtaPreset?.imapPassword === 'none');
+	const OAUTH_SIGN_IN_ID = 'acc-oauth-sign-in';
+	let oauthNote = $derived.by(() => {
+		if (!oauthCtaPreset) return null;
+		const provider = $_(`accounts.wizard.presets.${oauthCtaPreset.key}`);
+		return $_(signInOnly ? 'accounts.form.oauthRequired' : 'accounts.form.oauthAvailable', {
+			values: { provider }
+		});
+	});
+	/*
+	 * The offer appears when a provider is picked or detected, and for
+	 * Microsoft it takes the password fields and the buttons with it, out of
+	 * sight of focus on the provider select. It is said through the persistent
+	 * live region. The note used to be a role="status" inserted with its text
+	 * already in it, which a screen reader does not reliably announce. Only a
+	 * change is said: an offer the form opens with is met by tabbing to it.
+	 */
+	let offeredOauth: string | null | undefined;
+	$effect(() => {
+		const offered = oauthCtaPreset?.key ?? null;
+		if (offeredOauth !== undefined && offered !== offeredOauth && oauthNote) {
+			announcePolite(oauthNote);
+		}
+		offeredOauth = offered;
+	});
 	/*
 	 * The provider whose password field needs a word on what to type: an app
 	 * password always for Google over IMAP, one only with two-factor
@@ -282,9 +319,9 @@
 	 * The password as it is checked and sent: Google's app password without the
 	 * spaces it is shown with (see passwordForPreset). The field keeps what was
 	 * typed, so nothing changes under the user's cursor. Keyed on the provider
-	 * the request names, not on activePreset: a wizard opened for Gmail keeps
-	 * that preset after the user picks Seznam from the list, and a Seznam
-	 * password may contain a space.
+	 * the request names, not on activePreset, which falls back to the wizard's
+	 * preset and does not look at the server mode: a form opened for Gmail and
+	 * switched to custom servers sends the password as typed.
 	 */
 	let sentPassword = $derived(
 		passwordForPreset(
@@ -388,8 +425,22 @@
 		resolver.reset();
 	}
 
+	/*
+	 * The sign-in step is for the address typed here, so the address is checked
+	 * first, as Create checks it. For Microsoft the sign-in is the only action
+	 * left, and an empty field used to reach a step headed "Sign in to" with no
+	 * address after it.
+	 */
 	function handleUseOAuth() {
-		if (oauthCtaPreset) onUseOAuth?.(oauthCtaPreset, email.trim());
+		if (!oauthCtaPreset) return;
+		errorMessage = '';
+		clearFieldErrors();
+		const emailErrors = formErrors('test').filter((error) => error.field === 'email');
+		if (emailErrors.length > 0) {
+			showFieldErrors(emailErrors);
+			return;
+		}
+		onUseOAuth?.(oauthCtaPreset, email.trim());
 	}
 
 	function startPasswordChange(): void {
@@ -881,27 +932,32 @@
 			{/if}
 			{#if oauthCtaPreset}
 				<Surface variant="success" padding="sm">
-					<div class="space-y-2">
-						<p class="text-sm" role="status">
-							{$_('accounts.form.oauthAvailable', {
-								values: { provider: $_(`accounts.wizard.presets.${oauthCtaPreset.key}`) }
-							})}
-						</p>
-						<!--
-							Wraps, unlike a Button's usual single line: two cards deep, the
-							label ran out of its card at 320 CSS px and the large text size
-							(WCAG 1.4.10).
-						-->
-						<Button
-							type="button"
-							variant="outline"
-							size="sm"
-							class="h-auto min-h-7 whitespace-normal text-left"
-							onclick={handleUseOAuth}
-						>
-							{$_(`accounts.wizard.${oauthCtaPreset.key}.loginButton`)}
-						</Button>
-					</div>
+					<!--
+						The note is the button's hint, as "Change password" has one: read
+						with the button rather than as a line of its own before it, which
+						tabbing passed by. It is also announced as the offer appears (see
+						offeredOauth).
+					-->
+					<Field for={OAUTH_SIGN_IN_ID} hint={oauthNote} hintClass="text-sm text-foreground">
+						{#snippet children(control)}
+							<!--
+								Wraps, unlike a Button's usual single line: two cards deep, the
+								label ran out of its card at 320 CSS px and the large text size
+								(WCAG 1.4.10).
+							-->
+							<Button
+								id={OAUTH_SIGN_IN_ID}
+								type="button"
+								variant="outline"
+								size="sm"
+								class="h-auto min-h-7 whitespace-normal text-left"
+								onclick={handleUseOAuth}
+								{...control}
+							>
+								{$_(`accounts.wizard.${oauthCtaPreset.key}.loginButton`)}
+							</Button>
+						{/snippet}
+					</Field>
 				</Surface>
 			{/if}
 		{:else}
@@ -918,7 +974,7 @@
 		{/if}
 	{/if}
 
-	{#if !compact && !isOAuthAccount}
+	{#if !compact && !isOAuthAccount && !signInOnly}
 		<Field
 			for="acc-username"
 			label={$_('accounts.form.username')}
@@ -942,6 +998,8 @@
 
 	{#if isOAuthAccount}
 		<!-- No password to change: see isOAuthAccount. -->
+	{:else if signInOnly}
+		<!-- No password the provider would take: see signInOnly. -->
 	{:else if passwordField === 'stored'}
 		<!--
 			No label of its own: the button says what it does, and the hint, which
@@ -1093,30 +1151,37 @@
 		</Surface>
 	{/if}
 
-	<div class="flex flex-wrap items-center gap-2">
-		<Button type="submit" size="sm" disabled={busy || testingConnection}>
-			{#if verifyingCredentials}
-				{$_('accounts.form.verifyingCredentials')}
-			{:else}
-				{submitLabel ??
-					(mode === 'create' ? $_('accounts.form.submitCreate') : $_('accounts.form.submitSave'))}
-			{/if}
-		</Button>
-		<Button
-			type="button"
-			variant="outline"
-			size="sm"
-			disabled={busy || testingConnection}
-			onclick={handleTestConnection}
-		>
-			{testingConnection
-				? $_('accounts.form.testingConnection')
-				: $_('accounts.form.testConnection')}
-		</Button>
-		{#if compact && onSwitchToAdvanced}
-			<Button type="button" variant="link" size="sm" onclick={onSwitchToAdvanced}>
-				{$_('accounts.wizard.quick.showAdvanced')}
+	<!--
+		None of the three where the sign-in is the only way: see signInOnly. The
+		compact form never gets there, since it offers no other provider than
+		the wizard's, and the wizard signs a Microsoft address in directly.
+	-->
+	{#if !signInOnly}
+		<div class="flex flex-wrap items-center gap-2">
+			<Button type="submit" size="sm" disabled={busy || testingConnection}>
+				{#if verifyingCredentials}
+					{$_('accounts.form.verifyingCredentials')}
+				{:else}
+					{submitLabel ??
+						(mode === 'create' ? $_('accounts.form.submitCreate') : $_('accounts.form.submitSave'))}
+				{/if}
 			</Button>
-		{/if}
-	</div>
+			<Button
+				type="button"
+				variant="outline"
+				size="sm"
+				disabled={busy || testingConnection}
+				onclick={handleTestConnection}
+			>
+				{testingConnection
+					? $_('accounts.form.testingConnection')
+					: $_('accounts.form.testConnection')}
+			</Button>
+			{#if compact && onSwitchToAdvanced}
+				<Button type="button" variant="link" size="sm" onclick={onSwitchToAdvanced}>
+					{$_('accounts.wizard.quick.showAdvanced')}
+				</Button>
+			{/if}
+		</div>
+	{/if}
 </form>

@@ -280,12 +280,25 @@ test.describe('Accounts', () => {
 		);
 		await providerSelect.selectOption({ label: 'Microsoft' });
 
-		// Instead of forcing a password, a Microsoft sign-in is offered. Asked of the
-		// form: the work-account offer above it has a button of the same name.
-		const oauthCta = page
-			.getByRole('form')
-			.getByRole('button', { name: 'Přihlásit přes Microsoft' });
+		// Microsoft takes no password, an app password included, so the sign-in is
+		// the only way on. The username and password went, and so did Create and
+		// Test connection: each logged in with a password refused every time.
+		// Asked of the form: the work-account offer above it has a button of the
+		// same name.
+		const form = page.getByRole('form', { name: 'Účet' });
+		const oauthCta = form.getByRole('button', { name: 'Přihlásit přes Microsoft' });
+		const note = 'Microsoft nepřijímá přihlášení heslem, účet přidáte jen tímto přihlášením.';
 		await expect(oauthCta).toBeVisible();
+		await expect(oauthCta).toHaveAccessibleDescription(note);
+		// Said as it appears: the fields it took went out of sight of the select.
+		await expect(page.locator('#live-region')).toContainText(note);
+		await expect(form.getByLabel('Uživatelské jméno')).toHaveCount(0);
+		await expect(form.getByLabel('Heslo', { exact: true })).toHaveCount(0);
+		await expect(form.getByRole('button', { name: 'Vytvořit účet' })).toHaveCount(0);
+		await expect(form.getByRole('button', { name: 'Otestovat připojení' })).toHaveCount(0);
+		// The sign-in is the next stop after the provider.
+		await providerSelect.press('Tab');
+		await expect(oauthCta).toBeFocused();
 		await oauthCta.click();
 
 		// Move on to the dedicated OAuth step with the entered e-mail, no IMAP/password.
@@ -295,6 +308,57 @@ test.describe('Accounts', () => {
 		await expect(page.getByRole('button', { name: 'Přihlásit přes Microsoft' })).toBeVisible();
 		await expect(page.locator('#acc-imap-host')).toHaveCount(0);
 		await expect(page.locator('#acc-password')).toHaveCount(0);
+	});
+
+	/*
+	 * A form the wizard opened for one provider kept that provider's password
+	 * description and offer after another was picked from the list, so Seznam
+	 * switched to Microsoft still asked for a password and offered no sign-in.
+	 */
+	test('formulář otevřený pro Seznam po výběru Microsoftu nabídne jen přihlášení', async ({
+		page
+	}) => {
+		await openApp(page, '/settings/accounts/new');
+		await page.locator('#wizard-email').fill('user@seznam.cz');
+		await page.getByRole('button', { name: 'Pokračovat' }).click();
+		await page.getByRole('button', { name: 'Pokročilé nastavení' }).click();
+		await page.getByRole('button', { name: 'Poskytovatel…' }).click();
+
+		const form = page.getByRole('form', { name: 'Účet' });
+		const providerSelect = form.getByLabel('Poskytovatel', { exact: true });
+		await providerSelect.selectOption({ label: 'Microsoft' });
+		await expect(form.getByRole('button', { name: 'Přihlásit přes Microsoft' })).toBeVisible();
+		await expect(form.getByLabel('Heslo', { exact: true })).toHaveCount(0);
+		await expect(form.getByRole('button', { name: 'Vytvořit účet' })).toHaveCount(0);
+
+		// Back on Seznam, its password and its description return.
+		await providerSelect.selectOption({ label: 'Seznam' });
+		await expect(form.getByRole('button', { name: 'Přihlásit přes Microsoft' })).toHaveCount(0);
+		await expect(form.getByLabel('Heslo', { exact: true })).toHaveAccessibleDescription(
+			'Zadejte heslo k účtu na Seznam.cz. Máte-li tam zapnuté dvoufázové ověření, použijte místo něj heslo aplikace.'
+		);
+		await expect(form.getByRole('button', { name: 'Vytvořit účet' })).toBeVisible();
+	});
+
+	/*
+	 * With Microsoft the sign-in is the form's only action, and it checks the
+	 * address as Create does. An empty field used to reach the sign-in step
+	 * with no address in its heading.
+	 */
+	test('přihlášení z formuláře bez e-mailu vrátí fokus na e-mail', async ({ page }) => {
+		await openApp(page, '/settings/accounts/new');
+		await page.getByRole('button', { name: 'Nastavit ručně' }).click();
+		await page.getByRole('radio', { name: 'Vybrat poskytovatele' }).click();
+		await page.locator('#acc-provider').selectOption({ label: 'Microsoft' });
+
+		const form = page.getByRole('form', { name: 'Účet' });
+		await form.getByRole('button', { name: 'Přihlásit přes Microsoft' }).click();
+
+		const email = form.getByLabel('E-mail', { exact: true });
+		await expect(email).toBeFocused();
+		await expect(email).toHaveAttribute('aria-invalid', 'true');
+		await expect(form.getByRole('alert')).toHaveText('Vyplňte e-mail.');
+		await expect(page.getByRole('heading', { name: /^Přihlášení k účtu/ })).toHaveCount(0);
 	});
 
 	/*

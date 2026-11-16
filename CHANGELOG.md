@@ -52,6 +52,13 @@ Entries before 2026-09-17 predate that split and are left as written.
   `sync_completed`. Three contact endpoints the client never called are gone
   too (add, delete and promote a single address); a contact's addresses are
   still edited as a whole.
+- A password account on Microsoft is refused with "Microsoft nepřijímá
+  přihlášení heslem. Účet přidejte přihlášením přes Microsoft.", whether it is
+  being created, tested or moved onto Microsoft by an edit. The backend used
+  to try the password, and Microsoft's refusal came back as a wrong password,
+  after the password had been sent to Microsoft for nothing. An account that
+  signs in through Microsoft is not affected, and an existing one with a
+  password can still be renamed or switched off.
 
 ### Frontend
 
@@ -81,6 +88,15 @@ Entries before 2026-09-17 predate that split and are left as written.
   making one, and then had the login refused every time. Google keeps the
   button. A mail server an organisation runs itself is still added under
   "Vlastní nastavení".
+- Picking Microsoft by hand in the add-account form now leaves "Přihlásit přes
+  Microsoft" as the only way on. The form still asked for a username and a
+  password and offered "Vytvořit účet" and "Otestovat připojení", which could
+  only have the password refused. The note by the button says the sign-in is
+  the only way; a screen reader hears it as the offer appears and with the
+  button. The form also stopped holding on to the provider the wizard opened
+  it for: one opened for Seznam and switched to Microsoft asked for a password
+  and offered no sign-in at all. The sign-in checks the address first, as
+  "Vytvořit účet" does, instead of opening with none.
 
 ### Repo
 
