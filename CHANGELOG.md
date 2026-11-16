@@ -129,7 +129,7 @@ Entries before 2026-09-17 predate that split and are left as written.
   compiler and no longer exports the compiler API at its package root:
   typescript-eslint, svelte-check and SvelteKit keep it out of their peer
   ranges, and openapi-typescript, whose peer an override hides, needs that API
-  too (#924).
+  too (#925).
 - A second independent pass confirmed the fix of B1-28 and found no way around
   it, but blocked one sentence that claimed no folder loses its role by name;
   the corrected wording went into #913 before it merged. Both audits are
