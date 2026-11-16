@@ -67,9 +67,14 @@ public interface AccountRepository extends JpaRepository<AccountEntity, Long> {
     @EntityGraph(attributePaths = {"provider"})
     Optional<AccountEntity> findByOauth2ProviderAndExternalId(String oauth2Provider, String externalId);
 
+    /**
+     * E-mail address of the account if it is flagged as requiring a new sign-in,
+     * empty otherwise (flag clear, or no such account). One query answers both "is
+     * it blocked" and "which account do we name in the error".
+     */
     @Transactional(readOnly = true)
-    @Query("SELECT a.requiresReauth FROM AccountEntity a WHERE a.id = :id")
-    Optional<Boolean> isRequiresReauth(@Param("id") Long id);
+    @Query("SELECT a.email FROM AccountEntity a WHERE a.id = :id AND a.requiresReauth = true")
+    Optional<String> findEmailIfRequiresReauth(@Param("id") Long id);
 
     /**
      * Standing error code of the account, read back after a sync pass to decide

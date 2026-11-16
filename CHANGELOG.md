@@ -21,6 +21,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Backend
 
+- The notice that an account needs a new sign-in now says which account and
+  where to fix it: "Účet user@example.com vyžaduje nové přihlášení. Otevřete
+  Nastavení, Účty a u tohoto účtu použijte tlačítko Znovu přihlásit." It
+  appears after startup from whichever request fails first, so it used to read
+  "Účet vyžaduje nové přihlášení." with nothing to tell a user with more than
+  one account which one it meant.
 - A folder name can no longer stall an account. To show the folder hierarchy
   the backend looked up each folder's nearest listed ancestor, and that lookup
   cost the square of the name's length: a mail server listing a folder whose

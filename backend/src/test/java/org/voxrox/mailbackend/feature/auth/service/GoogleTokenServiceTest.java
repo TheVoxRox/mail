@@ -154,8 +154,9 @@ class GoogleTokenServiceTest {
         @DisplayName("No stored refresh token asks for a new sign-in without calling the provider")
         void missingStoredRefreshTokenAsksForSignIn() {
             assertThatThrownBy(() -> service.getAccessToken(1L, null, EMAIL)).isInstanceOf(MailOperationException.class)
-                    .extracting("code", "messageKey")
-                    .containsExactly(ErrorCode.MAIL_ACCOUNT_REQUIRES_REAUTH, "error.mail.accountRequiresReauth");
+                    .extracting("code", "messageKey", "messageArgs")
+                    .containsExactly(ErrorCode.MAIL_ACCOUNT_REQUIRES_REAUTH, "error.mail.accountRequiresReauth",
+                            new Object[]{EMAIL});
 
             wireMock.verify(0, postRequestedFor(urlEqualTo(TOKEN_PATH)));
         }
