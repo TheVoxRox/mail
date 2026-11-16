@@ -365,7 +365,7 @@
 				<div class="flex min-w-0 items-start gap-3">
 					<span
 						aria-hidden="true"
-						class="mt-0.5 inline-block size-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent text-primary"
+						class="mt-0.5 inline-block size-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent text-primary motion-reduce:animate-none"
 					></span>
 					<div class="min-w-0 space-y-1">
 						<h2 id="wizard-oauth-waiting-heading" class="text-sm font-semibold">

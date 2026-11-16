@@ -67,25 +67,35 @@ async function shouldRetryWithFreshSession(response: Response): Promise<boolean>
 	}
 }
 
+/**
+ * The `ApiError` a failed response stands for, with the backend's problem
+ * detail when the body carries one. The binary endpoints go through here too:
+ * they used to throw on the status alone, so a localized "vCard export failed"
+ * reached the user as "API error 500: Internal Server Error".
+ */
+export async function apiErrorFrom(response: Response): Promise<ApiError> {
+	let body: unknown;
+	try {
+		const text = await response.text();
+		try {
+			body = text ? JSON.parse(text) : null;
+		} catch {
+			body = text;
+		}
+	} catch {
+		body = null;
+	}
+	return new ApiError(
+		response.status,
+		response.statusText,
+		body,
+		isProblemDetail(body) ? body : undefined
+	);
+}
+
 async function handleResponse<T>(response: Response): Promise<T> {
 	if (!response.ok) {
-		let body: unknown;
-		try {
-			const text = await response.text();
-			try {
-				body = text ? JSON.parse(text) : null;
-			} catch {
-				body = text;
-			}
-		} catch {
-			body = null;
-		}
-		throw new ApiError(
-			response.status,
-			response.statusText,
-			body,
-			isProblemDetail(body) ? body : undefined
-		);
+		throw await apiErrorFrom(response);
 	}
 
 	if (response.status === 204) {
@@ -206,7 +216,7 @@ export async function apiRaw(path: string, options: RequestOptions = {}): Promis
 		contentType: null
 	});
 	if (!response.ok) {
-		throw new ApiError(response.status, response.statusText, null);
+		throw await apiErrorFrom(response);
 	}
 	return response;
 }

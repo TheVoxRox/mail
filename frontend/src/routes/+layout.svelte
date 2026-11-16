@@ -10,7 +10,7 @@
 	import { bootstrap } from '#lib/bootstrap.js';
 	import { reportClientError, resetClientErrorReportingForTests } from '#lib/api/clientErrors.js';
 	import { downloadDiagnosticDump } from '#lib/api/diagnostics.js';
-	import { toErrorMessage } from '#lib/api/errors.js';
+	import { diagnosticErrorText, toErrorMessage } from '#lib/api/errors.js';
 	import { saveBlobAsFile } from '#lib/download.js';
 	import { initErrorReporting } from '#lib/errorReporting.js';
 	import { sessionState } from '#lib/stores/session.js';
@@ -163,11 +163,24 @@
 	 */
 	const mainLandmarkLabel = $derived(routeTitle || $_(`workspace.${currentWorkspaceMode()}`));
 
-	/** A backend exit in the user's language; any other error as it was raised. */
-	function sidecarErrorText(error: Error): string {
+	/**
+	 * A backend exit in the user's language; any other error as it was raised,
+	 * marked as the English it is (3.1.2) — see `diagnosticErrorText`.
+	 */
+	function sidecarErrorText(error: Error): { text: string; lang: 'en' | undefined } {
 		return isSidecarExitError(error)
-			? $_(error.messageKey, { values: error.values })
-			: error.message;
+			? { text: $_(error.messageKey, { values: error.values }), lang: undefined }
+			: diagnosticErrorText(error);
+	}
+
+	/** What the boot failure screen says: the first of the three that failed. */
+	function bootErrorText(): { text: string; lang: 'en' | undefined } {
+		if ($bootState.phase === 'failed' && $bootState.error) {
+			return diagnosticErrorText($bootState.error);
+		}
+		if ($sessionState.status === 'error') return diagnosticErrorText($sessionState.error);
+		if ($accountsState.status === 'error') return diagnosticErrorText($accountsState.error);
+		return { text: '', lang: undefined };
 	}
 
 	/*
@@ -532,8 +545,10 @@
 
 	<div class="flex flex-1 overflow-hidden bg-muted/30">
 		{#if $backendSidecarState.status === 'error'}
+			{@const sidecarError = sidecarErrorText($backendSidecarState.error)}
 			<BootErrorView
-				errorMessage={sidecarErrorText($backendSidecarState.error)}
+				errorMessage={sidecarError.text}
+				errorLang={sidecarError.lang}
 				onRetry={retryBootstrap}
 				onRestart={restartBootstrap}
 				onDownloadDiagnostic={handleDownloadDiagnosticDump}
@@ -614,16 +629,10 @@
 				{@render children()}
 			</main>
 		{:else if $bootState.phase === 'failed' || $sessionState.status === 'error' || $accountsState.status === 'error'}
-			{@const bootErrorMessage =
-				$bootState.phase === 'failed' && $bootState.error
-					? $bootState.error.message
-					: $sessionState.status === 'error'
-						? $sessionState.error.message
-						: $accountsState.status === 'error'
-							? $accountsState.error.message
-							: ''}
+			{@const bootError = bootErrorText()}
 			<BootErrorView
-				errorMessage={bootErrorMessage}
+				errorMessage={bootError.text}
+				errorLang={bootError.lang}
 				onRetry={retryBootstrap}
 				onRestart={restartBootstrap}
 				onDownloadDiagnostic={handleDownloadDiagnosticDump}

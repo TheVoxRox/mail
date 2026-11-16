@@ -1,6 +1,6 @@
 /** `/api/internal/diagnostic-dump` — local support diagnostic ZIP. */
 
-import { ApiError } from './client.js';
+import { apiErrorFrom } from './client.js';
 import { httpFetch } from './http.js';
 import { invalidateSession, requireSession } from '#lib/stores/session.js';
 
@@ -36,7 +36,7 @@ export async function downloadDiagnosticDump(): Promise<DiagnosticDumpResult> {
 	}
 
 	if (!response.ok) {
-		throw new ApiError(response.status, response.statusText, null);
+		throw await apiErrorFrom(response);
 	}
 
 	return {

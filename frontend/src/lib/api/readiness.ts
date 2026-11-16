@@ -1,6 +1,6 @@
 import { httpFetch } from './http.js';
 import { apiV1Base, type SessionPayload } from './session.js';
-import { toErrorMessage } from './errors.js';
+import { technicalMessage } from './errors.js';
 import { CLIENT_VERSION, SUPPORTED_API_MAJOR } from '#lib/version.js';
 import { delayWithAbort } from '#lib/delay.js';
 
@@ -117,7 +117,7 @@ export async function waitForBackendReadiness(
 		throw new BackendReadinessError('Backend readiness check was aborted');
 	}
 	throw new BackendReadinessError(
-		`Backend readiness unavailable after ${maxAttempts} attempts: ${toErrorMessage(lastError)}`
+		`Backend readiness unavailable after ${maxAttempts} attempts: ${technicalMessage(lastError)}`
 	);
 }
 

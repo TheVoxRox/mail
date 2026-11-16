@@ -62,6 +62,38 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- The account switcher in the sidebar is a button that opens a menu of the
+  accounts, the active one checked, instead of a drop-down list. The list
+  switched as soon as its value changed, and a closed list changes its value
+  without being opened: End, Home, Page Up, Page Down, the up arrow or a typed
+  letter left the mailbox for another account's and moved focus to its
+  heading, so a keyboard or screen reader user exploring the choices switched
+  on the first key (WCAG 3.2.2). In the menu those keys only move the
+  highlight; Enter or a click on an account is what switches.
+- An error the backend did not put into words is shown in the interface's
+  language. A failed request without a message of its own read "API error
+  500: Internal Server Error", and a lost connection "Failed to fetch", in
+  English inside the Czech interface, where a screen reader read it with the
+  Czech voice (WCAG 3.1.2). Such a request now says "Služba pošty odpověděla
+  chybou 500." and anything else "Nastala neočekávaná chyba.", its English
+  text going to `logs/mail.log` on this computer instead of the screen, as the
+  privacy policy (version 2026-11-16) now says. Downloads —
+  exporting contacts, saving an attachment, the diagnostic archive — now show
+  the backend's own message, which they used to throw away. The startup
+  failure screen, the session line in About and the update failure dialog keep
+  the technical text, since there it is the diagnosis, and mark it as English.
+- "Upravit kontakt" and "Přidat do kontaktů" next to the sender of an open
+  message are underlined. They stand inside the sender's line, and their
+  colour differed from that text by 1.16:1 in the light theme and 1.03:1 in
+  the dark, so without colour vision nothing set them apart (WCAG 1.4.1).
+- The languages in Settings, Language are each marked as the language they
+  are named in, so "English" is read with an English voice in the Czech
+  interface and "Čeština" with a Czech one in the English. The command
+  palette's language commands name the language in the interface's own
+  language ("Přepnout jazyk na angličtinu"), where they used to put the English
+  word into a Czech sentence; typing "english" still finds them.
+- The spinner shown while a sign-in finishes in the browser stands still when
+  Windows is set to show fewer animations. The wait can run for minutes.
 - The end-user README says how each provider signs in. It said OAuth was
   supported for Google and Microsoft and that providers without it may need
   an app password, which left out the two things a user needs: Google
@@ -129,6 +161,11 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The per-screen axe scans run in the dark theme as well as the light one;
+  the dark palette's contrast was measured by nothing but the focus walk. New
+  a11y tests hold the account switcher to switching only on a choice, the
+  sender's link to its underline and the language options to their `lang`
+  (#PR).
 - How a Dependabot pull request is landed (its record commit: merge `main`,
   regenerate the inventories and the notice, a changelog bullet) and how a red
   `vuln-scan.yml` run is triaged (a registry that refused the runner against a

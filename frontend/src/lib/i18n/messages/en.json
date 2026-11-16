@@ -52,11 +52,14 @@
 		"loading": "Loading…",
 		"ok": "OK",
 		"opensInNewWindow": "(opens in a new window)",
-		"close": "Close"
+		"close": "Close",
+		"errorHttpStatus": "The mail service answered with error {status}.",
+		"errorUnexpected": "An unexpected error occurred."
 	},
 	"nav": {
 		"switchAccount": "Switch account",
 		"switchAccountLabel": "Select active account",
+		"activeAccount": "Active account: {account}",
 		"noActiveAccount": "Select an active account before working with mail.",
 		"compose": "New message",
 		"foldersSection": "Folders",
@@ -894,7 +897,10 @@
 		"openCompose": "New message",
 		"syncNow": "Synchronise now",
 		"toggleTheme": "Toggle theme",
-		"switchLanguage": "Switch language to {language}",
+		"switchLanguageTo": {
+			"cs": "Switch language to Czech",
+			"en": "Switch language to English"
+		},
 		"readingPaneRight": "Reading pane on the right",
 		"readingPaneBottom": "Reading pane at the bottom",
 		"readingPaneOff": "Hide reading pane",

@@ -6,6 +6,8 @@
 
 	interface Props {
 		errorMessage: string;
+		/** `en` when the message is the raw English text of the error (3.1.2). */
+		errorLang?: 'en';
 		onRetry: () => void;
 		onRestart: () => void;
 		/**
@@ -24,6 +26,7 @@
 
 	let {
 		errorMessage,
+		errorLang,
 		onRetry,
 		onRestart,
 		onDownloadDiagnostic,
@@ -59,7 +62,7 @@
 <main id="main-content" tabindex="-1" class="flex flex-1 items-center justify-center p-8">
 	<div class="max-w-md text-center">
 		<h1 class="text-lg font-semibold text-destructive-foreground">{$_('app.bootFailed')}</h1>
-		<p class="mt-2 text-sm text-muted-foreground">{errorMessage}</p>
+		<p class="mt-2 text-sm text-muted-foreground" lang={errorLang}>{errorMessage}</p>
 		<Button class="mt-4" onclick={onRetry}>{$_('app.retry')}</Button>
 		<BootDiagnosticActions
 			{onRestart}

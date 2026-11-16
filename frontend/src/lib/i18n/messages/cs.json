@@ -52,11 +52,14 @@
 		"loading": "Načítám…",
 		"ok": "OK",
 		"opensInNewWindow": "(otevírá se v novém okně)",
-		"close": "Zavřít"
+		"close": "Zavřít",
+		"errorHttpStatus": "Služba pošty odpověděla chybou {status}.",
+		"errorUnexpected": "Nastala neočekávaná chyba."
 	},
 	"nav": {
 		"switchAccount": "Přepnout účet",
 		"switchAccountLabel": "Vybrat aktivní účet",
+		"activeAccount": "Aktivní účet: {account}",
 		"noActiveAccount": "Pro práci s poštou nejdřív vyberte aktivní účet.",
 		"compose": "Nová zpráva",
 		"foldersSection": "Složky",
@@ -894,7 +897,10 @@
 		"openCompose": "Nová zpráva",
 		"syncNow": "Synchronizovat teď",
 		"toggleTheme": "Přepnout téma",
-		"switchLanguage": "Přepnout jazyk na {language}",
+		"switchLanguageTo": {
+			"cs": "Přepnout jazyk na češtinu",
+			"en": "Přepnout jazyk na angličtinu"
+		},
 		"readingPaneRight": "Podokno čtení vpravo",
 		"readingPaneBottom": "Podokno čtení dole",
 		"readingPaneOff": "Podokno čtení skrýt",

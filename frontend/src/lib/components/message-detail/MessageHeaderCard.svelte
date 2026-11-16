@@ -92,12 +92,16 @@
 	the accessible name is what says which address it means. `min-h-0` drops the
 	minimum height a link-style button keeps for its own line: inline in a
 	sentence it takes the line's height, as WCAG 2.5.8 allows a target in text.
+	Underlined at rest, not only on hover: in the line it stands in, colour was
+	all that set it apart from the address before it — 1.16:1 against that
+	text in the light theme and 1.03:1 in the dark, where WCAG 1.4.1 wants 3:1
+	before colour alone may carry it.
 -->
 {#snippet addressLink(href: string, text: string, label: string)}
 	<Button
 		variant="link"
 		size="sm"
-		class="ml-1.5 h-auto min-h-0 p-0 align-baseline"
+		class="ml-1.5 h-auto min-h-0 p-0 align-baseline underline"
 		{href}
 		aria-label={label}
 	>

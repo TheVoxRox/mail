@@ -163,7 +163,7 @@
 			<div class="border-b border-border bg-background px-5 py-4">
 				<Surface variant="danger" padding="sm">
 					<StateMessage variant="error" padding="none" role="alert">
-						{state.error.message}
+						{toErrorMessage(state.error)}
 					</StateMessage>
 				</Surface>
 			</div>

@@ -4,7 +4,7 @@ import { hasNativeShell } from '#lib/nativeShell.js';
 import { listen } from '@tauri-apps/api/event';
 import { get, writable } from 'svelte/store';
 import { RELEASES_URL } from '#lib/version.js';
-import { toErrorMessage } from '#lib/api/errors.js';
+import { diagnosticErrorText, technicalMessage } from '#lib/api/errors.js';
 import { stopBackendSidecar, usesBackendSidecar } from '#lib/backend/sidecar.js';
 import { updateChannel } from '#lib/stores/updateChannel.js';
 import { loadUpdateStartupCheck, updateStartupCheck } from '#lib/stores/updateStartupCheck.js';
@@ -67,7 +67,13 @@ type UpdatePromptState =
 	  };
 
 type UpdateFailureState =
-	{ status: 'hidden' } | { status: 'failed'; message: string; releasesUrl: string | null };
+	| { status: 'hidden' }
+	| {
+			status: 'failed';
+			message: string;
+			messageLang: 'en' | undefined;
+			releasesUrl: string | null;
+	  };
 
 type ManualUpdateCheckResult =
 	| { status: 'unsupported' }
@@ -197,7 +203,7 @@ export async function checkForUpdateManually(): Promise<ManualUpdateCheckResult>
 		showUpdateFailure(err);
 		return {
 			status: 'failed',
-			message: toErrorMessage(err)
+			message: technicalMessage(err)
 		};
 	}
 }
@@ -429,11 +435,18 @@ function wasDismissed(version: string): boolean {
 	}
 }
 
+/*
+ * The updater's own words, not "unexpected error": why an update failed — a
+ * signature that did not verify, a download that broke off — is what the user
+ * passes on when the releases page does not help either. They are English, and
+ * the dialog marks them so (WCAG 3.1.2).
+ */
 function showUpdateFailure(error: unknown): void {
-	const message = toErrorMessage(error);
+	const { text, lang } = diagnosticErrorText(error);
 	updateFailureState.set({
 		status: 'failed',
-		message,
+		message: text,
+		messageLang: lang,
 		releasesUrl: RELEASES_URL
 	});
 }
