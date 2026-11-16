@@ -159,6 +159,55 @@ class AccountConnectionTestServiceTest {
                 org.mockito.Mockito.any());
     }
 
+    /*
+     * Microsoft takes no password over IMAP (docs/DECISIONS.md), so the probe could
+     * only have it refused and report a wrong password. The test says why instead,
+     * before the password leaves the machine.
+     */
+    @Test
+    @DisplayName("a password tested against Microsoft is refused before any probe")
+    void passwordAgainstMicrosoftRefusedBeforeProbe() {
+        when(providerService.loadProviderById(30L)).thenReturn(microsoft());
+        AccountConnectionTestRequest request = new AccountConnectionTestRequest(null, "user@outlook.com", 30L, null,
+                null, "user@outlook.com", "app-password");
+
+        assertThatThrownBy(() -> service.testConnection(request)).isInstanceOfSatisfying(ValidationException.class,
+                e -> assertThat(e.getMessageKey()).isEqualTo("validation.account.passwordNotAccepted"));
+
+        verifyNoInteractions(mailConnectionProbe);
+    }
+
+    @Test
+    @DisplayName("an OAuth2 account on Microsoft tests with its stored token")
+    void oauth2AccountOnMicrosoftStillTests() {
+        when(providerService.loadProviderById(30L)).thenReturn(microsoft());
+        AccountEntity account = new AccountEntity();
+        account.setOauth2Provider("microsoft");
+        AccountCredentialEntity credentials = new AccountCredentialEntity();
+        credentials.setAuthType(AuthType.OAUTH2);
+        when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(account));
+        when(credentialService.getCredentials(ACCOUNT_ID)).thenReturn(credentials);
+        when(credentialService.getDecryptedSecret(ACCOUNT_ID)).thenReturn("refresh-token");
+        AccountConnectionTestRequest request = new AccountConnectionTestRequest(ACCOUNT_ID, "user@outlook.com", 30L,
+                null, null, "user@outlook.com", null);
+
+        service.testConnection(request);
+
+        ArgumentCaptor<AccountConnectionDetails> details = ArgumentCaptor.forClass(AccountConnectionDetails.class);
+        verify(mailConnectionProbe).testImap(org.mockito.Mockito.eq(ACCOUNT_ID), details.capture());
+        assertThat(details.getValue().host()).isEqualTo("outlook.office365.com");
+        assertThat(details.getValue().authType()).isEqualTo(AuthType.OAUTH2);
+    }
+
+    private MailProviderEntity microsoft() {
+        MailProviderEntity provider = new MailProviderEntity();
+        provider.setId(30L);
+        provider.setName("Microsoft");
+        provider.setImapConfig(new MailServerConfig("outlook.office365.com", 993, true));
+        provider.setSmtpConfig(new MailServerConfig("smtp.office365.com", 587, false));
+        return provider;
+    }
+
     private MailProviderEntity provider() {
         MailProviderEntity provider = new MailProviderEntity();
         provider.setId(10L);

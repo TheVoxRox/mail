@@ -174,6 +174,19 @@ class ImapConnectionManagerTest {
         }
 
         @Test
+        @DisplayName("An account flagged for reauth is refused before connecting, and the error names it")
+        void reauthAccountIsRefusedByEmail() {
+            when(accountRepository.findEmailIfRequiresReauth(ACCOUNT_ID)).thenReturn(Optional.of("user@example.com"));
+
+            assertThatThrownBy(() -> manager.executeWithLock(ACCOUNT_ID, Lane.BACKGROUND, s -> "unreachable"))
+                    .isInstanceOf(MailOperationException.class).extracting("code", "messageKey", "messageArgs")
+                    .containsExactly(ErrorCode.MAIL_ACCOUNT_REQUIRES_REAUTH, "error.mail.accountRequiresReauth",
+                            new Object[]{"user@example.com"});
+
+            verifyNoInteractions(connectionDetailsService, oauth2TokenServiceRegistry);
+        }
+
+        @Test
         @DisplayName("Auth fail -> invalidate token -> retry with a freshly connected store succeeds")
         void authFailRetries() throws Exception {
             // On the spy path, the aliveStore() stubs (isConnected/getDefaultFolder) are

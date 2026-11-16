@@ -21,6 +21,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Backend
 
+- The notice that an account needs a new sign-in now says which account and
+  where to fix it: "Účet user@example.com vyžaduje nové přihlášení. Otevřete
+  Nastavení, Účty a u tohoto účtu použijte tlačítko Znovu přihlásit." It
+  appears after startup from whichever request fails first, so it used to read
+  "Účet vyžaduje nové přihlášení." with nothing to tell a user with more than
+  one account which one it meant.
 - A folder name can no longer stall an account. To show the folder hierarchy
   the backend looked up each folder's nearest listed ancestor, and that lookup
   cost the square of the name's length: a mail server listing a folder whose
@@ -46,6 +52,51 @@ Entries before 2026-09-17 predate that split and are left as written.
   `sync_completed`. Three contact endpoints the client never called are gone
   too (add, delete and promote a single address); a contact's addresses are
   still edited as a whole.
+- A password account on Microsoft is refused with "Microsoft nepřijímá
+  přihlášení heslem. Účet přidejte přihlášením přes Microsoft.", whether it is
+  being created, tested or moved onto Microsoft by an edit. The backend used
+  to try the password, and Microsoft's refusal came back as a wrong password,
+  after the password had been sent to Microsoft for nothing. An account that
+  signs in through Microsoft is not affected, and an existing one with a
+  password can still be renamed or switched off.
+
+### Frontend
+
+- The end-user README says how each provider signs in. It said OAuth was
+  supported for Google and Microsoft and that providers without it may need
+  an app password, which left out the two things a user needs: Google
+  sign-in works only for accounts on the test list while the consent screen
+  stays in `Testing`, so other Gmail accounts go through "Použít IMAP a heslo
+  aplikace" with two-step verification on; and Microsoft takes no password
+  over IMAP, an app password included, so its only route is the sign-in.
+  Seznam and other providers are described as the account form describes
+  them.
+- A Gmail account set up over IMAP sends its app password without spaces.
+  Google shows the password in groups of four ("abcd efgh ijkl mnop"), and the
+  form sent whatever was pasted or typed, spaces included; guides disagree on
+  whether Gmail forgives them, so whether the account signed in depended on
+  how the password was entered. Google's IMAP takes nothing but an app
+  password, which never contains whitespace, so the form now drops it. Other
+  providers still get the password as typed, since an account password may
+  contain a space.
+- The account wizard no longer offers "Použít IMAP a heslo aplikace" next to
+  "Přihlásit přes Microsoft". Microsoft refuses a password over IMAP, an app
+  password included: for outlook.com, hotmail, live and msn addresses since
+  2024-09-16, and for work and school accounts in every Microsoft 365
+  organisation since 2022, with no admin able to allow it again. The button
+  led to a form that asked for a Microsoft app password, linked a guide to
+  making one, and then had the login refused every time. Google keeps the
+  button. A mail server an organisation runs itself is still added under
+  "Vlastní nastavení".
+- Picking Microsoft by hand in the add-account form now leaves "Přihlásit přes
+  Microsoft" as the only way on. The form still asked for a username and a
+  password and offered "Vytvořit účet" and "Otestovat připojení", which could
+  only have the password refused. The note by the button says the sign-in is
+  the only way; a screen reader hears it as the offer appears and with the
+  button. The form also stopped holding on to the provider the wizard opened
+  it for: one opened for Seznam and switched to Microsoft asked for a password
+  and offered no sign-in at all. The sign-in checks the address first, as
+  "Vytvořit účet" does, instead of opening with none.
 
 ### Repo
 

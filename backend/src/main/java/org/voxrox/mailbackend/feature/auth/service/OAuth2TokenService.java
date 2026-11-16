@@ -170,7 +170,7 @@ public abstract class OAuth2TokenService {
         if (refreshToken == null || refreshToken.isBlank()) {
             throw new MailOperationException(ErrorCode.MAIL_ACCOUNT_REQUIRES_REAUTH,
                     providerDisplayName() + " account has no stored refresh token; sign in again.",
-                    HttpStatus.UNAUTHORIZED, "error.mail.accountRequiresReauth");
+                    HttpStatus.UNAUTHORIZED, "error.mail.accountRequiresReauth", email);
         }
 
         ReentrantLock refreshLock = refreshLocks.computeIfAbsent(accountId, id -> new ReentrantLock());

@@ -68,6 +68,28 @@
       }
     ]
   },
+  "docs/IMAP_SMTP_AUDIT.md": {
+    "reviewedTrees": {
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "190ef03694aac2fcb5ac762e9373bf0fc52db069"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-11-16",
+        "note": "The sign-in-again error names the account. ImapConnectionManager#requireUsableAccount reads the account's e-mail address with the requires_reauth flag in one query (AccountRepository#findEmailIfRequiresReauth, replacing isRequiresReauth) and passes it as {0} of error.mail.accountRequiresReauth; the English fallback message, which is what the log gets, names the account id only. The guard still runs first in executeWithLock and executeWithLockOrSkip, refuses the same accounts with the same code and status, and opens no connection; nothing else in the package moved. Verdict unchanged."
+      }
+    ]
+  },
+  "docs/OAUTH_AUDIT.md": {
+    "reviewedTrees": {
+      "backend/src/main/java/org/voxrox/mailbackend/feature/auth": "f4f29f330e3a1d7bb0e3a382f5681f958d1d2f66"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-11-16",
+        "note": "One argument in OAuth2TokenService#getAccessToken: the missing-refresh-token MAIL_ACCOUNT_REQUIRES_REAUTH now passes the method's own email parameter as {0} of error.mail.accountRequiresReauth, so the user sees which account to sign in again. The address goes to the local client in detail and messageArgs, as error.account.alreadyExists already does; the fallback message the log gets is unchanged and carries no address. The early return before any provider call, the refresh lock, the permanent/transient split and who sets and clears requires_reauth are untouched. Verdict unchanged."
+      }
+    ]
+  },
   "docs/UPDATER_AUDIT.md": {
     "reviewedTrees": {
       "frontend/src-tauri/src": "c42d02f2cc33f82c9bbfd69e93d256223faba5e7",

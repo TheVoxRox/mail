@@ -363,11 +363,17 @@ public class ImapConnectionManager {
      * instead of a clear "sign in again" instruction. The flag is cleared only by a
      * successful re-login in
      * ExternalProviderLoginService#processExternalProviderLogin.
+     *
+     * The message names the account: it surfaces as a toast from whichever request
+     * failed first after startup, with nothing around it that would tell the user
+     * which of their accounts it means.
      */
     private void requireUsableAccount(Long accountId) {
-        if (accountRepository.isRequiresReauth(accountId).orElse(false)) {
+        Optional<String> blockedEmail = accountRepository.findEmailIfRequiresReauth(accountId);
+        if (blockedEmail.isPresent()) {
             throw new MailOperationException(ErrorCode.MAIL_ACCOUNT_REQUIRES_REAUTH,
-                    "The account requires sign-in again.", HttpStatus.UNAUTHORIZED, "error.mail.accountRequiresReauth");
+                    "Account " + accountId + " requires sign-in again.", HttpStatus.UNAUTHORIZED,
+                    "error.mail.accountRequiresReauth", blockedEmail.get());
         }
     }
 

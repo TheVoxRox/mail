@@ -1,5 +1,6 @@
 package org.voxrox.mailbackend.feature.account.service;
 
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -78,6 +79,10 @@ public class AccountService {
         account.setActive(true);
 
         applyServerConfig(account, request.providerId(), request.imap(), request.smtp());
+        MailProviderEntity provider = account.getProvider();
+        if (provider != null) {
+            MailProviderCatalog.requirePasswordSignIn(provider);
+        }
 
         account = accountRepository.save(account);
         credentialService.saveCredentials(account, request.username(), request.password(), AuthType.PASSWORD);
@@ -113,12 +118,16 @@ public class AccountService {
         boolean wasActive = account.isActive();
         account.setActive(request.active());
 
+        MailProviderEntity previousProvider = account.getProvider();
+        Long previousProviderId = previousProvider != null ? previousProvider.getId() : null;
         /*
          * PUT = full replacement: the cross-field validator (@AssertTrue on the DTO)
          * already ensures that exactly one branch is populated — either providerId, or
          * a complete imap+smtp pair. Server config is overwritten either way.
          */
         applyServerConfig(account, request.providerId(), request.imap(), request.smtp());
+        ensurePasswordTaken(credentials, account.getProvider(),
+                !Objects.equals(previousProviderId, request.providerId()) || wouldRotateSecret || wouldChangeUsername);
 
         AccountEntity saved = accountRepository.save(account);
 
@@ -247,6 +256,20 @@ public class AccountService {
                     "OAuth2 accounts cannot be updated by changing the password or username. "
                             + "Sign in with OAuth2 again to change credentials.",
                     "validation.account.oauth2CredentialsReadOnly");
+        }
+    }
+
+    /**
+     * Keeps a password account off a provider that takes no password (see
+     * {@link MailProviderCatalog#requirePasswordSignIn}) when the edit moves it
+     * there or changes how it signs in. An edit of anything else passes, so an
+     * account that is on such a provider already can still be renamed or switched
+     * off.
+     */
+    private static void ensurePasswordTaken(AccountCredentialEntity credentials, @Nullable MailProviderEntity provider,
+            boolean signInChanges) {
+        if (signInChanges && provider != null && credentials.getAuthType() == AuthType.PASSWORD) {
+            MailProviderCatalog.requirePasswordSignIn(provider);
         }
     }
 

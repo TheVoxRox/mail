@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { presetForProvider } from './providerPresets.js';
+import { KNOWN_PRESETS, passwordForPreset, presetForProvider } from './providerPresets.js';
 import type { MailProviderResponse } from '#lib/types.js';
 
 function provider(overrides: Partial<MailProviderResponse>): MailProviderResponse {
@@ -45,5 +45,45 @@ describe('presetForProvider', () => {
 		expect(presetForProvider(provider({ name: 'Some Custom Host' }))).toBeNull();
 		expect(presetForProvider(null)).toBeNull();
 		expect(presetForProvider(undefined)).toBeNull();
+	});
+});
+
+describe('passwordForPreset', () => {
+	const preset = (key: string) => KNOWN_PRESETS.find((p) => p.key === key)!;
+
+	it('drops the spaces Google shows its app password with, and any other whitespace', () => {
+		expect(passwordForPreset(preset('gmail'), 'abcd efgh ijkl mnop')).toBe('abcdefghijklmnop');
+		expect(
+			passwordForPreset(preset('gmail'), ` abcd\tefgh${String.fromCharCode(0xa0)}ijkl mnop\n`)
+		).toBe('abcdefghijklmnop');
+	});
+
+	it('keeps the password as typed where it may be an account password', () => {
+		expect(passwordForPreset(preset('seznam'), 'moje heslo ')).toBe('moje heslo ');
+		expect(passwordForPreset(preset('custom'), 'moje heslo ')).toBe('moje heslo ');
+		expect(passwordForPreset(null, 'moje heslo ')).toBe('moje heslo ');
+	});
+});
+
+describe('KNOWN_PRESETS', () => {
+	it('gives Microsoft no password sign-in, as the backend catalogue says', () => {
+		const outlook = KNOWN_PRESETS.find((preset) => preset.key === 'outlook');
+		expect(outlook?.flow).toBe('oauth');
+		expect(outlook?.imapPassword).toBe('none');
+	});
+
+	it('links an app-password guide only where the password is one', () => {
+		for (const preset of KNOWN_PRESETS) {
+			const appPassword =
+				preset.imapPassword === 'app' || preset.imapPassword === 'appWithTwoFactor';
+			expect(preset.appPasswordHelpUrl != null, preset.key).toBe(appPassword);
+		}
+	});
+
+	it('leaves no provider without a way in', () => {
+		// A preset with no password sign-in has to have the other one.
+		for (const preset of KNOWN_PRESETS.filter((p) => p.imapPassword === 'none')) {
+			expect(preset.oauth2RegistrationId, preset.key).toBeTruthy();
+		}
 	});
 });
