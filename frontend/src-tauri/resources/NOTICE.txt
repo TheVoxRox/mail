@@ -54,7 +54,7 @@ Components and their copyright notices:
       tyrealhu and the Svelte team
       git+https://github.com/sveltejs/acorn-typescript.git
 
-  * binding-win32-x64-msvc 1.2.16  [npm]
+  * binding-win32-x64-msvc 1.2.18  [npm]
       (no author in package.json — see git+https://github.com/rolldown/rolldown.git#packages/rolldown)
       git+https://github.com/rolldown/rolldown.git#packages/rolldown
 
@@ -402,7 +402,7 @@ Components and their copyright notices:
       Justin Ridgewell
       git+https://github.com/jridgewell/resolve-uri.git
 
-  * rolldown 1.2.16  [npm]
+  * rolldown 1.2.18  [npm]
       (no author in package.json — see git+https://github.com/rolldown/rolldown.git#packages/rolldown)
       git+https://github.com/rolldown/rolldown.git#packages/rolldown
 
@@ -566,7 +566,7 @@ Components and their copyright notices:
       Boshen and oxc contributors
       git+https://github.com/oxc-project/oxc.git#npm/oxc-types
 
-  * types 8.72.1  [npm]
+  * types 8.72.2  [npm]
       (no author in package.json — see git+https://github.com/typescript-eslint/typescript-eslint.git#packages/types)
       git+https://github.com/typescript-eslint/typescript-eslint.git#packages/types
 
@@ -590,7 +590,7 @@ Components and their copyright notices:
       Evan You
       git+https://github.com/tailwindlabs/tailwindcss.git#packages/@tailwindcss-vite
 
-  * vite 8.3.6  [npm]
+  * vite 8.3.7  [npm]
       Evan You
       git+https://github.com/vitejs/vite.git#packages/vite
 
