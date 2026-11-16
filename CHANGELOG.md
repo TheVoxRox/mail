@@ -130,6 +130,11 @@ Entries before 2026-09-17 predate that split and are left as written.
   typescript-eslint, svelte-check and SvelteKit keep it out of their peer
   ranges, and openapi-typescript, whose peer an override hides, needs that API
   too (#925).
+- CodeQL now analyses the workflow files too, as a third, not yet required
+  `Analyze (actions)` leg. `ci.yml` and `vuln-scan.yml` declare
+  `contents: read` instead of running on the repository's default token, and
+  the SBOM job loses a `security-events: write` left over from a Trivy upload
+  removed in #29 (#924).
 - A second independent pass confirmed the fix of B1-28 and found no way around
   it, but blocked one sentence that claimed no folder loses its role by name;
   the corrected wording went into #913 before it merged. Both audits are
