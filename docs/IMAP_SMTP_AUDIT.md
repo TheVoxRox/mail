@@ -5515,22 +5515,29 @@ the server's statement, and what lasts is the account's own loss.
 **Fix (1.89).** `fromNameFallback` returns `USER` for a name longer than
 `MAX_ROLE_NAME_CHARS` (128) before it normalizes anything. The longest name
 that means a role is 32 characters with its namespace prefix
-(`[google mail]/odstranene polozky`), so nothing shorter than the bound can
-have been a system folder by name; decomposition can lengthen a name, but the
-bound is on the name as the server wrote it.
+(`[google mail]/odstranene polozky`), so a name longer than the bound can have
+been a system folder by name only where the excess is whitespace or combining
+marks that the normalization removes (Residual). The bound is on the name as
+the server wrote it, before any decomposition.
 
 **Regression tests** (`FolderRoleTest`, the two marked B1-28): a name padded
 with spaces to the limit is still Sent and one character longer is a user
-folder; and a name of 200 000 combining marks answers within two seconds.
-With the length check taken out both fail, run and seen — the second on its
-timeout.
+folder; and a name of one letter and 200 000 combining marks answers within
+two seconds. With the length check taken out both fail, run and seen — the
+second on its timeout.
 
-**Residual.** A system folder whose name the server pads past 128 characters
-is not recognized by name. Its SPECIAL-USE attribute, where it has one, still
-decides. No provider the app is used with writes such a name.
+**Residual.** A system folder whose name the server pads past 128 characters,
+with whitespace or with combining marks, is no longer recognized by name:
+`Trash` followed by 200 spaces was the trash before and is a user folder now.
+Its SPECIAL-USE attribute, where it has one, still decides — including for a
+padded `newsletters` folder marked `\Junk`, which is now Junk rather than
+Newsletters. A role that is missing fails closed (`FOLDER_ROLE_NOT_FOUND`).
+No provider the app is used with writes such a name.
 
-**Upgrade path.** None needed for the bound. If names in other scripts are
-added to the list, the bound is checked against the longest of them.
+**Upgrade path.** If a real provider ever pads a system folder's name, strip
+and collapse whitespace on a bounded prefix before the length check. If names
+in other scripts are added to the list, the bound is checked against the
+longest of them.
 
 **Independent pass:** pending. The fix and this section were written by the
 session that recorded the pass that found the finding.

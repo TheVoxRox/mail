@@ -46,9 +46,11 @@ public enum FolderRole {
     /**
      * The longest name {@link #fromNameFallback} looks at. The name is the server's
      * and {@link #normalize} decomposes it, which costs the square of a run of
-     * combining marks (audit B1-28): a megabyte of them held the folder listing for
-     * minutes. The longest name that means a role is 32 characters with its prefix,
-     * so a longer one is a user folder without being read.
+     * combining marks (audit B1-28): 100 000 of them held the folder listing for
+     * five seconds, and four times that for each doubling. The longest name that
+     * means a role is 32 characters with its prefix, so a longer one is a user
+     * folder without being read; it can have meant a role only through padding the
+     * normalization would have removed.
      */
     static final int MAX_ROLE_NAME_CHARS = 128;
 
