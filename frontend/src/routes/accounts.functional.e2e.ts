@@ -112,6 +112,9 @@ test.describe('Accounts', () => {
 		).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Přihlásit přes Microsoft' })).toBeVisible();
 		await expect(page.locator('#acc-imap-host')).toHaveCount(0);
+		// Microsoft takes no password over IMAP, an app password included, so the
+		// way to one is not offered: it led to a login refused every time.
+		await expect(page.getByRole('button', { name: 'Použít IMAP a heslo aplikace' })).toHaveCount(0);
 	});
 
 	test('Seznam e-mail otevře provider flow s popisem hesla při 2FA a odkazem', async ({ page }) => {

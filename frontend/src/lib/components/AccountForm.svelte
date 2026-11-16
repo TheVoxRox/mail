@@ -233,19 +233,22 @@
 	);
 	/*
 	 * The provider whose password field needs a word on what to type: an app
-	 * password always for Google and Microsoft over IMAP, one only with
-	 * two-factor authentication on Seznam. The word is the password field's
+	 * password always for Google over IMAP, one only with two-factor
+	 * authentication on Seznam. Microsoft takes no password at all, so there is
+	 * no app password to point to either. The word is the password field's
 	 * description, heard on entering the field and shown only while there is a
 	 * field. It used to be a box of its own above the field, linked to nothing:
 	 * tabbing met only its "Open guide" link, and on an edit it spoke of a field
 	 * "Change password" had not opened.
 	 *
-	 * An edit of a Google or Microsoft account no longer has to be left out: one
-	 * that signs in through the provider shows no password field at all, so the
-	 * field an edit opens belongs to an IMAP account, which takes an app password.
+	 * An edit of a Google account no longer has to be left out: one that signs
+	 * in through the provider shows no password field at all, so the field an
+	 * edit opens belongs to an IMAP account, which takes an app password.
 	 */
 	let appPasswordPreset = $derived(
-		activePreset != null && activePreset.appPassword !== 'never' && serverMode === 'provider'
+		activePreset != null &&
+			(activePreset.imapPassword === 'app' || activePreset.imapPassword === 'appWithTwoFactor') &&
+			serverMode === 'provider'
 			? activePreset
 			: null
 	);
@@ -258,7 +261,7 @@
 	let appPasswordHint = $derived.by(() => {
 		if (!appPasswordPreset) return null;
 		const provider = $_(`accounts.wizard.presets.${appPasswordPreset.key}`);
-		const twoFactorOnly = appPasswordPreset.appPassword === 'twoFactor';
+		const twoFactorOnly = appPasswordPreset.imapPassword === 'appWithTwoFactor';
 		return {
 			text: $_(
 				twoFactorOnly

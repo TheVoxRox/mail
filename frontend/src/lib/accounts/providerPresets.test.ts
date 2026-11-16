@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { presetForProvider } from './providerPresets.js';
+import { KNOWN_PRESETS, presetForProvider } from './providerPresets.js';
 import type { MailProviderResponse } from '#lib/types.js';
 
 function provider(overrides: Partial<MailProviderResponse>): MailProviderResponse {
@@ -45,5 +45,28 @@ describe('presetForProvider', () => {
 		expect(presetForProvider(provider({ name: 'Some Custom Host' }))).toBeNull();
 		expect(presetForProvider(null)).toBeNull();
 		expect(presetForProvider(undefined)).toBeNull();
+	});
+});
+
+describe('KNOWN_PRESETS', () => {
+	it('gives Microsoft no password sign-in, as the backend catalogue says', () => {
+		const outlook = KNOWN_PRESETS.find((preset) => preset.key === 'outlook');
+		expect(outlook?.flow).toBe('oauth');
+		expect(outlook?.imapPassword).toBe('none');
+	});
+
+	it('links an app-password guide only where the password is one', () => {
+		for (const preset of KNOWN_PRESETS) {
+			const appPassword =
+				preset.imapPassword === 'app' || preset.imapPassword === 'appWithTwoFactor';
+			expect(preset.appPasswordHelpUrl != null, preset.key).toBe(appPassword);
+		}
+	});
+
+	it('leaves no provider without a way in', () => {
+		// A preset with no password sign-in has to have the other one.
+		for (const preset of KNOWN_PRESETS.filter((p) => p.imapPassword === 'none')) {
+			expect(preset.oauth2RegistrationId, preset.key).toBeTruthy();
+		}
 	});
 });
