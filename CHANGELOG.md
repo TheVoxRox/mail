@@ -49,6 +49,10 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- A second independent pass confirmed the fix of B1-28 and found no way around
+  it, but blocked one sentence that claimed no folder loses its role by name;
+  the corrected wording went into #913 before it merged. Both audits are
+  re-verified against `281c9de` with no acknowledgement left (#914).
 - An independent pass confirmed #912: the fix of B1-27, the three removals and
   the new database check, with nothing added to the API. It found B1-28 above
   and corrected four sentences, one of them the `threadId` description #912

@@ -48,28 +48,6 @@
     "Both clocks reset the same way: re-verify the audit, bump `Audited commit`,",
     "and delete the entry from this file."
   ],
-  "docs/API_SURFACE_AUDIT.md": {
-    "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "6686143186904f3075a4fe152928b266075069e1"
-    },
-    "acknowledgements": [
-      {
-        "date": "2026-11-15",
-        "note": "Audit 1.29, on top of the re-verification of 1.28 against 41ae063 and waiting for its independent pass. Two files in the package. MailSummaryResponse.threadId changes its description only, to the wording the pass proposed: the server groups the conversation listing by the id and the client reads it from the conversation summary. FolderRole.fromNameFallback returns USER for a name longer than 128 characters before normalizing it (IMAP/SMTP B1-28); the enum constants, their attributes and the JSON form of FolderRole in FolderResponse are unchanged, and a name of 128 characters or fewer is decided exactly as before. No endpoint, request field, response field, validation rule or authentication rule moved; the OpenAPI snapshot changes in that one description. Verdict unchanged."
-      }
-    ]
-  },
-  "docs/IMAP_SMTP_AUDIT.md": {
-    "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto/FolderRole.java": "c3428a72e5bfb8148b02d83c3d74f32cab6c42aa"
-    },
-    "acknowledgements": [
-      {
-        "date": "2026-11-15",
-        "note": "Audit 1.89, on top of the re-verification of 1.88 against 41ae063 and waiting for its independent pass. FolderRole.fromNameFallback gains one bound, B1-28 (§4ac): a name longer than MAX_ROLE_NAME_CHARS, 128, is answered USER before normalize runs, so the NFD decomposition never sees a long run of combining marks. A name of 128 characters or fewer goes through the same normalize and the same lookup as before, and the longest name in the lookup is 32 characters with its prefix, so a folder that had a role by name loses it only if its name exceeded 128 characters through whitespace or combining marks the normalization removed (§4ac, Residual). fromAttribute, deliversNewMail and the role names are untouched. No IMAP command, timeout, lock, retry or persistence step moved, and no other bound. Verdict unchanged."
-      }
-    ]
-  },
   "docs/CONTENT_RENDERING_AUDIT.md": {
     "reviewedTrees": {
       "frontend/src/lib/mail/mailFrame.ts": "039781084f982faf4d034090719936613d61e493",
