@@ -423,6 +423,165 @@ PR. `npm run check:notice`, part of `npm run check`, compares the
 committed inventories with the digests `regen:notice` recorded in
 `notice-inputs.json` and fails while the notice is behind them.
 
+## Maintaining Dependencies
+
+Dependabot opens grouped update pull requests every week (the grouping and the
+cooldown are explained at the top of
+[`.github/dependabot.yml`](.github/dependabot.yml)), and
+[`.github/workflows/vuln-scan.yml`](.github/workflows/vuln-scan.yml) scans the
+three dependency trees every weekday. Neither lands or clears anything by
+itself.
+
+### Landing a Dependabot pull request
+
+Dependabot commits through the GitHub API, so it cannot do what every
+dependency change here owes: a `CHANGELOG.md` entry in the same change, and a
+license inventory and installer notice that follow the tree. The headers of
+the three `regen-third-party-licenses.mjs` scripts forbid committing a
+dependency change without them. Each of its pull requests therefore gets one
+commit of yours on its own branch before it merges, the _record commit_:
+
+1. **Bring the branch up to date.** `gh pr checkout <number>`, then
+   `git merge origin/main`. Dependabot's base can be a week old, and CI should
+   test the bump against the code it will land on.
+2. **Install the bumped tree.** For an npm bump, `npm ci` in `frontend/`: the
+   license script reads the installed `node_modules`, not the lockfile, so an
+   install left over from another branch renders the wrong list. An install
+   that fails with `ESTRICTALLOWSCRIPTS` means a new dependency has an install
+   script; [DECISIONS.md](docs/DECISIONS.md) "Dependency install scripts are
+   denied" says how to answer it, in a commit on this branch.
+3. **Regenerate what ships**, from `frontend/`:
+   - npm: `npm run regen:licenses`. Run it for a development-only bump too: the
+     lockfile can move a transitive package that production shares, and the
+     run shows whether the list moved.
+   - Cargo: `npm run regen:licenses:tauri`.
+   - Maven: `mvn -DskipTests package` in `backend/` first, because the
+     inventory describes the packaged jar, then
+     `npm run regen:licenses:backend`. A build plugin is not in the jar and
+     moves nothing.
+   - GitHub Actions: nothing to regenerate.
+
+   When an inventory changed, render the notice from it:
+   `npm run regen:sbom:all && npm run regen:notice`. The notice reads all three
+   SBOMs and the packaged backend jar, so it needs `mvn -DskipTests package` in
+   `backend/` and `cargo` on the PATH whichever ecosystem moved. Commit
+   `NOTICE.txt` and `notice-inputs.json` with the inventory. Five dependency
+   pull requests in a row once regenerated an inventory and not the notice
+   (#890); `npm run check:notice` now fails while the notice is behind.
+
+4. **Read what the new versions change for this app**, in the release notes of
+   the parts it uses. Some bumps owe more than reading:
+   - jsoup is the parser under `HtmlSanitizer`: run the differential in
+     [CONTENT_RENDERING_AUDIT.md](docs/CONTENT_RENDERING_AUDIT.md) "Method when
+     jsoup moves". `check:audits` cannot stand in for it, because no
+     dependency manifest is under an audit's `Code paths` (DECISIONS.md,
+     "Dependency manifests are not part of an audit's `Code paths`").
+   - An actions bump that touches a workflow under an audit's `Code paths`,
+     such as the signed-release workflow under the updater audit's, fails
+     `check:audits` like any other change there: acknowledge the drift or
+     re-verify the audit (#878).
+   - The `tauri` crate's release notes also list fixes to the NSIS installer.
+     Those reach the installer with `@tauri-apps/cli`, the bundler, not with
+     the crate.
+   - A file `npm run check:eol` reports after the merge carries the line
+     endings the API commit wrote; `git add --renormalize <path>` in the record
+     commit fixes it.
+
+5. **Write the record commit.** One bullet under `## Unreleased` in
+   `CHANGELOG.md`: a dependency that ships goes under its artifact
+   (`### Backend`, `### Frontend`, `### Tauri / Release`) and says what changes
+   for the app; tooling that does not ship goes under `### Repo`. Both end with
+   the pull request number. The commit reads
+   `docs(<scope>): record the … bump`, and its body says what was read and what
+   was regenerated, which the squash merge keeps.
+6. **Push, then arm the merge.** `git push` runs the pre-push gate: run it in
+   the background and leave the working tree alone until it ends. Then
+   `gh pr merge <number> --auto --squash`.
+
+### When the vulnerability scan goes red
+
+`vuln-scan.yml` runs OWASP Dependency-Check over the backend, `npm run audit:ci`
+over the frontend, `cargo audit` over the Tauri crate, and a Trivy gate over
+the backend SBOM. A scheduled run that fails or is cancelled opens an issue
+labelled `vuln-scan-failure`, or comments on the open one. The issue closes
+itself on the next scheduled run that passes with the OWASP gate evaluated. A
+manual run neither opens nor closes it, and the schedule skips weekends, so an
+issue whose cause was fixed on a Friday stays open until Monday's run.
+
+**First tell "the gate said no" from "the gate never ran".** Most red runs are
+the second, and the run summary does not tell them apart; the job log does.
+
+- **Maven Central refused the runner.** It throttles GitHub runners with `429`
+  and, in its harder form, `403`, which does not mean the artifact is missing.
+  The job dies resolving a plugin (`could not be resolved`,
+  `PluginResolutionException`, `NoPluginFoundForPrefixException`) before any
+  CVE is read. Central has also answered `Could not find artifact … in central`
+  for a jar that was there all along: when a `HEAD` request for that jar on
+  `repo1.maven.org` returns 200, the outage was transient and the pinned plugin
+  needs no bump. Leave all of these alone; the next night's run settles them.
+  Why the workflow neither retries nor soft-fails them is in
+  [DECISIONS.md](docs/DECISIONS.md) "A registry that refuses the vulnerability
+  scan leaves it red".
+- **The npm advisory registry did not answer.** `npm run audit:ci` tells a
+  missing verdict from a finding and retries only the first (#388). When the
+  retries run out it says `npm audit produced no verdict`, which is not a
+  finding.
+- **NVD did not answer.** The OWASP job handles this itself: it ends green with
+  a warning that CVE gating was not evaluated, and the issue stays open,
+  because a green run that evaluated nothing once closed an issue whose finding
+  still stood (#852).
+- **The OWASP job was cancelled.** It hit its time limit during a cold NVD
+  download; the comment above `timeout-minutes` in the workflow is where to
+  start. The Trivy gate still covered the backend that night.
+- **The run never started.** A run that sits `queued` with no jobs is GitHub
+  Actions, not the repository, and that holds for every workflow. Check
+  `https://www.githubstatus.com/api/v2/summary.json` (the Actions component and
+  the open incidents) and an unrelated recent run. Cancelling, re-running or
+  reopening a pull request changes nothing during an outage, and closing a pull
+  request disarms its auto-merge; wait for the incident to end.
+
+**A finding is a log that lists findings.** Then:
+
+- **Read the score against the vendor's.** The OWASP gate fails on NVD's CVSS
+  score (`failBuildOnCVSS` in the workflow), and NVD's first scores for new
+  CVEs can sit far above the vendor's own: four Tomcat CVEs NVD scored 9.1
+  Critical were Low to the Apache Tomcat security team (#173). An OWASP failure
+  beside a green Trivy gate is the usual sign. The vendor's security page (for
+  Tomcat, `https://tomcat.apache.org/security-11.html`) names the fixed
+  version. The score changes how urgent the fix is, not whether one is needed:
+  the gate stays red until the version moves.
+- **Check "no fixed version" against two more sources.** An advisory mirror
+  such as osv.dev follows the GitHub advisory database with a delay, and has
+  gone on flagging fixed versions for days after the fix shipped
+  (jackson-databind, CVE-2026-54515). Before concluding that a fix does not
+  exist, read the advisory itself
+  (`https://api.github.com/advisories/<GHSA id>`, its `first_patched_version`)
+  and whether the artifact is published (`maven-metadata.xml` under
+  `https://repo1.maven.org/maven2/`; the search.maven.org index lags as well).
+  Where they disagree with the mirror, they win, and the tracking issue should
+  say that a scanner reading the mirror will go on flagging until it catches
+  up.
+- **Fix by moving the version.** For a backend dependency Spring Boot manages,
+  override the BOM's property in `backend/pom.xml`, the way
+  `sqlite-jdbc.version` is overridden there today: the comment beside it names
+  the CVEs, why the version clears them, and when to drop the override. For a
+  crate, `cargo update -p <crate>` often reaches the fix; the header of
+  `frontend/src-tauri/.cargo/audit.toml` says when an advisory may be accepted
+  instead.
+- **Prove the fix on its branch before merging.**
+  `gh workflow run vuln-scan.yml --ref <branch>` runs the whole scan there. It
+  restores `main`'s NVD database, and the tracking-issue jobs do not run on a
+  manual run. Read what is left in the `backend-vuln-report` artifact. Only a
+  finding that is still there and does not apply earns a Dependency-Check
+  suppression, and the next run's log must not say
+  `Suppression Rule had zero matches`. Dependency-Check reads a four-part
+  version like `3.54.1.0` as later than `3.54.1`, so a suppression written for
+  an NVD range ending at 3.54.1 matched nothing on the driver it was written
+  for, which that CVE had never been reported against (#857). Afterwards delete
+  the branch's caches (`gh cache list --ref refs/heads/<branch>`, then
+  `gh cache delete <id>`): the scan itself prunes only the caches of closed
+  pull requests and superseded entries.
+
 ## Localisation
 
 All user-visible strings live in `frontend/src/lib/i18n/messages/cs.json`

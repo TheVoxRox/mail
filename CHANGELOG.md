@@ -123,6 +123,13 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- How a Dependabot pull request is landed (its record commit: merge `main`,
+  regenerate the inventories and the notice, a changelog bullet) and how a red
+  `vuln-scan.yml` run is triaged (a registry that refused the runner against a
+  real finding, NVD scores, lagging advisory mirrors, proving a fix by a manual
+  run) are written down in `CONTRIBUTING.md` "Maintaining Dependencies"; until
+  now they lived only in an agent's notes. Why the scan does not retry Maven
+  Central is a new `docs/DECISIONS.md` entry (#926).
 - A second independent pass confirmed the fix of B1-28 and found no way around
   it, but blocked one sentence that claimed no folder loses its role by name;
   the corrected wording went into #913 before it merged. Both audits are
