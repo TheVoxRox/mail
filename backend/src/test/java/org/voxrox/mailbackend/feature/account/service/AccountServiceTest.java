@@ -2,6 +2,7 @@ package org.voxrox.mailbackend.feature.account.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -719,6 +720,121 @@ class AccountServiceTest {
             verify(credentialService, never()).saveCredentials(any(), any(), any(), any());
         }
 
+    }
+
+    /*
+     * Microsoft takes no password over IMAP (docs/DECISIONS.md). A password account
+     * on it could only fail its first login, reported as a wrong password, so the
+     * backend refuses one by name instead.
+     */
+    @Nested
+    @DisplayName("PasswordSignInGuard")
+    class PasswordSignInGuard {
+
+        private static final Long MICROSOFT_ID = 30L;
+
+        private MailProviderEntity microsoft() {
+            MailProviderEntity provider = new MailProviderEntity();
+            provider.setId(MICROSOFT_ID);
+            provider.setName("Microsoft");
+            provider.setImapConfig(new MailServerConfig("outlook.office365.com", 993, true));
+            provider.setSmtpConfig(new MailServerConfig("smtp.office365.com", 587, false));
+            return provider;
+        }
+
+        private void assertRefusedForMicrosoft(Throwable thrown) {
+            assertThat(thrown).isInstanceOfSatisfying(ValidationException.class, e -> {
+                assertThat(e.getMessageKey()).isEqualTo("validation.account.passwordNotAccepted");
+                assertThat(e.getMessageArgs()).containsExactly("Microsoft");
+            });
+        }
+
+        @Test
+        @DisplayName("create on Microsoft -> ValidationException, nothing saved")
+        void createOnMicrosoftRefused() {
+            AccountCreateRequest request = new AccountCreateRequest(ACCOUNT_NAME, DISPLAY_NAME, EMAIL, MICROSOFT_ID,
+                    null, null, EMAIL, "secret");
+            when(providerService.loadProviderById(MICROSOFT_ID)).thenReturn(microsoft());
+
+            assertRefusedForMicrosoft(catchThrowable(() -> service.createAccount(request)));
+
+            verify(accountRepository, never()).save(any(AccountEntity.class));
+            verify(credentialService, never()).saveCredentials(any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("PUT moving a password account onto Microsoft -> ValidationException, nothing saved")
+        void putMovingPasswordAccountOntoMicrosoftRefused() {
+            AccountEntity existing = createAccountEntity();
+            existing.setProvider(null);
+            AccountUpdateRequest request = new AccountUpdateRequest(ACCOUNT_NAME, EMAIL, DISPLAY_NAME, null, true,
+                    MICROSOFT_ID, null, null, "user", null, true);
+            when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(existing));
+            stubExistingCredentials(AuthType.PASSWORD);
+            when(providerService.loadProviderById(MICROSOFT_ID)).thenReturn(microsoft());
+
+            assertRefusedForMicrosoft(catchThrowable(() -> service.updateAccount(ACCOUNT_ID, request)));
+
+            verify(accountRepository, never()).save(any(AccountEntity.class));
+            verify(credentialService, never()).saveCredentials(any(), any(), any(), any());
+            verify(credentialService, never()).changeUsername(any(), any());
+        }
+
+        /*
+         * Switching a failing account off is what a user does about it; refusing that
+         * edit would leave the account failing and on.
+         */
+        @Test
+        @DisplayName("PUT switching off a password account already on Microsoft -> passes")
+        void putDeactivatingPasswordAccountOnMicrosoftAllowed() {
+            AccountEntity existing = createAccountEntity();
+            existing.setProvider(microsoft());
+            AccountUpdateRequest request = new AccountUpdateRequest(ACCOUNT_NAME, EMAIL, DISPLAY_NAME, null, true,
+                    MICROSOFT_ID, null, null, "user", null, false);
+            when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(existing));
+            stubExistingCredentials(AuthType.PASSWORD);
+            when(providerService.loadProviderById(MICROSOFT_ID)).thenReturn(microsoft());
+            when(accountRepository.save(existing)).thenReturn(existing);
+            when(accountMapper.toResponse(existing)).thenReturn(dummyResponse());
+
+            service.updateAccount(ACCOUNT_ID, request);
+
+            assertThat(existing.isActive()).isFalse();
+        }
+
+        @Test
+        @DisplayName("PUT with a new password for a password account on Microsoft -> ValidationException")
+        void putNewPasswordOnMicrosoftRefused() {
+            AccountEntity existing = createAccountEntity();
+            existing.setProvider(microsoft());
+            AccountUpdateRequest request = new AccountUpdateRequest(ACCOUNT_NAME, EMAIL, DISPLAY_NAME, null, true,
+                    MICROSOFT_ID, null, null, "user", "app-password", true);
+            when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(existing));
+            stubExistingCredentials(AuthType.PASSWORD);
+            when(providerService.loadProviderById(MICROSOFT_ID)).thenReturn(microsoft());
+
+            assertRefusedForMicrosoft(catchThrowable(() -> service.updateAccount(ACCOUNT_ID, request)));
+
+            verify(credentialService, never()).saveCredentials(any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("PUT on an OAuth2 account on Microsoft (metadata only) -> passes")
+        void putOnOAuth2MicrosoftAccountAllowed() {
+            AccountEntity existing = createAccountEntity();
+            existing.setProvider(microsoft());
+            AccountUpdateRequest request = new AccountUpdateRequest("Renamed", EMAIL, DISPLAY_NAME, null, true,
+                    MICROSOFT_ID, null, null, EMAIL, null, true);
+            when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(existing));
+            stubExistingCredentials(AuthType.OAUTH2, EMAIL);
+            when(providerService.loadProviderById(MICROSOFT_ID)).thenReturn(microsoft());
+            when(accountRepository.save(existing)).thenReturn(existing);
+            when(accountMapper.toResponse(existing)).thenReturn(dummyResponse());
+
+            service.updateAccount(ACCOUNT_ID, request);
+
+            assertThat(existing.getAccountName()).isEqualTo("Renamed");
+        }
     }
 
     @Nested

@@ -48,8 +48,19 @@ public class AccountConnectionTestService {
      * consistency requirement — each runs in its own short transaction.
      */
     public AccountConnectionTestResponse testConnection(AccountConnectionTestRequest request) {
-        ServerConfig serverConfig = resolveServerConfig(request);
+        MailProviderEntity provider = request.providerId() != null
+                ? providerService.loadProviderById(request.providerId())
+                : null;
+        ServerConfig serverConfig = resolveServerConfig(request, provider);
         CredentialSnapshot credentials = resolveCredentials(request);
+        /*
+         * Before the probe, which would hand the password to the provider only to have
+         * it refused as a wrong one. An OAuth2 account on the same provider tests with
+         * its stored token and passes.
+         */
+        if (provider != null && credentials.authType() == AuthType.PASSWORD) {
+            MailProviderCatalog.requirePasswordSignIn(provider);
+        }
 
         AccountConnectionDetails imapDetails = new AccountConnectionDetails(request.email(), serverConfig.imap().host(),
                 serverConfig.imap().port(), serverConfig.imap().useSsl(), request.username(), credentials.secret(),
@@ -69,9 +80,9 @@ public class AccountConnectionTestService {
         return messageSource.getMessage(key, args, locale);
     }
 
-    private ServerConfig resolveServerConfig(AccountConnectionTestRequest request) {
-        if (request.providerId() != null) {
-            MailProviderEntity provider = providerService.loadProviderById(request.providerId());
+    private static ServerConfig resolveServerConfig(AccountConnectionTestRequest request,
+            @Nullable MailProviderEntity provider) {
+        if (provider != null) {
             return new ServerConfig(toDto(provider.getImapConfig()), toDto(provider.getSmtpConfig()));
         }
         return new ServerConfig(request.imap(), request.smtp());

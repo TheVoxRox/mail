@@ -60,6 +60,15 @@ for a preset with a password, and no app-password guide is linked for
 Microsoft. An organisation's own Exchange Server is not affected: it answers
 under the organisation's host name, which "Vlastní nastavení" takes.
 
+The add-account form follows the same flag: Microsoft picked from its provider
+list shows the sign-in in place of the username, the password and the Create
+and Test connection buttons. The backend refuses a password for Microsoft as
+well, when an account is created on it, tested against it or moved onto it,
+with a message that says so rather than a login refused as a wrong password.
+Its flag is `passwordSignIn` in
+[MailProviderCatalog.java](../backend/src/main/java/org/voxrox/mailbackend/feature/account/service/MailProviderCatalog.java);
+the two say the same thing and change together.
+
 **Revisit when** Microsoft offers IMAP sign-in with a password again for
 personal or Microsoft 365 accounts, or a user shows a Microsoft-hosted mailbox
 that takes one today.
