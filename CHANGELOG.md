@@ -178,6 +178,10 @@ Entries before 2026-09-17 predate that split and are left as written.
   and is named on the green run. Every release used to cost that audit one of
   the eight acknowledgements its cap allows. The runbook's audit step now
   expects nothing to acknowledge (#905).
+- Two development tools move up a patch: eslint-plugin-svelte 3.24.1, whose
+  fixes are to rule autofixes and to rules that missed `<script module>`, and
+  knip 6.44.2, which follows more extended configuration files. Neither reaches
+  the build, so the license list does not move (#916).
 
 ## [0.2.0] - 2026-11-11
 
