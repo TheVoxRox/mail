@@ -104,6 +104,12 @@ Entries before 2026-09-17 predate that split and are left as written.
   styles is meant to change. With 4.3.5, npm installs the fallback's runtime
   both inside the Tailwind package and at the top of `node_modules`, at two
   versions of three packages, and the notice names both (#915).
+- The frontend is bundled by Vite 8.3.7 instead of 8.3.6, whose one change is
+  its bundler Rolldown at 1.2.18 instead of 1.2.16. Rolldown's fixes are to
+  the stub it writes for a module it cannot resolve and to which sources a
+  module's sourcemap keeps; the build emits no sourcemaps. typescript-eslint
+  8.72.2 fixes four lint rules and does not reach the build. The license list
+  and the notice follow the new versions (#927).
 
 ### Tauri / Release
 
