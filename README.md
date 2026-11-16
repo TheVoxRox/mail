@@ -102,7 +102,7 @@ Operations and release:
 
 Contributing and security:
 
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — contributor guide: local setup, quality gates, commit conventions
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — contributor guide: local setup, quality gates, commit conventions, landing a Dependabot pull request, triaging a red vulnerability scan
 - [`CLAUDE.md`](CLAUDE.md) — the same repo conventions written for a coding agent: what the gates exist to catch, and the traps that are not visible in the code
 - [`SECURITY.md`](SECURITY.md) — security policy: supported versions, how to report vulnerabilities
 - [`SECURITY_THREAT_MODEL.md`](SECURITY_THREAT_MODEL.md) — security threat model (single source for boundaries, STRIDE, accepted risks)

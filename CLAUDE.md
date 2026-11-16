@@ -46,6 +46,11 @@ someone a rework at least once. For the human-facing versions see
   never `--no-verify`, and **do not touch the working tree while it runs** —
   the gate reads it. `push | tail` reports exit 0 even when the push failed;
   check the exit code directly.
+- A Dependabot pull request lands with a **record commit** on its own branch
+  (merge `main`, regenerate inventories and notice, changelog bullet), and a
+  red `vuln-scan.yml` is usually a registry that refused the runner, not a
+  CVE. Both procedures are in [CONTRIBUTING.md](CONTRIBUTING.md) "Maintaining
+  Dependencies"; read it before touching either.
 
 ## Documentation is part of the change
 

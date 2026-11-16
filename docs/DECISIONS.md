@@ -955,3 +955,33 @@ policy that holds by habit is a weak thing to put in front of SignPath.
 
 **Revisit when:** a second maintainer joins (then a required review is the
 question), or a workflow has to commit to `main` itself.
+
+### A registry that refuses the vulnerability scan leaves it red
+
+**Decided 2026-09-02** on the scan failure tracked in #368; **recorded
+2026-11-16**, when the triage procedure moved into
+[CONTRIBUTING.md](../CONTRIBUTING.md) "Maintaining Dependencies". When Maven
+Central refuses a runner during [vuln-scan.yml](../.github/workflows/vuln-scan.yml)
+with `429`, or `403` in its harder form, the job fails before any CVE is read
+and the tracking issue opens. The workflow neither retries the request nor
+turns the refusal into a pass.
+
+Why: Central throttles on purpose, so a retry sends the same request to the
+service that is refusing it, and backoff is the wrong answer to a rate limit.
+The one lever that cuts the requests, `cache: maven` on `setup-java`, is
+already pulled. A soft-fail on `403` or `429` would end the job green on a
+night when nothing was checked. A red job and an open issue say what happened,
+and the next night's run settles it.
+
+The npm side went the other way, and the difference is the reason. `npm audit`
+exits non-zero both for a finding and for an advisory registry it could not
+reach, and its JSON tells the two apart, so `npm run audit:ci` (#388) retries
+only the missing verdict and fails closed on any shape it does not recognise.
+There a retry separates two causes; against Central it would only repeat one.
+The OWASP job's handling of an NVD outage is a third case: it ends green but
+reports that nothing was evaluated, and the tracking issue stays open (#852).
+
+**Revisit when:** Central refuses several nights in a row, so that the scan
+stops gating the backend for longer than a night, or the runners gain a route
+to Maven artifacts that Central does not throttle, such as an authenticated
+mirror.
