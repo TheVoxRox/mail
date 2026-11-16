@@ -123,6 +123,13 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- Dependabot's hold on TypeScript 7 moved from an `@dependabot ignore` command
+  on #147, where nobody reading the repository could see it, into
+  `.github/dependabot.yml` with its reason and what lifts it. 7 is the native
+  compiler and no longer exports the compiler API at its package root:
+  typescript-eslint, svelte-check and SvelteKit keep it out of their peer
+  ranges, and openapi-typescript, whose peer an override hides, needs that API
+  too (#925).
 - CodeQL now analyses the workflow files too, as a third, not yet required
   `Analyze (actions)` leg. `ci.yml` and `vuln-scan.yml` declare
   `contents: read` instead of running on the repository's default token, and

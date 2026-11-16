@@ -37,6 +37,23 @@ updates:
         update-types:
           - minor
           - patch
+    # TypeScript stays on 6.x until the tools that import its compiler API
+    # take 7. The 7.x package is the native compiler: its root export is
+    # lib/version.cjs, and the API moved under typescript/unstable/*. As of
+    # 2026-11-16 three dev dependencies keep 7 out of their peer range, in
+    # their latest releases too: typescript-eslint (`>=4.8.4 <6.1.0`),
+    # svelte-check (`^5.0.0 || ^6.0.0`) and @sveltejs/kit (`^6.0.0`).
+    # openapi-typescript builds its output with that API as well, but
+    # package.json overrides its peer to our own typescript, so no peer range
+    # speaks for it; `npm run check:api`, which generates the schema with it
+    # in CI, does. The hold used to be an `@dependabot ignore` command on #147
+    # (closed 2026-07-14), kept in dependabot's own state where nobody reading
+    # this file could see it. Delete this entry once all three admit 7
+    # (`npm view <name> peerDependencies`); dependabot then proposes it again.
+    ignore:
+      - dependency-name: typescript
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: cargo
     directory: /frontend/src-tauri
