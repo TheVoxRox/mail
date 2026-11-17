@@ -3,12 +3,19 @@ import { toastDismissal } from './uiLayout.js';
 
 export type ToastTone = 'info' | 'success' | 'error';
 
+/** A link a toast offers to the place where the user can act on what it says. */
+export interface ToastAction {
+	label: string;
+	href: string;
+}
+
 interface Toast {
 	id: number;
 	message: string;
 	tone: ToastTone;
 	/** auto-dismiss delay in ms; 0 or negative means persistent, as does the `manual` toastDismissal preference */
 	ttl: number;
+	action?: ToastAction;
 }
 
 export const toasts = writable<Toast[]>([]);
@@ -84,16 +91,23 @@ toastDismissal.subscribe((value) => {
 	countdowns.clear();
 });
 
+/**
+ * A toast with an action stays until closed unless its caller says otherwise.
+ * The announcement reads the message alone, and a screen reader user who
+ * heard it then has to reach the region to find the link: five seconds is
+ * not enough for that, and the link would be gone on arrival (WCAG 2.2.1).
+ */
 export function pushToast(
 	message: string,
-	options: { tone?: ToastTone; ttl?: number } = {}
+	options: { tone?: ToastTone; ttl?: number; action?: ToastAction } = {}
 ): number {
 	const id = nextId++;
 	const toast: Toast = {
 		id,
 		message,
 		tone: options.tone ?? 'info',
-		ttl: options.ttl ?? 5000
+		ttl: options.ttl ?? (options.action ? 0 : 5000),
+		...(options.action ? { action: options.action } : {})
 	};
 	toasts.update((list) => [...list, toast]);
 	announce(toast.message, toast.tone === 'error');

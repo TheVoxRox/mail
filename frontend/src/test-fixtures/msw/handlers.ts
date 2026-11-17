@@ -160,6 +160,7 @@ let flagResponsesHeld = false;
 const heldFlagResponses: (() => void)[] = [];
 let readinessFailures = 0;
 let folderAuthFailure = false;
+let reauthRequired = false;
 let connectionTestAuthFailure = false;
 let mailPageSizeOverride: number | null = null;
 let mailListingDepthOverride: number | null = null;
@@ -209,6 +210,24 @@ export function setReadinessFailures(count: number): void {
 
 export function setFolderAuthFailure(enabled: boolean): void {
 	folderAuthFailure = enabled;
+}
+
+/**
+ * Answers what needs the mail server — the folder list and a sync — the way
+ * the backend does for an account flagged to sign in again
+ * (ImapConnectionManager#requireUsableAccount).
+ */
+export function setReauthRequired(enabled: boolean): void {
+	reauthRequired = enabled;
+}
+
+function reauthProblem(accountId: number): MockResponse {
+	const email = findAccount(accountId)?.email ?? '';
+	return problem(
+		401,
+		`Přihlášení k účtu ${email} už neplatí. Dokud se znovu nepřihlásíte, nová pošta z něj nechodí. Tlačítko Znovu přihlásit najdete v Nastavení, Účty.`,
+		'MAIL_ACCOUNT_REQUIRES_REAUTH'
+	);
 }
 
 /** Makes the pre-create IMAP/SMTP probe reject the credentials. */
@@ -396,6 +415,7 @@ function accountRoutes(
 	}
 
 	if (segments[2] === 'folders' && method === 'GET') {
+		if (reauthRequired) return reauthProblem(accountId);
 		if (folderAuthFailure) {
 			return problem(
 				401,
@@ -867,7 +887,9 @@ function messageRoutes(
 
 	if (segments[1] === 'account') {
 		const accountId = Number(segments[2]);
-		if (segments[3] === 'sync' && method === 'POST') return accepted();
+		if (segments[3] === 'sync' && method === 'POST') {
+			return reauthRequired ? reauthProblem(accountId) : accepted();
+		}
 		if (segments[3] === 'send' && method === 'POST')
 			return request.json().then((body) => {
 				// Rejected before it is accepted, so the composer keeps the message.

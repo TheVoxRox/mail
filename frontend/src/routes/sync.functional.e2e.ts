@@ -244,6 +244,56 @@ test.describe('Sync notifications', () => {
 		await expect(page.getByText('Autorizace u Google vypršela nebo byla zrušena.')).toHaveCount(0);
 	});
 
+	test('chyba nového přihlášení vede z oznámení odkazem rovnou na účty', async ({ page }) => {
+		await openApp(page, '/mail/1/INBOX');
+		// The mock is installed by then; a switch flipped before it is dropped
+		// without a word, and the sync is simply accepted.
+		await page.waitForFunction(() => window.__MAIL_MSW__?.syncStreamConnected() === true);
+		await page.evaluate(() => window.__MAIL_MSW__?.setReauthRequired(true));
+
+		await page.getByRole('button', { name: 'Synchronizovat' }).click();
+
+		/*
+		 * The message tells the user to open Settings, Accounts and press the
+		 * button there, which for a screen reader user was a walk through the
+		 * rail, the settings pane and its list. The toast now has the way there,
+		 * and stays until it is used or closed: the announcement reads the message
+		 * alone, and five seconds is not enough to reach a link from it.
+		 */
+		const notifications = page.getByRole('region', { name: 'Oznámení' });
+		const message = notifications.getByText(/Přihlášení k účtu tester@example\.com už neplatí/);
+		await expect(message).toBeVisible();
+
+		await notifications.getByRole('link', { name: 'Přejít na účty' }).press('Enter');
+
+		await page.waitForURL('**/settings/accounts');
+		// Focus lands where it does after any navigation, and the toast that was
+		// acted on goes with it.
+		await expect(page.getByRole('heading', { level: 1, name: 'Účty' })).toBeFocused();
+		await expect(message).toHaveCount(0);
+	});
+
+	test('chyba nového přihlášení v panelu složek nabídne cestu k účtům', async ({ page }) => {
+		await openApp(page, '/mail/1/INBOX');
+		await page.waitForFunction(() => window.__MAIL_MSW__?.syncStreamConnected() === true);
+
+		await page.evaluate(() => {
+			window.__MAIL_MSW__?.setReauthRequired(true);
+			// A completed cycle refreshes the folder list, which is what puts the
+			// panel into its error state without a reload.
+			window.__MAIL_MSW__?.pushSyncCycleCompleted(1, 0);
+		});
+
+		// The failed list takes the folders out of the tab order; the link is what
+		// the panel has left to offer.
+		const pane = page.getByRole('region', { name: 'Podokno pošty' });
+		await expect(pane.getByText(/Přihlášení k účtu tester@example\.com už neplatí/)).toBeVisible();
+		await pane.getByRole('link', { name: 'Přejít na účty' }).click();
+
+		await page.waitForURL('**/settings/accounts');
+		await expect(page.getByRole('heading', { level: 1, name: 'Účty' })).toBeVisible();
+	});
+
 	test('neúplný průchod se neohlásí jako dokončený', async ({ page }) => {
 		await openApp(page, '/mail/1/INBOX');
 		await page.waitForFunction(() => window.__MAIL_MSW__?.syncStreamConnected() === true);

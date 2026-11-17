@@ -292,6 +292,20 @@ describe('sync status notifications', () => {
 		expect(toast.tone).toBe('error');
 		expect(toast.ttl).toBe(0);
 		expect(get(failingSyncAccounts).map((a) => a.id)).toEqual([4]);
+		// Nothing about this failure is fixed in Settings, Accounts.
+		expect(toast).not.toHaveProperty('action');
+	});
+
+	it('links a sync stopped for a new sign-in to the account list', async () => {
+		vi.mocked(listAccounts).mockResolvedValue([
+			{ ...account, requiresReauth: true, lastErrorCode: 'OAUTH2_IMAP_ACCESS_DENIED' }
+		]);
+		handleStreamNotification(statusEvent('sync_failed'));
+		await vi.waitFor(() => expect(get(toasts)).toHaveLength(1));
+
+		const [toast] = get(toasts);
+		expect(toast.ttl).toBe(0);
+		expect(toast.action?.href).toBe('/settings/accounts');
 	});
 
 	it('clears the indicator on recovery', async () => {

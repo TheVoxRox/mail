@@ -2,10 +2,11 @@
 	import { get } from 'svelte/store';
 	import { selectedMessage } from '#lib/stores/selectedMessage.js';
 	import { downloadAttachment } from '#lib/api/mailRead.js';
-	import { toErrorMessage } from '#lib/api/errors.js';
+	import { pushErrorToast, toErrorMessage } from '#lib/api/errors.js';
 	import { saveBlobAsFile } from '#lib/download.js';
 	import { pushToast } from '#lib/stores/toasts.js';
 	import { _ } from '#lib/i18n/index.js';
+	import ErrorRemedyLink from '#lib/components/ErrorRemedyLink.svelte';
 	import { StateMessage } from '#lib/components/ui/state-message/index.js';
 	import { Surface } from '#lib/components/ui/surface/index.js';
 	import AttachmentList from '#lib/components/AttachmentList.svelte';
@@ -131,7 +132,7 @@
 				tone: 'success'
 			});
 		} catch (err) {
-			pushToast(toErrorMessage(err), { tone: 'error' });
+			pushErrorToast(err);
 		}
 	}
 </script>
@@ -165,6 +166,7 @@
 					<StateMessage variant="error" padding="none" role="alert">
 						{toErrorMessage(state.error)}
 					</StateMessage>
+					<ErrorRemedyLink error={state.error} class="mt-2" />
 				</Surface>
 			</div>
 		{/if}

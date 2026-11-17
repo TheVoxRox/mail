@@ -9,6 +9,7 @@
 import { get, writable } from 'svelte/store';
 import { _ } from 'svelte-i18n';
 import { accountShortLabel } from '#lib/accounts/accountLabel.js';
+import { reauthRemedy } from '#lib/api/errors.js';
 import { SseClient } from '#lib/api/notifications.js';
 import { triggerAccountSync } from '#lib/api/mailAction.js';
 import { folderLabel } from '#lib/mail/folderLabel.js';
@@ -162,7 +163,13 @@ async function handleSyncStatus(event: SyncStatusNotification): Promise<void> {
 	const message = detail
 		? translate('toast.syncFailedDetail', { values: { account: accountLabel, detail } })
 		: translate('toast.syncFailed', { values: { account: accountLabel } });
-	pushToast(message, { tone: 'error', ttl: 0 });
+	// The detail of a sync that stopped for a new sign-in tells the user to open
+	// Settings, Accounts; the toast takes them there, as the request errors do.
+	pushToast(message, {
+		tone: 'error',
+		ttl: 0,
+		...(account?.requiresReauth ? { action: reauthRemedy() } : {})
+	});
 }
 
 /** The standing error the backend's crash guard writes when it pauses a sync. */

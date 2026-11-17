@@ -21,12 +21,13 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Backend
 
-- The notice that an account needs a new sign-in now says which account and
-  where to fix it: "Účet user@example.com vyžaduje nové přihlášení. Otevřete
-  Nastavení, Účty a u tohoto účtu použijte tlačítko Znovu přihlásit." It
-  appears after startup from whichever request fails first, so it used to read
-  "Účet vyžaduje nové přihlášení." with nothing to tell a user with more than
-  one account which one it meant.
+- The notice that an account needs a new sign-in now says which account, what
+  it means and where to fix it: "Přihlášení k účtu user@example.com už
+  neplatí. Dokud se znovu nepřihlásíte, nová pošta z něj nechodí. Tlačítko
+  Znovu přihlásit najdete v Nastavení, Účty." It appears after startup from
+  whichever request fails first, so it used to read "Účet vyžaduje nové
+  přihlášení." with nothing to tell a user with more than one account which
+  one it meant, nor whether mail had stopped arriving.
 - A folder name can no longer stall an account. To show the folder hierarchy
   the backend looked up each folder's nearest listed ancestor, and that lookup
   cost the square of the name's length: a mail server listing a folder whose
@@ -82,6 +83,15 @@ Entries before 2026-09-17 predate that split and are left as written.
   the backend's own message, which they used to throw away. The startup
   failure screen, the session line in About and the update failure dialog keep
   the technical text, since there it is the diagnosis, and mark it as English.
+- An account that needs a new sign-in comes with a "Přejít na účty" link to
+  Settings, Accounts, where its "Znovu přihlásit" button is. The message said
+  to go there and left the user to find the way, which for a screen reader
+  user is a walk through the rail, the settings pane and its list. The link is
+  in the notification, in the failed sync notice of such an account, and where
+  the folder list, the message list, an open message or the start of Mail
+  report the error. A notification with a link stays until it is used or
+  closed, since five seconds is not enough to reach it after the announcement
+  (WCAG 2.2.1).
 - "Upravit kontakt" and "Přidat do kontaktů" next to the sender of an open
   message are underlined. They stand inside the sender's line, and their
   colour differed from that text by 1.16:1 in the light theme and 1.03:1 in

@@ -7,9 +7,10 @@
 	import { folders, foldersState } from '#lib/stores/folders.js';
 	import { failingSyncAccounts } from '#lib/stores/syncHealth.js';
 	import { abandonManualSync, beginManualSync, syncingAccountIds } from '#lib/stores/manualSync.js';
-	import { announcePolite, pushToast } from '#lib/stores/toasts.js';
+	import { announcePolite } from '#lib/stores/toasts.js';
 	import { triggerAccountSync } from '#lib/api/mailAction.js';
-	import { toErrorMessage } from '#lib/api/errors.js';
+	import { pushErrorToast, toErrorMessage } from '#lib/api/errors.js';
+	import ErrorRemedyLink from '#lib/components/ErrorRemedyLink.svelte';
 	import SearchBar from '#lib/components/SearchBar.svelte';
 	import AccountSwitcher from '#lib/components/AccountSwitcher.svelte';
 	import Icon from '#lib/components/Icon.svelte';
@@ -68,7 +69,7 @@
 			// Nothing was accepted, so no pass is coming to report the end and
 			// the button would otherwise wait out its whole timeout.
 			abandonManualSync(acc.id);
-			pushToast(toErrorMessage(err), { tone: 'error' });
+			pushErrorToast(err);
 			return;
 		}
 		/*
@@ -246,6 +247,7 @@
 						-->
 						<Surface variant="danger" padding="sm">
 							<p class="text-sm">{toErrorMessage($foldersState.error)}</p>
+							<ErrorRemedyLink error={$foldersState.error} class="mt-2" />
 						</Surface>
 					</li>
 				{:else}

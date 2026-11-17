@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tick } from 'svelte';
+	import { page } from '$app/state';
 	import {
 		toasts,
 		dismissToast,
@@ -8,6 +9,7 @@
 		type ToastTone
 	} from '#lib/stores/toasts.js';
 	import { _ } from '#lib/i18n/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
 	import { focusRing } from '#lib/components/ui/focus-ring/index.js';
 	import { cn } from '#lib/utils.js';
 
@@ -159,6 +161,18 @@
 		}
 		if (focusReturn?.isConnected) focusReturn.focus();
 	}
+
+	/**
+	 * Following a toast's link is acting on what it said, so the toast goes with
+	 * it. Focus is the navigation's to place, on the new page's heading as after
+	 * any other; and it leaves the region without an out event, the link being
+	 * removed under it, so the other toasts' clocks run again here.
+	 */
+	function followAction(id: number): void {
+		focusInside = false;
+		dismissToast(id);
+		syncCountdowns();
+	}
 </script>
 
 <!--
@@ -191,7 +205,24 @@
 				toneClass[toast.tone]
 			)}
 		>
-			<span id="toast-message-{toast.id}" class="min-w-0 flex-1 break-words">{toast.message}</span>
+			<div class="min-w-0 flex-1 space-y-2">
+				<span id="toast-message-{toast.id}" class="block break-words">{toast.message}</span>
+				<!--
+					A link, not a button: it opens a place that exists. Left out on that
+					place itself, where it would lead nowhere — the user is already
+					where the message sends them.
+				-->
+				{#if toast.action && toast.action.href !== page.url.pathname}
+					<Button
+						variant="outline"
+						size="xs"
+						href={toast.action.href}
+						onclick={() => followAction(toast.id)}
+					>
+						{toast.action.label}
+					</Button>
+				{/if}
+			</div>
 			<!--
 				Named by the message it closes, not by the action alone. Two failures
 				of the same account produce two toasts word for word alike, and a

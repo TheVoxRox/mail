@@ -15,6 +15,7 @@ import {
 	setMailPageSize,
 	setReadinessDelayMs,
 	setReadinessFailures,
+	setReauthRequired,
 	setVCardExportDelayMs
 } from './handlers.js';
 import {
@@ -135,6 +136,7 @@ export async function installE2EBypass(): Promise<void> {
 			setReadinessDelayMs(0);
 			setReadinessFailures(0);
 			setFolderAuthFailure(false);
+			setReauthRequired(false);
 			setConnectionTestAuthFailure(false);
 			setVCardExportDelayMs(0);
 			setMailPageSize(null);
@@ -156,6 +158,7 @@ export async function installE2EBypass(): Promise<void> {
 		setReadinessDelayMs,
 		setReadinessFailures,
 		setFolderAuthFailure,
+		setReauthRequired,
 		setConnectionTestAuthFailure,
 		setVCardExportDelayMs,
 		failNextVCardExport: failNextVCardExportOnce,

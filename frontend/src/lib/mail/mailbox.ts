@@ -34,7 +34,7 @@ import {
 } from '#lib/stores/messages.js';
 import { setMessageSelection } from '#lib/stores/messageSelection.js';
 import { _ } from '#lib/i18n/index.js';
-import { toErrorMessage } from '#lib/api/errors.js';
+import { pushErrorToast } from '#lib/api/errors.js';
 import {
 	currentFolderHref,
 	currentListingContext,
@@ -425,7 +425,7 @@ function announceSingleOutcome(
 	if (result.succeeded === 1) {
 		announcePolite(get(_)(successKey));
 	} else if (result.failed === 1) {
-		pushToast(toErrorMessage(result.firstError), { tone: 'error' });
+		pushErrorToast(result.firstError);
 	}
 }
 
@@ -512,7 +512,7 @@ export async function deleteMessages(stableIds: readonly string[]): Promise<Bulk
 				tone: 'success'
 			});
 		} else if (result.failed === 1) {
-			pushToast(toErrorMessage(result.firstError), { tone: 'error' });
+			pushErrorToast(result.firstError);
 		}
 	}
 	return result;

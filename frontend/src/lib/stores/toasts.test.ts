@@ -71,4 +71,13 @@ describe('toast countdowns (WCAG 2.2.1)', () => {
 		vi.advanceTimersByTime(1);
 		expect(messages()).toEqual([]);
 	});
+
+	it('keeps a toast with a link until it is closed, unless told a time', () => {
+		const action = { label: 'Go to accounts', href: '/settings/accounts' };
+		pushToast('Sign in again', { tone: 'error', action });
+		pushToast('Timed', { tone: 'error', action, ttl: 5000 });
+		vi.advanceTimersByTime(60_000);
+		expect(messages()).toEqual(['Sign in again']);
+		expect(get(toasts)[0]?.action).toEqual(action);
+	});
 });
