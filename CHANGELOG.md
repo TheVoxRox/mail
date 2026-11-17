@@ -161,6 +161,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The conversation view moved out of `MailFacade` into its own
+  `ConversationViewService`: the grouped listing and the thread a row expands
+  into, which share one resolution of the folders a conversation spans. The
+  facade hands both endpoints over and keeps the flat listing and the message
+  actions; nothing either returns changed, and the IMAP/SMTP audit's ledger
+  records the move (#931).
 - Compose autocomplete moved out of `ContactService` into its own
   `ContactAutocompleteService`. It is the one part of the address book that
   reads a mailbox, and it takes two of `ContactService`'s six dependencies

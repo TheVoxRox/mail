@@ -85,12 +85,16 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "190ef03694aac2fcb5ac762e9373bf0fc52db069"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "faa8a19c51b93a69e255e6bd35c5ffb1cb63f650"
     },
     "acknowledgements": [
       {
         "date": "2026-11-16",
         "note": "The sign-in-again error names the account. ImapConnectionManager#requireUsableAccount reads the account's e-mail address with the requires_reauth flag in one query (AccountRepository#findEmailIfRequiresReauth, replacing isRequiresReauth) and passes it as {0} of error.mail.accountRequiresReauth; the English fallback message, which is what the log gets, names the account id only. The guard still runs first in executeWithLock and executeWithLockOrSkip, refuses the same accounts with the same code and status, and opens no connection; nothing else in the package moved. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-17",
+        "note": "The conversation view moves out of MailFacade into a new ConversationViewService in the same package: getConversations, getThread, crossFolderConversationSizes, conversationExcludedFolders, ConversationScope, conversationScope, threadResponse, folderScopedUnread, scopeToConversationView, survivesCollapse, conversationMemberIdentity and CONVERSATION_EXCLUDED_ROLES. Compared with the old MailFacade text, the code is identical with whitespace ignored; only two javadoc references changed, {@link #getEmails} to MailFacade#getEmails and 'this class' to MailFacade. The new service takes five of MailFacade's collaborators (MessageRepository, MessageMapper, MailSyncService, ImapFolderService, AccountService) and no new one, and is not @Transactional, as the two methods were not. MailFacade.getConversations and getThread keep their signatures and return what the service builds, so MailReadController, the lazy fetch, the listing depth (B1-9) and every role lookup the audit cites are unchanged; the audit names MailFacade only for prepareReply, getEmails, listDrafts and getMessageContentOnly, none of which moved. Nothing else in the package changed. Verdict unchanged."
       }
     ]
   },
