@@ -85,7 +85,7 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "faa8a19c51b93a69e255e6bd35c5ffb1cb63f650"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "3e08ea9615902342a9032a848f4569bd13a1f15b"
     },
     "acknowledgements": [
       {
@@ -95,6 +95,10 @@
       {
         "date": "2026-11-17",
         "note": "The conversation view moves out of MailFacade into a new ConversationViewService in the same package: getConversations, getThread, crossFolderConversationSizes, conversationExcludedFolders, ConversationScope, conversationScope, threadResponse, folderScopedUnread, scopeToConversationView, survivesCollapse, conversationMemberIdentity and CONVERSATION_EXCLUDED_ROLES. Compared with the old MailFacade text, the code is identical with whitespace ignored; only two javadoc references changed, {@link #getEmails} to MailFacade#getEmails and 'this class' to MailFacade. The new service takes five of MailFacade's collaborators (MessageRepository, MessageMapper, MailSyncService, ImapFolderService, AccountService) and no new one, and is not @Transactional, as the two methods were not. MailFacade.getConversations and getThread keep their signatures and return what the service builds, so MailReadController, the lazy fetch, the listing depth (B1-9) and every role lookup the audit cites are unchanged; the audit names MailFacade only for prepareReply, getEmails, listDrafts and getMessageContentOnly, none of which moved. Nothing else in the package changed. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-17",
+        "note": "#932. SmtpMessageService.sendDraftAsync refuses an untouched draft in two places: the server no longer holds it (DRAFT_NOT_FOUND_ON_SERVER, audit reason draft_not_found_on_server) and its copy names other recipients than expectedRecipients (DRAFT_CHANGED_ON_SERVER, draft_changed_on_server, the B1-5 check). Each wrote the audit line, updateLastError and the failed SSE notification inline; both now call one private refuseDraftSend with their code, audit reason and detail, which runs the same three statements in the same order and builds the same strings. Each branch keeps its own log.warn, sets outcome to FAILURE before the call and returns after it. The helper catches nothing, so a failure to persist last_error still falls to the method's catch and is reported as DRAFT_SEND_FAILED, as before. recipientsDiffer, expectedRecipients, the bounded fetch (B1-18), the transport and the draft left in place on a refusal are untouched, so §4e's account of the refusal holds word for word. Nothing else in the package changed. Verdict unchanged."
       }
     ]
   },
