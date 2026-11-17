@@ -142,6 +142,11 @@ Entries before 2026-09-17 predate that split and are left as written.
   module's sourcemap keeps; the build emits no sourcemaps. typescript-eslint
   8.72.2 fixes four lint rules and does not reach the build. The license list
   and the notice follow the new versions (#927).
+- With conversations grouped and the reading pane on, an arrow key in the
+  list moves focus to the next conversation once. Each press used to let the
+  navigation drop focus to the page and then put it back on the row, so a
+  screen reader announced the row twice. The flat list lost the same fault in
+  #363; the grouped list was left as it was until it had been listened to.
 
 ### Tauri / Release
 

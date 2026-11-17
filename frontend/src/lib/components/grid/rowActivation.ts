@@ -1,16 +1,20 @@
 /**
- * What a mouse click on a data-grid row means, and how a row change that opens
- * a message keeps its refocus from being overtaken by an older one.
+ * What a mouse click on a data-grid row means.
  *
- * Both halves were copied verbatim into every grid that opens something. The
- * mail list, the conversation list and the search results each carried the same
- * `closest('input, button, a')` line; the first two also carried the same token
- * counter under the same comment. That is what #259 cost — the fix that made a
- * click open the message again had to be written out three times, and a fourth
- * grid would have started from whichever copy its author happened to read.
+ * This was copied verbatim into every grid that opens something. The mail list,
+ * the conversation list and the search results each carried the same
+ * `closest('input, button, a')` line. That is what #259 cost — the fix that made
+ * a click open the message again had to be written out three times, and a
+ * fourth grid would have started from whichever copy its author happened to
+ * read.
  *
  * The reasoning lives here now, next to the code it explains, the same way the
  * roving-cell state moved into `rovingGrid.svelte.ts`.
+ *
+ * A second half used to live here too: a token that kept a refocus queued
+ * after a row-change navigation from being overtaken by an older one. Both
+ * message lists now navigate with `reset: false`, so focus never leaves the
+ * cell and there is no refocus left to guard.
  */
 
 /**
@@ -46,43 +50,4 @@
 export function isRowBackgroundClick(event: MouseEvent): boolean {
 	const target = event.target as HTMLElement | null;
 	return !target?.closest('input, button, a, label');
-}
-
-/** A "newest selection wins" guard. See `createLatestSelection`. */
-export interface LatestSelection {
-	/**
-	 * Retires whatever is queued without starting anything new — for an open
-	 * whose focus belongs elsewhere (the message body), so a refocus queued by
-	 * an earlier row change cannot pull the reading cursor back to the grid.
-	 */
-	retire(): void;
-	/**
-	 * Starts a selection and returns the predicate that reports whether it is
-	 * still the newest one. Call it inside the `.finally` that would move focus.
-	 */
-	begin(): () => boolean;
-}
-
-/**
- * Guards the refocus that follows a selection in a grid where changing rows
- * opens a message.
- *
- * Opening navigates, and SvelteKit cancels an in-flight navigation when a newer
- * one starts (rapid Arrow / Page keys). The superseded navigation's promise
- * still settles, and its `.finally` would re-focus a row that is no longer the
- * selected one — landing the reading cursor behind where the user had already
- * arrived. So a refocus first asks whether its own selection is still the
- * newest, and a deliberate open retires the queue outright.
- */
-export function createLatestSelection(): LatestSelection {
-	let token = 0;
-	return {
-		retire() {
-			token += 1;
-		},
-		begin() {
-			const mine = ++token;
-			return () => mine === token;
-		}
-	};
 }

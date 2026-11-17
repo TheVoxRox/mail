@@ -400,6 +400,52 @@ test.describe('Rozbalení konverzace', () => {
 		await expect(anyArchiveRow(page, 'arch-02')).toHaveCount(0);
 	});
 
+	test('šipka ve split režimu zaostří konverzaci jen jednou', async ({ page }) => {
+		await setPrefs(page, { readingPane: 'right' });
+		await openApp(page, `/mail/${accountId}/${encodeURIComponent(folderName)}`);
+
+		const subjectOf = (stableId: string) =>
+			conversationGrid(page).locator(
+				`[role="row"][data-row-kind="conversation"][data-stable-id="${stableId}"] [data-cell-target][data-col="3"]`
+			);
+		const firstSubject = subjectOf('msg-01');
+		await expect(firstSubject).toBeVisible();
+		await firstSubject.focus();
+		await waitForFocus(firstSubject);
+
+		await page.evaluate(() => {
+			const log: string[] = [];
+			(window as unknown as { __focusLog: string[] }).__focusLog = log;
+			document.addEventListener(
+				'focusin',
+				(event) => {
+					const el = event.target as HTMLElement;
+					log.push(
+						el === document.body
+							? 'BODY'
+							: (el.closest('[data-stable-id]')?.getAttribute('data-stable-id') ?? 'other')
+					);
+				},
+				true
+			);
+		});
+
+		await page.keyboard.press('ArrowDown');
+		await page.waitForURL(`**/mail/${accountId}/${encodeURIComponent(folderName)}/msg-02`);
+		await expect(bodyFrame(page)).toBeVisible();
+
+		/*
+		 * One focus move for one key press — the flat list's test of the same
+		 * name, for the grouped one. The navigation used to reset focus to <body>
+		 * and a queued refocus put it back, so a screen reader announced the row
+		 * twice. The flat list lost that in #363; this list kept it, because the
+		 * grouped view had not been listened to then.
+		 */
+		await expect
+			.poll(() => page.evaluate(() => (window as unknown as { __focusLog: string[] }).__focusLog))
+			.toEqual(['msg-02']);
+	});
+
 	test('fokus nese buňka předmětu konverzace, ne odkaz uvnitř ní', async ({ page }) => {
 		/*
 		 * The same structural fault the flat list carried: the subject cell is the
