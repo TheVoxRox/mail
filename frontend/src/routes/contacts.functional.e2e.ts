@@ -58,6 +58,30 @@ test.describe('Contacts', () => {
 		await expect(page.getByRole('heading', { name: 'Nový kontakt' })).toBeVisible();
 	});
 
+	test('podokno kontaktů nemá přepínač účtu, adresář je jeden pro celou aplikaci', async ({
+		page
+	}) => {
+		/*
+		 * The address book is one for the whole application, so the account
+		 * switcher had nothing to switch here: picking another account left
+		 * Contacts for that account's mailbox. Mail is opened first so the
+		 * accounts are loaded before the absence is asserted — on a cold
+		 * /contacts the count would be 0 before they arrive as well.
+		 */
+		await openApp(page, '/mail/1/INBOX');
+		await expect(
+			page.getByRole('button', { name: 'Aktivní účet: Pracovní účet: tester@example.com' })
+		).toBeVisible();
+
+		await page.getByRole('link', { name: 'Kontakty (Ctrl+2)' }).click();
+		await page.waitForURL('**/contacts');
+
+		const sidebar = page.getByRole('region', { name: 'Podokno kontaktů' });
+		await expect(sidebar.getByRole('button', { name: 'Nový kontakt Ctrl+N' })).toBeVisible();
+		await expect(sidebar.getByRole('button', { name: /^Aktivní účet:/ })).toHaveCount(0);
+		await expect(sidebar.getByRole('button', { name: 'Přepnout účet' })).toHaveCount(0);
+	});
+
 	test('sidebar zobrazení jsou odkazy s počty a filtrují podle štítku', async ({ page }) => {
 		await openApp(page, '/contacts');
 
@@ -148,6 +172,12 @@ test.describe('Contacts', () => {
 		// "add an account first" wall.
 		await expect(page.getByRole('heading', { level: 1, name: 'Kontakty' })).toBeVisible();
 		await expect(page.getByText('Jana Novak')).toBeVisible();
+
+		// The pane's own new-contact button and search are there too: they used
+		// to wait for an active account the address book does not need.
+		const sidebar = page.getByRole('region', { name: 'Podokno kontaktů' });
+		await expect(sidebar.getByRole('button', { name: 'Nový kontakt Ctrl+N' })).toBeVisible();
+		await expect(sidebar.getByRole('search', { name: 'Hledání v kontaktech' })).toBeVisible();
 
 		// A contact can also be written before any mailbox exists — the primary
 		// new action used to bail out on a missing account and do nothing.
