@@ -32,6 +32,7 @@ import org.voxrox.mailbackend.feature.contact.dto.ContactMergeRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactPatchRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactUpdateRequest;
+import org.voxrox.mailbackend.feature.contact.service.ContactAutocompleteService;
 import org.voxrox.mailbackend.feature.contact.service.ContactBulkService;
 import org.voxrox.mailbackend.feature.contact.service.ContactService;
 import org.voxrox.mailbackend.feature.contact.service.CorrespondentService;
@@ -58,15 +59,17 @@ public class ContactController {
     private static final Logger log = LoggerFactory.getLogger(ContactController.class);
     private final ContactService contactService;
     private final ContactBulkService contactBulkService;
+    private final ContactAutocompleteService contactAutocompleteService;
     private final CorrespondentService correspondentService;
     private final MailClientProperties mailProps;
     private final ClientConfigProperties clientConfigProps;
 
     public ContactController(ContactService contactService, ContactBulkService contactBulkService,
-            CorrespondentService correspondentService, MailClientProperties mailProps,
-            ClientConfigProperties clientConfigProps) {
+            ContactAutocompleteService contactAutocompleteService, CorrespondentService correspondentService,
+            MailClientProperties mailProps, ClientConfigProperties clientConfigProps) {
         this.contactService = contactService;
         this.contactBulkService = contactBulkService;
+        this.contactAutocompleteService = contactAutocompleteService;
         this.correspondentService = correspondentService;
         this.mailProps = mailProps;
         this.clientConfigProps = clientConfigProps;
@@ -126,7 +129,7 @@ public class ContactController {
         int maxLimit = clientConfigProps.contactAutocompleteMaxLimit();
         int finalLimit = Math
                 .min(Objects.requireNonNullElse(limit, clientConfigProps.contactAutocompleteDefaultLimit()), maxLimit);
-        return contactService.autocomplete(accountId, q, finalLimit);
+        return contactAutocompleteService.autocomplete(accountId, q, finalLimit);
     }
 
     @Operation(summary = "Forget a history suggestion", description = "Removes one harvested address (a `source: HISTORY` row of `/autocomplete`, named by its `historyId`) "

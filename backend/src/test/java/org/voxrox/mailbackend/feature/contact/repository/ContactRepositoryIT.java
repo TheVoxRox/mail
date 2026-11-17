@@ -3,8 +3,6 @@ package org.voxrox.mailbackend.feature.contact.repository;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,7 +35,6 @@ import org.voxrox.mailbackend.feature.account.entity.MailProviderEntity;
 import org.voxrox.mailbackend.feature.account.entity.MailServerConfig;
 import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.account.repository.MailProviderRepository;
-import org.voxrox.mailbackend.feature.account.service.AccountService;
 import org.voxrox.mailbackend.feature.contact.EmailLabel;
 import org.voxrox.mailbackend.feature.contact.dto.ContactEmailRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactUpdateRequest;
@@ -47,7 +44,6 @@ import org.voxrox.mailbackend.feature.contact.entity.ContactLabelEntity;
 import org.voxrox.mailbackend.feature.contact.mapper.ContactMapper;
 import org.voxrox.mailbackend.feature.contact.service.ContactLabelService;
 import org.voxrox.mailbackend.feature.contact.service.ContactService;
-import org.voxrox.mailbackend.feature.contact.service.CorrespondentService;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
@@ -286,11 +282,9 @@ class ContactRepositoryIT {
         Long contactId = contactRepository.saveAndFlush(c).getId();
         em.clear();
 
-        AccountService accountService = mock(AccountService.class);
-        when(accountService.getAccountOrThrow(account.getId())).thenReturn(account);
         ContactLabelService labelService = new ContactLabelService(labelRepository, contactRepository);
         ContactService service = new ContactService(contactRepository, labelRepository, labelService,
-                mock(CorrespondentService.class), accountService, new ContactMapper());
+                new ContactMapper());
 
         ContactUpdateRequest request = new ContactUpdateRequest(
                 List.of(new ContactEmailRequest("second@x.cz", EmailLabel.HOME),
@@ -323,11 +317,9 @@ class ContactRepositoryIT {
         Long contactId = contactRepository.saveAndFlush(c).getId();
         em.clear();
 
-        AccountService accountService = mock(AccountService.class);
-        when(accountService.getAccountOrThrow(account.getId())).thenReturn(account);
         ContactLabelService labelService = new ContactLabelService(labelRepository, contactRepository);
         ContactService service = new ContactService(contactRepository, labelRepository, labelService,
-                mock(CorrespondentService.class), accountService, new ContactMapper());
+                new ContactMapper());
 
         ContactUpdateRequest request = new ContactUpdateRequest(
                 List.of(new ContactEmailRequest("only@x.cz", EmailLabel.WORK)), List.of(), "Jana", "Novak", null);

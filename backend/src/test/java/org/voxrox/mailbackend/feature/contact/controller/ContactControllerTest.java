@@ -57,6 +57,7 @@ import org.voxrox.mailbackend.feature.contact.dto.ContactMergeRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactPatchRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactUpdateRequest;
+import org.voxrox.mailbackend.feature.contact.service.ContactAutocompleteService;
 import org.voxrox.mailbackend.feature.contact.service.ContactBulkService;
 import org.voxrox.mailbackend.feature.contact.service.ContactService;
 import org.voxrox.mailbackend.feature.contact.service.CorrespondentService;
@@ -80,6 +81,8 @@ class ContactControllerTest {
     private ContactService contactService;
     @MockitoBean
     private ContactBulkService contactBulkService;
+    @MockitoBean
+    private ContactAutocompleteService contactAutocompleteService;
     @MockitoBean
     private CorrespondentService correspondentService;
     @MockitoBean
@@ -467,7 +470,7 @@ class ContactControllerTest {
     @Test
     @DisplayName("GET /autocomplete?q=ali -> 200 with a flat list (contact x email)")
     void autocompleteHappyPath() throws Exception {
-        when(contactService.autocomplete(eq(ACCOUNT_ID), eq("ali"), eq(10))).thenReturn(List.of(
+        when(contactAutocompleteService.autocomplete(eq(ACCOUNT_ID), eq("ali"), eq(10))).thenReturn(List.of(
                 ContactAutocompleteResponse.ofContact(1L, 11L, "alice@x.cz", EmailLabel.WORK, true, "Alice", "Liddell"),
                 ContactAutocompleteResponse.ofContact(1L, 12L, "alice.home@x.cz", EmailLabel.HOME, false, "Alice",
                         "Liddell")));
@@ -486,7 +489,7 @@ class ContactControllerTest {
     @Test
     @DisplayName("GET /autocomplete -> a history row serializes with source=HISTORY and null contact fields")
     void autocompleteHistoryRowShape() throws Exception {
-        when(contactService.autocomplete(eq(ACCOUNT_ID), eq("jan"), eq(10)))
+        when(contactAutocompleteService.autocomplete(eq(ACCOUNT_ID), eq("jan"), eq(10)))
                 .thenReturn(List.of(ContactAutocompleteResponse.ofHistory(7L, "jan.dvorak@example.com", "Jan Dvorak")));
 
         // The client marks these rows as "not in contacts", and it decides from
@@ -506,23 +509,23 @@ class ContactControllerTest {
     @Test
     @DisplayName("GET /autocomplete?q=ali&limit=5 -> limit propagated to service")
     void autocompleteCustomLimit() throws Exception {
-        when(contactService.autocomplete(eq(ACCOUNT_ID), eq("ali"), eq(5))).thenReturn(List.of());
+        when(contactAutocompleteService.autocomplete(eq(ACCOUNT_ID), eq("ali"), eq(5))).thenReturn(List.of());
 
         mockMvc.perform(get("/api/v1/contacts/autocomplete").param("accountId", ACCOUNT_ID.toString()).param("q", "ali")
                 .param("limit", "5")).andExpect(status().isOk());
 
-        verify(contactService).autocomplete(ACCOUNT_ID, "ali", 5);
+        verify(contactAutocompleteService).autocomplete(ACCOUNT_ID, "ali", 5);
     }
 
     @Test
     @DisplayName("GET /autocomplete?q=ali&limit=999 → limit se zastropuje podle client-config")
     void autocompleteLimitCappedByClientConfig() throws Exception {
-        when(contactService.autocomplete(eq(ACCOUNT_ID), eq("ali"), eq(20))).thenReturn(List.of());
+        when(contactAutocompleteService.autocomplete(eq(ACCOUNT_ID), eq("ali"), eq(20))).thenReturn(List.of());
 
         mockMvc.perform(get("/api/v1/contacts/autocomplete").param("accountId", ACCOUNT_ID.toString()).param("q", "ali")
                 .param("limit", "999")).andExpect(status().isOk());
 
-        verify(contactService).autocomplete(ACCOUNT_ID, "ali", 20);
+        verify(contactAutocompleteService).autocomplete(ACCOUNT_ID, "ali", 20);
     }
 
     @Test
@@ -531,7 +534,7 @@ class ContactControllerTest {
         mockMvc.perform(get("/api/v1/contacts/autocomplete").param("accountId", ACCOUNT_ID.toString()))
                 .andExpect(status().isBadRequest());
 
-        verify(contactService, never()).autocomplete(any(), any(), anyInt());
+        verify(contactAutocompleteService, never()).autocomplete(any(), any(), anyInt());
     }
 
     @Test
@@ -540,7 +543,7 @@ class ContactControllerTest {
         mockMvc.perform(get("/api/v1/contacts/autocomplete").param("accountId", ACCOUNT_ID.toString()).param("q", ""))
                 .andExpect(status().isBadRequest());
 
-        verify(contactService, never()).autocomplete(any(), any(), anyInt());
+        verify(contactAutocompleteService, never()).autocomplete(any(), any(), anyInt());
     }
 
     @Test
@@ -552,7 +555,7 @@ class ContactControllerTest {
                 get("/api/v1/contacts/autocomplete").param("accountId", ACCOUNT_ID.toString()).param("q", longQ))
                 .andExpect(status().isBadRequest());
 
-        verify(contactService, never()).autocomplete(any(), any(), anyInt());
+        verify(contactAutocompleteService, never()).autocomplete(any(), any(), anyInt());
     }
 
     @Test
@@ -561,7 +564,7 @@ class ContactControllerTest {
         mockMvc.perform(get("/api/v1/contacts/autocomplete").param("accountId", ACCOUNT_ID.toString()).param("q", "ali")
                 .param("limit", "0")).andExpect(status().isBadRequest());
 
-        verify(contactService, never()).autocomplete(any(), any(), anyInt());
+        verify(contactAutocompleteService, never()).autocomplete(any(), any(), anyInt());
     }
 
     @Test
