@@ -182,6 +182,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- `check:java-imports` counts only an unqualified occurrence of a name as a use
+  of its import. A dot is a word boundary, so the tail of `a.b.Pageable` kept an
+  import of `Pageable` alive that the IDE reported as unused; a name after `.`
+  or `::`, in code or in a javadoc reference, now needs no import. The one
+  leftover it finds is that `Pageable` in `ConversationViewServiceTest`, whose
+  uses now go through the import, as in #939 (#940).
 - `npm run audit:ci` can accept an advisory that has no fixed version, for a
   dated while, in `frontend/npm-audit-accepted.json`. GHSA-fc5q-39xc-vjpf
   (picomatch, build tooling only, no release fixes it) turned every pull

@@ -131,8 +131,12 @@ someone a rework at least once. For the human-facing versions see
     the plugin in `backend/pom.xml`), and javac has no lint for it, so leftovers
     survive a green `mvn clean verify` indefinitely. A symbol named only in
     prose does not count as used — a `{@link}` or `@throws` does, since those
-    need the import to resolve. Wildcard and `import module` lines are skipped,
-    not guessed at. TypeScript is out of scope; eslint already covers it.
+    need the import to resolve. Only an **unqualified** occurrence counts, in
+    code and in javadoc alike: after a `.` or `::` the name is resolved through
+    what stands left of it, so `a.b.Name`, `Outer.Name` and `Type::name` keep no
+    import of `Name` or `name` alive (#939 kept one that way). Wildcard and
+    `import module` lines are skipped, not guessed at. TypeScript is out of
+    scope; eslint already covers it.
   - `check:java-callers` — a declaration in `backend/src/main` needs a caller.
     The Java half of what knip does for TypeScript, and it names three cases
     apart because they argue for different fixes: **dead** (nothing anywhere —

@@ -320,8 +320,8 @@ class ConversationViewServiceTest {
             MailSummaryResponse s3 = summaryWithSeen(3L, false);
             when(messageRepository.findSummariesByAccountIdAndThreadId(ACCOUNT_ID, THREAD_ID))
                     .thenReturn(List.of(s1, s2, s3));
-            when(messageRepository.findThreadRootMessageIds(eq(ACCOUNT_ID), eq(THREAD_ID),
-                    any(org.springframework.data.domain.Pageable.class))).thenReturn(List.of("<root@x.cz>"));
+            when(messageRepository.findThreadRootMessageIds(eq(ACCOUNT_ID), eq(THREAD_ID), any(Pageable.class)))
+                    .thenReturn(List.of("<root@x.cz>"));
             when(mapper.withDisplayFallbacks(any(MailSummaryResponse.class))).thenAnswer(inv -> inv.getArgument(0));
 
             ThreadResponse result = conversationViewService.getThread(ACCOUNT_ID, THREAD_ID, null);
@@ -541,8 +541,8 @@ class ConversationViewServiceTest {
         private void stubThread(MailSummaryResponse... members) {
             when(messageRepository.findSummariesByAccountIdAndThreadId(ACCOUNT_ID, THREAD_ID))
                     .thenReturn(List.of(members));
-            when(messageRepository.findThreadRootMessageIds(eq(ACCOUNT_ID), eq(THREAD_ID),
-                    any(org.springframework.data.domain.Pageable.class))).thenReturn(List.of("<root@x.cz>"));
+            when(messageRepository.findThreadRootMessageIds(eq(ACCOUNT_ID), eq(THREAD_ID), any(Pageable.class)))
+                    .thenReturn(List.of("<root@x.cz>"));
         }
 
         private void stubRole(FolderRole role, String... folderNames) {
