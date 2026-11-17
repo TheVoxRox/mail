@@ -13,10 +13,7 @@
 	import MailListState from '#lib/components/mail-list/MailListState.svelte';
 	import { createRovingGrid } from '#lib/components/grid/rovingGrid.svelte.js';
 	import { createBulkAnnouncer } from '#lib/components/grid/bulkAnnouncer.js';
-	import {
-		createLatestSelection,
-		isRowBackgroundClick
-	} from '#lib/components/grid/rowActivation.js';
+	import { isRowBackgroundClick } from '#lib/components/grid/rowActivation.js';
 
 	import { cn } from '#lib/utils.js';
 	import { formatMessageListDate, formatThreadMemberDate } from '#lib/formatters.js';
@@ -111,7 +108,6 @@
 		initialCol: COL_SUBJECT,
 		maxCol: MAX_COL
 	});
-	const latestSelection = createLatestSelection();
 
 	/*
 	 * Expansion and selection are both per-view state machines, and both live in
@@ -298,7 +294,15 @@
 		}
 		if (options.focusBody) requestBodyFocus(stableId);
 		else suppressBodyFocus(stableId);
-		await goto(messageHref(accountId, folderName, stableId));
+		/*
+		 * `reset: false` because focus here is ours to place, not SvelteKit's —
+		 * the flat list's reason (see handleSelect in MessageList.svelte). Without
+		 * it the post-navigation reset dropped focus to <body> and a queued
+		 * refocus put it back on the row, so one Arrow press announced the row
+		 * twice. A deliberate open still moves the reading cursor into the body
+		 * through `requestBodyFocus`, not through the reset.
+		 */
+		await goto(messageHref(accountId, folderName, stableId), { reset: false });
 	}
 
 	/**
@@ -1199,8 +1203,8 @@
 	}
 
 	function openDeliberately(row: VisibleRow): void {
-		// Retire a refocus an in-flight selectAndFocus queued, so the body wins.
-		latestSelection.retire();
+		// No refocus to retire: selectAndFocus queues none, so the body wins by
+		// being the only thing asking for focus.
 		openRow(row);
 	}
 
@@ -1211,13 +1215,14 @@
 		announceBulkActions(hasSelection);
 	});
 
+	/*
+	 * One focus move, not two: `openMessage` navigates with `reset: false`, so
+	 * nothing takes focus off the cell and there is no reset to undo afterwards.
+	 */
 	function selectAndFocus(rowIndex: number, col: number, row: VisibleRow): void {
 		grid.moveTo(rowIndex, col);
-		const isLatest = latestSelection.begin();
 		const message = rowMessage(row);
-		void openMessage(message.stableId, message.folderName).finally(() => {
-			if (isLatest()) grid.moveTo(rowIndex, col);
-		});
+		void openMessage(message.stableId, message.folderName);
 	}
 
 	/*

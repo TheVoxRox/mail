@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { createLatestSelection, isRowBackgroundClick } from './rowActivation.js';
+import { isRowBackgroundClick } from './rowActivation.js';
 
 /** Builds a row whose innerHTML is `markup` and clicks the element at `selector`. */
 function clickInRow(markup: string, selector: string): MouseEvent {
@@ -61,50 +61,5 @@ describe('isRowBackgroundClick', () => {
 
 	it('treats a targetless click as the row', () => {
 		expect(isRowBackgroundClick(new MouseEvent('click'))).toBe(true);
-	});
-});
-
-describe('createLatestSelection', () => {
-	it('a lone selection is still the newest when it settles', () => {
-		const isLatest = createLatestSelection().begin();
-		expect(isLatest()).toBe(true);
-	});
-
-	it('a superseded selection is not, but the newer one is', () => {
-		const selection = createLatestSelection();
-		const first = selection.begin();
-		const second = selection.begin();
-		expect(first()).toBe(false);
-		expect(second()).toBe(true);
-	});
-
-	it('only the last of a rapid burst may refocus', () => {
-		const selection = createLatestSelection();
-		const pending = [selection.begin(), selection.begin(), selection.begin()];
-		expect(pending.map((isLatest) => isLatest())).toEqual([false, false, true]);
-	});
-
-	it('retire() cancels a queued refocus without arming a new one', () => {
-		// A deliberate open (click, Enter) sends the reading cursor into the
-		// message body; the refocus an earlier row change queued must not drag it
-		// back to the grid cell.
-		const selection = createLatestSelection();
-		const queued = selection.begin();
-		selection.retire();
-		expect(queued()).toBe(false);
-	});
-
-	it('a selection started after retire() still counts as the newest', () => {
-		const selection = createLatestSelection();
-		selection.retire();
-		expect(selection.begin()()).toBe(true);
-	});
-
-	it('grids do not share a guard', () => {
-		const one = createLatestSelection();
-		const other = createLatestSelection();
-		const pending = one.begin();
-		other.begin();
-		expect(pending()).toBe(true);
 	});
 });
