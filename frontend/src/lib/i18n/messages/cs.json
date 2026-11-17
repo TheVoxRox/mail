@@ -335,6 +335,7 @@
 		"deleting": "Mažu…",
 		"reauth": "Znovu přihlásit",
 		"reauthStarting": "Otevírám prohlížeč…",
+		"goToAccounts": "Přejít na účty",
 		"deleteAccount": "Smazat účet",
 		"remoteImages": {
 			"heading": "Obrázky z internetu",
@@ -938,7 +939,6 @@
 		"noAccountsPageTitle": "Pošta – Žádný účet",
 		"noFoldersPageTitle": "Pošta – Žádné složky",
 		"noFolders": "Tento účet nemá žádné složky.",
-		"goToAccounts": "Přejít na účty",
 		"loadingMail": "Načítám poštu…"
 	},
 	"update": {

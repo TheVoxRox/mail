@@ -335,6 +335,7 @@
 		"deleting": "Deleting…",
 		"reauth": "Re-sign in",
 		"reauthStarting": "Opening browser…",
+		"goToAccounts": "Go to accounts",
 		"deleteAccount": "Delete account",
 		"remoteImages": {
 			"heading": "Images from the internet",
@@ -938,7 +939,6 @@
 		"noAccountsPageTitle": "Mail – No account",
 		"noFoldersPageTitle": "Mail – No folders",
 		"noFolders": "This account has no folders.",
-		"goToAccounts": "Go to accounts",
 		"loadingMail": "Loading mail…"
 	},
 	"update": {

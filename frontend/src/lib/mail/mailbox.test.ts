@@ -89,6 +89,7 @@ vi.mock('#lib/i18n/index.js', async () => {
 });
 
 vi.mock('#lib/api/errors.js', () => ({
+	pushErrorToast: vi.fn(),
 	toErrorMessage: vi.fn((err: unknown) => String(err))
 }));
 

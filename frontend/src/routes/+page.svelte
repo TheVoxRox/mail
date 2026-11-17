@@ -11,6 +11,7 @@
 	import { loadFolders } from '#lib/stores/folders.js';
 	import { folderHref, lastFolderRef, pickEntryFolder } from '#lib/mail/entryFolder.js';
 	import { toErrorMessage } from '#lib/api/errors.js';
+	import ErrorRemedyLink from '#lib/components/ErrorRemedyLink.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { Surface } from '#lib/components/ui/surface/index.js';
 	import { _ } from '#lib/i18n/index.js';
@@ -21,7 +22,7 @@
 	 * account — the one it already had.
 	 */
 	let empty = $state<'noAccounts' | 'noFolders' | null>(null);
-	let loadError = $state<string | null>(null);
+	let loadError = $state<{ message: string; error: unknown } | null>(null);
 	let handledContext = $state<string | null>(null);
 
 	const pageTitle = $derived(
@@ -58,7 +59,7 @@
 		setActiveAccount(accountId);
 
 		const folders = await loadFolders(accountId).catch((err) => {
-			loadError = toErrorMessage(err);
+			loadError = { message: toErrorMessage(err), error: err };
 			return [];
 		});
 		const entry = pickEntryFolder(folders, lastFolderRef(accountId));
@@ -113,8 +114,9 @@
 
 <div class="flex h-full items-center justify-center text-sm text-muted-foreground">
 	{#if loadError}
-		<Surface variant="danger" role="alert" class="max-w-md text-center">
-			{loadError}
+		<Surface variant="danger" role="alert" class="max-w-md space-y-3 text-center">
+			<p>{loadError.message}</p>
+			<ErrorRemedyLink error={loadError.error} />
 		</Surface>
 	{:else if empty}
 		<div
@@ -137,7 +139,7 @@
 				<Button
 					aria-describedby="empty-mail-reason"
 					class="mt-4"
-					href={resolve('settings/accounts')}>{$_('root.goToAccounts')}</Button
+					href={resolve('settings/accounts')}>{$_('accounts.goToAccounts')}</Button
 				>
 			{/if}
 		</div>

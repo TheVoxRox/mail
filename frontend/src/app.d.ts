@@ -67,6 +67,8 @@ declare global {
 			setReadinessDelayMs: (delayMs: number) => void;
 			setReadinessFailures: (count: number) => void;
 			setFolderAuthFailure: (enabled: boolean) => void;
+			/** Folder list and sync answer MAIL_ACCOUNT_REQUIRES_REAUTH, as for an account to sign in again. */
+			setReauthRequired: (enabled: boolean) => void;
 			setConnectionTestAuthFailure: (enabled: boolean) => void;
 			setVCardExportDelayMs: (delayMs: number) => void;
 			failNextVCardExport: () => void;

@@ -6,11 +6,14 @@ vi.mock('./clientErrors.js', () => ({
 }));
 
 import { _ } from '#lib/i18n/index.js';
+import { dismissToast, toasts } from '#lib/stores/toasts.js';
 import { ApiError } from './client.js';
 import { reportClientError } from './clientErrors.js';
 import {
 	diagnosticErrorText,
+	errorRemedy,
 	localizedErrorMessage,
+	pushErrorToast,
 	technicalMessage,
 	toError,
 	toErrorMessage
@@ -132,5 +135,61 @@ describe('diagnosticErrorText', () => {
 			text: 'Mail server connection failed: connection refused',
 			lang: undefined
 		});
+	});
+});
+
+function problemError(errorCode: string): ApiError {
+	return new ApiError(401, 'Unauthorized', null, {
+		detail: `The account needs signing in again (${errorCode}).`,
+		errorCode
+	} as never);
+}
+
+const accountsLink = () => ({
+	label: translate('accounts.goToAccounts'),
+	href: '/settings/accounts'
+});
+
+describe('errorRemedy', () => {
+	it('links the sign-in-again errors to the account list, where their button is', () => {
+		expect(errorRemedy(problemError('MAIL_ACCOUNT_REQUIRES_REAUTH'))).toEqual(accountsLink());
+		// The attempt that sets the state answers with this one, and its text sends
+		// the user to the same place.
+		expect(errorRemedy(problemError('MAIL_OAUTH2_IMAP_ACCESS_DENIED'))).toEqual(accountsLink());
+	});
+
+	it('has nothing for an error whose text names no place', () => {
+		expect(errorRemedy(problemError('MAIL_AUTHENTICATION_FAILED'))).toBeNull();
+		expect(errorRemedy(new ApiError(500, 'Internal', null))).toBeNull();
+		expect(errorRemedy(new Error('Failed to fetch'))).toBeNull();
+		expect(errorRemedy(null)).toBeNull();
+	});
+});
+
+describe('pushErrorToast', () => {
+	beforeEach(() => {
+		for (const toast of get(toasts)) dismissToast(toast.id);
+	});
+
+	it('carries the link, and stays until closed so the link can be reached', () => {
+		const err = problemError('MAIL_ACCOUNT_REQUIRES_REAUTH');
+		pushErrorToast(err);
+		expect(get(toasts)).toEqual([
+			expect.objectContaining({
+				message: err.message,
+				tone: 'error',
+				ttl: 0,
+				action: accountsLink()
+			})
+		]);
+	});
+
+	it('is a plain error toast on its usual timer for any other error', () => {
+		const err = problemError('MAIL_AUTHENTICATION_FAILED');
+		pushErrorToast(err);
+		const [toast] = get(toasts);
+		expect(toast).toEqual(expect.objectContaining({ message: err.message, tone: 'error' }));
+		expect(toast.ttl).toBeGreaterThan(0);
+		expect(toast).not.toHaveProperty('action');
 	});
 });

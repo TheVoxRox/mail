@@ -13,6 +13,7 @@
 	 */
 	import type { Snippet } from 'svelte';
 	import { toErrorMessage } from '#lib/api/errors.js';
+	import ErrorRemedyLink from '#lib/components/ErrorRemedyLink.svelte';
 	import { StateMessage } from '#lib/components/ui/state-message/index.js';
 	import { Surface } from '#lib/components/ui/surface/index.js';
 	import { _ } from '#lib/i18n/index.js';
@@ -49,6 +50,7 @@
 			<StateMessage variant="error" padding="none" role="status">
 				{$_('messages.errorPrefix', { values: { message: toErrorMessage(state.error) } })}
 			</StateMessage>
+			<ErrorRemedyLink error={state.error} class="mt-2" />
 		</Surface>
 	</div>
 {:else if state.page.content.length === 0}

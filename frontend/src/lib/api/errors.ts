@@ -1,5 +1,7 @@
+import { resolve } from '$app/paths';
 import { get } from 'svelte/store';
 import { _ } from '#lib/i18n/index.js';
+import { pushToast, type ToastAction } from '#lib/stores/toasts.js';
 import { ApiError } from './client.js';
 import { reportClientError } from './clientErrors.js';
 
@@ -82,4 +84,40 @@ export function toErrorMessage(err: unknown): string {
 		});
 	}
 	return translate('common.errorUnexpected');
+}
+
+/**
+ * The errors whose text sends the user to Settings, Accounts to sign in again:
+ * an account the backend has stopped connecting for until then, and the
+ * provider refusing IMAP access on the attempt that sets that state.
+ */
+const REAUTH_ERROR_CODES = new Set([
+	'MAIL_ACCOUNT_REQUIRES_REAUTH',
+	'MAIL_OAUTH2_IMAP_ACCESS_DENIED'
+]);
+
+/** A link to the account list, where an account needing a new sign-in has its button. */
+export function reauthRemedy(): ToastAction {
+	return { label: get(_)('accounts.goToAccounts'), href: resolve('/settings/accounts') };
+}
+
+/**
+ * A link to the place an error's own text tells the user to go, for showing
+ * beside that text, or null when it names none.
+ *
+ * The sign-in-again message says to open Settings, Accounts and press the
+ * button there, and that was all it did: the user had to find the way
+ * through the panes themselves, which for a screen reader user is a walk
+ * through the rail, the settings pane and its list.
+ */
+export function errorRemedy(err: unknown): ToastAction | null {
+	if (!(err instanceof ApiError)) return null;
+	const code = err.problem?.errorCode;
+	return typeof code === 'string' && REAUTH_ERROR_CODES.has(code) ? reauthRemedy() : null;
+}
+
+/** An error as a toast, carrying the link {@link errorRemedy} finds for it. */
+export function pushErrorToast(err: unknown): number {
+	const action = errorRemedy(err);
+	return pushToast(toErrorMessage(err), action ? { tone: 'error', action } : { tone: 'error' });
 }
