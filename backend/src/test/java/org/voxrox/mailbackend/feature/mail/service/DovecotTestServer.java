@@ -47,7 +47,9 @@ final class DovecotTestServer {
      */
     // The suppression is for Eclipse JDT, which reports the `new` below as never
     // closed: it cannot tell that each fluent with...() call returns that same
-    // container, and the container is returned to the caller, not dropped.
+    // container, and the container is returned to the caller, not dropped. A
+    // static @Container field that receives it needs no suppression: JDT does
+    // not track fields, and the Testcontainers extension stops it.
     @SuppressWarnings("resource")
     static GenericContainer<?> container(String password) {
         return new GenericContainer<>(IMAGE).withEnv("USER_PASSWORD", "{PLAIN}" + password)

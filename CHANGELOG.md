@@ -182,11 +182,13 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
-- The Dovecot test container factory no longer shows Eclipse JDT's "Resource
-  leak: '<unassigned Closeable value>' is never closed" in VS Code. It was a
-  false alarm: JDT cannot see that the fluent `with...()` calls return the same
-  container, which goes back to the caller; suppressed with that reason, like
-  its caller already is (#939).
+- Three Eclipse JDT warnings VS Code showed in backend tests are gone. The
+  Dovecot container factory's "resource leak" was a false alarm (JDT cannot see
+  that the fluent `with...()` calls return the same container, which goes back
+  to the caller) and is suppressed there with that reason; the suppression on
+  the caller's field, stale since #792 moved the chain into the factory, is
+  removed. `ConversationViewServiceTest` imported `Pageable` and then spelled it
+  out in full, so the import served nothing (#939).
 - `npm run audit:ci` can accept an advisory that has no fixed version, for a
   dated while, in `frontend/npm-audit-accepted.json`. GHSA-fc5q-39xc-vjpf
   (picomatch, build tooling only, no release fixes it) turned every pull
