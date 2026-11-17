@@ -48,6 +48,17 @@
     "Both clocks reset the same way: re-verify the audit, bump `Audited commit`,",
     "and delete the entry from this file."
   ],
+  "docs/API_SURFACE_AUDIT.md": {
+    "reviewedTrees": {
+      "backend/src/main/java/org/voxrox/mailbackend/feature/contact/controller": "b73ad2abc15867b337621446ccd2b5f7077346a0"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-11-17",
+        "note": "ContactController's GET /autocomplete calls ContactAutocompleteService instead of ContactService, and takes it as one more constructor argument. The service is new in feature/contact/service and holds ContactService's autocomplete and its ranking helpers, moved without change except that the contact half now names the shared order as ContactService.DEFAULT_SORT. The endpoint's mapping, its parameters and their constraints (@Positive accountId, @Size(min = 1) q, @Min(1) limit), ensureContactQueryWithinLimit, the clamp of limit to contactAutocompleteMaxLimit and the response type are byte-identical; no endpoint, request field, response field, validation rule or error path moved, and nothing else in the directory changed. Section 2 holds: the query bound and the limit clamp it cites are the controller's, and the merge bound it names ContactService for stays in ContactService. Verdict unchanged."
+      }
+    ]
+  },
   "docs/CONTENT_RENDERING_AUDIT.md": {
     "reviewedTrees": {
       "frontend/src/lib/mail/mailFrame.ts": "039781084f982faf4d034090719936613d61e493",

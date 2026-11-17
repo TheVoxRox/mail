@@ -161,6 +161,11 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- Compose autocomplete moved out of `ContactService` into its own
+  `ContactAutocompleteService`. It is the one part of the address book that
+  reads a mailbox, and it takes two of `ContactService`'s six dependencies
+  with it; nothing it returns changed, and the B3 audit's ledger records the
+  controller's new constructor argument (#930).
 - The per-screen axe scans run in the dark theme as well as the light one;
   the dark palette's contrast was measured by nothing but the focus walk. New
   a11y tests hold the account switcher to switching only on a choice, the
