@@ -562,8 +562,7 @@ class SyncSoakIT {
         }
 
         HttpResponse<String> send(HttpRequest request) throws IOException, InterruptedException {
-            HttpRequest keyed = HttpRequest.newBuilder(request, (name, value) -> true).header("X-API-KEY", apiKey)
-                    .build();
+            HttpRequest keyed = HttpRequest.newBuilder(request, (_, _) -> true).header("X-API-KEY", apiKey).build();
             return http.send(keyed, HttpResponse.BodyHandlers.ofString());
         }
 

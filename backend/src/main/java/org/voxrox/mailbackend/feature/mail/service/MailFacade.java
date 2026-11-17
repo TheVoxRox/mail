@@ -77,7 +77,7 @@ public class MailFacade {
      * so a fresh transaction runs after the previous one rolled back.
      */
     private void withDbWriteRetry(Runnable write) {
-        dbWriteRetryTemplate.execute(ctx -> {
+        dbWriteRetryTemplate.execute(_ -> {
             write.run();
             return null;
         });

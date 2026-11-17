@@ -10,7 +10,9 @@ desktop.ini
 
 # IDE
 .idea/
-.vscode/
+# Contents, not the folder, so a module's .gitignore can re-include a shared
+# file (backend/.vscode keeps the Eclipse JDT settings VS Code loads).
+.vscode/*
 *.iml
 *.iws
 *.ipr

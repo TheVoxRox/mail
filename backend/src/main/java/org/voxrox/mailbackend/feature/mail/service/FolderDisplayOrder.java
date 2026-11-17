@@ -65,7 +65,7 @@ final class FolderDisplayOrder {
             if (parentRef == null) {
                 roots.add(shown);
             } else {
-                children.computeIfAbsent(parentRef, ref -> new ArrayList<>()).add(shown);
+                children.computeIfAbsent(parentRef, _ -> new ArrayList<>()).add(shown);
             }
         }
 

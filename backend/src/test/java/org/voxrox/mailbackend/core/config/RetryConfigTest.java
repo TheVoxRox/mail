@@ -44,7 +44,7 @@ class RetryConfigTest {
         @Test
         void socketTimeoutJeRetryovanAUspeje() throws Throwable {
             AtomicInteger attempts = new AtomicInteger();
-            String result = template.execute(ctx -> {
+            String result = template.execute(_ -> {
                 if (attempts.incrementAndGet() < 2) {
                     throw new SocketTimeoutException("boom");
                 }
@@ -57,7 +57,7 @@ class RetryConfigTest {
         @Test
         void connectExceptionJeRetryovan() throws Throwable {
             AtomicInteger attempts = new AtomicInteger();
-            template.execute(ctx -> {
+            template.execute(_ -> {
                 if (attempts.incrementAndGet() < 2) {
                     throw new ConnectException("refused");
                 }
@@ -69,7 +69,7 @@ class RetryConfigTest {
         @Test
         void sslExceptionJeRetryovan() throws Throwable {
             AtomicInteger attempts = new AtomicInteger();
-            template.execute(ctx -> {
+            template.execute(_ -> {
                 if (attempts.incrementAndGet() < 2) {
                     throw new SSLException("handshake");
                 }
@@ -81,7 +81,7 @@ class RetryConfigTest {
         @Test
         void obecnaIoExceptionJeRetryovana() throws Throwable {
             AtomicInteger attempts = new AtomicInteger();
-            template.execute(ctx -> {
+            template.execute(_ -> {
                 if (attempts.incrementAndGet() < 2) {
                     throw new IOException("stream closed");
                 }
@@ -98,7 +98,7 @@ class RetryConfigTest {
         @Test
         void authenticationFailedExceptionSePropagujeIhned() {
             AtomicInteger attempts = new AtomicInteger();
-            assertThatThrownBy(() -> template.execute(ctx -> {
+            assertThatThrownBy(() -> template.execute(_ -> {
                 attempts.incrementAndGet();
                 throw new AuthenticationFailedException("invalid token");
             })).isInstanceOf(AuthenticationFailedException.class);
@@ -113,7 +113,7 @@ class RetryConfigTest {
         @Test
         void poVycerpaniPokusuSePropagujePosledniChyba() {
             AtomicInteger attempts = new AtomicInteger();
-            assertThatThrownBy(() -> template.execute(ctx -> {
+            assertThatThrownBy(() -> template.execute(_ -> {
                 attempts.incrementAndGet();
                 throw new SocketTimeoutException("persistent");
             })).isInstanceOf(SocketTimeoutException.class).hasMessageContaining("persistent");

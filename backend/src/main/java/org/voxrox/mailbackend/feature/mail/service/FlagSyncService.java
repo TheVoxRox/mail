@@ -58,7 +58,7 @@ public class FlagSyncService {
         if (localValidity != null && localValidity != serverUidValidity) {
             log.warn("{} UIDValidity changed for folder {}. Resetting local cache.", LogCategory.SYNC,
                     ctx.folderName());
-            transactionTemplate.executeWithoutResult(status -> {
+            transactionTemplate.executeWithoutResult(_ -> {
                 maintenanceService.clearLocalCache(ctx.getAccountId(), ctx.folderName());
                 syncStateService.resetForUidValidityChange(syncStateId, serverUidValidity);
             });
@@ -75,7 +75,7 @@ public class FlagSyncService {
 
         // localValidity == null → first time we persist the server value.
         transactionTemplate
-                .executeWithoutResult(status -> syncStateService.updateUidValidity(syncStateId, serverUidValidity));
+                .executeWithoutResult(_ -> syncStateService.updateUidValidity(syncStateId, serverUidValidity));
         ctx.syncState().setUidValidity(serverUidValidity);
         return true;
     }
@@ -138,7 +138,7 @@ public class FlagSyncService {
         if (!changes.isEmpty()) {
             log.debug("{} {} flags changed since MODSEQ {} in folder {}.", LogCategory.SYNC, changes.size(),
                     sinceForFetch, ctx.folderName());
-            transactionTemplate.executeWithoutResult(status -> applyFlagChanges(ctx, changes));
+            transactionTemplate.executeWithoutResult(_ -> applyFlagChanges(ctx, changes));
         }
 
         storeModseqBaseline(ctx, serverHighestModseq);
@@ -183,7 +183,7 @@ public class FlagSyncService {
         if (!changes.isEmpty()) {
             log.debug("{} {} flag change(s) reported by the QRESYNC SELECT of folder {}.", LogCategory.SYNC,
                     changes.size(), ctx.folderName());
-            transactionTemplate.executeWithoutResult(status -> applyFlagChanges(ctx, changes));
+            transactionTemplate.executeWithoutResult(_ -> applyFlagChanges(ctx, changes));
         }
 
         persistHighestModseq(ctx);
@@ -266,7 +266,7 @@ public class FlagSyncService {
                 LogCategory.SYNC, reported.stream().mapToLong(uids -> uids.length).sum(), ctx.folderName(), min, max);
         reported.stream().flatMapToLong(Arrays::stream).filter(uid -> uid >= min && uid <= max).boxed()
                 .gather(Gatherers.windowFixed(mailProps.sync().batchSize()))
-                .forEach(batch -> transactionTemplate.executeWithoutResult(status -> messageRepository
+                .forEach(batch -> transactionTemplate.executeWithoutResult(_ -> messageRepository
                         .deleteAllByAccountIdAndFolderNameAndUidIn(ctx.getAccountId(), ctx.folderName(), batch)));
     }
 
@@ -307,7 +307,7 @@ public class FlagSyncService {
         }
         Long syncStateId = ctx.syncState().getId();
         transactionTemplate
-                .executeWithoutResult(status -> syncStateService.updateLastKnownModseq(syncStateId, highestModseq));
+                .executeWithoutResult(_ -> syncStateService.updateLastKnownModseq(syncStateId, highestModseq));
         ctx.syncState().setLastKnownModseq(highestModseq);
     }
 
@@ -344,7 +344,7 @@ public class FlagSyncService {
                             LogCategory.SYNC, ctx.folderName(), e);
                 }
             }
-            transactionTemplate.executeWithoutResult(status -> processFlagUpdates(ctx, batch, serverMap));
+            transactionTemplate.executeWithoutResult(_ -> processFlagUpdates(ctx, batch, serverMap));
         }
     }
 
@@ -411,7 +411,7 @@ public class FlagSyncService {
         if (!toDelete.isEmpty()) {
             log.debug("{} Deleting {} messages no longer on the server in folder {} (UID enumeration).",
                     LogCategory.SYNC, toDelete.size(), ctx.folderName());
-            transactionTemplate.executeWithoutResult(status -> messageRepository
+            transactionTemplate.executeWithoutResult(_ -> messageRepository
                     .deleteAllByAccountIdAndFolderNameAndUidIn(ctx.getAccountId(), ctx.folderName(), toDelete));
         }
 
@@ -472,7 +472,7 @@ public class FlagSyncService {
         if (!toDelete.isEmpty()) {
             log.debug("{} Deleting {} messages no longer on the server in folder {}", LogCategory.SYNC, toDelete.size(),
                     ctx.folderName());
-            transactionTemplate.executeWithoutResult(status -> messageRepository
+            transactionTemplate.executeWithoutResult(_ -> messageRepository
                     .deleteAllByAccountIdAndFolderNameAndUidIn(ctx.getAccountId(), ctx.folderName(), toDelete));
         }
 

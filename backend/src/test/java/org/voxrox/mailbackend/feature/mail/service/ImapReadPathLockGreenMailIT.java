@@ -198,7 +198,7 @@ class ImapReadPathLockGreenMailIT {
      * for a single command.
      */
     private Thread startLaneHolder(Lane lane, CountDownLatch lockHeld, CountDownLatch releaseLock) {
-        Thread holder = new Thread(() -> imapConnectionManager.executeWithLock(account.getId(), lane, store -> {
+        Thread holder = new Thread(() -> imapConnectionManager.executeWithLock(account.getId(), lane, _ -> {
             lockHeld.countDown();
             try {
                 releaseLock.await(LOCK_HELD_FOR.toMillis(), TimeUnit.MILLISECONDS);

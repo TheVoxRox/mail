@@ -344,7 +344,7 @@ class HostileImapResponseIT {
         SERVER.listUids(250_000);
 
         Set<Long> uids = imapFolderService.executeInFolder(account.getId(), Lane.BACKGROUND, "INBOX", Folder.READ_ONLY,
-                (folder, uidFolder) -> ImapCondstoreCommands.fetchAllServerUids((IMAPFolder) folder));
+                (folder, _) -> ImapCondstoreCommands.fetchAllServerUids((IMAPFolder) folder));
 
         assertThat(uids).hasSize(250_000).contains(1L, 250_000L);
     }
@@ -363,7 +363,7 @@ class HostileImapResponseIT {
         SERVER.listUidsOfOneMessage(100_000);
 
         int recorded = imapFolderService.executeInFolder(account.getId(), Lane.BACKGROUND, "INBOX", Folder.READ_ONLY,
-                (folder, uidFolder) -> {
+                (folder, _) -> {
                     ImapCondstoreCommands.fetchAllServerUids((IMAPFolder) folder);
                     return uidTableSize((IMAPFolder) folder);
                 });
@@ -388,7 +388,7 @@ class HostileImapResponseIT {
         logMark = logLength();
 
         assertThatThrownBy(() -> imapFolderService.executeInFolder(account.getId(), Lane.BACKGROUND, "INBOX",
-                Folder.READ_ONLY, (folder, uidFolder) -> ImapCondstoreCommands.fetchAllServerUids((IMAPFolder) folder)))
+                Folder.READ_ONLY, (folder, _) -> ImapCondstoreCommands.fetchAllServerUids((IMAPFolder) folder)))
                 .isInstanceOf(RuntimeException.class);
         assertThat(logSinceMark()).contains("EXPUNGE responses since the folder was selected");
     }
@@ -407,8 +407,7 @@ class HostileImapResponseIT {
 
         for (int open = 0; open < 2; open++) {
             Set<Long> uids = imapFolderService.executeInFolder(account.getId(), Lane.BACKGROUND, "INBOX",
-                    Folder.READ_ONLY,
-                    (folder, uidFolder) -> ImapCondstoreCommands.fetchAllServerUids((IMAPFolder) folder));
+                    Folder.READ_ONLY, (folder, _) -> ImapCondstoreCommands.fetchAllServerUids((IMAPFolder) folder));
             assertThat(uids).as("open %d", open).isEmpty();
         }
     }
@@ -442,7 +441,7 @@ class HostileImapResponseIT {
         AtomicInteger admitted = new AtomicInteger();
 
         assertThatThrownBy(() -> imapFolderService.executeInFolder(account.getId(), Lane.BACKGROUND, "INBOX",
-                Folder.READ_ONLY, (folder, uidFolder) -> {
+                Folder.READ_ONLY, (_, uidFolder) -> {
                     for (int command = 0; command < 3; command++) {
                         // A UID the answer never names, so Angus asks each time rather than
                         // finding it in the table the last answer filled.
@@ -465,7 +464,7 @@ class HostileImapResponseIT {
 
         for (int open = 0; open < 2; open++) {
             Message found = imapFolderService.executeInFolder(account.getId(), Lane.BACKGROUND, "INBOX",
-                    Folder.READ_ONLY, (folder, uidFolder) -> uidFolder.getMessageByUID(1));
+                    Folder.READ_ONLY, (_, uidFolder) -> uidFolder.getMessageByUID(1));
             assertThat(found).as("open %d", open).isNotNull();
         }
     }
@@ -495,7 +494,7 @@ class HostileImapResponseIT {
         SERVER.answerFetchWith(bodyAnswer("1"));
 
         Object read = imapFolderService.executeInFolder(account.getId(), Lane.BACKGROUND, "INBOX", Folder.READ_ONLY,
-                (folder, uidFolder) -> ((IMAPFolder) folder).doCommand(protocol -> {
+                (folder, _) -> ((IMAPFolder) folder).doCommand(protocol -> {
                     int pieces = 0;
                     for (; pieces < PIECES; pieces++) {
                         protocol.peekBody(1, "1", pieces * PIECE, PIECE, null);
@@ -521,7 +520,7 @@ class HostileImapResponseIT {
         logMark = logLength();
 
         assertThatThrownBy(() -> imapFolderService.executeInFolder(account.getId(), Lane.BACKGROUND, "INBOX",
-                Folder.READ_ONLY, (folder, uidFolder) -> ((IMAPFolder) folder).doCommand(protocol -> {
+                Folder.READ_ONLY, (folder, _) -> ((IMAPFolder) folder).doCommand(protocol -> {
                     for (int pieces = 0; pieces < PIECES; pieces++) {
                         protocol.peekBody(1, "1.MIME");
                     }
@@ -553,7 +552,7 @@ class HostileImapResponseIT {
         SERVER.answerFetchWith(headerFetch("Message-ID: <first@example.test>\r\n"), headerFetch(headers.toString()));
 
         String messageId = assertTimeoutPreemptively(Duration.ofSeconds(5), () -> imapFolderService
-                .executeInFolder(account.getId(), Lane.BACKGROUND, "INBOX", Folder.READ_ONLY, (folder, uidFolder) -> {
+                .executeInFolder(account.getId(), Lane.BACKGROUND, "INBOX", Folder.READ_ONLY, (folder, _) -> {
                     Message message = folder.getMessage(1);
                     FetchProfile profile = new FetchProfile();
                     profile.add("Message-ID");
@@ -584,7 +583,7 @@ class HostileImapResponseIT {
         logMark = logLength();
 
         assertThatThrownBy(() -> imapFolderService.executeInFolder(account.getId(), Lane.BACKGROUND, "INBOX",
-                Folder.READ_ONLY, (folder, uidFolder) -> ImapCondstoreCommands.fetchAllServerUids((IMAPFolder) folder)))
+                Folder.READ_ONLY, (folder, _) -> ImapCondstoreCommands.fetchAllServerUids((IMAPFolder) folder)))
                 .isInstanceOf(RuntimeException.class);
         assertThat(logSinceMark()).contains("passed");
     }

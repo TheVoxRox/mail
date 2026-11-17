@@ -48,10 +48,23 @@
     "Both clocks reset the same way: re-verify the audit, bump `Audited commit`,",
     "and delete the entry from this file."
   ],
+  "docs/API_SURFACE_AUDIT.md": {
+    "reviewedTrees": {
+      "backend/src/main/java/org/voxrox/mailbackend/core/diagnostic": "d46e16dd37ca2b73fbd3ebe17a396d6f275a5f3c",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java": "03c03b5ec198e4e87e2c32872c4e6f16ceb85bce"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-11-17",
+        "note": "Unused lambda parameters renamed to `_` (Java unnamed variables) so Eclipse JDT stops flagging them, and nothing else: every changed line was read, each swaps one parameter name for `_` in a lambda whose body never named it. Arity and parameter types are unchanged, so the same overloads resolve and the same code runs. Here: DiagnosticDumpService's read-only transaction callback (status) and AttachmentService's folder callback (folder). What the dump contains and what the attachment endpoint serves are untouched. Verdict unchanged."
+      }
+    ]
+  },
   "docs/CONTENT_RENDERING_AUDIT.md": {
     "reviewedTrees": {
       "frontend/src/lib/mail/mailFrame.ts": "039781084f982faf4d034090719936613d61e493",
-      "frontend/src/lib/components/message-detail": "66cacf48fe3f1b971e60f5069fd8be539421f1c0"
+      "frontend/src/lib/components/message-detail": "66cacf48fe3f1b971e60f5069fd8be539421f1c0",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailContentService.java": "5f1a7f45aebb7a9c94c44711b53b87d94f88efa7"
     },
     "acknowledgements": [
       {
@@ -69,17 +82,36 @@
       {
         "date": "2026-11-16",
         "note": "WCAG 2.2 AA fixes. message-detail: MessageHeaderCard.svelte adds `underline` to the class of the sender's \"Upravit kontakt\" / \"Přidat do kontaktů\" link and a comment on why (WCAG 1.4.1). The link's href, its accessible name and the rest of the header are unchanged; nothing in the directory that sanitizes, frames, sizes or loads mail content moved, and mailFrame.ts is untouched. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-17",
+        "note": "Unused lambda parameters renamed to `_` (Java unnamed variables) so Eclipse JDT stops flagging them, and nothing else: every changed line was read, each swaps one parameter name for `_` in a lambda whose body never named it. Arity and parameter types are unchanged, so the same overloads resolve and the same code runs. Here: one folder callback in MailContentService (folder), whose body is unchanged; what is fetched and how it is sanitized do not move. Verdict unchanged."
+      }
+    ]
+  },
+  "docs/IMAP_SMTP_AUDIT.md": {
+    "reviewedTrees": {
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "543ea4f65de977ce1bd2a14af148d0c8e0d0972b"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-11-17",
+        "note": "Unused lambda parameters renamed to `_` (Java unnamed variables) so Eclipse JDT stops flagging them, and nothing else: every changed line was read, each swaps one parameter name for `_` in a lambda whose body never named it. Arity and parameter types are unchanged, so the same overloads resolve and the same code runs. Here: 28 parameters in 15 files of feature/mail/service, mostly TransactionStatus (status), folder executor callbacks (folder, uidFolder, store, resyncEvents), map keys in computeIfAbsent and compute, one RetryContext and one SSE emitter's error; the formatter reflowed one line in MailSyncService. No lock, transaction boundary, folder mode or IMAP command changed. Verdict unchanged."
       }
     ]
   },
   "docs/OAUTH_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/auth": "f4f29f330e3a1d7bb0e3a382f5681f958d1d2f66"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/auth": "1572154df1f22cad718dcea856cce1581f068549"
     },
     "acknowledgements": [
       {
         "date": "2026-11-16",
         "note": "One argument in OAuth2TokenService#getAccessToken: the missing-refresh-token MAIL_ACCOUNT_REQUIRES_REAUTH now passes the method's own email parameter as {0} of error.mail.accountRequiresReauth, so the user sees which account to sign in again. The address goes to the local client in detail and messageArgs, as error.account.alreadyExists already does; the fallback message the log gets is unchanged and carries no address. The early return before any provider call, the refresh lock, the permanent/transient split and who sets and clears requires_reauth are untouched. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-17",
+        "note": "Unused lambda parameters renamed to `_` (Java unnamed variables) so Eclipse JDT stops flagging them, and nothing else: every changed line was read, each swaps one parameter name for `_` in a lambda whose body never named it. Arity and parameter types are unchanged, so the same overloads resolve and the same code runs. Here: the computeIfAbsent key in OAuth2TokenService's per-account refresh lock (id); the lock itself and everything it guards are untouched. Verdict unchanged."
       }
     ]
   },

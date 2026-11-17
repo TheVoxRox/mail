@@ -352,7 +352,7 @@ public class MessageDownloader {
          */
         Long uidValidity = Objects.requireNonNull(ctx.syncState().getUidValidity(),
                 "UIDValidity must be resolved before messages are downloaded");
-        transactionTemplate.executeWithoutResult(status -> {
+        transactionTemplate.executeWithoutResult(_ -> {
             List<MessageEntity> entities = downloaded.stream()
                     .map(message -> messageMapper.toEntity(message, ctx.account(), ctx.folderName(), uidValidity))
                     .toList();

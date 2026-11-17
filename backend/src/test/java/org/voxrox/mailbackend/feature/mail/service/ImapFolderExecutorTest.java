@@ -69,7 +69,7 @@ class ImapFolderExecutorTest {
         ImapFolderExecutor executor = new ImapFolderExecutor(connectionManager);
 
         MailOperationException ex = assertThrows(MailOperationException.class,
-                () -> executor.executeReadOnly(7L, Lane.BACKGROUND, "INBOX", (f, uid) -> null));
+                () -> executor.executeReadOnly(7L, Lane.BACKGROUND, "INBOX", (_, _) -> null));
         assertEquals(ErrorCode.MAIL_CONNECTION_ERROR, ex.getCode());
     }
 
@@ -83,7 +83,7 @@ class ImapFolderExecutorTest {
         ImapFolderExecutor executor = new ImapFolderExecutor(connectionManager);
 
         assertThrows(ResourceNotFoundException.class,
-                () -> executor.executeReadOnly(7L, Lane.BACKGROUND, "INBOX", (f, uid) -> null));
+                () -> executor.executeReadOnly(7L, Lane.BACKGROUND, "INBOX", (_, _) -> null));
     }
 
     @Test
@@ -106,7 +106,7 @@ class ImapFolderExecutorTest {
                 new MessagingException("failed to create new store connection"));
 
         TransientImapException thrown = assertThrows(TransientImapException.class,
-                () -> executor.executeReadOnly(7L, Lane.BACKGROUND, "INBOX", (f, uid) -> {
+                () -> executor.executeReadOnly(7L, Lane.BACKGROUND, "INBOX", (_, _) -> {
                     throw blip;
                 }));
         // Same instance — not re-wrapped, so the original cause survives to the retry
@@ -147,7 +147,7 @@ class ImapFolderExecutorTest {
         ImapFolderExecutor executor = new ImapFolderExecutor(connectionManager);
 
         Object seen = executor.executeReadOnlyResynced(7L, Lane.BACKGROUND, "INBOX",
-                new ImapFolderExecutor.ResyncRequest(1L, 2L, 3L, 4L), (f, uid, resyncEvents) -> resyncEvents);
+                new ImapFolderExecutor.ResyncRequest(1L, 2L, 3L, 4L), (_, _, resyncEvents) -> resyncEvents);
         assertSame(events, seen);
     }
 
@@ -171,7 +171,7 @@ class ImapFolderExecutorTest {
         ImapFolderExecutor executor = new ImapFolderExecutor(connectionManager);
 
         Object seen = executor.executeReadOnlyResynced(7L, Lane.BACKGROUND, "INBOX",
-                new ImapFolderExecutor.ResyncRequest(1L, 2L, 3L, 4L), (f, uid, resyncEvents) -> resyncEvents);
+                new ImapFolderExecutor.ResyncRequest(1L, 2L, 3L, 4L), (_, _, resyncEvents) -> resyncEvents);
 
         assertNull(seen);
         verify(imapFolder).open(Folder.READ_ONLY);
@@ -192,7 +192,7 @@ class ImapFolderExecutorTest {
         ImapFolderExecutor executor = new ImapFolderExecutor(connectionManager);
 
         Object seen = executor.executeReadOnlyResynced(7L, Lane.BACKGROUND, "INBOX", null,
-                (f, uid, resyncEvents) -> resyncEvents);
+                (_, _, resyncEvents) -> resyncEvents);
 
         assertNull(seen);
         verify(uidCapableFolder).open(Folder.READ_ONLY);
@@ -215,7 +215,7 @@ class ImapFolderExecutorTest {
         ImapFolderExecutor executor = new ImapFolderExecutor(connectionManager);
 
         Object seen = executor.executeReadOnlyResynced(7L, Lane.BACKGROUND, "INBOX", null,
-                (f, uid, resyncEvents) -> resyncEvents);
+                (_, _, resyncEvents) -> resyncEvents);
 
         assertNull(seen);
         verify(imapFolder).open(Folder.READ_ONLY, ResyncData.CONDSTORE);
@@ -244,7 +244,7 @@ class ImapFolderExecutorTest {
         ImapFolderExecutor executor = new ImapFolderExecutor(connectionManager);
 
         Object seen = executor.executeReadOnlyResynced(7L, Lane.BACKGROUND, "INBOX",
-                new ImapFolderExecutor.ResyncRequest(1L, 2L, 3L, 4L), (f, uid, resyncEvents) -> resyncEvents);
+                new ImapFolderExecutor.ResyncRequest(1L, 2L, 3L, 4L), (_, _, resyncEvents) -> resyncEvents);
 
         assertNull(seen);
         verify(imapFolder).open(Folder.READ_ONLY, ResyncData.CONDSTORE);
@@ -264,7 +264,7 @@ class ImapFolderExecutorTest {
         ImapFolderExecutor executor = new ImapFolderExecutor(connectionManager);
 
         Object seen = executor.executeReadOnlyResynced(7L, Lane.BACKGROUND, "INBOX", null,
-                (f, uid, resyncEvents) -> resyncEvents);
+                (_, _, resyncEvents) -> resyncEvents);
 
         assertNull(seen);
         verify(imapFolder).open(Folder.READ_ONLY);
@@ -285,7 +285,7 @@ class ImapFolderExecutorTest {
 
         ImapFolderExecutor executor = new ImapFolderExecutor(connectionManager);
 
-        executor.executeReadOnlyResynced(7L, Lane.BACKGROUND, "INBOX", null, (f, uid, resyncEvents) -> resyncEvents);
+        executor.executeReadOnlyResynced(7L, Lane.BACKGROUND, "INBOX", null, (_, _, resyncEvents) -> resyncEvents);
 
         verify(imapFolder).open(Folder.READ_ONLY);
         verify(imapFolder, never()).open(anyInt(), any());
@@ -307,7 +307,7 @@ class ImapFolderExecutorTest {
 
         ImapFolderExecutor executor = new ImapFolderExecutor(connectionManager);
 
-        executor.executeReadOnly(7L, Lane.INTERACTIVE, "INBOX", (f, uid) -> null);
+        executor.executeReadOnly(7L, Lane.INTERACTIVE, "INBOX", (_, _) -> null);
 
         verify(imapFolder).open(Folder.READ_ONLY);
         verify(imapFolder, never()).open(anyInt(), any());

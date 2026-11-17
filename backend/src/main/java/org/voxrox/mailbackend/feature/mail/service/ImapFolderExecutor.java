@@ -113,10 +113,10 @@ public class ImapFolderExecutor {
      */
     private <R> @Nullable R execute(Long accountId, Lane lane, String folderName, int mode,
             ImapFolderAction<R> action) {
-        return execute(accountId, lane, folderName, mode, (store, folder) -> {
+        return execute(accountId, lane, folderName, mode, (_, folder) -> {
             folder.open(mode);
             return null;
-        }, (folder, uidFolder, resyncEvents) -> action.apply(folder, uidFolder));
+        }, (folder, uidFolder, _) -> action.apply(folder, uidFolder));
     }
 
     private <R> @Nullable R execute(Long accountId, Lane lane, String folderName, int mode, FolderOpener opener,

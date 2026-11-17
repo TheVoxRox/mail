@@ -304,7 +304,7 @@ class MessageDownloaderTest {
                 return fetched;
             });
             lenient().when(messageMapper.toEntity(any(), eq(account), eq(FOLDER), eq(syncState.getUidValidity())))
-                    .thenAnswer(invocation -> new MessageEntity());
+                    .thenAnswer(_ -> new MessageEntity());
         }
     }
 
@@ -506,7 +506,7 @@ class MessageDownloaderTest {
          * uids in batch order, {@code entities} the rows the mapper returns for them.
          */
         private void stubBatch(List<Long> uids, List<MessageEntity> entities) throws Exception {
-            List<Message> messages = uids.stream().map(uid -> mock(Message.class)).toList();
+            List<Message> messages = uids.stream().map(_ -> mock(Message.class)).toList();
             when(folder.getMessages(1, uids.size())).thenReturn(messages.toArray(new Message[0]));
             when(uidFolder.getUID(messages.getLast())).thenReturn(uids.getLast());
             List<FetchedMessage> dtos = uids.stream().map(MessageDownloaderTest::fetchedMessage).toList();

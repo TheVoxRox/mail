@@ -291,7 +291,7 @@ class AttachmentServiceTest {
             IMAPMessage onServer = mock(IMAPMessage.class);
             when(onServer.isMimeType("multipart/*")).thenReturn(true);
             when(onServer.getDataHandler()).thenReturn(new DataHandler(new MimePartDataSource(onServer)));
-            when(onServer.getInputStream()).thenAnswer(invocation -> new ByteArrayInputStream(body));
+            when(onServer.getInputStream()).thenAnswer(_ -> new ByteArrayInputStream(body));
             serverHas(onServer);
 
             assertThat(download("1")).isEqualTo(body);
