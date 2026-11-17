@@ -7,10 +7,8 @@
 	import { toErrorMessage } from '#lib/api/errors.js';
 	import { importVCardFiles } from '#lib/contacts/importVCards.js';
 	import { saveBlobAsFile } from '#lib/download.js';
-	import { activeAccount, accountsState } from '#lib/stores/accounts.js';
 	import { contactCounts } from '#lib/stores/contactCounts.js';
 	import { pushToast } from '#lib/stores/toasts.js';
-	import AccountSwitcher from '#lib/components/AccountSwitcher.svelte';
 	import ContactLabelsDialog from '#lib/components/ContactLabelsDialog.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
@@ -40,9 +38,7 @@
 	}
 
 	function openCreate() {
-		const href = buildContactsHref({ query, create: true });
-		if (!href) return;
-		void goto(href);
+		void goto(buildContactsHref({ query, create: true }));
 	}
 
 	const createActive = $derived(page.url.searchParams.get('create') === '1');
@@ -106,35 +102,34 @@
 {#snippet header()}
 	<h2 class="text-base font-semibold">{$_('workspace.contacts')}</h2>
 
-	{#if $accountsState.status === 'ready' && $accountsState.accounts.length > 0}
-		<div class="mt-3">
-			<AccountSwitcher />
-		</div>
-	{/if}
+	<!--
+		No account switcher and nothing gated on an account: the address book is
+		one for the whole application (docs/DECISIONS.md), so a switcher here
+		changed nothing on the page and only left it for the mailbox. The
+		account a message to a contact goes out from is picked in the compose
+		form's From field.
+	-->
+	<Button size="lg" class="mt-3 w-full justify-start shadow-sm" onclick={openCreate}>
+		<Icon name="plus" />
+		<span class="flex-1 text-left">{$_('contacts.newContact')}</span>
+		<kbd class="text-caption font-medium text-primary-foreground/80">Ctrl+N</kbd>
+	</Button>
 
-	{#if $activeAccount}
-		<Button size="lg" class="mt-3 w-full justify-start shadow-sm" onclick={openCreate}>
-			<Icon name="plus" />
-			<span class="flex-1 text-left">{$_('contacts.newContact')}</span>
-			<kbd class="text-caption font-medium text-primary-foreground/80">Ctrl+N</kbd>
-		</Button>
-
-		<form
-			onsubmit={handleSearch}
-			class="mt-3"
-			role="search"
-			aria-label={$_('search.contactsLandmark')}
-		>
-			<label for="contacts-sidebar-search" class="sr-only">{$_('search.contactsLabel')}</label>
-			<Input
-				id="contacts-sidebar-search"
-				type="search"
-				bind:value={query}
-				placeholder={$_('search.contactsPlaceholder')}
-				size="sm"
-			/>
-		</form>
-	{/if}
+	<form
+		onsubmit={handleSearch}
+		class="mt-3"
+		role="search"
+		aria-label={$_('search.contactsLandmark')}
+	>
+		<label for="contacts-sidebar-search" class="sr-only">{$_('search.contactsLabel')}</label>
+		<Input
+			id="contacts-sidebar-search"
+			type="search"
+			bind:value={query}
+			placeholder={$_('search.contactsPlaceholder')}
+			size="sm"
+		/>
+	</form>
 {/snippet}
 
 {#snippet countBadge(count: number, showZero: boolean)}

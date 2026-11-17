@@ -1,7 +1,9 @@
 <script lang="ts">
 	/**
-	 * The sidebar's account switcher: a menu button whose items are the
-	 * accounts, the active one checked.
+	 * The mail sidebar's account switcher: a menu button whose items are the
+	 * accounts, the active one checked. Only Mail has one — the address book
+	 * is one for the whole application, so in Contacts it had nothing to
+	 * switch, and leaving for the mailbox in `selectAccount` was all it did.
 	 *
 	 * It was a native `<select>` that switched on `change`, and switching is a
 	 * change of context — the app leaves for the other account's mailbox and

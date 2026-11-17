@@ -63,6 +63,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- The Contacts pane no longer shows the account switcher. The address book is
+  one for the whole application, so picking another account there changed
+  nothing in Contacts and only took you to that account's mail. The account a
+  message to a contact goes out from is chosen in the new message's "Od:"
+  field. The pane's Nový kontakt button and search no longer wait for a mail
+  account either, as the Ctrl+N shortcut already did not.
 - The account switcher in the sidebar is a button that opens a menu of the
   accounts, the active one checked, instead of a drop-down list. The list
   switched as soon as its value changed, and a closed list changes its value
