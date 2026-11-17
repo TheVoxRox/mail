@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import { conversationsState, loadConversationsPage } from '#lib/stores/conversations.js';
 	import { folders } from '#lib/stores/folders.js';
 	import { _, appLocale } from '#lib/i18n/index.js';
@@ -18,6 +17,7 @@
 	import { cn } from '#lib/utils.js';
 	import { formatMessageListDate, formatThreadMemberDate } from '#lib/formatters.js';
 	import { folderLabelByRef } from '#lib/mail/folderLabel.js';
+	import { draftHref, messageHref } from '#lib/mail/messageHref.js';
 	import { moveTargetsFor } from '#lib/mail/moveTargets.js';
 	import { messageStatusLabel } from '#lib/mail/messageStatus.js';
 	import { messagesPageInfo } from '#lib/mail/pageInfoAnnouncement.js';
@@ -42,6 +42,17 @@
 		refusePrintWhileBusy
 	} from '#lib/mail/printMessages.js';
 	import { forwardMessage, replyToMessage } from '#lib/mail/actions.js';
+	import {
+		isExpandable,
+		printOrder,
+		resolveConversationMembers,
+		resolveSelectedConversations,
+		selectableMessagesOf,
+		toBulkTargets,
+		type BulkTargets,
+		type ConversationScope,
+		type ResolvedConversation
+	} from '#lib/mail/conversationResolve.js';
 	import { createConversationSelection } from '#lib/mail/conversationSelection.js';
 	import { createThreadMemberCache } from '#lib/mail/threadMembers.js';
 	import type { RowActions } from '#lib/mail/rowActions.js';
@@ -242,10 +253,6 @@
 		return rows;
 	});
 
-	function isExpandable(conversation: ConversationSummaryResponse): boolean {
-		return conversation.threadId != null && conversation.messageCount > 1;
-	}
-
 	/**
 	 * The count the row shows. Once the members are loaded it is their number
 	 * rather than the listing's, because the two come from separate calls to the
@@ -257,14 +264,6 @@
 	function displayedCount(conversation: ConversationSummaryResponse): number {
 		const loaded = memberCache.loaded(conversation.threadId);
 		return loaded ? loaded.length : conversation.messageCount;
-	}
-
-	function messageHref(accountId: number, folderName: string, stableId: string): string {
-		return resolve('/mail/[accountId]/[folderName]/[stableId]', {
-			accountId: String(accountId),
-			folderName: encodeURIComponent(folderName),
-			stableId: encodeURIComponent(stableId)
-		});
 	}
 
 	/**
@@ -312,9 +311,7 @@
 	 */
 	function rowHref(stableId: string, folderName: string): string {
 		if ($conversationsState.status !== 'ready') return '';
-		if (folderRoleByRef.get(folderName) === 'DRAFTS') {
-			return `${resolve('compose')}?draft=${encodeURIComponent(stableId)}`;
-		}
+		if (folderRoleByRef.get(folderName) === 'DRAFTS') return draftHref(stableId);
 		return messageHref($conversationsState.context.accountId, folderName, stableId);
 	}
 
@@ -514,32 +511,12 @@
 		}
 	}
 
-	/**
-	 * The messages of `conversation` a bulk action fired from this view can reach:
-	 * the representative plus the loaded members that live in the folder in view.
-	 * Cross-folder members are excluded for the same reason resolveSelection drops
-	 * them — an action fired from the inbox must not reach the archived copy — so
-	 * they are also what "the whole conversation is ticked" is measured against.
-	 * Collapsed threads have no loaded members and yield the representative alone,
-	 * which is all this is used for there.
-	 */
-	function selectableMessagesOf(conversation: ConversationSummaryResponse): MailSummaryResponse[] {
-		const own = memberCache
-			.membersOf(conversation.threadId)
-			.filter((message) => message.folderName === currentFolderName);
-		// The representative is one of them once the members are loaded; before
-		// that it is all this view has.
-		if (!own.some((message) => message.stableId === conversation.latest.stableId)) {
-			own.unshift(conversation.latest);
-		}
-		return own;
-	}
-
 	/*
 	 * The selection state machine itself is in mail/conversationSelection.ts; what
 	 * follows only maps a conversation to the ids it works in — the representative
 	 * stableId a whole-thread tick is stored under, the thread id its members hang
-	 * off, and (for a member tick) the folder-scoped set above.
+	 * off, and (for a member tick) the folder-scoped set selectableMessagesOf
+	 * builds (mail/conversationResolve.ts).
 	 */
 	function conversationChecked(conversation: ConversationSummaryResponse): boolean {
 		return selection.isConversationSelected(conversation.latest.stableId);
@@ -566,7 +543,11 @@
 		selection.toggleMember({
 			repId: conversation.latest.stableId,
 			threadId,
-			actionableIds: selectableMessagesOf(conversation).map((own) => own.stableId),
+			actionableIds: selectableMessagesOf(
+				conversation,
+				memberCache.membersOf(threadId),
+				currentFolderName
+			).map((own) => own.stableId),
 			memberId: message.stableId,
 			isSelected
 		});
@@ -577,77 +558,29 @@
 		else selection.clear();
 	}
 
-	/** One conversation's selected members in the folder in view. */
-	interface ResolvedConversation {
-		memberIds: string[];
-		unreadMemberIds: string[];
-		/** The same members as summaries, in the order memberIds lists them. */
-		messages: MailSummaryResponse[];
-		/**
-		 * What an outcome calls these members: the message's own subject when it
-		 * is the only one, the conversation's otherwise.
-		 */
-		subject: string | undefined;
-	}
-
 	/**
-	 * Resolves the selection — whole conversations and individually ticked
-	 * messages alike — to their member stableIds in the folder in view, one
-	 * entry per conversation, loading members as needed, and which of those are
-	 * unread (for the optimistic folder badge).
-	 *
-	 * Individual ticks are re-resolved against a freshly loaded thread rather than
-	 * trusted from the cache: a message ticked before a sync may be gone by the
-	 * time the action runs, and acting on a stableId the thread no longer holds
-	 * would report a success the folder does not show.
-	 *
-	 * Deliberately folder-scoped even though the expanded list is cross-folder:
-	 * a bulk delete/move/mark from the inbox acts on the conversation's inbox
-	 * messages only — reaching into Sent (or any other folder) from here would
-	 * be surprising and destructive. Cross-folder members are filtered out.
-	 *
-	 * Returns null when any thread's members could not be fetched. That has to
-	 * abort the whole action: a failed fetch is indistinguishable from "no other
-	 * members", so proceeding would silently act on the representative alone —
-	 * deleting the newest message of a thread and leaving the rest behind while
-	 * reporting success.
+	 * What a resolution reads from this view: the folder in view and a fresh
+	 * load of a thread through the member cache. The rules themselves — folder
+	 * scope, a fresh thread, all or nothing — are in mail/conversationResolve.ts.
 	 */
-	async function resolveSelectedConversations(): Promise<ResolvedConversation[] | null> {
+	function resolveScope(): ConversationScope | null {
 		if ($conversationsState.status !== 'ready') return null;
-		const resolvedAll: ResolvedConversation[] = [];
-		for (const conversation of pageConversations) {
-			const wholeConversation = selection.isConversationSelected(conversation.latest.stableId);
-			const picked = selection.pickedMembersOf(conversation.threadId);
-			if (!wholeConversation && picked.length === 0) continue;
-			const resolved = await resolveConversationMembers(
-				conversation,
-				(stableId) => wholeConversation || picked.includes(stableId)
-			);
-			if (!resolved) return null;
-			resolvedAll.push(resolved);
-		}
-		return resolvedAll;
+		return {
+			folderName: $conversationsState.context.folderName,
+			loadMembers: (threadId) => memberCache.load(threadId)
+		};
 	}
 
-	/** The selection as the bulk actions take it, in the order the list shows it. */
-	async function resolveSelection(): Promise<{
-		memberIds: string[];
-		unreadMemberIds: string[];
-		named: ConversationBulkContext['named'];
-	} | null> {
-		const resolvedAll = await resolveSelectedConversations();
-		if (!resolvedAll) return null;
-		// A ticked member the thread no longer holds resolves to nothing; it must
-		// not turn a one-conversation action into a count.
-		const acting = resolvedAll.filter((resolved) => resolved.memberIds.length > 0);
-		// Members are naturally unique across threads (each message belongs to one
-		// thread; a thread's members exclude its representative), so plain arrays
-		// need no dedup.
-		return {
-			memberIds: acting.flatMap((resolved) => resolved.memberIds),
-			unreadMemberIds: acting.flatMap((resolved) => resolved.unreadMemberIds),
-			named: acting.length === 1 ? { subject: acting[0]?.subject } : undefined
-		};
+	/** The selection resolved per conversation, in the order the list shows it. */
+	async function resolveSelected(): Promise<ResolvedConversation[] | null> {
+		const scope = resolveScope();
+		return scope ? resolveSelectedConversations(pageConversations, selection, scope) : null;
+	}
+
+	/** The selection as the bulk actions take it. */
+	async function resolveSelection(): Promise<BulkTargets | null> {
+		const resolvedAll = await resolveSelected();
+		return resolvedAll ? toBulkTargets(resolvedAll) : null;
 	}
 
 	/**
@@ -655,53 +588,19 @@
 	 * shows them, and each one's messages oldest first, the way a thread reads.
 	 */
 	async function resolvePrintSelection(): Promise<string[] | null> {
-		const resolvedAll = await resolveSelectedConversations();
-		if (!resolvedAll) return null;
-		return resolvedAll.flatMap((resolved) => printOrder(resolved.messages));
-	}
-
-	/** One conversation's messages as they go on paper: oldest first. */
-	function printOrder(messages: readonly MailSummaryResponse[]): string[] {
-		return [...messages]
-			.sort((a, b) => Date.parse(a.receivedAt) - Date.parse(b.receivedAt))
-			.map((message) => message.stableId);
+		const resolvedAll = await resolveSelected();
+		return resolvedAll ? resolvedAll.flatMap((resolved) => printOrder(resolved.messages)) : null;
 	}
 
 	/**
-	 * One conversation's members in the folder in view, filtered by `include`.
-	 * Shared by the bulk bar (which passes the selection) and the row actions
-	 * menu (which takes the whole thread) so both agree on what "this
-	 * conversation" means — the same folder-scoped set, resolved against a
-	 * freshly loaded thread.
+	 * Every member of one conversation in the folder in view — what its row's
+	 * menu acts on, the same set the bulk bar takes for a ticked conversation.
 	 */
-	async function resolveConversationMembers(
-		conversation: ConversationSummaryResponse,
-		include: (stableId: string) => boolean
+	async function resolveWholeConversation(
+		conversation: ConversationSummaryResponse
 	): Promise<ResolvedConversation | null> {
-		if ($conversationsState.status !== 'ready') return null;
-		const { folderName } = $conversationsState.context;
-		const representative = conversation.latest;
-		const memberIds: string[] = [];
-		const unread: string[] = [];
-		const messages: MailSummaryResponse[] = [];
-		const take = (message: MailSummaryResponse): void => {
-			memberIds.push(message.stableId);
-			messages.push(message);
-			if (!message.seen) unread.push(message.stableId);
-		};
-		if (include(representative.stableId)) take(representative);
-		if (isExpandable(conversation) && conversation.threadId) {
-			const threadMembers = await memberCache.load(conversation.threadId);
-			if (!threadMembers) return null;
-			for (const message of threadMembers) {
-				if (message.folderName !== folderName) continue;
-				if (message.stableId === representative.stableId) continue;
-				if (!include(message.stableId)) continue;
-				take(message);
-			}
-		}
-		const subject = messages.length === 1 ? messages[0]?.subject : representative.subject;
-		return { memberIds, unreadMemberIds: unread, messages, subject };
+		const scope = resolveScope();
+		return scope ? resolveConversationMembers(conversation, () => true, scope) : null;
 	}
 
 	async function printSelected(): Promise<void> {
@@ -990,7 +889,7 @@
 			 */
 			const resolved =
 				row.kind === 'conversation'
-					? await resolveConversationMembers(row.conversation, () => true)
+					? await resolveWholeConversation(row.conversation)
 					: {
 							memberIds: [row.message.stableId],
 							unreadMemberIds: row.message.seen ? [] : [row.message.stableId],
@@ -1062,7 +961,7 @@
 			await printMessages([row.message.stableId]);
 			return;
 		}
-		const resolved = await resolveConversationMembers(row.conversation, () => true);
+		const resolved = await resolveWholeConversation(row.conversation);
 		if (!resolved) {
 			bulkError = $_('messages.grouping.bulkResolveFailed');
 			return;
@@ -1363,6 +1262,7 @@
 				{#each visibleRows as row, rowIndex (rowKey(row))}
 					{@const isConversation = row.kind === 'conversation'}
 					{@const message = isConversation ? row.conversation.latest : row.message}
+					{@const displaySubject = message.subject || $_('messages.noSubject')}
 					{@const expandable = isConversation && isExpandable(row.conversation)}
 					{@const threadId = isConversation ? row.conversation.threadId : row.threadId}
 					{@const isOpen = memberCache.isExpanded(threadId)}
@@ -1523,10 +1423,10 @@
 										? $_('messages.grouping.loading')
 										: isOpen
 											? $_('messages.grouping.collapseNamed', {
-													values: { subject: message.subject || $_('messages.noSubject') }
+													values: { subject: displaySubject }
 												})
 											: $_('messages.grouping.expandNamed', {
-													values: { subject: message.subject || $_('messages.noSubject') }
+													values: { subject: displaySubject }
 												})}
 									onclick={() => void toggleExpand(row.conversation, 'firstMember')}
 									class={cn(
@@ -1637,7 +1537,7 @@
 									{#if unread}
 										<span class="sr-only">{$_('messages.unreadIndicatorLabel')}.</span>
 									{/if}
-									<span class="truncate">{message.subject || $_('messages.noSubject')}</span>
+									<span class="truncate">{displaySubject}</span>
 									{#if displayedCount(row.conversation) > 1}
 										<span class={badgeVariants({ kind: 'count' })} aria-hidden="true">
 											{displayedCount(row.conversation)}
@@ -1766,7 +1666,7 @@
 									triggerLabel={isConversation
 										? isThread(row.conversation)
 											? $_('messages.rowActions.conversationTrigger', {
-													values: { subject: message.subject || $_('messages.noSubject') }
+													values: { subject: displaySubject }
 												})
 											: undefined
 										: memberActionsLabel(identity!)}

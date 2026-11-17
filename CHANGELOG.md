@@ -166,6 +166,13 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- What an action from the conversation list reaches, and when saving an
+  account checks the login, moved out of `ConversationList` and `AccountForm`
+  into `mail/conversationResolve.ts` and `accounts/verifyOnSave.ts`, where unit
+  tests pin the folder scope, the all-or-nothing load and every field that
+  triggers a login check. The two message lists share `mail/messageHref.ts`
+  instead of each spelling out both routes; nothing the user sees changed
+  (#935).
 - An independent pass read #917, #930, #931 and #932 against the code and
   found every claim their ledger records made true and no finding. Both the
   IMAP/SMTP and the API audit are re-verified against `38dc042` with no

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import { messagesState, loadPage } from '#lib/stores/messages.js';
 	import { folders } from '#lib/stores/folders.js';
 	import {
@@ -27,6 +26,7 @@
 	import { createBulkAnnouncer } from '#lib/components/grid/bulkAnnouncer.js';
 	import { isRowBackgroundClick } from '#lib/components/grid/rowActivation.js';
 	import { formatMessageListDate } from '#lib/formatters.js';
+	import { draftHref, messageHref } from '#lib/mail/messageHref.js';
 	import { moveTargetsFor } from '#lib/mail/moveTargets.js';
 	import { messageStatusLabel } from '#lib/mail/messageStatus.js';
 	import type { FolderResponse, MailSummaryResponse } from '#lib/types.js';
@@ -102,18 +102,6 @@
 	const readingPaneCtx =
 		getContext<EffectiveReadingPaneContext>(EFFECTIVE_READING_PANE_CONTEXT_KEY) ??
 		({ pane: 'off' } satisfies EffectiveReadingPaneContext);
-
-	function messageHref(accountId: number, folderName: string, stableId: string): string {
-		return resolve('/mail/[accountId]/[folderName]/[stableId]', {
-			accountId: String(accountId),
-			folderName: encodeURIComponent(folderName),
-			stableId: encodeURIComponent(stableId)
-		});
-	}
-
-	function draftHref(stableId: string): string {
-		return `${resolve('compose')}?draft=${encodeURIComponent(stableId)}`;
-	}
 
 	/**
 	 * Where the row's subject link points. Mirrors handleSelect — including the
