@@ -335,10 +335,11 @@ decide whether everything else is allowed to land.
   one file per red run. `--target=backend` switches trees. It is a diagnostic,
   not a gate, which is why it is not in `npm run check`.
 
-- `npm run audit:ci` — `npm audit`, failing on anything at high or above.
-  Through a script rather than `npm audit --audit-level=high`, because npm
-  exits the same way when it finds something and when it cannot reach the
-  advisory registry; the script reads the verdict and retries only the second.
+- `npm run audit:ci` — `npm audit`, failing on anything at high or above
+  that `frontend/npm-audit-accepted.json` does not accept. Through a script
+  rather than `npm audit --audit-level=high`, because npm exits the same way
+  when it finds something and when it cannot reach the advisory registry; the
+  script reads the verdict and retries only the second.
 - `npm run test:unit:coverage` — vitest with thresholds (≥ 65% global,
   per-file 90/85/90 for `content-sanitizer.ts`, 85/80/80 for
   `client.ts`).
@@ -567,7 +568,12 @@ the second, and the run summary does not tell them apart; the job log does.
   the CVEs, why the version clears them, and when to drop the override. For a
   crate, `cargo update -p <crate>` often reaches the fix; the header of
   `frontend/src-tauri/.cargo/audit.toml` says when an advisory may be accepted
-  instead.
+  instead. An npm advisory with no fixed release, on a package that does not
+  apply here, can be accepted in `frontend/npm-audit-accepted.json` with a
+  reason and an `until` date at most 90 days ahead; the gate fails again once
+  the date passes or the advisory is gone, and the entry is then moved or
+  deleted. [DECISIONS.md](docs/DECISIONS.md) "An npm advisory with no fix can
+  be accepted, for a dated while" has the reasoning.
 - **Prove the fix on its branch before merging.**
   `gh workflow run vuln-scan.yml --ref <branch>` runs the whole scan there. It
   restores `main`'s NVD database, and the tracking-issue jobs do not run on a

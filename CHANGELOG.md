@@ -166,6 +166,11 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- `npm run audit:ci` can accept an advisory that has no fixed version, for a
+  dated while, in `frontend/npm-audit-accepted.json`. GHSA-fc5q-39xc-vjpf
+  (picomatch, build tooling only, no release fixes it) turned every pull
+  request and `main` red on 2026-11-17; it is accepted until 2026-12-17, and
+  an acceptance that runs out or matches nothing fails the gate (#937).
 - What an action from the conversation list reaches, and when saving an
   account checks the login, moved out of `ConversationList` and `AccountForm`
   into `mail/conversationResolve.ts` and `accounts/verifyOnSave.ts`, where unit

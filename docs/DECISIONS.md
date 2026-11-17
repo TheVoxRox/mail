@@ -910,6 +910,31 @@ exclude that package or shorten the window), or the package managers refuse a
 release younger than a set age on install, which would cover the hand bumps
 too.
 
+### An npm advisory with no fix can be accepted, for a dated while
+
+**Decided 2026-11-17** (maintainer, #937). `npm run audit:ci` passes when
+every advisory at high or above is listed in
+[npm-audit-accepted.json](../frontend/npm-audit-accepted.json) with its GHSA
+id, its package, a reason and an `until` date no more than 90 days ahead. The
+gate had no way to accept anything: on 2026-11-17 GitHub widened
+GHSA-fc5q-39xc-vjpf (a ReDoS in picomatch) to cover 4.0.7, the latest
+release, and every pull request and `main` went red over a finding nobody
+could act on. picomatch runs only in the build and test tooling, and the
+globs it compiles are the repository's own.
+
+Each acceptance ends loudly, the way the audit acknowledgements and the
+`EXEMPT` entries of `check:npm-callers` do. The day after `until` it no longer
+applies. An entry that no finding at high or above matches any more fails the
+gate until it is deleted, so it cannot linger and wave a later advisory
+through. A date more than 90 days ahead is refused, so an acceptance is
+decided again rather than parked. An acceptance covers its advisory on the
+package it names only. A finding with a fixed release is moved, not accepted:
+the reason has to say why the advisory does not apply here.
+
+**Revisit when:** an acceptance is renewed twice for the same advisory (then
+the package is the question, not the date), or npm audit gains a way to
+ignore an advisory that the CI runs can read.
+
 ### No `distributionSha256Sum` in the Maven wrapper
 
 **Decided 2026-08-17** while reviewing #279; **reasoning rewritten

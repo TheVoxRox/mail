@@ -31,6 +31,16 @@
  * inherits a 300 s `fetch-timeout`, which is exactly how long that failing CI
  * step took before it gave up.
  *
+ * An advisory that has no fixed version yet can be accepted for a while, in
+ * `frontend/npm-audit-accepted.json`: its GHSA id, the package, a reason and an
+ * `until` date. Without that, an advisory nobody can act on fails every pull
+ * request and `main` alike until upstream ships, which is what
+ * GHSA-fc5q-39xc-vjpf did on 2026-11-17. The run passes only when every
+ * advisory at high or above is accepted, and each acceptance ends loudly: the
+ * day after `until` it no longer applies, an entry no finding matches any more
+ * fails the run until it is deleted, and an `until` more than 90 days ahead is
+ * refused, so an acceptance is re-decided rather than parked.
+ *
  * Usage:
  *   node scripts/npm-audit-gate.mjs [--report <file>]
  *   node scripts/npm-audit-gate.mjs --input <file> [--input <file> ...]
@@ -38,11 +48,14 @@
  * `--report` writes the accepted report as JSON, for CI to keep as an artifact.
  * `--input` replaces the npm invocation with recorded output, one file per
  * attempt in order, so the retry policy itself is testable without a network.
+ * `--accepted <file>` and `--today <YYYY-MM-DD>` replace the accepted list and
+ * the date it is judged on, for the same reason.
  */
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
 /** Severities that fail the build. Everything below is reported, not blocking. */
 const BLOCKING = ['high', 'critical'];
@@ -55,19 +68,120 @@ const BACKOFF_MS = [20_000, 40_000];
  * above it is what recovers.
  */
 const FETCH_TIMEOUT_MS = 45_000;
+const DEFAULT_ACCEPTED = path.join(
+	path.dirname(fileURLToPath(import.meta.url)),
+	'..',
+	'npm-audit-accepted.json'
+);
+/** The furthest ahead an acceptance may end, counted from the day it is checked. */
+const MAX_ACCEPT_DAYS = 90;
+const GHSA_ID = /GHSA-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}/;
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 function parseArgs(argv) {
 	const inputs = [];
 	let report = null;
+	let accepted = null;
+	let today = null;
 	for (let i = 0; i < argv.length; i += 1) {
 		if (argv[i] === '--input') inputs.push(argv[(i += 1)]);
 		else if (argv[i] === '--report') report = argv[(i += 1)];
+		else if (argv[i] === '--accepted') accepted = argv[(i += 1)];
+		else if (argv[i] === '--today') today = argv[(i += 1)];
 		else {
 			console.error(`npm-audit-gate: unknown argument "${argv[i]}"`);
 			process.exit(2);
 		}
 	}
-	return { inputs, report };
+	if (today !== null && !isDate(today)) {
+		console.error(`npm-audit-gate: --today wants YYYY-MM-DD, got "${today}"`);
+		process.exit(2);
+	}
+	return { inputs, report, accepted, today };
+}
+
+function isDate(value) {
+	return (
+		typeof value === 'string' &&
+		ISO_DATE.test(value) &&
+		new Date(`${value}T00:00:00Z`).toISOString().startsWith(value)
+	);
+}
+
+function addDays(date, days) {
+	return new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+}
+
+function configError(message) {
+	console.error(`::error::npm-audit-gate: ${message}`);
+	process.exit(1);
+}
+
+/**
+ * The accepted advisories. A missing default file is an empty list; a file
+ * named on the command line that is missing, and any entry that is not
+ * complete, end the run, since an acceptance that cannot be read must not
+ * decide anything.
+ */
+function loadAccepted(file, named, today) {
+	if (!existsSync(file)) {
+		if (named) configError(`accepted-advisories file not found: ${file}`);
+		return [];
+	}
+	let parsed;
+	try {
+		parsed = JSON.parse(readFileSync(file, 'utf8'));
+	} catch (error) {
+		configError(`${file} is not JSON - ${error.message}`);
+	}
+	if (!Array.isArray(parsed?.accepted)) configError(`${file} has no "accepted" array`);
+	const latest = addDays(today, MAX_ACCEPT_DAYS);
+	return parsed.accepted.map((entry, index) => {
+		const where = `${path.basename(file)} entry ${index + 1}`;
+		const id = entry?.id;
+		if (typeof id !== 'string' || !new RegExp(`^${GHSA_ID.source}$`).test(id)) {
+			configError(`${where}: "id" must be a GHSA id`);
+		}
+		if (typeof entry.package !== 'string' || !entry.package.trim()) {
+			configError(`${where}: "package" must name the package the advisory is on`);
+		}
+		if (typeof entry.reason !== 'string' || !entry.reason.trim()) {
+			configError(`${where}: "reason" must say why the advisory does not apply here`);
+		}
+		if (!isDate(entry.until)) configError(`${where}: "until" must be a date, YYYY-MM-DD`);
+		if (entry.until > latest) {
+			configError(
+				`${where}: "until" ${entry.until} is more than ${MAX_ACCEPT_DAYS} days ahead - ` +
+					'an acceptance is re-decided when it runs out, not set far enough away to forget'
+			);
+		}
+		return { id, package: entry.package, until: entry.until, reason: entry.reason };
+	});
+}
+
+/**
+ * The advisories at high or above, one per id and package. They sit in the
+ * `via` objects of the report's entries; an entry whose `via` names only other
+ * packages is high because of one of these, so excusing them excuses it.
+ */
+function blockingAdvisories(parsed) {
+	const found = new Map();
+	for (const node of Object.values(parsed?.vulnerabilities ?? {})) {
+		for (const via of node?.via ?? []) {
+			if (typeof via !== 'object' || via === null || !BLOCKING.includes(via.severity)) continue;
+			const id = GHSA_ID.exec(String(via.url ?? ''))?.[0] ?? `npm advisory ${via.source}`;
+			const key = `${id} ${via.name}`;
+			if (!found.has(key)) {
+				found.set(key, {
+					id,
+					package: String(via.name),
+					severity: via.severity,
+					title: String(via.title ?? '')
+				});
+			}
+		}
+	}
+	return [...found.values()];
 }
 
 /**
@@ -138,7 +252,10 @@ function describe(raw) {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const { inputs, report } = parseArgs(process.argv.slice(2));
+const args = parseArgs(process.argv.slice(2));
+const { inputs, report } = args;
+const today = args.today ?? new Date().toISOString().slice(0, 10);
+const accepted = loadAccepted(args.accepted ?? DEFAULT_ACCEPTED, args.accepted !== null, today);
 const recorded = inputs.length > 0;
 const attempts = recorded ? inputs.length : ATTEMPTS;
 
@@ -197,11 +314,50 @@ const summary = Object.entries(counts)
 	.map(([level, count]) => `${level}: ${count}`)
 	.join(', ');
 
-if (blocking > 0) {
+const advisories = blockingAdvisories(verdict.parsed);
+const covers = (entry, advisory) => entry.id === advisory.id && entry.package === advisory.package;
+const active = accepted.filter((entry) => entry.until >= today);
+const open = advisories.filter((advisory) => !active.some((entry) => covers(entry, advisory)));
+const stale = accepted.filter((entry) => !advisories.some((advisory) => covers(entry, advisory)));
+const ranOut = accepted.filter((entry) => entry.until < today && !stale.includes(entry));
+
+let failed = false;
+for (const entry of stale) {
+	console.error(
+		`::error::npm-audit-gate: ${entry.id} (${entry.package}) is accepted but no longer reported ` +
+			'at high or above. Delete its entry in npm-audit-accepted.json.'
+	);
+	failed = true;
+}
+for (const entry of ranOut) {
+	console.error(
+		`::error::npm-audit-gate: the acceptance of ${entry.id} (${entry.package}) ran out on ` +
+			`${entry.until}. Move the version, or decide again and give it a new date.`
+	);
+}
+
+// No advisory to read means nothing can be excused: the counts decide alone.
+if (blocking > 0 && (advisories.length === 0 || open.length > 0)) {
 	console.error(`::error::npm audit found ${blocking} vulnerability(ies) at high or above.`);
 	console.error(`npm-audit-gate: ${summary}`);
+	for (const advisory of open) {
+		console.error(
+			`  not accepted: ${advisory.id} in ${advisory.package} (${advisory.severity}) ${advisory.title}`
+		);
+	}
 	console.error('Run `npm audit` for the detail, `npm audit fix` for the ones with a fix.');
 	process.exit(1);
 }
 
-console.log(`npm audit OK: nothing at high or above (${summary}).`);
+if (failed) process.exit(1);
+
+if (blocking > 0) {
+	console.log(`npm audit OK: every finding at high or above is accepted (${summary}).`);
+	for (const entry of active) {
+		console.log(
+			`  accepted until ${entry.until}: ${entry.id} in ${entry.package} - ${entry.reason}`
+		);
+	}
+} else {
+	console.log(`npm audit OK: nothing at high or above (${summary}).`);
+}

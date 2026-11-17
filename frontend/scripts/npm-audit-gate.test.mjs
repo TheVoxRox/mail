@@ -65,9 +65,30 @@ function attempt(name, body) {
 	return file;
 }
 
-/** Runs the gate over the given recorded attempts; never touches the network. */
-function runGate(files, extraArgs = []) {
-	const args = [SCRIPT, ...files.flatMap((file) => ['--input', file]), ...extraArgs];
+const TODAY = '2026-11-17';
+
+/** Writes an accepted-advisories file. */
+function acceptedFile(entries) {
+	const file = path.join(dir, `accepted-${entries.length}-${Math.random()}.json`);
+	writeFileSync(file, JSON.stringify({ accepted: entries }));
+	return file;
+}
+
+/**
+ * Runs the gate over the given recorded attempts; never touches the network.
+ * Judged on a fixed day against an empty accepted list unless told otherwise,
+ * so the repository's own list never decides a case here.
+ */
+function runGate(files, extraArgs = [], { accepted = [], today = TODAY } = {}) {
+	const args = [
+		SCRIPT,
+		...files.flatMap((file) => ['--input', file]),
+		'--accepted',
+		acceptedFile(accepted),
+		'--today',
+		today,
+		...extraArgs
+	];
 	try {
 		const stdout = execFileSync(process.execPath, args, { encoding: 'utf8', stdio: 'pipe' });
 		return { code: 0, stdout, stderr: '' };
@@ -169,5 +190,132 @@ describe('npm audit gate', () => {
 
 		expect(result.code).toBe(2);
 		expect(result.stderr).toContain('unknown argument');
+	});
+});
+
+/** An advisory as npm audit puts it in a `via`. */
+function advisory(id, name, severity = 'high') {
+	return {
+		source: 1247710,
+		name,
+		dependency: name,
+		title: `${name} is vulnerable`,
+		url: `https://github.com/advisories/${id}`,
+		severity,
+		range: '<=4.0.7'
+	};
+}
+
+/**
+ * The shape of 2026-11-17: one advisory on picomatch, and the packages above it
+ * high only because they depend on it, their `via` naming the package.
+ */
+function picomatchReport(extra = {}) {
+	const body = report({ moderate: 0, high: 3, total: 3 });
+	body.vulnerabilities = {
+		picomatch: { name: 'picomatch', severity: 'high', via: [advisory(PICOMATCH, 'picomatch')] },
+		tinyglobby: { name: 'tinyglobby', severity: 'high', via: ['picomatch'] },
+		vite: { name: 'vite', severity: 'high', via: ['picomatch', 'tinyglobby'] },
+		...extra
+	};
+	return body;
+}
+
+const PICOMATCH = 'GHSA-fc5q-39xc-vjpf';
+const accepting = (overrides = {}) => ({
+	id: PICOMATCH,
+	package: 'picomatch',
+	until: '2026-12-17',
+	reason: 'Build tooling only; no fixed release.',
+	...overrides
+});
+
+describe('accepted advisories', () => {
+	it('passes when every finding at high or above comes from an accepted advisory', () => {
+		const result = runGate([attempt('picomatch', picomatchReport())], [], {
+			accepted: [accepting()]
+		});
+
+		expect(result.code).toBe(0);
+		expect(result.stdout).toContain('every finding at high or above is accepted');
+		// What was let through is said on every run, with its reason and its end.
+		expect(result.stdout).toContain(`accepted until 2026-12-17: ${PICOMATCH} in picomatch`);
+	});
+
+	it('fails on an advisory the list does not name, and names it', () => {
+		const other = 'GHSA-aaaa-bbbb-cccc';
+		const body = picomatchReport({
+			esbuild: { name: 'esbuild', severity: 'high', via: [advisory(other, 'esbuild')] }
+		});
+		const result = runGate([attempt('two', body)], [], { accepted: [accepting()] });
+
+		expect(result.code).toBe(1);
+		expect(result.stderr).toContain(`not accepted: ${other} in esbuild`);
+		expect(result.stderr).not.toContain(`not accepted: ${PICOMATCH}`);
+	});
+
+	it('accepts an advisory only on the package it was accepted for', () => {
+		const body = picomatchReport({
+			micromatch: { name: 'micromatch', severity: 'high', via: [advisory(PICOMATCH, 'micromatch')] }
+		});
+		const result = runGate([attempt('elsewhere', body)], [], { accepted: [accepting()] });
+
+		expect(result.code).toBe(1);
+		expect(result.stderr).toContain(`not accepted: ${PICOMATCH} in micromatch`);
+	});
+
+	it('applies through its until date and stops the day after', () => {
+		const on = runGate([attempt('on', picomatchReport())], [], {
+			accepted: [accepting()],
+			today: '2026-12-17'
+		});
+		const after = runGate([attempt('after', picomatchReport())], [], {
+			accepted: [accepting()],
+			today: '2026-12-18'
+		});
+
+		expect(on.code).toBe(0);
+		expect(after.code).toBe(1);
+		expect(after.stderr).toContain('ran out on 2026-12-17');
+		expect(after.stderr).toContain(`not accepted: ${PICOMATCH} in picomatch`);
+	});
+
+	it('fails on an acceptance nothing reports any more, so it gets deleted', () => {
+		// The fix landed, or the severity dropped: the entry would otherwise stay
+		// and wave the next advisory with that id through.
+		const result = runGate([attempt('clean', report({ low: 1, total: 1 }))], [], {
+			accepted: [accepting()]
+		});
+
+		expect(result.code).toBe(1);
+		expect(result.stderr).toContain('no longer reported');
+	});
+
+	it('refuses an until more than 90 days ahead', () => {
+		const result = runGate([attempt('picomatch', picomatchReport())], [], {
+			accepted: [accepting({ until: '2027-02-16' })]
+		});
+
+		expect(result.code).toBe(1);
+		expect(result.stderr).toContain('more than 90 days ahead');
+	});
+
+	it('refuses an entry without a reason', () => {
+		const result = runGate([attempt('picomatch', picomatchReport())], [], {
+			accepted: [accepting({ reason: ' ' })]
+		});
+
+		expect(result.code).toBe(1);
+		expect(result.stderr).toContain('"reason"');
+	});
+
+	it('excuses nothing from a report that carries counts but no advisories', () => {
+		// Nothing to match against means nothing to excuse: the counts decide.
+		const result = runGate([attempt('counts', report({ high: 1, total: 1 }))], [], {
+			accepted: [accepting()]
+		});
+
+		expect(result.code).toBe(1);
+		expect(result.stderr).toContain('found 1 vulnerability');
 	});
 });
