@@ -40,7 +40,8 @@ one of these, re-read its row first.
      the DB should do that rather than queue behind another request on its own
      lane. Callers pass a short timeout (`mail.client.imap.role-lookup-timeout`,
      default 1 s). Today's only caller is the conversation listing's
-     trash/junk/drafts/sent role lookup (`MailFacade.conversationExcludedFolders`),
+     trash/junk/drafts/sent role lookup
+     (`ConversationViewService.conversationExcludedFolders`),
      which falls back to a folder-scoped listing. `mail.imap.lock.skipped` counts
      it; since the split it measures contention **within** one lane, not a read
      waiting on a sync.

@@ -928,7 +928,7 @@ function conversationPool(accountId: number, folderName: string): MailSummaryRes
 
 /**
  * Which copy of one mail survives the collapse — mirrors the backend's
- * `MailFacade.survivesCollapse`. A copy in the folder in view beats one outside
+ * `ConversationViewService.survivesCollapse`. A copy in the folder in view beats one outside
  * it; among copies inside the folder the newest wins, so the surviving copy is
  * the same message the listing picks as the row's representative. The client
  * drops the parent row by stableId and relies on exactly that.
