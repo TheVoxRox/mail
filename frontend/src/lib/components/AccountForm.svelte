@@ -7,6 +7,7 @@
 		type ProviderPreset
 	} from '#lib/accounts/providerPresets.js';
 	import { createProviderResolver, type ProviderResolver } from '#lib/accounts/providerResolver.js';
+	import { shouldVerifyOnSave } from '#lib/accounts/verifyOnSave.js';
 	import {
 		FIELD_INPUT_IDS,
 		validateAccountForm,
@@ -566,7 +567,22 @@
 				};
 				await onSubmit(payload);
 			} else {
-				if (shouldVerifyOnSave()) {
+				if (
+					shouldVerifyOnSave(initial, {
+						active,
+						password: sentPassword,
+						email,
+						username,
+						serverMode,
+						providerId,
+						imapHost,
+						imapPort,
+						imapUseSsl,
+						smtpHost,
+						smtpPort,
+						smtpUseSsl
+					})
+				) {
 					await verifyCredentials(server, initial?.id ?? null);
 				}
 				const payload: AccountUpdateRequest = {
@@ -618,36 +634,6 @@
 		} finally {
 			verifyingCredentials = false;
 		}
-	}
-
-	/**
-	 * Whether saving an edit has to prove the login first. Only changes that can
-	 * affect it qualify — a new password, a different address or username, or
-	 * another server. Two deliberate exemptions:
-	 *
-	 * - Unticking "account is active": switching a broken account off is exactly
-	 *   what a user does when it keeps failing, and a probe that must succeed
-	 *   would make the failure un-turn-off-able.
-	 * - Everything unrelated (signature, display name, account label) — an
-	 *   unreachable server must not hold a signature edit hostage.
-	 */
-	function shouldVerifyOnSave(): boolean {
-		if (!active) return false;
-		if (!initial) return true;
-		if (sentPassword) return true;
-		if (email.trim() !== initial.email || username.trim() !== initial.username) return true;
-
-		const wasCustom = initial.providerId == null;
-		if ((serverMode === 'custom') !== wasCustom) return true;
-		if (serverMode === 'provider') return providerId !== initial.providerId;
-		return (
-			imapHost.trim() !== initial.imapHost ||
-			imapPort !== initial.imapPort ||
-			imapUseSsl !== initial.imapUseSsl ||
-			smtpHost.trim() !== initial.smtpHost ||
-			smtpPort !== initial.smtpPort ||
-			smtpUseSsl !== initial.smtpUseSsl
-		);
 	}
 
 	/**
