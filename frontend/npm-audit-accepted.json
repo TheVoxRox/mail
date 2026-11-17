@@ -1,0 +1,10 @@
+{
+	"accepted": [
+		{
+			"id": "GHSA-fc5q-39xc-vjpf",
+			"package": "picomatch",
+			"until": "2026-12-17",
+			"reason": "ReDoS in extglob matching, no fixed release (4.0.7 is the latest; fix proposed in micromatch/picomatch#254). picomatch runs only in the build and test tooling (vite, vitest, knip, through tinyglobby and fdir) and is not in the bundle the app ships; the patterns it compiles are this repository's own configuration, not input from outside."
+		}
+	]
+}
