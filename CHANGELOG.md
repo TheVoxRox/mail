@@ -182,6 +182,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- `check:java-imports` counts only an unqualified occurrence of a name as a use
+  of its import. A dot is a word boundary, so the tail of `a.b.Pageable` kept an
+  import of `Pageable` alive that the IDE reported as unused; a name after `.`
+  or `::`, in code or in a javadoc reference, now needs no import. The one
+  leftover it finds is that `Pageable` in `ConversationViewServiceTest`, whose
+  uses now go through the import, as in #939 (#940).
 - Three Eclipse JDT warnings VS Code showed in backend tests are gone. The
   Dovecot container factory's "resource leak" was a false alarm (JDT cannot see
   that the fluent `with...()` calls return the same container, which goes back

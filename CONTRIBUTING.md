@@ -276,8 +276,11 @@ decide whether everything else is allowed to land.
   `backend/pom.xml`), and javac has no lint for it — so a leftover survives a
   green `mvn clean verify` indefinitely. A symbol named only in prose does not
   count as used; a `{@link}` or `@throws` does, since those need the import to
-  resolve. Wildcard and `import module` lines are skipped rather than guessed
-  at. TypeScript is out of scope — eslint already covers it.
+  resolve. Only an unqualified occurrence is a use: a fully qualified
+  `a.b.Name`, a nested `Outer.Name` or a method reference `Type::name` is
+  resolved through its qualifier and needs no import of `Name` or `name`.
+  Wildcard and `import module` lines are skipped rather than guessed at.
+  TypeScript is out of scope — eslint already covers it.
 - `npm run check:java-callers` — part of `npm run check`. A declaration in
   `backend/src/main` needs a caller; the report separates dead code from code
   only tests reach and from a method that is merely too visible. A deliberate
