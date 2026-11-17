@@ -201,14 +201,8 @@ public class SmtpMessageService {
                 log.warn("{} Draft UID {} not found in IMAP folder {} (account {})", LogCategory.SMTP, draftUid,
                         draftFolder, accountId);
                 outcome = MailMetrics.OUTCOME_FAILURE;
-                AuditLog.failure("mail_send", "account=" + accountId,
-                        "draft=" + stableId + " reason=draft_not_found_on_server");
-                accountRepository.updateLastError(accountId,
-                        AccountLastError.of(AccountLastErrorCode.DRAFT_NOT_FOUND_ON_SERVER,
-                                "Draft to send was not found on the server."),
-                        LocalDateTime.now());
-                sseNotificationService.broadcast(SendNotification.failed(sendId, accountId,
-                        AccountLastErrorCode.DRAFT_NOT_FOUND_ON_SERVER.name()));
+                refuseDraftSend(accountId, stableId, sendId, AccountLastErrorCode.DRAFT_NOT_FOUND_ON_SERVER,
+                        "draft_not_found_on_server", "Draft to send was not found on the server.");
                 return;
             }
             MimeMessage detached = detachedOpt.get();
@@ -217,15 +211,8 @@ public class SmtpMessageService {
                 log.warn("{} Refusing to send draft {} for account {}: the copy on the server names different"
                         + " recipients than the one stored locally.", LogCategory.SMTP, stableId, accountId);
                 outcome = MailMetrics.OUTCOME_FAILURE;
-                AuditLog.failure("mail_send", "account=" + accountId,
-                        "draft=" + stableId + " reason=draft_changed_on_server");
-                accountRepository
-                        .updateLastError(accountId,
-                                AccountLastError.of(AccountLastErrorCode.DRAFT_CHANGED_ON_SERVER,
-                                        "The draft on the server no longer matches the one stored here."),
-                                LocalDateTime.now());
-                sseNotificationService.broadcast(SendNotification.failed(sendId, accountId,
-                        AccountLastErrorCode.DRAFT_CHANGED_ON_SERVER.name()));
+                refuseDraftSend(accountId, stableId, sendId, AccountLastErrorCode.DRAFT_CHANGED_ON_SERVER,
+                        "draft_changed_on_server", "The draft on the server no longer matches the one stored here.");
                 return;
             }
 
@@ -269,6 +256,21 @@ public class SmtpMessageService {
             transportFactory.closeQuietly(transport, accountId);
             metrics.recordSmtpSend(sample, outcome);
         }
+    }
+
+    /**
+     * Failure tail of the two refusals in {@link #sendDraftAsync}: the draft is
+     * gone from the server, or the copy there names other recipients (B1-5). Audits
+     * the refusal, records it as the account's last error and tells the client.
+     * Unlike {@link #recordSendFailure}, nothing here is caught — no exception
+     * caused the refusal, and one thrown while persisting last_error goes to the
+     * caller's catch, which reports the send as DRAFT_SEND_FAILED instead.
+     */
+    private void refuseDraftSend(Long accountId, String stableId, String sendId, AccountLastErrorCode code,
+            String auditReason, String detail) {
+        AuditLog.failure("mail_send", "account=" + accountId, "draft=" + stableId + " reason=" + auditReason);
+        accountRepository.updateLastError(accountId, AccountLastError.of(code, detail), LocalDateTime.now());
+        sseNotificationService.broadcast(SendNotification.failed(sendId, accountId, code.name()));
     }
 
     /**

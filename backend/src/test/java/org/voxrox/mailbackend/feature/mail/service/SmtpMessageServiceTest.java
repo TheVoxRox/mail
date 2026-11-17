@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -25,14 +26,18 @@ import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
 
 import org.jspecify.annotations.Nullable;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 import org.voxrox.mailbackend.core.metrics.MailMetrics;
 import org.voxrox.mailbackend.exception.AccountNotFoundException;
 import org.voxrox.mailbackend.feature.account.AccountLastError;
@@ -48,6 +53,10 @@ import org.voxrox.mailbackend.feature.mail.dto.MailRequest;
 import org.voxrox.mailbackend.feature.mail.dto.SendNotification;
 import org.voxrox.mailbackend.feature.mail.entity.DraftRecipientsEntity;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
+
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 
 /**
  * Unit tests for {@link SmtpMessageService}.
@@ -551,6 +560,97 @@ class SmtpMessageServiceTest {
             // Set aside, not dropped: the server can claim the delete after the send and
             // keep the draft (B1-5, reopened at 1.57).
             verify(draftPersistenceService).setAsideTypedRecipients(ACCOUNT_ID, MESSAGE_ID);
+        }
+    }
+
+    /**
+     * The two refusals in {@code sendDraftAsync} — the draft is gone from the
+     * server, or its copy there names other recipients — end in the same three
+     * steps with their own code, detail and audit reason. Pinned exactly, because
+     * the steps share one helper and a swapped argument would still produce a
+     * failed send.
+     */
+    @Nested
+    @DisplayName("sendDraftAsync — a refused draft is audited, recorded and reported under its own code")
+    class DraftRefusal {
+
+        private ListAppender<ILoggingEvent> audit;
+
+        @BeforeEach
+        void attachAudit() {
+            audit = new ListAppender<>();
+            audit.start();
+            ((Logger) LoggerFactory.getLogger("AUDIT")).addAppender(audit);
+        }
+
+        @AfterEach
+        void detachAudit() {
+            ((Logger) LoggerFactory.getLogger("AUDIT")).detachAppender(audit);
+        }
+
+        private MessageEntity draftTo(String to) {
+            AccountEntity account = new AccountEntity();
+            account.setId(ACCOUNT_ID);
+            account.setEmail("sender@example.com");
+
+            MessageEntity draft = new MessageEntity();
+            draft.setStableId(STABLE_ID);
+            draft.setMessageId(MESSAGE_ID);
+            draft.setAccount(account);
+            draft.setFolderName("Drafts");
+            draft.setUid(42L);
+            draft.setRecipientsTo(to);
+            return draft;
+        }
+
+        private void sendWithServerCopy(@Nullable MimeMessage onServer) {
+            Session session = Session.getInstance(new Properties());
+            when(messageService.getByStableId(STABLE_ID)).thenReturn(Optional.of(draftTo("to@example.com")));
+            when(connectionDetailsService.getSmtpConnectionDetails(ACCOUNT_ID)).thenReturn(CONNECTION_DETAILS);
+            when(transportFactory.createSession(CONNECTION_DETAILS)).thenReturn(session);
+            when(appendService.fetchAndDetachMime(ACCOUNT_ID, "Drafts", 42L, session))
+                    .thenReturn(Optional.ofNullable(onServer));
+
+            service.sendDraftAsync(ACCOUNT_ID, STABLE_ID, SEND_ID);
+        }
+
+        private void assertRefused(AccountLastErrorCode code, String detail, String auditReason) throws Exception {
+            assertThat(audit.list).singleElement().extracting(ILoggingEvent::getFormattedMessage)
+                    .isEqualTo("FAILURE action=mail_send actor=account=" + ACCOUNT_ID + " reason=draft=" + STABLE_ID
+                            + " reason=" + auditReason);
+
+            InOrder order = inOrder(accountRepository, sseNotificationService);
+            order.verify(accountRepository).updateLastError(eq(ACCOUNT_ID), eq(AccountLastError.of(code, detail)),
+                    any(LocalDateTime.class));
+            order.verify(sseNotificationService).broadcast(SendNotification.failed(SEND_ID, ACCOUNT_ID, code.name()));
+            order.verifyNoMoreInteractions();
+
+            verify(mailMetrics).recordSmtpSend(any(), eq(MailMetrics.OUTCOME_FAILURE));
+            verify(transportFactory, never()).openTransport(anyLong(), any(), any());
+            verifyNoInteractions(imapActionService);
+        }
+
+        @Test
+        @DisplayName("A draft the server no longer holds -> DRAFT_NOT_FOUND_ON_SERVER")
+        void draftMissingOnServer() throws Exception {
+            sendWithServerCopy(null);
+
+            assertRefused(AccountLastErrorCode.DRAFT_NOT_FOUND_ON_SERVER, "Draft to send was not found on the server.",
+                    "draft_not_found_on_server");
+        }
+
+        @Test
+        @DisplayName("A server copy naming other recipients -> DRAFT_CHANGED_ON_SERVER")
+        void draftChangedOnServer() throws Exception {
+            MimeMessage onServer = new MimeMessage(Session.getInstance(new Properties()));
+            onServer.setRecipients(Message.RecipientType.TO, "attacker@example.test");
+            onServer.setText("body");
+            onServer.saveChanges();
+
+            sendWithServerCopy(onServer);
+
+            assertRefused(AccountLastErrorCode.DRAFT_CHANGED_ON_SERVER,
+                    "The draft on the server no longer matches the one stored here.", "draft_changed_on_server");
         }
     }
 

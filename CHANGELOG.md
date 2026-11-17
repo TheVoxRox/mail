@@ -161,6 +161,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- `SmtpMessageService.sendDraftAsync` refuses a draft the server no longer
+  holds and one whose server copy names other recipients through one helper
+  that audits the refusal, records the last error and tells the client; the
+  two branches had each spelt out those three steps. A new test pins both
+  refusals' code, message and audit line, and the IMAP/SMTP audit's ledger
+  records the change (#932).
 - The conversation view moved out of `MailFacade` into its own
   `ConversationViewService`: the grouped listing and the thread a row expands
   into, which share one resolution of the folders a conversation spans. The
