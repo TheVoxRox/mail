@@ -36,14 +36,19 @@ final class DovecotTestServer {
     }
 
     /**
-     * A container, not yet started. The image's passdb accepts any user whose
-     * password matches {@code password}. The extra configuration turns TLS on with
-     * the shared test certificate from {@link TestTls} and makes it required, so
-     * Dovecot offers STARTTLS on the IMAP port and refuses LOGIN before it — the
-     * same posture the backend holds on its side (audit B1-4). (Until STARTTLS
-     * became required, the QRESYNC IT instead lifted Dovecot's refusal of cleartext
-     * LOGIN, auth_allow_cleartext, for the plain connection.)
+     * A container, not yet started, which the caller owns and stops. The image's
+     * passdb accepts any user whose password matches {@code password}. The extra
+     * configuration turns TLS on with the shared test certificate from
+     * {@link TestTls} and makes it required, so Dovecot offers STARTTLS on the IMAP
+     * port and refuses LOGIN before it — the same posture the backend holds on its
+     * side (audit B1-4). (Until STARTTLS became required, the QRESYNC IT instead
+     * lifted Dovecot's refusal of cleartext LOGIN, auth_allow_cleartext, for the
+     * plain connection.)
      */
+    // The suppression is for Eclipse JDT, which reports the `new` below as never
+    // closed: it cannot tell that each fluent with...() call returns that same
+    // container, and the container is returned to the caller, not dropped.
+    @SuppressWarnings("resource")
     static GenericContainer<?> container(String password) {
         return new GenericContainer<>(IMAGE).withEnv("USER_PASSWORD", "{PLAIN}" + password)
                 .withCopyToContainer(Transferable.of(TestTls.certificatePem(), 0644), "/etc/dovecot/it-tls/cert.pem")
