@@ -161,6 +161,11 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- An independent pass read #917, #930, #931 and #932 against the code and
+  found every claim their ledger records made true and no finding. Both the
+  IMAP/SMTP and the API audit are re-verified against `38dc042` with no
+  acknowledgement left; two status lines that still called confirmed fixes
+  pending are corrected (#933).
 - `SmtpMessageService.sendDraftAsync` refuses a draft the server no longer
   holds and one whose server copy names other recipients through one helper
   that audits the refusal, records the last error and tells the client; the

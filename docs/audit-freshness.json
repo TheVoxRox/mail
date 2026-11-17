@@ -48,17 +48,6 @@
     "Both clocks reset the same way: re-verify the audit, bump `Audited commit`,",
     "and delete the entry from this file."
   ],
-  "docs/API_SURFACE_AUDIT.md": {
-    "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/contact/controller": "b73ad2abc15867b337621446ccd2b5f7077346a0"
-    },
-    "acknowledgements": [
-      {
-        "date": "2026-11-17",
-        "note": "ContactController's GET /autocomplete calls ContactAutocompleteService instead of ContactService, and takes it as one more constructor argument. The service is new in feature/contact/service and holds ContactService's autocomplete and its ranking helpers, moved without change except that the contact half now names the shared order as ContactService.DEFAULT_SORT. The endpoint's mapping, its parameters and their constraints (@Positive accountId, @Size(min = 1) q, @Min(1) limit), ensureContactQueryWithinLimit, the clamp of limit to contactAutocompleteMaxLimit and the response type are byte-identical; no endpoint, request field, response field, validation rule or error path moved, and nothing else in the directory changed. Section 2 holds: the query bound and the limit clamp it cites are the controller's, and the merge bound it names ContactService for stays in ContactService. Verdict unchanged."
-      }
-    ]
-  },
   "docs/CONTENT_RENDERING_AUDIT.md": {
     "reviewedTrees": {
       "frontend/src/lib/mail/mailFrame.ts": "039781084f982faf4d034090719936613d61e493",
@@ -80,25 +69,6 @@
       {
         "date": "2026-11-16",
         "note": "WCAG 2.2 AA fixes. message-detail: MessageHeaderCard.svelte adds `underline` to the class of the sender's \"Upravit kontakt\" / \"Přidat do kontaktů\" link and a comment on why (WCAG 1.4.1). The link's href, its accessible name and the rest of the header are unchanged; nothing in the directory that sanitizes, frames, sizes or loads mail content moved, and mailFrame.ts is untouched. Verdict unchanged."
-      }
-    ]
-  },
-  "docs/IMAP_SMTP_AUDIT.md": {
-    "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "3e08ea9615902342a9032a848f4569bd13a1f15b"
-    },
-    "acknowledgements": [
-      {
-        "date": "2026-11-16",
-        "note": "The sign-in-again error names the account. ImapConnectionManager#requireUsableAccount reads the account's e-mail address with the requires_reauth flag in one query (AccountRepository#findEmailIfRequiresReauth, replacing isRequiresReauth) and passes it as {0} of error.mail.accountRequiresReauth; the English fallback message, which is what the log gets, names the account id only. The guard still runs first in executeWithLock and executeWithLockOrSkip, refuses the same accounts with the same code and status, and opens no connection; nothing else in the package moved. Verdict unchanged."
-      },
-      {
-        "date": "2026-11-17",
-        "note": "The conversation view moves out of MailFacade into a new ConversationViewService in the same package: getConversations, getThread, crossFolderConversationSizes, conversationExcludedFolders, ConversationScope, conversationScope, threadResponse, folderScopedUnread, scopeToConversationView, survivesCollapse, conversationMemberIdentity and CONVERSATION_EXCLUDED_ROLES. Compared with the old MailFacade text, the code is identical with whitespace ignored; only two javadoc references changed, {@link #getEmails} to MailFacade#getEmails and 'this class' to MailFacade. The new service takes five of MailFacade's collaborators (MessageRepository, MessageMapper, MailSyncService, ImapFolderService, AccountService) and no new one, and is not @Transactional, as the two methods were not. MailFacade.getConversations and getThread keep their signatures and return what the service builds, so MailReadController, the lazy fetch, the listing depth (B1-9) and every role lookup the audit cites are unchanged; the audit names MailFacade only for prepareReply, getEmails, listDrafts and getMessageContentOnly, none of which moved. Nothing else in the package changed. Verdict unchanged."
-      },
-      {
-        "date": "2026-11-17",
-        "note": "#932. SmtpMessageService.sendDraftAsync refuses an untouched draft in two places: the server no longer holds it (DRAFT_NOT_FOUND_ON_SERVER, audit reason draft_not_found_on_server) and its copy names other recipients than expectedRecipients (DRAFT_CHANGED_ON_SERVER, draft_changed_on_server, the B1-5 check). Each wrote the audit line, updateLastError and the failed SSE notification inline; both now call one private refuseDraftSend with their code, audit reason and detail, which runs the same three statements in the same order and builds the same strings. Each branch keeps its own log.warn, sets outcome to FAILURE before the call and returns after it. The helper catches nothing, so a failure to persist last_error still falls to the method's catch and is reported as DRAFT_SEND_FAILED, as before. recipientsDiffer, expectedRecipients, the bounded fetch (B1-18), the transport and the draft left in place on a refusal are untouched, so §4e's account of the refusal holds word for word. Nothing else in the package changed. Verdict unchanged."
       }
     ]
   },
