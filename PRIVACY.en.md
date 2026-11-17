@@ -1,6 +1,6 @@
 # Privacy Policy — VoxRox Mail
 
-_Version: 2026-11-14. This version is preliminary: it has not yet been
+_Version: 2026-11-16. This version is preliminary: it has not yet been
 reviewed by a lawyer — see "Open items" at the bottom._
 
 _Česká verze: [PRIVACY.md](PRIVACY.md)._
@@ -165,7 +165,8 @@ from the notification area icon menu (**Quit**).
 
 ### Diagnostic reports from the client
 
-Uncaught interface errors (JavaScript exceptions) are sent by the frontend to
+Interface errors that the application did not handle, or could only show you as
+an "unexpected error" (JavaScript exceptions), are sent by the frontend to
 the **local** backend endpoint `POST /api/internal/client-errors`, which runs
 on 127.0.0.1 on your computer, and the backend writes them into
 `logs/mail.log`. A record holds the kind and text of the error, its stack

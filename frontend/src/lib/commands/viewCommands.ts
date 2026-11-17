@@ -3,10 +3,18 @@ import { cycleTheme, setReadingPaneMode, switchLanguage } from '#lib/actions/vie
 import type { ThemePreference } from '#lib/stores/theme.js';
 import { localeKeywords, type Command } from '#lib/commands/shared.js';
 
+/*
+ * The title names the target language in the interface's own language ("Switch
+ * language to Czech" in English, the Czech word for English in Czech), not by
+ * its own name. Built from the endonym, the Czech title ended in the English
+ * word "English": read with the Czech voice, and a palette option has no way to
+ * mark one word of its name as another language (WCAG 3.1.2). The endonym
+ * stays a keyword, so typing "english" still finds it; the language select
+ * keeps endonyms, each marked with its own `lang`.
+ */
 const languageCommands: Command[] = SUPPORTED_LOCALES.map((targetLocale) => ({
 	id: `view.locale.${targetLocale}`,
-	titleKey: 'command.switchLanguage',
-	titleValues: { language: LOCALE_LABELS[targetLocale] },
+	titleKey: `command.switchLanguageTo.${targetLocale}`,
 	groupKey: 'view',
 	keywords: [targetLocale, LOCALE_LABELS[targetLocale].toLocaleLowerCase(), 'jazyk', 'language'],
 	contexts: ['settings'],

@@ -34,14 +34,18 @@ import { focusRingMenuItem } from '../focus-ring/index.js';
  * This handler runs before the library's (composeHandlers), so landing the
  * first item synchronously closes the gap; their `afterTick` then finds focus
  * already where it wanted to put it. Disabled items are skipped because focus
- * has to land somewhere a keyboard user can act on.
+ * has to land somewhere a keyboard user can act on. Radio and checkbox items
+ * count as items: the account switcher is a menu of `menuitemradio` alone, and
+ * a selector that knew only `menuitem` left its container holding focus.
  */
 export function focusFirstMenuItem(event: FocusEvent & { currentTarget: HTMLElement }): void {
 	// Only the panel itself — an item bubbling its own focus must not restart
 	// the walk from the top, which would trap focus on the first item.
 	if (event.target !== event.currentTarget) return;
 	event.currentTarget
-		.querySelector<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])')
+		.querySelector<HTMLElement>(
+			':is([role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]):not([aria-disabled="true"])'
+		)
 		?.focus();
 }
 

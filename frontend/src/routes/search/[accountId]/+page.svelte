@@ -13,6 +13,7 @@
 	import Pagination from '#lib/components/Pagination.svelte';
 	import SearchResultsGrid from '#lib/components/SearchResultsGrid.svelte';
 	import { _ } from '#lib/i18n/index.js';
+	import { toErrorMessage } from '#lib/api/errors.js';
 	import type { MailSummaryResponse } from '#lib/types.js';
 
 	let { data } = $props();
@@ -273,7 +274,7 @@
 				class="flex flex-1 items-center justify-center p-8 text-sm text-destructive-foreground"
 				role="alert"
 			>
-				{$_('messages.errorPrefix', { values: { message: $searchState.error.message } })}
+				{$_('messages.errorPrefix', { values: { message: toErrorMessage($searchState.error) } })}
 			</div>
 		{:else if $searchState.status === 'ready' && $searchState.page.content.length === 0}
 			<!-- Focus target after the last result was removed by a row action. -->

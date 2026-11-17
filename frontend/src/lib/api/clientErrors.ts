@@ -7,7 +7,6 @@
 
 import { page } from '$app/state';
 import { ApiError } from './client.js';
-import { toErrorMessage } from './errors.js';
 import { httpFetch } from './http.js';
 import { requireSession } from '#lib/stores/session.js';
 
@@ -163,7 +162,7 @@ export async function reportClientError(
 		reportedSignatures.delete(signature);
 		// Reporting must never become another user-facing failure path.
 		if (typeof window !== 'undefined' && window.localStorage.getItem('mail.e2e') === '1') {
-			window.__MAIL_LAST_CLIENT_ERROR_REPORT_FAILURE__ = toErrorMessage(err);
+			window.__MAIL_LAST_CLIENT_ERROR_REPORT_FAILURE__ = safeMessage(err);
 		}
 		return 'failed';
 	}

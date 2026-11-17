@@ -343,7 +343,10 @@ test.describe('MSW bootstrap', () => {
 		await page.goto('/');
 
 		await expect(page.getByRole('heading', { name: 'Nelze nastartovat aplikaci' })).toBeVisible();
-		await expect(page.getByText('E2E sidecar failed to start')).toBeVisible();
+		const detail = page.getByText('E2E sidecar failed to start');
+		await expect(detail).toBeVisible();
+		// The error's own English text on a Czech screen says it is English (3.1.2).
+		await expect(detail).toHaveAttribute('lang', 'en');
 
 		await page.getByRole('button', { name: 'Zkusit znovu' }).click();
 		await waitForShell(page);
@@ -604,6 +607,8 @@ test.describe('MSW bootstrap', () => {
 		const failure = page.getByRole('dialog', { name: 'Aktualizace se nezdařila' });
 		await expect(failure).toBeVisible();
 		await expect(failure).toContainText('Mock update install failed');
+		// The updater's English words in the Czech dialog are marked as English (3.1.2).
+		await expect(failure.getByText('Mock update install failed')).toHaveAttribute('lang', 'en');
 		await expect(failure.getByRole('link', { name: 'Otevřít GitHub Releases' })).toHaveAttribute(
 			'href',
 			'https://github.com/TheVoxRox/mail/releases/latest'

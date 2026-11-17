@@ -11,7 +11,7 @@
 	} from '#lib/api/contacts.js';
 	import { listContactLabels } from '#lib/api/contactLabels.js';
 	import { reportClientError } from '#lib/api/clientErrors.js';
-	import { toError } from '#lib/api/errors.js';
+	import { toError, toErrorMessage } from '#lib/api/errors.js';
 	import {
 		contactCounts,
 		ensureContactCounts,
@@ -378,7 +378,7 @@
 			{#if editState.status === 'loading' || editState.status === 'idle'}
 				<StateMessage>{$_('contacts.loading')}</StateMessage>
 			{:else if editState.status === 'error'}
-				<StateMessage variant="error" role="alert">{editState.error.message}</StateMessage>
+				<StateMessage variant="error" role="alert">{toErrorMessage(editState.error)}</StateMessage>
 			{:else if editState.status === 'ready'}
 				<ContactForm
 					contact={editState.contact}
@@ -397,7 +397,7 @@
 			{#if listState.status === 'loading'}
 				<StateMessage>{$_('contacts.loading')}</StateMessage>
 			{:else if listState.status === 'error'}
-				<StateMessage variant="error" role="alert">{listState.error.message}</StateMessage>
+				<StateMessage variant="error" role="alert">{toErrorMessage(listState.error)}</StateMessage>
 			{:else if listState.status === 'ready'}
 				<!--
 					A contact the renderer cannot make sense of must cost that one

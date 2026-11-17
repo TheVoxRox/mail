@@ -1,6 +1,6 @@
 # Zásady ochrany soukromí — VoxRox Mail
 
-_Verze: 2026-11-14. Tato verze je předběžná: ještě nebyla schválena právníkem —
+_Verze: 2026-11-16. Tato verze je předběžná: ještě nebyla schválena právníkem —
 viz sekce „Otevřené body" na konci dokumentu._
 
 _English version: [PRIVACY.en.md](PRIVACY.en.md)._
@@ -158,7 +158,8 @@ Ukončit aplikaci pak jde přes nabídku ikony v oznamovací oblasti (**Ukončit
 
 ### Diagnostické reporty z klienta
 
-Neošetřené chyby rozhraní (výjimky v JavaScriptu) posílá frontend na
+Chyby rozhraní, které aplikace neošetřila nebo které vám umí ukázat jen jako
+„neočekávanou chybu“ (výjimky v JavaScriptu), posílá frontend na
 **lokální** backendový endpoint `POST /api/internal/client-errors`, který běží
 na 127.0.0.1 ve vašem počítači, a backend je zapíše do `logs/mail.log`. Záznam
 obsahuje typ a text chyby, výpis zásobníku, skript, ve kterém vznikla, a obecný

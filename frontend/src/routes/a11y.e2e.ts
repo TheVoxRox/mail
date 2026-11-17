@@ -658,8 +658,11 @@ test.describe('Přístupnost', () => {
 		});
 		await exportButton.click();
 
-		const errorToast = page.getByRole('alert').filter({ hasText: /API error 500/ });
+		// The backend's own localized detail. The download path used to drop the
+		// response body and show "API error 500: …" in English instead (3.1.2).
+		const errorToast = page.getByRole('alert').filter({ hasText: 'Export vCard se nepodařil.' });
 		await expect(errorToast).toBeVisible();
+		await expect(errorToast).not.toContainText('API error');
 		await expect(errorToast.getByRole('button', { name: 'Zavřít oznámení' })).toBeVisible();
 	});
 
@@ -1112,6 +1115,15 @@ test.describe('Přístupnost', () => {
 		// Out of the suite's reach until the e2e build stopped trying to open a browser.
 		await expectNoFindings(page, await wcagScan(page).analyze());
 
+		// The wait can run for minutes; the spinner beside it stops for a user
+		// who asked the system for less motion.
+		const spinner = page.locator('.animate-spin');
+		await expect(spinner).toHaveCount(1);
+		await page.emulateMedia({ reducedMotion: 'reduce' });
+		expect(await spinner.evaluate((element) => getComputedStyle(element).animationName)).toBe(
+			'none'
+		);
+
 		await cancel.click();
 		await expect(page.getByRole('button', { name: 'Přihlásit přes Google' })).toBeFocused();
 	});
@@ -1157,6 +1169,95 @@ test.describe('Přístupnost', () => {
 		await expectNoFindings(page, results);
 		// Passing on no node would also leave violations empty.
 		expect(results.passes.map((rule) => rule.id)).toContain('color-contrast');
+	});
+
+	test('přepínač účtu přepne až volbou v nabídce, ne klávesou na zavřeném prvku (3.2.2)', async ({
+		page
+	}) => {
+		/*
+		 * It was a select that switched on `change`, and a closed select changes
+		 * its value without opening: End, PageDown or a typed letter left the
+		 * mailbox for the other account's and put focus on its heading. As a menu
+		 * button those keys do nothing, and inside the menu they only move the
+		 * highlight; Enter on an item is the one thing that switches.
+		 */
+		await openApp(page, '/mail/1/INBOX');
+		await expect(rowsOf(messageGrid(page)).first()).toBeVisible();
+
+		const trigger = page.getByRole('button', {
+			name: 'Aktivní účet: Pracovní účet: tester@example.com'
+		});
+		await expect(trigger).toHaveAttribute('aria-haspopup', 'menu');
+		for (const key of ['End', 'PageDown', 'o']) {
+			await trigger.press(key);
+			await expect(trigger).toBeFocused();
+		}
+		await expect(page.getByRole('menu')).toHaveCount(0);
+
+		await page.evaluate(() => {
+			const seen: string[] = [];
+			(window as unknown as { __menuFocus: string[] }).__menuFocus = seen;
+			document.addEventListener(
+				'focusin',
+				(e) => {
+					const role = (e.target as HTMLElement | null)?.getAttribute?.('role');
+					if (role === 'menu' || role === 'menuitemradio') seen.push(role);
+				},
+				true
+			);
+		});
+		await trigger.press('Enter');
+		const menu = page.getByRole('menu', { name: 'Vybrat aktivní účet' });
+		const work = menu.getByRole('menuitemradio', { name: 'Pracovní účet: tester@example.com' });
+		const personal = menu.getByRole('menuitemradio', {
+			name: 'Osobní účet: personal@another.test'
+		});
+		await waitForFocus(work);
+		await page.waitForTimeout(60);
+		// The radio items are items too: focus goes to the first, never the panel.
+		const focused = await page.evaluate(
+			() => (window as unknown as { __menuFocus: string[] }).__menuFocus
+		);
+		expect(focused).not.toContain('menu');
+		await expect(work).toHaveAttribute('aria-checked', 'true');
+		await expect(personal).toHaveAttribute('aria-checked', 'false');
+		await expectNoFindings(page, await wcagScan(page).include('[role="menu"]').analyze());
+
+		// Typeahead moves the highlight and nothing else.
+		await page.keyboard.press('o');
+		await waitForFocus(personal);
+		await page.waitForTimeout(60);
+		expect(new URL(page.url()).pathname).toBe('/mail/1/INBOX');
+
+		await page.keyboard.press('Enter');
+		await page.waitForURL('**/mail/2/INBOX');
+		await expect(
+			page.getByRole('button', { name: 'Aktivní účet: Osobní účet: personal@another.test' })
+		).toBeVisible();
+	});
+
+	test('odkaz u odesílatele se od adresy liší i jinak než barvou (1.4.1)', async ({ page }) => {
+		// It stands inside the sender's line, and its colour sits at 1.16:1
+		// against that text (1.03:1 dark): 1.4.1 asks 3:1 before colour alone
+		// may mark a link in text, so the underline is not only for hover.
+		await openApp(
+			page,
+			`/mail/${mailFixture.accountId}/${mailFixture.folderName}/${mailFixture.stableId}`
+		);
+		const link = page.getByRole('link', { name: 'Upravit kontakt, jana@example.com' });
+		await expect(link).toBeVisible();
+		await expect(link.locator('xpath=..')).toContainText('jana@example.com');
+		expect(
+			await link.evaluate((element) => getComputedStyle(element).textDecorationLine)
+		).toContain('underline');
+	});
+
+	test('volby jazyka říkají, v jakém jazyce je jejich název (3.1.2)', async ({ page }) => {
+		await openApp(page, '/settings/language');
+		const select = page.getByRole('combobox', { name: 'Jazyk' });
+		await expect(select.locator('option[value="en"]')).toHaveText('English');
+		await expect(select.locator('option[value="en"]')).toHaveAttribute('lang', 'en');
+		await expect(select.locator('option[value="cs"]')).toHaveAttribute('lang', 'cs');
 	});
 
 	test('vlastní server řadí stejně pojmenovaná pole do skupin IMAP a SMTP', async ({ page }) => {
@@ -2024,13 +2125,25 @@ test.describe('Přístupnost – jednotlivé obrazovky', () => {
 			expect(await reflowLosses(page)).toEqual([]);
 		});
 
-		test(`${name} (${path}) nemá a11y porušení`, async ({ page }) => {
-			if (flags) await setMockFlags(page, flags);
-			await openApp(page, path);
-			await expect(ready(page)).toBeVisible();
-			const results = await wcagScan(page).analyze();
-			await expectNoFindings(page, results);
-		});
+		/*
+		 * Both themes, as the focus walk above: each has its own palette, and a
+		 * colour pair that holds 4.5:1 in one says nothing about the other. The
+		 * scan ran in the light theme alone, so the dark one's contrast went
+		 * unmeasured by anything but the focus walk.
+		 */
+		for (const [theme, themeName] of [
+			['light', 'světlý'],
+			['dark', 'tmavý']
+		] as const) {
+			test(`${name} (${path}) nemá a11y porušení, ${themeName} motiv`, async ({ page }) => {
+				await setPrefs(page, { theme });
+				if (flags) await setMockFlags(page, flags);
+				await openApp(page, path);
+				await expect(ready(page)).toBeVisible();
+				const results = await wcagScan(page).analyze();
+				await expectNoFindings(page, results);
+			});
+		}
 
 		test(`${name} (${path}) čte zaškrtávátka na jednom řádku s popiskem`, async ({ page }) => {
 			if (flags) await setMockFlags(page, flags);

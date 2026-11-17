@@ -117,7 +117,7 @@
 		{#if $accountsState.status === 'loading'}
 			<StateMessage>{$_('settings.accounts.loading')}</StateMessage>
 		{:else if $accountsState.status === 'error'}
-			<StateMessage variant="error">{$accountsState.error.message}</StateMessage>
+			<StateMessage variant="error">{toErrorMessage($accountsState.error)}</StateMessage>
 		{:else if $accountsState.status === 'ready'}
 			{#if $accountsState.accounts.length === 0}
 				<div class="space-y-3 p-6">

@@ -8,6 +8,9 @@
 	let message = $derived(
 		$updateFailureState.status === 'failed' ? $updateFailureState.message : ''
 	);
+	let messageLang = $derived(
+		$updateFailureState.status === 'failed' ? $updateFailureState.messageLang : undefined
+	);
 	let releasesUrl = $derived(
 		$updateFailureState.status === 'failed' ? $updateFailureState.releasesUrl : null
 	);
@@ -29,7 +32,9 @@
 	<DialogDescription class="space-y-2">
 		<span class="block">{$_('update.failure.description')}</span>
 		{#if message}
-			<span class="block break-words text-xs text-muted-foreground">{message}</span>
+			<span class="block break-words text-xs text-muted-foreground" lang={messageLang}>
+				{message}
+			</span>
 		{/if}
 	</DialogDescription>
 

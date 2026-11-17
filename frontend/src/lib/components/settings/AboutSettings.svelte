@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { downloadDiagnosticDump } from '#lib/api/diagnostics.js';
-	import { toErrorMessage } from '#lib/api/errors.js';
+	import { diagnosticErrorText, toErrorMessage } from '#lib/api/errors.js';
 	import { saveBlobAsFile } from '#lib/download.js';
 	import { sessionState, initSession } from '#lib/stores/session.js';
 	import { loadAccounts } from '#lib/stores/accounts.js';
@@ -341,7 +341,10 @@
 					{:else if $sessionState.status === 'loading'}
 						{$_('app.sessionLoading')}
 					{:else if $sessionState.status === 'error'}
-						<span class="text-destructive-foreground">{$sessionState.error.message}</span>
+						{@const sessionError = diagnosticErrorText($sessionState.error)}
+						<span class="text-destructive-foreground" lang={sessionError.lang}>
+							{sessionError.text}
+						</span>
 					{:else}
 						{$_('app.sessionNotInitialized')}
 					{/if}

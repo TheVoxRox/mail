@@ -25,8 +25,14 @@
 				width="full"
 				{...control}
 			>
+				<!--
+					Each language is named in itself (English as "English", Czech in
+					Czech), so each option says which language its name is in: read
+					with the voice of the interface around it, the other language's
+					name comes out mangled (3.1.2).
+				-->
 				{#each SUPPORTED_LOCALES as loc (loc)}
-					<option value={loc}>{LOCALE_LABELS[loc]}</option>
+					<option value={loc} lang={loc}>{LOCALE_LABELS[loc]}</option>
 				{/each}
 			</Select>
 		{/snippet}

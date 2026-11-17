@@ -193,6 +193,20 @@ describe('apiRaw', () => {
 		httpFetchMock.mockResolvedValueOnce(new Response('', { status: 404 }));
 		await expect(apiRaw('/missing')).rejects.toBeInstanceOf(ApiError);
 	});
+
+	it("carries the backend's problem detail, as the JSON client does", async () => {
+		httpFetchMock.mockResolvedValueOnce(
+			new Response(JSON.stringify({ status: 500, detail: 'vCard export failed.' }), {
+				status: 500,
+				statusText: 'Internal Server Error',
+				headers: { 'content-type': 'application/problem+json' }
+			})
+		);
+		const error = await apiRaw('/export.vcf').catch((err: unknown) => err);
+		expect(error).toBeInstanceOf(ApiError);
+		expect((error as ApiError).message).toBe('vCard export failed.');
+		expect((error as ApiError).problem?.detail).toBe('vCard export failed.');
+	});
 });
 
 describe('buildApiUrl', () => {

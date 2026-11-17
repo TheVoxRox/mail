@@ -1,3 +1,3 @@
-import Root from './select.svelte';
+import Root, { selectVariants } from './select.svelte';
 
-export { Root as Select };
+export { Root as Select, selectVariants };
