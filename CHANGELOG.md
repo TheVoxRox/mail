@@ -198,6 +198,11 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The content-rendering audit is re-verified (2.3) against the squash commit
+  of #948, clearing its six drift acknowledgements: no finding, the frame's
+  CSP hashes recomputed from source, and one stale claim corrected — §2's list
+  of test files that assign `innerHTML`, out of date for the fourth time, now
+  states what each occurrence must be and leaves the list to its grep (#949).
 - The mail toolbars are built on bits-ui's Toolbar instead of the hand-written
   `rovingToolbar()` attachment, which is gone: the maintainer prefers the
   components that exist. `CLAUDE.md` says so for every widget. A test opens
