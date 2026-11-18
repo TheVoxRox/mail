@@ -99,7 +99,7 @@
 	}
 
 	function handleWindowKeydown(event: KeyboardEvent) {
-		if (event.key !== 'Escape') return;
+		if (event.key !== 'Escape' || event.defaultPrevented) return;
 		if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
 		if (!get(selectedMessage)) return;
 		const target = event.target;
@@ -113,8 +113,14 @@
 			) {
 				return;
 			}
-			// Don't close the detail if a dialog is open (let it close on Esc)
-			if (target.closest('[role="dialog"]') !== null) return;
+			/*
+			 * Escape belongs to the popup it was pressed in: the dialog or menu
+			 * closes and the message stays open. Menus were missing here, so
+			 * Escape in the account switcher's menu closed the menu and the
+			 * message together and left focus in the list, where the menu button
+			 * pattern returns it to the button (APG; caught by apgLosses).
+			 */
+			if (target.closest('[role="dialog"], [role="menu"]') !== null) return;
 		}
 		event.preventDefault();
 		handleClose();

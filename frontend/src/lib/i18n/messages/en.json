@@ -769,7 +769,9 @@
 				"runCommand": "Run the selected command",
 				"closePalette": "Close the command palette",
 				"keepFocus": "Move to the next item in the palette",
-				"keepFocusBack": "Move to the previous item in the palette"
+				"keepFocusBack": "Move to the previous item in the palette",
+				"toolbarPrevNext": "Previous / next toolbar button",
+				"toolbarFirstLast": "First / last toolbar button"
 			},
 			"scopes": {
 				"globalIncludingInputs": "Works anywhere, including text fields.",
@@ -783,7 +785,8 @@
 				"addressSuggestions": "Works in the address suggestions while composing, once you have moved through them with an arrow key and the caret is at the end of the field. The address comes back with the next message from or to that person.",
 				"openMessage": "Works while a message is open.",
 				"printTarget": "Prints the open message when focus is in it, otherwise the selected messages. Works in text fields too.",
-				"palette": "Works while the command palette is open."
+				"palette": "Works while the command palette is open.",
+				"toolbar": "Works in the Message actions and Bulk actions toolbars."
 			}
 		},
 		"accounts": {

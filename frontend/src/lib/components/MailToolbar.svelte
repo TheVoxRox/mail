@@ -7,6 +7,7 @@
 	import { printOpenMessage } from '#lib/mail/printMessages.js';
 	import { deleteMessages, toggleMessageFlag, toggleMessageSeen } from '#lib/mail/mailbox.js';
 	import { Button, buttonVariants } from '#lib/components/ui/button/index.js';
+	import { rovingToolbar } from '#lib/components/ui/toolbar/index.js';
 	import Icon, { type IconName } from '#lib/components/Icon.svelte';
 	import MessageMoveControl from '#lib/components/message-detail/MessageMoveControl.svelte';
 	import { cn } from '#lib/utils.js';
@@ -120,6 +121,7 @@
 <div
 	data-print="chrome"
 	role="toolbar"
+	{@attach rovingToolbar()}
 	aria-label={$_('toolbar.ariaLabel')}
 	class="flex min-h-9 min-w-0 flex-1 flex-nowrap items-center gap-1.5 overflow-x-auto"
 >

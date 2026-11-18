@@ -164,6 +164,16 @@
 					shortcut: 'Delete',
 					actionKey: 'settings.shortcuts.actions.forgetSuggestion',
 					scopeKey: 'settings.shortcuts.scopes.addressSuggestions'
+				},
+				{
+					shortcutKey: 'settings.shortcuts.keys.leftRight',
+					actionKey: 'settings.shortcuts.actions.toolbarPrevNext',
+					scopeKey: 'settings.shortcuts.scopes.toolbar'
+				},
+				{
+					shortcut: 'Home / End',
+					actionKey: 'settings.shortcuts.actions.toolbarFirstLast',
+					scopeKey: 'settings.shortcuts.scopes.toolbar'
 				}
 			]
 		},

@@ -769,7 +769,9 @@
 				"runCommand": "Spustit vybraný příkaz",
 				"closePalette": "Zavřít paletu příkazů",
 				"keepFocus": "Přejít na další prvek v paletě",
-				"keepFocusBack": "Přejít na předchozí prvek v paletě"
+				"keepFocusBack": "Přejít na předchozí prvek v paletě",
+				"toolbarPrevNext": "Předchozí / další tlačítko panelu nástrojů",
+				"toolbarFirstLast": "První / poslední tlačítko panelu nástrojů"
 			},
 			"scopes": {
 				"globalIncludingInputs": "Funguje kdekoli, i v textových polích.",
@@ -783,7 +785,8 @@
 				"addressSuggestions": "Funguje v návrzích adres při psaní, když jste se v nich pohnuli šipkou a kurzor je na konci pole. Adresa se vrátí s další zprávou od toho člověka nebo pro něj.",
 				"openMessage": "Funguje v otevřené zprávě.",
 				"printTarget": "Vytiskne otevřenou zprávu, je-li v ní fokus, jinak vybrané zprávy. Funguje i v textových polích.",
-				"palette": "Funguje při otevřené paletě příkazů."
+				"palette": "Funguje při otevřené paletě příkazů.",
+				"toolbar": "Funguje v panelech nástrojů Akce se zprávami a Hromadné akce."
 			}
 		},
 		"accounts": {
