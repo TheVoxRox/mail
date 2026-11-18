@@ -313,6 +313,28 @@ test.describe('Přístupnost', () => {
 		await expectNoFindings(page, results);
 	});
 
+	test('toolbar Akce se zprávami zůstane jednou zastávkou Tabu při přechodu na další zprávu (APG)', async ({
+		page
+	}) => {
+		// The per-screen walk opens the detail directly. Here the message is
+		// opened from the list and then left for the next one, while the
+		// toolbar stays mounted over a message that changes under it.
+		await openApp(page, `/mail/${mailFixture.accountId}/${mailFixture.folderName}`);
+		const rows = rowsOf(messageGrid(page));
+		await rows.first().click();
+		await waitForFocus(bodyFrame(page));
+		const toolbar = page.getByRole('toolbar', { name: 'Akce se zprávami' });
+		await expect(toolbar.locator('[tabindex="0"]')).toHaveCount(1);
+
+		await rows.nth(1).click();
+		await expect(page).toHaveURL(
+			new RegExp(`/${await rows.nth(1).getAttribute('data-stable-id')}$`)
+		);
+		await waitForFocus(bodyFrame(page));
+		await expect(toolbar.locator('[tabindex="0"]')).toHaveCount(1);
+		expect(await apgLosses(page)).toEqual([]);
+	});
+
 	test('toolbar hromadných akcí je jedna zastávka Tabu a projdou jím šipky (APG)', async ({
 		page
 	}) => {

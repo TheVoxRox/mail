@@ -1055,20 +1055,27 @@ purpose and that meets the WCAG criterion it stands near, which then moves to
 
 ### A toolbar is one Tab stop, with the arrow keys between its controls
 
-**Decided 2026-11-18** (maintainer). The two toolbars of the mail view, "Akce
-se zprávami" over an open message and "Hromadné akce" over a selection, follow
-the WAI-ARIA toolbar pattern through `rovingToolbar()` in
-[ui/toolbar](../frontend/src/lib/components/ui/toolbar/roving-toolbar.ts): Tab
-enters at the control used last and leaves with the next press, ArrowLeft and
-ArrowRight move between the controls and wrap, Home and End go to the first
-and the last. Every button used to be a Tab stop of its own, eight over a
-message, so the role promised arrow keys that did nothing and the message
-behind the toolbar was eight presses away.
+**Decided 2026-11-18** (maintainer); built on bits-ui's Toolbar the same day.
+The two toolbars of the mail view, "Akce se zprávami" over an open message and
+"Hromadné akce" over a selection, follow the WAI-ARIA toolbar pattern through
+bits-ui's `Toolbar.Root` and `Toolbar.Button`, in
+[MailToolbar.svelte](../frontend/src/lib/components/MailToolbar.svelte) and
+[MailBulkToolbar.svelte](../frontend/src/lib/components/mail-list/MailBulkToolbar.svelte):
+Tab enters at the control the arrows reached last (the first one before that)
+and leaves with the next press, ArrowLeft and ArrowRight move between the
+controls and wrap, Home and End go to the first and the last. Every button
+used to be a Tab stop of its own, eight over a message, so the role promised
+arrow keys that did nothing and the message behind the toolbar was eight
+presses away.
 
-ArrowUp and ArrowDown stay with the control, so a menu button in a toolbar
-still opens its menu on ArrowDown. A text field in a toolbar keeps the arrows,
-Home and End. `apgLosses` holds every toolbar the per-screen walk reaches to
-one Tab stop, and the settings page of keyboard shortcuts lists the keys.
+The first version was a hand-written attachment; the maintainer prefers the
+components that exist, and bits-ui ships this one. A menu trigger joins the
+toolbar through its `child` snippet, and the select-all checkbox does too,
+with the `role="button"` bits-ui gives every item that is not a `<button>`
+taken off it so it stays a checkbox. ArrowUp and ArrowDown stay with the
+control, so a menu button in a toolbar still opens its menu on ArrowDown.
+`apgLosses` holds every toolbar the per-screen walk reaches to one Tab stop,
+and the settings page of keyboard shortcuts lists the keys.
 
 **Revisit when:** a toolbar gains a control that needs ArrowLeft or ArrowRight
 itself, such as a slider, which the pattern lets keep them only by ending the

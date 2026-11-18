@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { DropdownMenu } from 'bits-ui';
+	import { DropdownMenu, Toolbar } from 'bits-ui';
 	import { MenuContent, menuItemVariants } from '#lib/components/ui/menu/index.js';
 	import { selectedMessage } from '#lib/stores/selectedMessage.js';
 	import { _ } from '#lib/i18n/index.js';
@@ -7,7 +7,6 @@
 	import { printOpenMessage } from '#lib/mail/printMessages.js';
 	import { deleteMessages, toggleMessageFlag, toggleMessageSeen } from '#lib/mail/mailbox.js';
 	import { Button, buttonVariants } from '#lib/components/ui/button/index.js';
-	import { rovingToolbar } from '#lib/components/ui/toolbar/index.js';
 	import Icon, { type IconName } from '#lib/components/Icon.svelte';
 	import MessageMoveControl from '#lib/components/message-detail/MessageMoveControl.svelte';
 	import { cn } from '#lib/utils.js';
@@ -117,34 +116,41 @@
 	Outer wrapping bar (border / bg / padding) is driven by the parent in
 	+layout.svelte so the heading on the left and action buttons on the
 	right sit on the same row.
+
+	bits-ui's Toolbar gives the WAI-ARIA toolbar keyboard: one Tab stop, the
+	left and right arrows between the controls (wrapping), Home and End. Every
+	control in it is a Toolbar.Button, the menu triggers included (through the
+	trigger's child snippet), or it would stay a Tab stop of its own.
 -->
-<div
+<Toolbar.Root
 	data-print="chrome"
-	role="toolbar"
-	{@attach rovingToolbar()}
 	aria-label={$_('toolbar.ariaLabel')}
 	class="flex min-h-9 min-w-0 flex-1 flex-nowrap items-center gap-1.5 overflow-x-auto"
 >
 	{#if !overflow}
 		<div class="flex shrink-0 items-center gap-1">
 			{#each messageActions() as action (action.id)}
-				<Button
-					variant={action.variant}
-					size={compact ? 'icon-sm' : 'sm'}
-					onclick={() => runSelected(action.run)}
-					disabled={!hasSelection}
-					title={action.label}
-					aria-keyshortcuts={action.ariaKeyshortcuts}
-				>
-					{#if action.icon}
-						<Icon name={action.icon} />
-					{/if}
-					{#if compact}
-						<span class="sr-only">{action.label}</span>
-					{:else}
-						<span>{action.label}</span>
-					{/if}
-				</Button>
+				<Toolbar.Button disabled={!hasSelection}>
+					{#snippet child({ props })}
+						<Button
+							{...props}
+							variant={action.variant}
+							size={compact ? 'icon-sm' : 'sm'}
+							onclick={() => runSelected(action.run)}
+							title={action.label}
+							aria-keyshortcuts={action.ariaKeyshortcuts}
+						>
+							{#if action.icon}
+								<Icon name={action.icon} />
+							{/if}
+							{#if compact}
+								<span class="sr-only">{action.label}</span>
+							{:else}
+								<span>{action.label}</span>
+							{/if}
+						</Button>
+					{/snippet}
+				</Toolbar.Button>
 			{/each}
 		</div>
 
@@ -154,15 +160,20 @@
 	<div class="ml-auto flex shrink-0 items-center gap-2">
 		{#if overflow}
 			<DropdownMenu.Root bind:open={moreOpen}>
-				<DropdownMenu.Trigger
-					class={cn(
-						buttonVariants({ variant: 'outline', size: 'sm' }),
-						'data-[state=open]:bg-muted'
-					)}
-					aria-label={$_('toolbar.more')}
-				>
-					<Icon name="ellipsis-horizontal" />
-					<span>{$_('toolbar.more')}</span>
+				<DropdownMenu.Trigger>
+					{#snippet child({ props })}
+						<Toolbar.Button
+							{...props}
+							class={cn(
+								buttonVariants({ variant: 'outline', size: 'sm' }),
+								'data-[state=open]:bg-muted'
+							)}
+							aria-label={$_('toolbar.more')}
+						>
+							<Icon name="ellipsis-horizontal" />
+							<span>{$_('toolbar.more')}</span>
+						</Toolbar.Button>
+					{/snippet}
 				</DropdownMenu.Trigger>
 
 				<MenuContent
@@ -187,4 +198,4 @@
 			</DropdownMenu.Root>
 		{/if}
 	</div>
-</div>
+</Toolbar.Root>

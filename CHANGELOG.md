@@ -64,8 +64,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 ### Frontend
 
 - The toolbars over an open message ("Akce se zprávami") and over a selection
-  ("Hromadné akce") are one Tab stop each: Tab enters at the button used last
-  and leaves with the next press, the left and right arrows move between the
+  ("Hromadné akce") are one Tab stop each: Tab enters at the button the arrows
+  reached last and leaves with the next press, the left and right arrows move between the
   buttons, Home and End go to the first and the last. Every button used to be
   a Tab stop of its own, so the message behind the toolbar was eight presses
   away and a screen reader announced a toolbar whose arrow keys did nothing.
@@ -198,6 +198,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The mail toolbars are built on bits-ui's Toolbar instead of the hand-written
+  `rovingToolbar()` attachment, which is gone: the maintainer prefers the
+  components that exist. `CLAUDE.md` says so for every widget. A test opens
+  one message after another and checks the toolbar keeps one Tab stop; the
+  Move trigger's change is acknowledged for the content-rendering audit
+  (#948).
 - The accessibility suite looks for raw English error text on a Czech screen
   that no `lang="en"` marks (WCAG 3.1.2), on every screen as it loads and with
   every request for data failing, as an empty 500 and as a network error. The
