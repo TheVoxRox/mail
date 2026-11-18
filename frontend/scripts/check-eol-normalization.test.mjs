@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { utimesSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGateRepo } from './test-support/gate-repo.mjs';
@@ -58,6 +59,34 @@ function commitUnfilteredBlob(relPath, bytes) {
 	repo.git(['update-index', '--add', '--cacheinfo', `100644,${sha},${relPath}`]);
 	repo.git(['commit', '--quiet', '--no-verify', '-m', `raw ${relPath}`]);
 	repo.git(['checkout', '--', relPath]);
+}
+
+/**
+ * `git status --porcelain`, answered from the content of `relPath` rather than
+ * from the stat cache.
+ *
+ * When git writes a working file it records the file's stat in the index and
+ * trusts it from then on. It re-reads the content only for an entry that is
+ * "racily clean", one whose mtime is not older than the index file. Git for
+ * Windows records nanoseconds there but compares only whole seconds. Straight
+ * after a checkout, then, status looks at the file only if git wrote the file
+ * and the index within the same second. Usually it does. When the two straddle
+ * a second boundary, git trusts the stat and status calls the file clean
+ * whatever it holds. That is how the checkout/reset test below once failed a
+ * pre-push run, and it fails the same way on an idle machine, just less often.
+ *
+ * Moving the mtime to a moment the index cannot have recorded makes the stat
+ * disagree. Git then hashes the file through the clean filter and compares the
+ * result with the blob, which is the answer status gives the moment anything
+ * makes it look. No byte changes: a file whose content matches comes back
+ * clean, and status records the new stat. `git update-index --really-refresh`
+ * is not a substitute. It ignores the assume-unchanged bit, not the stat, and
+ * status after it still trusts the cache.
+ */
+function statusOfContent(relPath) {
+	const stale = new Date('2000-01-01T00:00:00Z');
+	utimesSync(path.join(repo.root, relPath), stale, stale);
+	return repo.git(['status', '--porcelain']);
 }
 
 describe('check-eol-normalization', () => {
@@ -145,9 +174,8 @@ describe('check-eol-normalization', () => {
 		commitUnfilteredBlob('docs/notes.md', Buffer.from('first\r\nsecond\nthird\r\n'));
 
 		expect(repo.git(['status', '--porcelain'])).toBe('');
-		// Touch the file so the stat cache cannot be what is hiding it.
-		repo.git(['update-index', '--really-refresh']);
-		expect(repo.git(['status', '--porcelain'])).toBe('');
+		// And from the content, so the stat cache cannot be what is hiding it.
+		expect(statusOfContent('docs/notes.md')).toBe('');
 
 		const result = repo.run('check-eol-normalization.mjs');
 
@@ -161,21 +189,32 @@ describe('check-eol-normalization', () => {
 	 * modified in every clone and the usual ways of discarding local changes
 	 * do not touch it, because the smudge filter rebuilds the working copy
 	 * from the same bad blob every time.
+	 *
+	 * Every status here is asked of the content (see statusOfContent). Asked
+	 * plainly, status right after a checkout or reset answers from the content
+	 * or from the stat cache depending on the clock, and this test used to
+	 * fail whenever it got the cache. Starting each discard from a stat that
+	 * disagrees also makes it really rewrite the file. A stat that matched
+	 * would let git skip the write, and the test would be about a discard
+	 * that never happened.
 	 */
 	it('flags a file that `checkout --` and `reset --hard` cannot clean, until renormalized', () => {
 		repo.write('keep.ts', LF('export const ok = true;'));
 		repo.commit();
 		commitUnfilteredBlob('mvnw.cmd', CRLF('@echo off', 'echo build'));
 
+		expect(statusOfContent('mvnw.cmd')).toContain('mvnw.cmd');
 		repo.git(['checkout', '--force', '--', 'mvnw.cmd']);
-		expect(repo.git(['status', '--porcelain'])).toContain('mvnw.cmd');
+		expect(statusOfContent('mvnw.cmd')).toContain('mvnw.cmd');
 		repo.git(['reset', '--hard', '--quiet']);
-		expect(repo.git(['status', '--porcelain'])).toContain('mvnw.cmd');
+		expect(statusOfContent('mvnw.cmd')).toContain('mvnw.cmd');
 
 		repo.git(['add', '--renormalize', 'mvnw.cmd']);
 		repo.git(['commit', '--quiet', '--no-verify', '-m', 'renormalize']);
 
-		expect(repo.git(['status', '--porcelain'])).toBe('');
+		// The same question of the cured file, so it is the content status was
+		// objecting to and not the moved mtime.
+		expect(statusOfContent('mvnw.cmd')).toBe('');
 		expect(repo.run('check-eol-normalization.mjs').status).toBe(0);
 	});
 

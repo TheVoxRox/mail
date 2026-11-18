@@ -182,6 +182,13 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The `check:eol` test that `checkout --` and `reset --hard` cannot clean a
+  CRLF blob no longer depends on the clock. Straight after a discard,
+  `git status` re-reads the file only if git wrote it and the index within the
+  same second, and otherwise calls it clean from the stat cache, which failed
+  a pre-push run on 2026-11-17. The test now moves the file's mtime before
+  each status so git compares content, and so does the mixed-ending test,
+  whose `update-index --really-refresh` never bypassed the cache (#941).
 - `check:java-imports` counts only an unqualified occurrence of a name as a use
   of its import. A dot is a word boundary, so the tail of `a.b.Pageable` kept an
   import of `Pageable` alive that the IDE reported as unused; a name after `.`
