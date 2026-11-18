@@ -55,12 +55,12 @@ class FrameworkRequestRejectionTest {
 
         @GetMapping("/items/{id}")
         String item(@PathVariable Long id) {
-            return "item";
+            return "item " + id;
         }
 
         @PostMapping(value = "/items", consumes = MediaType.APPLICATION_JSON_VALUE)
         String create(@RequestBody String body) {
-            return "created";
+            return body;
         }
 
         @GetMapping(value = "/export", produces = "text/vcard")

@@ -198,6 +198,11 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- Three CodeQL alerts in backend tests are fixed in the code rather than
+  dismissed, since a dismissal comes back whenever its line moves: a chain test
+  takes its last stored revision from a list instead of a variable that starts
+  out null, and the probe controller of the request-rejection test returns the
+  parameters it binds. The other open alerts were triaged on GitHub (#951).
 - The updater audit is re-verified (1.27) against the squash commit of #949,
   clearing its six drift acknowledgements with no finding. The one gap was a
   list: #886's new-mail notification command was named neither in the audit's
