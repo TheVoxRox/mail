@@ -168,7 +168,9 @@ coverage, add a per-file threshold rather than lowering a global floor.
   lint (no arbitrary font-size utilities), design lint (see below), version
   sync, doc-claims lint (stack versions and stale phrases in root + module
   docs vs `pom.xml`/`package.json`/`.nvmrc`), audit freshness (see below),
-  OpenAPI snapshot drift, `svelte-check` (must report 0 errors).
+  OpenAPI snapshot drift, `svelte-check` (must report 0 errors and 0
+  warnings, so a compiler accessibility warning fails the push as an error
+  does).
 - `npm run check:design` (part of `check`) — the visual system, which a type
   checker cannot see: colours must come from the tokens in `app.css` and never
   from Tailwind's own palette (a palette colour has to be re-picked by hand for
@@ -176,7 +178,10 @@ coverage, add a per-file threshold rather than lowering a global floor.
   must come from the radius scale, so Tailwind's bare `rounded` — its own 4px
   default, on no step of that scale — is refused; the focus indicator may only
   be spelled out in `src/lib/components/ui/focus-ring/`; and a token tint must
-  step in multiples of 10. The tint rule is not cosmetic: `bg-muted` had drifted
+  step in multiples of 10. A looping animation (Tailwind's spin, pulse, ping
+  or bounce) must stop under reduced motion on its own element, with
+  `motion-reduce:animate-none` or by looping only under `motion-safe:` (WCAG
+  2.2.2). The tint rule is not cosmetic: `bg-muted` had drifted
   to ten alphas between /15 and /70, three of them stacked as adjacent bars in
   one view, and steps that fine are invisible on screen while reading as
   deliberate in a diff. Adding a colour, a radius or a tint step therefore means
@@ -299,6 +304,11 @@ decide whether everything else is allowed to land.
 - `npm run check:test-claims` — part of `npm run check`. Fails on two tests
   in one file with identical bodies, and on a test switched off without a
   reason (`@Disabled("…")`, or a `test-skip: …` comment above the call).
+- `npm run check:a11y-ignores` — part of `npm run check`. A `svelte-ignore`
+  of an accessibility warning (`a11y_…`) has to say why, in prose after the
+  codes, as in
+  `<!-- svelte-ignore a11y_click_events_have_key_events (the row takes the keys) -->`.
+  Svelte reads everything after the last code without a comma as prose.
 - `npm run check:e2e-focus` — part of `npm run check`. An e2e test that takes
   focus itself may not then send a key without saying where that key lands.
   The app moves focus in the gap on purpose — opening a message parks the

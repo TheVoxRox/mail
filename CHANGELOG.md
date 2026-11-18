@@ -188,6 +188,11 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- `npm run check` runs `svelte-check --fail-on-warnings`, so the Svelte
+  compiler's accessibility warnings (a click with no key handler, an image
+  with no `alt`) fail the push; they passed it as warnings before. The new
+  `check:a11y-ignores` requires a reason after the codes of every
+  `svelte-ignore a11y_…`, and the nine that had none now say why.
 - The accessibility suite changes every select, radio button and checkbox on
   each screen by keyboard and fails a screen where that leaves the page, opens
   a dialog or takes focus away (WCAG 3.2.2); with the pre-#929 account

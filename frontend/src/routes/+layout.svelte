@@ -581,7 +581,7 @@
 				also takes it out of the tab order and the landmark list until the
 				toggle or Ctrl+Y brings it back.
 			-->
-			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<!-- svelte-ignore a11y_no_static_element_interactions (the wrapper only hears Escape and focus leaving the pane, both bubbling from the controls inside; nothing here is activated) -->
 			<div
 				class={$paneFolded ? 'fixed inset-y-0 left-16 z-40 flex shadow-2xl' : 'contents'}
 				hidden={$paneFolded && !$paneOpen}

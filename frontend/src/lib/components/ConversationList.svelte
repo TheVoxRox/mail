@@ -1331,7 +1331,7 @@
 					>
 						{#if isConversation}
 							{@const mixed = conversationMixed(row.conversation)}
-							<!-- svelte-ignore a11y_click_events_have_key_events -->
+							<!-- svelte-ignore a11y_click_events_have_key_events (the handler only keeps a click in this cell from reaching the row, which opens the message; the control inside the cell takes the keys) -->
 							<div
 								role="gridcell"
 								aria-colindex={COL_SELECT + 1}
@@ -1362,7 +1362,7 @@
 							</div>
 						{:else if isRowActionableHere(row)}
 							{@const parentConversation = conversationByThread.get(row.threadId)!}
-							<!-- svelte-ignore a11y_click_events_have_key_events -->
+							<!-- svelte-ignore a11y_click_events_have_key_events (the handler only keeps a click in this cell from reaching the row, which opens the message; the control inside the cell takes the keys) -->
 							<div
 								role="gridcell"
 								aria-colindex={COL_SELECT + 1}
@@ -1405,7 +1405,7 @@
 							></div>
 						{/if}
 						{#if expandable}
-							<!-- svelte-ignore a11y_click_events_have_key_events -->
+							<!-- svelte-ignore a11y_click_events_have_key_events (the handler only keeps a click in this cell from reaching the row, which opens the message; the control inside the cell takes the keys) -->
 							<div
 								role="gridcell"
 								aria-colindex={COL_EXPAND + 1}
@@ -1649,7 +1649,7 @@
 								class={cn('col-start-6 row-span-2 rounded-sm', focusRingInset)}
 							></div>
 						{:else}
-							<!-- svelte-ignore a11y_click_events_have_key_events -->
+							<!-- svelte-ignore a11y_click_events_have_key_events (the handler only keeps a click in this cell from reaching the row, which opens the message; the control inside the cell takes the keys) -->
 							<div
 								role="gridcell"
 								aria-colindex={COL_ACTIONS + 1}

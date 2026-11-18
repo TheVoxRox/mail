@@ -149,7 +149,7 @@
 		{@render first()}
 	</section>
 
-	<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions (a focusable separator is the ARIA window splitter, a widget that takes focus and the arrow keys; Svelte counts every separator as non-interactive) -->
 	<div
 		role="separator"
 		tabindex="0"

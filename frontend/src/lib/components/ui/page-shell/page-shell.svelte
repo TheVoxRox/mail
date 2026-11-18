@@ -29,7 +29,7 @@
 	announce right before the <h1> — duplicating the heading that already names
 	this area inside the parent <main> landmark.
 -->
-<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+<!-- svelte-ignore a11y_no_noninteractive_tabindex (a scrolling region takes focus so the keyboard can scroll it, WCAG 2.1.1; see the comment above) -->
 <section
 	tabindex="0"
 	class={cn('flex-1 overflow-y-auto bg-background', focusRingScrollArea, className)}
