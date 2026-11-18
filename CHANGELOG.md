@@ -203,7 +203,7 @@ Entries before 2026-09-17 predate that split and are left as written.
   stop that the arrows never leave, a menu button opens on Enter with focus on
   an item and returns focus on Escape. The walk found the two toolbars above
   and the Escape that closed a message; a test holds the bulk toolbar, which no
-  screen shows as it loads.
+  screen shows as it loads (#946).
 - The axe scans run axe's best-practice rules beside the WCAG ones, all but
   `region`, so an ARIA role its element does not allow, an unnamed dialog, a
   second `main` or a page with no `<h1>` fail the suite. The first run found
