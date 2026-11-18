@@ -203,6 +203,11 @@ Entries before 2026-09-17 predate that split and are left as written.
   takes its last stored revision from a list instead of a variable that starts
   out null, and the probe controller of the request-rejection test returns the
   parameters it binds. The other open alerts were triaged on GitHub (#951).
+- The content-rendering audit is re-verified (2.3) against the squash commit
+  of #948, clearing its six drift acknowledgements: no finding, the frame's
+  CSP hashes recomputed from source, and one stale claim corrected — §2's list
+  of test files that assign `innerHTML`, out of date for the fourth time, now
+  states what each occurrence must be and leaves the list to its grep (#949).
 - The open-source licence disclosure in Nastavení, Aplikace is bits-ui's
   Collapsible and the update download bar is bits-ui's Progress, where both were
   written by hand; names, states and announcements are unchanged. A component
