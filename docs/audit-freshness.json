@@ -60,39 +60,6 @@
       }
     ]
   },
-  "docs/CONTENT_RENDERING_AUDIT.md": {
-    "reviewedTrees": {
-      "frontend/src/lib/mail/mailFrame.ts": "039781084f982faf4d034090719936613d61e493",
-      "frontend/src/lib/components/message-detail": "66d8cb0b3fcadd1c55ac71ae2a5115f9367fae86",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/MailContentService.java": "5f1a7f45aebb7a9c94c44711b53b87d94f88efa7"
-    },
-    "acknowledgements": [
-      {
-        "date": "2026-10-27",
-        "note": "The forwarder's Shift branch of the preventDefault predicate grows from /^[rg]$/i to /^[rgi]$/i, so Ctrl+Shift+I (the app's new go-to-Inbox shortcut in globalShortcuts.ts) is cancelled in the frame as Ctrl+Shift+R and Ctrl+Shift+G are; the rest of the script is byte-identical, and the comment above it names the new key. MAIL_FRAME_SCRIPT_SHA256 was recomputed independently (SHA-256 of the string literal, base64: yOywlma3ATltbXiySWrZF0tBX1RtZ0aZRF07BflnLk0=) and matches the constant and mailFrame.test.ts. Section 1 holds: the frame is still sandbox=allow-scripts without allow-same-origin, the CSP still admits exactly that one hash-pinned script, the forwarder still relays only isTrusted keystrokes and anchor clicks and posts the same fields; cancelling one more chord adds no capability and no data to what it sends. The styles, the sanitizer and the other Code paths are untouched. Verdict unchanged."
-      },
-      {
-        "date": "2026-10-31",
-        "note": "The only change under message-detail is the remote-image banner in MessageContent.svelte, for testers who could not tell what it was for: its text moves from a muted span to a paragraph that says why the images are held back (the message holds images from the internet that were not loaded, and loading them can tell the sender it was opened), and the i18n strings behind it, the region name and both announcements say 'images from the internet' instead of 'remote images'; the second button is now named 'Always load images from this sender'. The banner is still shown only while renderAsHtml, the count is non-zero and loadRemoteImages is false; the two buttons call the same revealRemoteImages and trustSender, which still send the same allow-list PUT; loadRemoteImages is still seeded per stableId from remoteImagesAllowedForSender; the iframe's sandbox, srcdoc, CSP and the mailFrame message handling are byte-identical. Section 1's tracking-pixel claim holds: no path loads a remote image without one of the two presses. The 2026-07-08 finding record still quotes the button's old English label, which is that date's record and not a claim about the current text. Verdict unchanged."
-      },
-      {
-        "date": "2026-11-10",
-        "note": "Audit 2.2. mailFrame.ts: the forwarder cancels one more chord, Ctrl+Shift+W (the Shift list /^[rgi]$/ becomes /^[rgiw]$/), which the app now claims to move focus to the blocked-images banner; MAIL_FRAME_SCRIPT_SHA256 is recomputed from the literal and mailFrame.test.ts asserts it. The CSP directives, the sandbox, the style hashes, the link and height relays and the promote/count functions are untouched. message-detail: MessageContent.svelte takes remoteImageTrustOffered and renders the second button only when it is true and there is an account and an address to key the trust on (the branch that loaded once without remembering is gone with the button), names the address in the button and the announcement, sends the allow-list PUT through mail/remoteImageTrust.ts, which then drops that sender’s cached bodies, and publishes revealRemoteImages and a focus call for the palette command and the shortcut while the banner is shown and the copy is not the print sheet’s. Where the body takes focus on a deliberate open it also pushes one sentence to the polite announcer if the banner is shown; that call writes text to the app’s live region and loads nothing. MessagePrintSheet.svelte passes the new prop. loadRemoteImages is still seeded per stableId from remoteImagesAllowedForSender and set only by revealRemoteImages; the new callers reach that same function, so §2’s tracking-pixel claim holds: no remote image loads without a gesture on that message or a sender the user trusted, and now never by trust alone in junk. Verdict unchanged."
-      },
-      {
-        "date": "2026-11-16",
-        "note": "WCAG 2.2 AA fixes. message-detail: MessageHeaderCard.svelte adds `underline` to the class of the sender's \"Upravit kontakt\" / \"Přidat do kontaktů\" link and a comment on why (WCAG 1.4.1). The link's href, its accessible name and the rest of the header are unchanged; nothing in the directory that sanitizes, frames, sizes or loads mail content moved, and mailFrame.ts is untouched. Verdict unchanged."
-      },
-      {
-        "date": "2026-11-17",
-        "note": "Unused lambda parameters renamed to `_` (Java unnamed variables) so Eclipse JDT stops flagging them, and nothing else: every changed line was read, each swaps one parameter name for `_` in a lambda whose body never named it. Arity and parameter types are unchanged, so the same overloads resolve and the same code runs. Here: one folder callback in MailContentService (folder), whose body is unchanged; what is fetched and how it is sanitized do not move. Verdict unchanged."
-      },
-      {
-        "date": "2026-11-18",
-        "note": "The only change under message-detail is MessageMoveControl.svelte, the Move menu in the toolbar over an open message: its DropdownMenu.Trigger now renders a bits-ui Toolbar.Button through the trigger's child snippet, so the button is an item of MailToolbar's Toolbar.Root (one Tab stop, arrow keys between the controls) instead of a Tab stop of its own. Same classes, title, label, disabled condition and menu content; moveMessages, the move targets and the error line are untouched. Nothing that sanitizes, frames, sizes or loads mail content moved: MessageContent.svelte, mailFrame.ts and the iframe's sandbox, srcdoc and CSP are byte-identical. Verdict unchanged."
-      }
-    ]
-  },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "f1e0c7b7a96ce1c45ac25408d38f5f617ebf4c1e",
