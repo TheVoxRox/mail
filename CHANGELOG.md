@@ -203,6 +203,15 @@ Entries before 2026-09-17 predate that split and are left as written.
   takes its last stored revision from a list instead of a variable that starts
   out null, and the probe controller of the request-rejection test returns the
   parameters it binds. The other open alerts were triaged on GitHub (#951).
+- The updater audit is re-verified (1.27) against the squash commit of #949,
+  clearing its six drift acknowledgements with no finding. The one gap was a
+  list: #886's new-mail notification command was named neither in the audit's
+  §1 nor in the threat model's B4 row that points to it, and both now describe
+  it (#953).
+- `npm run audit:ci` no longer accepts GHSA-fc5q-39xc-vjpf (picomatch).
+  GitHub withdrew the advisory on 2026-11-18, and from then on the gate failed
+  Lint on `main` and on every pull request, because an acceptance that matches
+  no finding has to be deleted. The accepted list is empty (#954).
 - The content-rendering audit is re-verified (2.3) against the squash commit
   of #948, clearing its six drift acknowledgements: no finding, the frame's
   CSP hashes recomputed from source, and one stale claim corrected — §2's list
