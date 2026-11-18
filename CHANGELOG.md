@@ -198,6 +198,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The accessibility suite looks for raw English error text on a Czech screen
+  that no `lang="en"` marks (WCAG 3.1.2), on every screen as it loads and with
+  every request for data failing, as an empty 500 and as a network error. The
+  new `dataFailure` mock flag makes those error states. With `toErrorMessage`
+  put back to what it was before #929, the check fails on "Failed to fetch"
+  and "API error 500"; today every screen passes (#947).
 - Every screen of the accessibility suite is walked for the keyboard contract
   its ARIA patterns share: a grid, toolbar or other composite widget is one Tab
   stop that the arrows never leave, a menu button opens on Enter with focus on

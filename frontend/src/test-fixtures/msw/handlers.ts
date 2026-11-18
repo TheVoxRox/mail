@@ -213,6 +213,28 @@ export function setFolderAuthFailure(enabled: boolean): void {
 }
 
 /**
+ * Fails every request for data while set, so each screen shows its own error
+ * state. 'bare' answers 500 with no body, the shape whose text reached the
+ * screen as "API error 500: …" before #929; 'network' fails the request
+ * itself, which reached it as "Failed to fetch". What the app needs to start
+ * (client config, readiness, the notification stream, sign-in and the list of
+ * accounts, which bootstrap loads) answers as usual, or every screen would show
+ * the boot failure instead: measured, it did, before the account list was let
+ * through.
+ */
+let dataFailure: 'bare' | 'network' | null = null;
+const STARTUP_SEGMENTS = new Set(['client-config', 'system', 'notifications', 'auth']);
+
+export function setDataFailure(mode: 'bare' | 'network' | null): void {
+	dataFailure = mode;
+}
+
+function failsForData(method: string, segments: string[]): boolean {
+	if (!dataFailure || STARTUP_SEGMENTS.has(segments[0] ?? '')) return false;
+	return !(segments[0] === 'accounts' && segments.length === 1 && method === 'GET');
+}
+
+/**
  * Answers what needs the mail server — the folder list and a sync — the way
  * the backend does for an account flagged to sign in again
  * (ImapConnectionManager#requireUsableAccount).
@@ -1197,6 +1219,12 @@ async function routeApiRequest(request: Request): Promise<MockResponse> {
 	const path = apiIndex >= 0 ? url.pathname.slice(apiIndex + '/api/v1/'.length) : '';
 	const segments = path.split('/').filter(Boolean);
 	const method = request.method.toUpperCase();
+
+	if (failsForData(method, segments)) {
+		return dataFailure === 'network'
+			? HttpResponse.error()
+			: new HttpResponse(null, { status: 500 });
+	}
 
 	const response =
 		clientConfigRoutes(method, segments) ??
