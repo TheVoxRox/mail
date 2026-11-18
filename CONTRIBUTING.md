@@ -347,7 +347,9 @@ decide whether everything else is allowed to land.
   per-file 90/85/90 for `content-sanitizer.ts`, 85/80/80 for
   `client.ts`).
 - `npm run test:functional` — Playwright functional.
-- `npm run test:a11y` — Playwright a11y.
+- `npm run test:a11y` — Playwright a11y, measured against WCAG 2.2 AA
+  (`frontend/src/routes/a11y-target.ts`). Green is necessary, not sufficient:
+  the questions no scan answers are in [CLAUDE.md](CLAUDE.md) "Accessibility".
 - `npm run test:performance` — initial-load budget.
 
 **Tauri Rust (`cd frontend/src-tauri`)**

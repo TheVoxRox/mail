@@ -1,5 +1,5 @@
 /**
- * Guards the four parts of the visual system that a type checker cannot see.
+ * Guards the parts of the visual system that a type checker cannot see.
  *
  * Sibling of `check-typography.mjs`, which does the same for font sizes. Each
  * rule here is one that had already been broken by the time it was written —
@@ -19,6 +19,10 @@
  *      accumulated.
  *   5. A grid row takes its columns from the grid, never from itself. This one
  *      is scoped to an element rather than a line — see `openingTags`.
+ *   6. A looping animation stops under reduced motion (WCAG 2.2.2). The OAuth
+ *      wait's spinner turned for as long as the sign-in took, whatever the
+ *      system asked for (#929). Scoped to an element like 5, and to the line
+ *      in TypeScript, where a class string has no element around it.
  *
  * Adding a colour, a radius or a tint step means changing `app.css`, which is
  * the point: it is one file to read before picking, and one place to argue in.
@@ -179,9 +183,17 @@ function* openingTags(text) {
 }
 
 /**
+ * Tailwind's looping animations with whatever variants precede them, and the
+ * `class:` directive that toggles one: `animate-spin`, `hover:animate-ping`,
+ * `class:animate-pulse`.
+ */
+const LOOPING_ANIMATION = /(?<![\w-])(?:[\w[\]=&-]+:)*animate-(?:spin|pulse|ping|bounce)(?![\w-])/g;
+
+/**
  * Rules that need a whole element rather than a line. Kept separate because
  * the shape differs: a line rule reports the text it matched, an element rule
- * reports the pair of attributes that may not appear together.
+ * reports the pair of attributes that may not appear together. One with
+ * `lines: true` reads each line of a TypeScript file as if it were an element.
  */
 const elementRules = [
 	{
@@ -197,6 +209,25 @@ const elementRules = [
 			/\brole=(["'])row\1/.test(attributes) && attributes.includes('grid-cols-['),
 		label: 'grid-cols-[…] on role="row"',
 		hint: 'A row takes its columns from the grid it is in: put the tracks on the container and grid-cols-subgrid on the row.'
+	},
+	{
+		id: 'looping-animation',
+		// WCAG 2.2.2 (AA): what moves by itself for more than five seconds can
+		// be stopped. Tailwind's spin, pulse, ping and bounce repeat forever, and
+		// the OAuth wait shows its spinner for minutes; prefers-reduced-motion
+		// is how a user asks, so the element that loops has to answer it, either
+		// by `motion-reduce:animate-none` or by looping under `motion-safe:` only.
+		// A finite animation is not judged: that is 2.3.3, at AAA, which the
+		// product does not target (src/routes/a11y-target.ts). In TypeScript the
+		// unit is the line, since a class string there has no element around it;
+		// in a .svelte file a class built in the script block goes unread.
+		lines: true,
+		test: (attributes) =>
+			[...attributes.matchAll(LOOPING_ANIMATION)].some(
+				(match) => !match[0].includes('motion-safe:')
+			) && !/(?<![\w-])motion-reduce:!?animate-none!?(?![\w-])/.test(attributes),
+		label: 'looping animation without motion-reduce:animate-none',
+		hint: 'Stop it under reduced motion: add motion-reduce:animate-none to the same element, or loop only under motion-safe:.'
 	}
 ];
 
@@ -233,7 +264,15 @@ for await (const file of sourceFiles(srcDir)) {
 	}
 	// Markup only — an element rule needs an element, and a type parameter in a
 	// .ts file reads like a tag to any scanner.
-	if (!file.endsWith('.svelte')) continue;
+	if (!file.endsWith('.svelte')) {
+		for (const rule of elementRules) {
+			if (!rule.lines || rule.skip?.(relative)) continue;
+			lines.forEach((line, i) => {
+				if (rule.test(line)) violations.get(rule.id).push(`  ${relative}:${i + 1}  ${rule.label}`);
+			});
+		}
+		continue;
+	}
 	const tags = [...openingTags(source)];
 	for (const rule of elementRules) {
 		if (rule.skip?.(relative)) continue;
@@ -257,5 +296,5 @@ if (failed.length > 0) {
 }
 
 console.log(
-	'Design OK: tokens, radius scale, one focus ring, tints on the ladder, rows on subgrid'
+	'Design OK: tokens, radius scale, one focus ring, tints on the ladder, rows on subgrid, loops that stop'
 );

@@ -214,6 +214,16 @@ check:audits` fails when code under an audit's `Code paths` changed after its
 
 ## Accessibility
 
+- The conformance target is **WCAG 2.2 Level AA** for everything a user sees
+  or hears; `frontend/src/routes/a11y-target.ts` holds it for the axe scans. A
+  green `npm run test:a11y` is not conformance: a review of the whole frontend
+  found four failures the suite had passed (#929). Before committing a UI
+  change, ask what no scan answers: does a new value change the context
+  (3.2.2; the per-screen sweep covers native selects, radio buttons and
+  checkboxes), is all text in the page's language or marked with its own
+  (3.1.2), is anything told apart by colour alone (1.4.1), does anything move
+  on its own for more than five seconds (2.2.2; `check:design` covers
+  Tailwind's looping animations).
 - The maintainer uses a screen reader. Data-rich rows are **ARIA grids with
   roving tabindex**, never one button carrying a monolithic `aria-label`.
 - Keyboard shortcuts follow Microsoft Outlook. Ctrl+R/F/U collide with the
