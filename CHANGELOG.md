@@ -201,7 +201,9 @@ Entries before 2026-09-17 predate that split and are left as written.
 - The mail toolbars are built on bits-ui's Toolbar instead of the hand-written
   `rovingToolbar()` attachment, which is gone: the maintainer prefers the
   components that exist. `CLAUDE.md` says so for every widget. A test opens
-  one message after another and checks the toolbar keeps one Tab stop.
+  one message after another and checks the toolbar keeps one Tab stop; the
+  Move trigger's change is acknowledged for the content-rendering audit
+  (#948).
 - The accessibility suite looks for raw English error text on a Czech screen
   that no `lang="en"` marks (WCAG 3.1.2), on every screen as it loads and with
   every request for data failing, as an empty 500 and as a network error. The
