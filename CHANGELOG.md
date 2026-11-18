@@ -202,7 +202,7 @@ Entries before 2026-09-17 predate that split and are left as written.
   Collapsible and the update download bar is bits-ui's Progress, where both were
   written by hand; names, states and announcements are unchanged. A component
   test covers the disclosure, which the mocked e2e build cannot open; the
-  updater audit acknowledges the dialog's change.
+  updater audit acknowledges the dialog's change (#950).
 - The mail toolbars are built on bits-ui's Toolbar instead of the hand-written
   `rovingToolbar()` attachment, which is gone: the maintainer prefers the
   components that exist. `CLAUDE.md` says so for every widget. A test opens
