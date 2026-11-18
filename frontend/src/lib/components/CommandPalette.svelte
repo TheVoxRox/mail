@@ -301,12 +301,19 @@
 		</div>
 
 		<div class="shrink-0 border-b border-border px-4 py-3">
+			<!--
+				Named by aria-label, with the placeholder's own words, so the name a
+				screen reader says stays what it was. It used to come from the
+				placeholder alone, which axe's label-title-only fails: a placeholder
+				is a hint that leaves the field as soon as the user types, not a label.
+			-->
 			<BitsCommand.Input
 				id="command-palette-input"
 				bind:ref={inputElement}
 				bind:value={query}
 				oninput={handleQueryInput}
 				onkeydown={handleSelectionKeydown}
+				aria-label={$_('palette.placeholder')}
 				aria-describedby="palette-hint"
 				autofocus
 				placeholder={$_('palette.placeholder')}

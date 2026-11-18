@@ -40,8 +40,61 @@ export const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'
  * window with no orientation media query in its styles and no way for the user
  * to rotate it.
  */
+const EXPERIMENTAL_WCAG_RULES = ['label-content-name-mismatch'];
+
+/**
+ * Rules axe files under `best-practice` rather than under a criterion, run
+ * because each states a rule of ARIA or of page structure this codebase holds
+ * itself to: a role allowed on its element (`aria-allowed-role`), a name on
+ * every dialog and tree item, no `role="presentation"` on something focusable
+ * or named, one `main`, landmarks of one kind told apart by name, an `<h1>`
+ * on every page and no empty heading, no positive `tabindex`. axe stays silent
+ * about a rule it does not run, so before these were named a dialog without a
+ * name or an ARIA role its element does not allow passed every scan.
+ *
+ * Every such rule of the installed axe-core is either here or in
+ * `BEST_PRACTICE_LEFT_OUT` with its reason, and `a11y-target.test.ts` fails a
+ * bump that adds one to neither. Experimental and review-item rules are not
+ * asked about: they report "check by hand", which a scan cannot answer.
+ */
+export const BEST_PRACTICE_RULES = [
+	'accesskeys',
+	'aria-allowed-role',
+	'aria-dialog-name',
+	'aria-text',
+	'aria-treeitem-name',
+	'empty-heading',
+	'empty-table-header',
+	'heading-order',
+	'image-redundant-alt',
+	'label-title-only',
+	'landmark-banner-is-top-level',
+	'landmark-contentinfo-is-top-level',
+	'landmark-main-is-top-level',
+	'landmark-no-duplicate-banner',
+	'landmark-no-duplicate-contentinfo',
+	'landmark-no-duplicate-main',
+	'landmark-one-main',
+	'landmark-unique',
+	'meta-viewport-large',
+	'page-has-heading-one',
+	'presentation-role-conflict',
+	'scope-attr-valid',
+	'skip-link',
+	'tabindex',
+	'table-duplicate-name'
+];
+
+/** The best-practice rules that stay off, each with its reason. */
+export const BEST_PRACTICE_LEFT_OUT: Record<string, string> = {
+	region:
+		'Content outside a landmark is no WCAG failure, and the pane toggle stands outside the rail landmark on purpose (docs/DECISIONS.md).'
+};
+
 export const FORCED_RULES = {
-	'label-content-name-mismatch': { enabled: true }
+	...Object.fromEntries(
+		[...EXPERIMENTAL_WCAG_RULES, ...BEST_PRACTICE_RULES].map((rule) => [rule, { enabled: true }])
+	)
 };
 
 /**

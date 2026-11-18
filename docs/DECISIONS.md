@@ -328,8 +328,9 @@ command alone is not enough either, since a narrow window needs a visible
 trigger for the pointer (WCAG 1.4.10).
 
 Outside a landmark is not a WCAG failure; axe's `region` rule is a best
-practice, and the suite runs the WCAG tags only
-([a11y-target.ts](../frontend/src/routes/a11y-target.ts)).
+practice, and the one the suite leaves out (`BEST_PRACTICE_LEFT_OUT` in
+[a11y-target.ts](../frontend/src/routes/a11y-target.ts); see "The axe scans
+run the best-practice rules too, all but `region`").
 
 **Revisit when:** the app gets a command bar across the top of the window,
 which would be a place for the toggle that stays put whether the pane is
@@ -1026,3 +1027,28 @@ reports that nothing was evaluated, and the tracking issue stays open (#852).
 stops gating the backend for longer than a night, or the runners gain a route
 to Maven artifacts that Central does not throttle, such as an authenticated
 mirror.
+
+### The axe scans run the best-practice rules too, all but `region`
+
+**Decided 2026-11-18** (maintainer). Every axe scan runs the WCAG 2.2 A and AA
+rules and, beside them, axe's `best-practice` rules, listed by name in
+`BEST_PRACTICE_RULES` in
+[a11y-target.ts](../frontend/src/routes/a11y-target.ts). The scans had run the
+WCAG tags only, and axe says nothing about a rule it does not run: an ARIA
+role its element does not allow, a dialog with no name, `role="presentation"`
+on something focusable, a second `main`, two landmarks of one kind with one
+name, a page with no `<h1>`. These are the ARIA and structure rules the
+frontend is meant to keep while it is written, and the first run found one
+place that broke them, the command palette's search field named only by its
+placeholder.
+
+`region` stays off, with its reason in `BEST_PRACTICE_LEFT_OUT`: the pane
+toggle stands outside the rail's landmark on purpose (see "The pane toggle
+stands at the foot of the rail"). Experimental and review-item rules are not
+run; they report what to check by hand, which a scan cannot answer.
+`a11y-target.test.ts` fails an axe-core bump that brings a best-practice rule
+neither list names.
+
+**Revisit when:** a best-practice rule fails on a pattern the app uses on
+purpose and that meets the WCAG criterion it stands near, which then moves to
+`BEST_PRACTICE_LEFT_OUT` with that reason rather than being worked around.
