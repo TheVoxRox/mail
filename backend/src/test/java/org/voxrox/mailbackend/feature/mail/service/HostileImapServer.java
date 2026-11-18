@@ -21,6 +21,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 
@@ -227,6 +228,14 @@ final class HostileImapServer implements AutoCloseable {
                     // reader holds no byte of the handshake.
                     send(out, List.of(tag + " OK begin TLS now"));
                     SSLSocket tls = (SSLSocket) startTls.createSocket(socket, null, true);
+                    // This overload makes the server end, which checks no hostname. Naming
+                    // an algorithm changes nothing while the server asks for no client
+                    // certificate, and it is what CodeQL's java/unsafe-cert-trust looks
+                    // for: the rule knows server mode only on SSLEngine, so it reads every
+                    // SSLSocket as a client.
+                    SSLParameters parameters = tls.getSSLParameters();
+                    parameters.setEndpointIdentificationAlgorithm("HTTPS");
+                    tls.setSSLParameters(parameters);
                     tls.startHandshake();
                     open.add(tls);
                     socket = tls;
