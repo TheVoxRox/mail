@@ -6,6 +6,7 @@ import {
 	choiceLabelLosses,
 	contactGrid,
 	contextChangeLosses,
+	languageLosses,
 	conversationGrid,
 	expectNoFindings,
 	focusIndicatorLosses,
@@ -2184,6 +2185,13 @@ test.describe('Přístupnost – jednotlivé obrazovky', () => {
 			expect(await apgLosses(page)).toEqual([]);
 		});
 
+		test(`${name} (${path}) nemá anglický text bez lang (3.1.2)`, async ({ page }) => {
+			if (flags) await setMockFlags(page, flags);
+			await openApp(page, path);
+			await expect(ready(page)).toBeVisible();
+			expect(await languageLosses(page)).toEqual([]);
+		});
+
 		test(`${name} (${path}) nezmění kontext změnou hodnoty prvku (3.2.2)`, async ({ page }) => {
 			if (flags) await setMockFlags(page, flags);
 			await openApp(page, path);
@@ -2207,6 +2215,36 @@ test.describe('Přístupnost – jednotlivé obrazovky', () => {
 			await expect(ready(page)).toBeVisible();
 			expect(await textSpacingLosses(page)).toEqual([]);
 		});
+	}
+});
+
+/*
+ * The error states, which the screens above never show: every request for
+ * data fails, once with an empty 500 and once as a network error, the two
+ * shapes whose English text (#929: "API error 500: …", "Failed to fetch")
+ * reached the screen. A screen shows its failure in its own way, so the
+ * test waits for an alert to say something rather than for a known element,
+ * and scans whatever is there once it has, or after the wait if none comes.
+ */
+test.describe('Přístupnost – jazyk chybových stavů', () => {
+	for (const { path, name, flags } of routes) {
+		for (const dataFailure of ['bare', 'network'] as const) {
+			test(`${name} (${path}) při selhání dat (${dataFailure}) nemá anglický text bez lang (3.1.2)`, async ({
+				page
+			}) => {
+				await setMockFlags(page, { ...flags, dataFailure });
+				await openApp(page, path);
+				await page
+					.waitForFunction(
+						() =>
+							[...document.querySelectorAll('[role="alert"]')].some((el) => el.textContent?.trim()),
+						undefined,
+						{ timeout: 5000 }
+					)
+					.catch(() => undefined);
+				expect(await languageLosses(page)).toEqual([]);
+			});
+		}
 	}
 });
 

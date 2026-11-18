@@ -118,6 +118,8 @@ export interface MockFlags {
 	contactsBrokenRow?: boolean;
 	contactsLegacyShape?: boolean;
 	folderAuthFailure?: boolean;
+	/** Fails every request for data, with an empty 500 (`bare`) or as a network error. */
+	dataFailure?: 'bare' | 'network';
 	inboxThreadMember?: boolean;
 	trashThreadMember?: boolean;
 	mailPageSize?: number;
@@ -1161,4 +1163,65 @@ export async function apgLosses(page: Page): Promise<string[]> {
 		await handle.dispose();
 	}
 	return losses;
+}
+
+/**
+ * English on a Czech screen that nothing marks as English (WCAG 3.1.2,
+ * Language of Parts). A screen reader reads such text with Czech
+ * pronunciation, and axe cannot see it: it judges whether `lang` values are
+ * valid, not whether the text matches them.
+ *
+ * The words looked for are the ones English reaches a screen in, the raw text
+ * of an error: "Failed to fetch", "API error 500", "undefined", "TypeError".
+ * #929 found some forty places that showed such text; they now go through the
+ * error helpers, and this keeps a new one from showing it again. A real
+ * English word list would also catch product names and the user's own mail,
+ * which are no failure, so the list stays this narrow on purpose.
+ *
+ * Visible text, screen-reader-only text and live regions are read, and the
+ * names given by `aria-label`, `title`, `alt` and `placeholder`. Whatever sits
+ * under `lang="en"` is English by declaration and passes, as do the message
+ * body frame and form field values, which hold the user's content.
+ *
+ * The error states come from the `dataFailure` mock flag; with `toErrorMessage`
+ * returning the error's own text, as before #929, they fail with "Failed to
+ * fetch" and "API error 500: Internal Server Error".
+ */
+export function languageLosses(page: Page): Promise<string[]> {
+	return page.evaluate(() => {
+		const ENGLISH =
+			/\b(?:error|failed|failure|fetch|undefined|null|NaN|exception|unexpected|invalid|request|response|network|timeout|timed out|cannot|unable|not found|forbidden|unauthorized|bad request|server error|TypeError|SyntaxError|object Object)\b/i;
+		const declaredEnglish = (el: Element | null) =>
+			/^en\b/i.test(el?.closest('[lang]')?.getAttribute('lang') ?? '');
+		const losses = new Set<string>();
+		const report = (where: Element, text: string) => {
+			const match = ENGLISH.exec(text);
+			if (!match || declaredEnglish(where)) return;
+			const tag = where.getAttribute('role') ?? where.tagName.toLowerCase();
+			losses.add(`${tag}: "${text.replace(/\s+/g, ' ').trim().slice(0, 80)}"`);
+		};
+
+		const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+		for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+			const parent = node.parentElement;
+			const text = node.textContent ?? '';
+			if (!parent || !text.trim()) continue;
+			if (parent.closest('script, style, template, noscript')) continue;
+			// Hidden text still counts when it is what a screen reader reads:
+			// sr-only spans and live regions are exactly where an error is said.
+			const hidden = !parent.checkVisibility() && !parent.closest('.sr-only, [aria-live]');
+			if (hidden) continue;
+			report(parent, text);
+		}
+		for (const el of document.body.querySelectorAll(
+			'[aria-label], [title], img[alt], [placeholder]'
+		)) {
+			if (!el.checkVisibility() && !el.closest('.sr-only')) continue;
+			for (const attribute of ['aria-label', 'title', 'alt', 'placeholder']) {
+				const value = el.getAttribute(attribute);
+				if (value) report(el, value);
+			}
+		}
+		return [...losses];
+	});
 }

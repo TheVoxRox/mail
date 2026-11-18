@@ -229,7 +229,9 @@ check:audits` fails when code under an audit's `Code paths` changed after its
   change, ask what no scan answers: does a new value change the context
   (3.2.2; the per-screen sweep covers native selects, radio buttons and
   checkboxes), is all text in the page's language or marked with its own
-  (3.1.2), is anything told apart by colour alone (1.4.1), does anything move
+  (3.1.2; `languageLosses` catches the raw English of an error on every
+  screen, its error states included through the `dataFailure` mock flag, but
+  not English in general), is anything told apart by colour alone (1.4.1), does anything move
   on its own for more than five seconds (2.2.2; `check:design` covers
   Tailwind's looping animations).
 - The Svelte compiler's accessibility warnings (a click with no key handler,

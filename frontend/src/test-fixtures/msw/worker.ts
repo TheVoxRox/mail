@@ -8,6 +8,7 @@ import {
 	setConnectionTestAuthFailure,
 	setContactsBrokenRow,
 	setContactsLegacyShape,
+	setDataFailure,
 	holdFlagResponses,
 	releaseFlagResponses,
 	setFolderAuthFailure,
@@ -102,6 +103,8 @@ export async function installE2EBypass(): Promise<void> {
 		setReadinessDelayMs(Number(window.localStorage.getItem('mail.e2e.readinessDelayMs') ?? 0));
 		setReadinessFailures(Number(window.localStorage.getItem('mail.e2e.readinessFailures') ?? 0));
 		setFolderAuthFailure(window.localStorage.getItem('mail.e2e.folderAuthFailure') === '1');
+		const dataFailure = window.localStorage.getItem('mail.e2e.dataFailure');
+		setDataFailure(dataFailure === 'bare' || dataFailure === 'network' ? dataFailure : null);
 		setConnectionTestAuthFailure(
 			window.localStorage.getItem('mail.e2e.connectionTestAuthFailure') === '1'
 		);
