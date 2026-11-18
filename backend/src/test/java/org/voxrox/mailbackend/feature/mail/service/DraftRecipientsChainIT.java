@@ -151,16 +151,17 @@ class DraftRecipientsChainIT {
     void aRejectedSaveDoesNotLeaveTheStoredRevisionCurrent() {
         DraftPersistenceService.DraftIdentity hidden = save(null, true);
         DraftPersistenceService.DraftIdentity previous = null;
-        DraftPersistenceService.DraftIdentity lastStored = null;
+        List<DraftPersistenceService.DraftIdentity> storedRevisions = new ArrayList<>();
         for (int revision = 1; revision <= 10; revision++) {
             boolean stored = revision % 2 == 1;
             previous = save(previous == null ? null : previous.stableId(), stored);
             if (stored) {
-                lastStored = previous;
+                storedRevisions.add(previous);
             }
         }
 
-        assertThat(currentEntries()).containsExactlyInAnyOrder(hidden.messageId(), lastStored.messageId());
+        assertThat(currentEntries()).containsExactlyInAnyOrder(hidden.messageId(),
+                storedRevisions.getLast().messageId());
     }
 
     /**
