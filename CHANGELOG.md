@@ -203,6 +203,11 @@ Entries before 2026-09-17 predate that split and are left as written.
   CSP hashes recomputed from source, and one stale claim corrected — §2's list
   of test files that assign `innerHTML`, out of date for the fourth time, now
   states what each occurrence must be and leaves the list to its grep (#949).
+- The open-source licence disclosure in Nastavení, Aplikace is bits-ui's
+  Collapsible and the update download bar is bits-ui's Progress, where both were
+  written by hand; names, states and announcements are unchanged. A component
+  test covers the disclosure, which the mocked e2e build cannot open; the
+  updater audit acknowledges the dialog's change (#950).
 - The mail toolbars are built on bits-ui's Toolbar instead of the hand-written
   `rovingToolbar()` attachment, which is gone: the maintainer prefers the
   components that exist. `CLAUDE.md` says so for every widget. A test opens
