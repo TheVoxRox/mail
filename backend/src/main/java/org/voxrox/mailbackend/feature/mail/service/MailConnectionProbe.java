@@ -34,12 +34,15 @@ public class MailConnectionProbe {
     private final MailClientProperties mailProperties;
     private final OAuth2TokenServiceRegistry oauth2TokenServiceRegistry;
     private final SmtpTransportFactory smtpTransportFactory;
+    private final MailTlsContext tls;
 
     public MailConnectionProbe(MailClientProperties mailProperties,
-            OAuth2TokenServiceRegistry oauth2TokenServiceRegistry, SmtpTransportFactory smtpTransportFactory) {
+            OAuth2TokenServiceRegistry oauth2TokenServiceRegistry, SmtpTransportFactory smtpTransportFactory,
+            MailTlsContext tls) {
         this.mailProperties = mailProperties;
         this.oauth2TokenServiceRegistry = oauth2TokenServiceRegistry;
         this.smtpTransportFactory = smtpTransportFactory;
+        this.tls = tls;
     }
 
     public void testImap(Long accountId, AccountConnectionDetails details) {
@@ -56,7 +59,7 @@ public class MailConnectionProbe {
         props.put("mail." + protocol + ".host", details.host());
         props.put("mail." + protocol + ".port", String.valueOf(details.port()));
         // The same TLS settings the connection pool uses — see ImapTransportSecurity.
-        ImapTransportSecurity.configure(props, protocol, details.useSsl());
+        ImapTransportSecurity.configure(props, protocol, details.useSsl(), tls.socketFactory());
         // The same socket bounds the connection pool uses — see ImapSocketTimeouts.
         ImapSocketTimeouts.configure(props, protocol, mailProperties.imap());
 

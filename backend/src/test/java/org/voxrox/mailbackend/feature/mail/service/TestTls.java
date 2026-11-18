@@ -39,7 +39,13 @@ import org.jspecify.annotations.Nullable;
  * <p>
  * The default {@link SSLContext} is replaced with one that trusts this
  * certificate and nothing else, and it is not restored: an integration test JVM
- * has no business trusting anything else.
+ * has no business trusting anything else. The default trust store is pointed at
+ * it as well ({@code javax.net.ssl.trustStore} and its siblings), because the
+ * backend's own context, {@link MailTlsContext}, takes its anchors from there
+ * rather than from the default {@code SSLContext}. Without that, every test
+ * against a TLS server would be refused, and with Angus's fallback to the
+ * default factory still on, the implicit-SSL ones would pass for the wrong
+ * reason (#928).
  */
 public final class TestTls {
 
@@ -56,8 +62,8 @@ public final class TestTls {
 
     /**
      * Generates the certificate (once per JVM), points GreenMail's TLS listener at
-     * it and makes the default {@link SSLContext} trust it. Safe to call from every
-     * test class.
+     * it and makes the default {@link SSLContext} and the default trust store trust
+     * it. Safe to call from every test class.
      */
     public static synchronized void install() {
         if (installed != null) {
@@ -68,6 +74,9 @@ public final class TestTls {
             System.setProperty("greenmail.tls.keystore.file", KEYSTORE.toString());
             System.setProperty("greenmail.tls.keystore.password", PASSWORD);
             System.setProperty("greenmail.tls.key.password", PASSWORD);
+            System.setProperty("javax.net.ssl.trustStore", KEYSTORE.toString());
+            System.setProperty("javax.net.ssl.trustStoreType", "PKCS12");
+            System.setProperty("javax.net.ssl.trustStorePassword", PASSWORD);
 
             KeyStore store = KeyStore.getInstance("PKCS12");
             try (InputStream in = Files.newInputStream(KEYSTORE)) {

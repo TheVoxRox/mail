@@ -62,12 +62,17 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "543ea4f65de977ce1bd2a14af148d0c8e0d0972b"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "f1e0c7b7a96ce1c45ac25408d38f5f617ebf4c1e",
+      "backend/src/main/resources/tls": "2e932f9120b9559f77b727463ced362f4cc65a32"
     },
     "acknowledgements": [
       {
         "date": "2026-11-17",
         "note": "Unused lambda parameters renamed to `_` (Java unnamed variables) so Eclipse JDT stops flagging them, and nothing else: every changed line was read, each swaps one parameter name for `_` in a lambda whose body never named it. Arity and parameter types are unchanged, so the same overloads resolve and the same code runs. Here: 28 parameters in 15 files of feature/mail/service, mostly TransactionStatus (status), folder executor callbacks (folder, uidFolder, store, resyncEvents), map keys in computeIfAbsent and compute, one RetryContext and one SSE emitter's error; the formatter reflowed one line in MailSyncService. No lock, transaction boundary, folder mode or IMAP command changed. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-18",
+        "note": "#928, the trust path, written by the session that records it and waiting for its pass (IMAP_SMTP_AUDIT 1.92, section 1). Every IMAP and SMTP connection now takes its sockets from one shared MailTlsContext instead of the JDK's default SSLContext: anchors are what the default trust manager accepts (TrustManagerFactory.init(null), getAcceptedIssuers), so the trusted roots are unchanged and javax.net.ssl.trustStore is honoured; the Let's Encrypt intermediates and Generation Y cross-signs under backend/src/main/resources/tls (new in Code paths) are a Collection CertStore, path material only, never anchors; revocation stays off as in the JSSE default; mail.<protocol>.socketFactory.fallback=false so a refusal is not retried through the default factory. checkserveridentity, required STARTTLS and the OAuth2 plaintext guards are unchanged. LeafOnlyChainIT fails in five of eight cases with the factory property taken out and in the host-check case with only the fallback property taken out (run and seen). No new egress. Verdict unchanged."
       }
     ]
   },

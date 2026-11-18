@@ -20,6 +20,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
+
+import org.jspecify.annotations.Nullable;
+
 /**
  * An IMAP server written for the test: it speaks just enough of the protocol
  * for the backend to log in, list INBOX and open it, and it answers the open
@@ -31,16 +38,23 @@ import java.util.concurrent.Executors;
  * ({@code EmptyParameterListIT}).
  * <p>
  * It listens over TLS with {@link TestTls}'s certificate, because the backend
- * connects to nothing else (audit B1-4). The mailbox it describes is always
- * INBOX, empty unless the lines say otherwise; every command it does not know
- * gets a plain {@code OK}, which is enough for the handful the backend sends
- * around a sync.
+ * connects to nothing else (audit B1-4), or with a certificate chain a test
+ * builds itself, from the first byte or behind STARTTLS ({@link #implicitTls},
+ * {@link #startTls}): the server that sends its leaf without the intermediate
+ * ({@code LeafOnlyChainIT}). The mailbox it describes is always INBOX, empty
+ * unless the lines say otherwise; every command it does not know gets a plain
+ * {@code OK}, which is enough for the handful the backend sends around a sync.
  */
 final class HostileImapServer implements AutoCloseable {
 
     private static final String BASE_CAPABILITIES = "IMAP4rev1";
 
     private final ServerSocket server;
+    /**
+     * Upgrades a cleartext connection on STARTTLS; {@code null} when the listener
+     * is TLS itself.
+     */
+    private final @Nullable SSLSocketFactory startTls;
     private final Set<Socket> open = ConcurrentHashMap.newKeySet();
     private final ExecutorService threads = Executors.newVirtualThreadPerTaskExecutor();
     private volatile List<String> openResponse = List.of();
@@ -52,8 +66,31 @@ final class HostileImapServer implements AutoCloseable {
     private volatile Map<String, List<String>> fetchResponseOf = Map.of();
 
     HostileImapServer() throws IOException {
-        this.server = TestTls.serverSocketFactory().createServerSocket(0, 50, InetAddress.getLoopbackAddress());
+        this(TestTls.serverSocketFactory().createServerSocket(0, 50, InetAddress.getLoopbackAddress()), null);
+    }
+
+    private HostileImapServer(ServerSocket server, @Nullable SSLSocketFactory startTls) {
+        this.server = server;
+        this.startTls = startTls;
         threads.execute(this::acceptLoop);
+    }
+
+    /**
+     * A server presenting the key and certificate chain of {@code identity}'s key
+     * manager from the first byte, as {@code imaps} does.
+     */
+    static HostileImapServer implicitTls(SSLContext identity) throws IOException {
+        return new HostileImapServer(
+                identity.getServerSocketFactory().createServerSocket(0, 50, InetAddress.getLoopbackAddress()), null);
+    }
+
+    /**
+     * A server that greets in cleartext, offers {@code STARTTLS}, and presents
+     * {@code identity}'s chain once the client takes it up.
+     */
+    static HostileImapServer startTls(SSLContext identity) throws IOException {
+        return new HostileImapServer(new ServerSocket(0, 50, InetAddress.getLoopbackAddress()),
+                identity.getSocketFactory());
     }
 
     int port() {
@@ -136,8 +173,11 @@ final class HostileImapServer implements AutoCloseable {
         fetchResponseOf = Collections.unmodifiableMap(answers);
     }
 
-    private String capabilities() {
-        return authenticateResponse.isEmpty() ? BASE_CAPABILITIES : BASE_CAPABILITIES + " AUTH=PLAIN";
+    private String capabilities(Socket socket) {
+        String capabilities = startTls != null && !(socket instanceof SSLSocket)
+                ? BASE_CAPABILITIES + " STARTTLS"
+                : BASE_CAPABILITIES;
+        return authenticateResponse.isEmpty() ? capabilities : capabilities + " AUTH=PLAIN";
     }
 
     @Override
@@ -163,16 +203,18 @@ final class HostileImapServer implements AutoCloseable {
     }
 
     private void serve(Socket client) {
-        try (client; BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream(), US_ASCII))) {
-            OutputStream out = client.getOutputStream();
-            send(out, List.of("* OK [CAPABILITY " + capabilities() + "] test server ready"));
+        Socket socket = client;
+        try {
+            BufferedReader in = reader(socket);
+            OutputStream out = socket.getOutputStream();
+            send(out, List.of("* OK [CAPABILITY " + capabilities(socket) + "] test server ready"));
             String line;
             String authenticating = null;
             while ((line = in.readLine()) != null) {
                 if (authenticating != null) {
                     // The client's SASL response to the "+" below; any credentials do.
                     List<String> lines = new ArrayList<>(authenticateResponse);
-                    lines.add(authenticating + " OK [CAPABILITY " + capabilities() + "] authenticated");
+                    lines.add(authenticating + " OK [CAPABILITY " + capabilities(socket) + "] authenticated");
                     send(out, lines);
                     authenticating = null;
                     continue;
@@ -181,27 +223,55 @@ final class HostileImapServer implements AutoCloseable {
                 String tag = parts[0];
                 String command = parts.length > 1 ? parts[1].toUpperCase(Locale.ROOT) : "";
                 String arguments = parts.length > 2 ? parts[2] : "";
+                if (command.equals("STARTTLS") && startTls != null && !(socket instanceof SSLSocket)) {
+                    // Nothing follows the command until the client has read this, so the
+                    // reader holds no byte of the handshake.
+                    send(out, List.of(tag + " OK begin TLS now"));
+                    SSLSocket tls = (SSLSocket) startTls.createSocket(socket, null, true);
+                    // This overload makes the server end, which checks no hostname. Naming
+                    // an algorithm changes nothing while the server asks for no client
+                    // certificate, and it is what CodeQL's java/unsafe-cert-trust looks
+                    // for: the rule knows server mode only on SSLEngine, so it reads every
+                    // SSLSocket as a client.
+                    SSLParameters parameters = tls.getSSLParameters();
+                    parameters.setEndpointIdentificationAlgorithm("HTTPS");
+                    tls.setSSLParameters(parameters);
+                    tls.startHandshake();
+                    open.add(tls);
+                    socket = tls;
+                    in = reader(tls);
+                    out = tls.getOutputStream();
+                    continue;
+                }
                 if (command.equals("AUTHENTICATE")) {
                     authenticating = tag;
                     send(out, List.of("+ "));
                     continue;
                 }
-                send(out, answer(tag, command, arguments));
+                send(out, answer(tag, command, arguments, socket));
                 if (command.equals("LOGOUT")) {
                     return;
                 }
             }
         } catch (IOException e) {
-            // The client hung up, which is what a client refusing a response does.
+            // The client hung up, which is what a client refusing a response or a
+            // certificate does.
         } finally {
+            closeQuietly(socket);
+            closeQuietly(client);
+            open.remove(socket);
             open.remove(client);
         }
     }
 
-    private List<String> answer(String tag, String command, String arguments) {
+    private static BufferedReader reader(Socket socket) throws IOException {
+        return new BufferedReader(new InputStreamReader(socket.getInputStream(), US_ASCII));
+    }
+
+    private List<String> answer(String tag, String command, String arguments, Socket socket) {
         return switch (command) {
-            case "CAPABILITY" -> List.of("* CAPABILITY " + capabilities(), tag + " OK done");
-            case "LOGIN" -> List.of(tag + " OK [CAPABILITY " + capabilities() + "] logged in");
+            case "CAPABILITY" -> List.of("* CAPABILITY " + capabilities(socket), tag + " OK done");
+            case "LOGIN" -> List.of(tag + " OK [CAPABILITY " + capabilities(socket) + "] logged in");
             case "LIST",
                     "LSUB" ->
                 List.of(arguments.endsWith("\"\"")

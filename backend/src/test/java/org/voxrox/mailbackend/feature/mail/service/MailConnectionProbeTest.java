@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -19,6 +20,8 @@ import static org.mockito.Mockito.when;
 import java.time.Duration;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicLong;
+
+import javax.net.ssl.SSLSocketFactory;
 
 import jakarta.mail.AuthenticationFailedException;
 import jakarta.mail.MessagingException;
@@ -79,6 +82,13 @@ class MailConnectionProbeTest {
     private SmtpTransportFactory smtpTransportFactory;
     @Mock
     private OAuth2TokenService tokenService;
+    @Mock
+    private MailTlsContext tls;
+    /**
+     * The shared context's factory: a mock, so a session handed the JDK's default
+     * factory, or a factory of its own, fails the identity check below.
+     */
+    private final SSLSocketFactory socketFactory = mock(SSLSocketFactory.class);
 
     private MailConnectionProbe probe;
 
@@ -89,7 +99,8 @@ class MailConnectionProbeTest {
                 OPEN_FOLDER_BUDGET, ACCOUNT_BUDGET);
         SmtpProperties smtp = new SmtpProperties(Duration.ofSeconds(15), Duration.ofSeconds(10));
         MailClientProperties props = new MailClientProperties(imap, smtp, null, null);
-        probe = new MailConnectionProbe(props, oauth2TokenServiceRegistry, smtpTransportFactory);
+        lenient().when(tls.socketFactory()).thenReturn(socketFactory);
+        probe = new MailConnectionProbe(props, oauth2TokenServiceRegistry, smtpTransportFactory, tls);
     }
 
     private static AccountConnectionDetails passwordDetails(boolean useSsl) {
@@ -186,6 +197,10 @@ class MailConnectionProbeTest {
             assertThat(props.getProperty("mail.imaps.port")).isEqualTo("993");
             assertThat(props.getProperty("mail.imaps.ssl.enable")).isEqualTo("true");
             assertThat(props.getProperty("mail.imaps.ssl.checkserveridentity")).isEqualTo("true");
+            // The pool's TLS context, and no second attempt through the JDK's default
+            // factory when it refuses (#928).
+            assertThat(props.get("mail.imaps.ssl.socketFactory")).isSameAs(socketFactory);
+            assertThat(props.getProperty("mail.imaps.socketFactory.fallback")).isEqualTo("false");
             assertThat(props.getProperty("mail.imaps.timeout")).isEqualTo("60000");
             assertThat(props.getProperty("mail.imaps.connectiontimeout")).isEqualTo("30000");
             // The probe is bounded in every direction the pool is (audit B1-6). The
@@ -222,6 +237,9 @@ class MailConnectionProbeTest {
             assertThat(props.getProperty("mail.imap.starttls.required")).isEqualTo("true");
             // The upgraded connection checks the server's identity like an implicit one.
             assertThat(props.getProperty("mail.imap.ssl.checkserveridentity")).isEqualTo("true");
+            // ... through the same TLS context (#928).
+            assertThat(props.get("mail.imap.ssl.socketFactory")).isSameAs(socketFactory);
+            assertThat(props.getProperty("mail.imap.socketFactory.fallback")).isEqualTo("false");
             assertThat(props.getProperty("mail.imap.auth.mechanisms")).isNull();
         }
 

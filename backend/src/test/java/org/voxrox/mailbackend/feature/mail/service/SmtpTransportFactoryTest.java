@@ -4,12 +4,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.time.Duration;
 import java.util.Properties;
+
+import javax.net.ssl.SSLSocketFactory;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.Session;
@@ -54,6 +57,13 @@ class SmtpTransportFactoryTest {
 
     @Mock
     private OAuth2TokenServiceRegistry oauth2TokenServiceRegistry;
+    @Mock
+    private MailTlsContext tls;
+    /**
+     * The shared context's factory: a mock, so a session handed the JDK's default
+     * factory, or a factory of its own, fails the identity check below.
+     */
+    private final SSLSocketFactory socketFactory = mock(SSLSocketFactory.class);
 
     private SmtpTransportFactory factory;
 
@@ -67,7 +77,8 @@ class SmtpTransportFactoryTest {
         // validating).
         SmtpProperties smtp = new SmtpProperties(Duration.ofSeconds(15), Duration.ofSeconds(10));
         MailClientProperties props = new MailClientProperties(null, smtp, null, null);
-        factory = new SmtpTransportFactory(oauth2TokenServiceRegistry, props);
+        lenient().when(tls.socketFactory()).thenReturn(socketFactory);
+        factory = new SmtpTransportFactory(oauth2TokenServiceRegistry, props, tls);
     }
 
     private AccountConnectionDetails details(AuthType authType, boolean useSsl) {
@@ -146,6 +157,10 @@ class SmtpTransportFactoryTest {
             // Implicit-SSL path: identity verified, no STARTTLS requirement.
             assertThat(session.getProperty("mail.smtp.ssl.checkserveridentity")).isEqualTo("true");
             assertThat(session.getProperty("mail.smtp.starttls.required")).isNull();
+            // The IMAP connections' TLS context, with no second attempt through the JDK's
+            // default factory (#928). An object, so getProperty cannot see it.
+            assertThat(session.getProperties().get("mail.smtp.ssl.socketFactory")).isSameAs(socketFactory);
+            assertThat(session.getProperty("mail.smtp.socketFactory.fallback")).isEqualTo("false");
             assertThat(session.getProperty("mail.smtp.auth.mechanisms")).isEqualTo(MailAuthMechanisms.XOAUTH2);
             assertThat(session.getProperty("mail.smtp.auth.login.disable")).isEqualTo("true");
             assertThat(session.getProperty("mail.smtp.auth.plain.disable")).isEqualTo("true");
@@ -162,6 +177,9 @@ class SmtpTransportFactoryTest {
             // server identity is verified on the upgraded connection.
             assertThat(session.getProperty("mail.smtp.starttls.required")).isEqualTo("true");
             assertThat(session.getProperty("mail.smtp.ssl.checkserveridentity")).isEqualTo("true");
+            // The upgrade uses the same TLS context (#928).
+            assertThat(session.getProperties().get("mail.smtp.ssl.socketFactory")).isSameAs(socketFactory);
+            assertThat(session.getProperty("mail.smtp.socketFactory.fallback")).isEqualTo("false");
             assertThat(session.getProperty("mail.smtp.auth.mechanisms")).isNull();
             assertThat(session.getProperty("mail.smtp.auth.login.disable")).isNull();
             assertThat(session.getProperty("mail.smtp.auth.plain.disable")).isNull();

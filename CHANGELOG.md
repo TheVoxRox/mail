@@ -21,6 +21,19 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Backend
 
+- A mail server with a Let's Encrypt certificate can be added and synced when
+  it sends its own certificate without the one that issued it. The backend
+  trusts the roots its Java runtime ships, which do not yet include Let's
+  Encrypt's new Generation Y roots, and Java does not fetch a certificate a
+  server leaves out. So a server that sent only its own certificate, or that
+  and a YE or YR intermediate but not the cross-signature, was refused, and
+  the account reported "zabezpečené spojení se serverem se nepodařilo
+  navázat". The same happened to a server with an older Generation X
+  certificate that sent its certificate alone. The backend now carries Let's
+  Encrypt's intermediates and completes the chain itself. They prove nothing
+  on their own: a chain still has to end at a root the runtime trusts, so no
+  server is accepted that its full chain would not have proved. Nothing is
+  fetched during the connection, so nothing new leaves the computer (#928).
 - The notice that an account needs a new sign-in now says which account, what
   it means and where to fix it: "Přihlášení k účtu user@example.com už
   neplatí. Dokud se znovu nepřihlásíte, nová pošta z něj nechodí. Tlačítko

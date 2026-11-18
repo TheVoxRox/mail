@@ -17,6 +17,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+import javax.net.ssl.SSLSocketFactory;
+
 import jakarta.mail.AuthenticationFailedException;
 import jakarta.mail.Folder;
 import jakarta.mail.MessagingException;
@@ -100,6 +102,13 @@ class ImapConnectionManagerTest {
     private MailMetrics mailMetrics;
     @Mock
     private ApplicationEventPublisher eventPublisher;
+    @Mock
+    private MailTlsContext tls;
+    /**
+     * The shared context's factory: a mock, so a session handed the JDK's default
+     * factory, or a factory of its own, fails the identity check below.
+     */
+    private final SSLSocketFactory socketFactory = mock(SSLSocketFactory.class);
 
     private ImapConnectionManager manager;
     private static final Long ACCOUNT_ID = 42L;
@@ -112,8 +121,9 @@ class ImapConnectionManagerTest {
 
     @BeforeEach
     void setUp() {
+        lenient().when(tls.socketFactory()).thenReturn(socketFactory);
         manager = new ImapConnectionManager(connectionDetailsService, accountRepository, oauth2TokenServiceRegistry,
-                mailProps, imapRetryTemplate, mailMetrics, eventPublisher);
+                mailProps, imapRetryTemplate, mailMetrics, eventPublisher, tls);
     }
 
     @SuppressWarnings("unchecked")
@@ -817,12 +827,46 @@ class ImapConnectionManagerTest {
             assertThat(captured.getProperty("mail.imap.starttls.enable")).isEqualTo("true");
             assertThat(captured.getProperty("mail.imap.starttls.required")).isEqualTo("true");
             assertThat(captured.getProperty("mail.imap.ssl.checkserveridentity")).isEqualTo("true");
+            // The upgrade goes through the shared TLS context, and a refusal is not
+            // retried through the JDK's default factory (#928).
+            assertThat(captured.get("mail.imap.ssl.socketFactory")).isSameAs(socketFactory);
+            assertThat(captured.getProperty("mail.imap.socketFactory.fallback")).isEqualTo("false");
             // Every socket bound, the write one included (audit B1-6). The scheduler
             // goes in as an object, so getProperty cannot see it.
             assertThat(captured.getProperty("mail.imap.timeout")).isEqualTo("60000");
             assertThat(captured.getProperty("mail.imap.connectiontimeout")).isEqualTo("30000");
             assertThat(captured.getProperty("mail.imap.writetimeout")).isEqualTo("60000");
             assertThat(captured.get("mail.imap.executor.writetimeout")).isNotNull();
+        }
+
+        @Test
+        @DisplayName("An implicit-SSL account connects through the shared TLS context, with no fallback to the "
+                + "default factory (#928)")
+        void implicitSslUsesTheSharedTlsContext() throws Exception {
+            Store dead = mock(Store.class);
+            when(dead.isConnected()).thenReturn(false);
+            pool().put(key(Lane.BACKGROUND), dead);
+            when(connectionDetailsService.getImapConnectionDetails(ACCOUNT_ID))
+                    .thenReturn(new AccountConnectionDetails("user@example.com", "imap.example.com", 993,
+                            /* useSsl */ true, "user@example.com", "secret", AuthType.PASSWORD, null));
+            stubInteractiveRetryAfter(Duration.ofMinutes(5));
+            Session session = mock(Session.class);
+            lenient().when(session.getStore("imaps")).thenReturn(mock(Store.class));
+            ArgumentCaptor<Properties> props = ArgumentCaptor.forClass(Properties.class);
+
+            Throwable thrown;
+            try (MockedStatic<Session> sessions = mockStatic(Session.class)) {
+                sessions.when(() -> Session.getInstance(props.capture())).thenReturn(session);
+                thrown = catchThrowable(() -> manager.getConnectedStore(ACCOUNT_ID, Lane.BACKGROUND));
+            }
+
+            assertThat(props.getAllValues()).as("no session was built; the connect ended with %s", thrown).hasSize(1);
+            Properties captured = props.getValue();
+            assertThat(captured.getProperty("mail.store.protocol")).isEqualTo("imaps");
+            assertThat(captured.getProperty("mail.imaps.ssl.enable")).isEqualTo("true");
+            assertThat(captured.getProperty("mail.imaps.ssl.checkserveridentity")).isEqualTo("true");
+            assertThat(captured.get("mail.imaps.ssl.socketFactory")).isSameAs(socketFactory);
+            assertThat(captured.getProperty("mail.imaps.socketFactory.fallback")).isEqualTo("false");
         }
 
         @Test

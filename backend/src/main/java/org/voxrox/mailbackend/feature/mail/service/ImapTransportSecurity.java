@@ -2,6 +2,8 @@ package org.voxrox.mailbackend.feature.mail.service;
 
 import java.util.Properties;
 
+import javax.net.ssl.SSLSocketFactory;
+
 /**
  * The TLS half of an IMAP session's properties, shared by the connection pool
  * ({@link ImapConnectionManager}) and the credential probe
@@ -15,12 +17,20 @@ import java.util.Properties;
  * {@code checkserveridentity} is pinned on both paths rather than left to the
  * Angus default, so the upgraded connection verifies the server's identity
  * exactly as an implicit-SSL one does.
+ * <p>
+ * Both paths take their sockets from {@code socketFactory}, the shared
+ * {@link MailTlsContext}'s: Angus reads {@code ssl.socketFactory} for an
+ * implicit-SSL connect and for the STARTTLS upgrade alike. The fallback to the
+ * JDK's default factory is off, so a connect that factory refuses fails with
+ * its own error rather than being tried a second time (#928).
  */
 final class ImapTransportSecurity {
 
-    static void configure(Properties props, String protocol, boolean implicitSsl) {
+    static void configure(Properties props, String protocol, boolean implicitSsl, SSLSocketFactory socketFactory) {
         props.put("mail." + protocol + ".ssl.enable", String.valueOf(implicitSsl));
         props.put("mail." + protocol + ".ssl.checkserveridentity", "true");
+        props.put("mail." + protocol + ".ssl.socketFactory", socketFactory);
+        props.put("mail." + protocol + ".socketFactory.fallback", "false");
         if (!implicitSsl) {
             props.put("mail." + protocol + ".starttls.enable", "true");
             props.put("mail." + protocol + ".starttls.required", "true");
