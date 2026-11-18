@@ -248,9 +248,16 @@ check:audits` fails when code under an audit's `Code paths` changed after its
   (`apgLosses` in `frontend/src/routes/e2e-helpers.ts`): a grid, treegrid,
   toolbar, tablist, radiogroup or menubar is one Tab stop that the arrow keys
   never leave, and a menu button opens on Enter with focus on an item and
-  gives focus back on Escape. A new `role="toolbar"` takes `rovingToolbar()`
-  from `ui/toolbar`; a widget in a state the walk does not reach (it sees each
-  screen as it loads) gets its own `apgLosses` call in that state.
+  gives focus back on Escape. A widget in a state the walk does not reach (it
+  sees each screen as it loads) gets its own `apgLosses` call in that state.
+- Build a widget from the components that exist before writing one: the `ui/`
+  wrappers and the bits-ui primitive behind them (DropdownMenu, Dialog,
+  Toolbar, Select …), then the grid helpers in
+  `frontend/src/lib/components/grid/`. A toolbar is a
+  bits-ui `Toolbar.Root` with every control a `Toolbar.Button`, a menu trigger
+  through its `child` snippet; a control left outside is a Tab stop of its own.
+  The maintainer prefers it, and a hand-written widget is where the keyboard
+  contract goes wrong.
 - The maintainer uses a screen reader. Data-rich rows are **ARIA grids with
   roving tabindex**, never one button carrying a monolithic `aria-label`.
 - Keyboard shortcuts follow Microsoft Outlook. Ctrl+R/F/U collide with the

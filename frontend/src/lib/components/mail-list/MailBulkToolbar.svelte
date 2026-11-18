@@ -20,12 +20,11 @@
 	 * The menus' open state and the select-all element are internal — nothing
 	 * outside reads them.
 	 */
-	import { DropdownMenu } from 'bits-ui';
+	import { DropdownMenu, Toolbar } from 'bits-ui';
 	import { MenuContent, menuItemVariants } from '#lib/components/ui/menu/index.js';
 	import Icon from '#lib/components/Icon.svelte';
 	import MoveTargetMenuItems from '#lib/components/MoveTargetMenuItems.svelte';
 	import { Button, buttonVariants } from '#lib/components/ui/button/index.js';
-	import { rovingToolbar } from '#lib/components/ui/toolbar/index.js';
 	import {
 		nativeChoiceClass,
 		nativeChoiceControlClass
@@ -115,21 +114,34 @@
 	});
 </script>
 
-<div
-	role="toolbar"
-	{@attach rovingToolbar()}
+<!--
+	bits-ui's Toolbar gives the WAI-ARIA toolbar keyboard: one Tab stop, the
+	left and right arrows between the controls (wrapping), Home and End. Every
+	control is a Toolbar.Button, the menu triggers through their child snippet.
+-->
+<Toolbar.Root
 	aria-label={$_('messages.bulkToolbarLabel')}
 	class="flex min-h-11 flex-wrap items-center gap-2 border-b border-border/80 bg-muted/20 px-3 py-2"
 >
 	<label for={selectAllId} class={cn(nativeChoiceClass, 'text-xs text-muted-foreground')}>
-		<input
-			bind:this={selectAllInput}
-			id={selectAllId}
-			type="checkbox"
-			class={nativeChoiceControlClass}
-			checked={allSelected}
-			onchange={(event) => onSelectAll((event.currentTarget as HTMLInputElement).checked)}
-		/>
+		<Toolbar.Button id={selectAllId}>
+			{#snippet child({ props })}
+				<!--
+					Toolbar.Button calls anything but a <button> role="button", which
+					would hide the box from a screen reader; the native checkbox keeps
+					its own role, and with it the checked and mixed states.
+				-->
+				<input
+					{...props}
+					bind:this={selectAllInput}
+					type="checkbox"
+					role={undefined}
+					class={nativeChoiceControlClass}
+					checked={allSelected}
+					onchange={(event) => onSelectAll((event.currentTarget as HTMLInputElement).checked)}
+				/>
+			{/snippet}
+		</Toolbar.Button>
 		<span>{$_('messages.selectAll')}</span>
 	</label>
 
@@ -137,39 +149,55 @@
 		<span class="text-xs text-muted-foreground" role="status">
 			{summary}
 		</span>
-		<Button
-			type="button"
-			variant="ghost"
-			size="xs"
-			onclick={whenIdle(onClear)}
-			aria-disabled={idle ? undefined : 'true'}
-		>
-			{$_('messages.clearSelection')}
-		</Button>
-		<Button
-			type="button"
-			variant="destructive"
-			size="xs"
-			onclick={whenIdle(onDelete)}
-			aria-disabled={idle ? undefined : 'true'}
-			aria-busy={busy === 'delete' ? 'true' : undefined}
-		>
-			<Icon name="trash" />
-			<span>{busy === 'delete' ? $_('messages.bulkDeleting') : $_('messages.bulkDelete')}</span>
-		</Button>
-		<DropdownMenu.Root bind:open={() => seenMenuOpen, setSeenMenuOpen}>
-			<DropdownMenu.Trigger
-				class={cn(buttonVariants({ variant: 'outline', size: 'xs' }), 'data-[state=open]:bg-muted')}
-				aria-disabled={idle ? undefined : 'true'}
-				aria-busy={busy === 'read' || busy === 'unread' ? 'true' : undefined}
-			>
-				<Icon name="envelope" />
-				<span
-					>{busy === 'read' || busy === 'unread'
-						? $_('messages.bulkMarkingRead')
-						: $_('messages.bulkSeenMenu')}</span
+		<Toolbar.Button>
+			{#snippet child({ props })}
+				<Button
+					{...props}
+					variant="ghost"
+					size="xs"
+					onclick={whenIdle(onClear)}
+					aria-disabled={idle ? undefined : 'true'}
 				>
-				<Icon name="chevron-down" size={16} />
+					{$_('messages.clearSelection')}
+				</Button>
+			{/snippet}
+		</Toolbar.Button>
+		<Toolbar.Button>
+			{#snippet child({ props })}
+				<Button
+					{...props}
+					variant="destructive"
+					size="xs"
+					onclick={whenIdle(onDelete)}
+					aria-disabled={idle ? undefined : 'true'}
+					aria-busy={busy === 'delete' ? 'true' : undefined}
+				>
+					<Icon name="trash" />
+					<span>{busy === 'delete' ? $_('messages.bulkDeleting') : $_('messages.bulkDelete')}</span>
+				</Button>
+			{/snippet}
+		</Toolbar.Button>
+		<DropdownMenu.Root bind:open={() => seenMenuOpen, setSeenMenuOpen}>
+			<DropdownMenu.Trigger>
+				{#snippet child({ props })}
+					<Toolbar.Button
+						{...props}
+						class={cn(
+							buttonVariants({ variant: 'outline', size: 'xs' }),
+							'data-[state=open]:bg-muted'
+						)}
+						aria-disabled={idle ? undefined : 'true'}
+						aria-busy={busy === 'read' || busy === 'unread' ? 'true' : undefined}
+					>
+						<Icon name="envelope" />
+						<span
+							>{busy === 'read' || busy === 'unread'
+								? $_('messages.bulkMarkingRead')
+								: $_('messages.bulkSeenMenu')}</span
+						>
+						<Icon name="chevron-down" size={16} />
+					</Toolbar.Button>
+				{/snippet}
 			</DropdownMenu.Trigger>
 			<MenuContent label={$_('messages.bulkSeenMenu')}>
 				<DropdownMenu.Item class={menuItemVariants()} onSelect={whenIdle(() => onMarkSeen(true))}>
@@ -187,33 +215,44 @@
 				ARIA in HTML (4.2) says not to put aria-disabled="true" on an element
 				that already has `disabled`, which says the same thing natively.
 			-->
-			<DropdownMenu.Trigger
-				class={cn(buttonVariants({ variant: 'outline', size: 'xs' }), 'data-[state=open]:bg-muted')}
-				disabled={noMoveTarget}
-				aria-disabled={idle || noMoveTarget ? undefined : 'true'}
-				aria-busy={busy === 'move' ? 'true' : undefined}
-			>
-				<Icon name="folder" />
-				<span>{busy === 'move' ? $_('toolbar.moving') : $_('messages.bulkMove')}</span>
-				<Icon name="chevron-down" size={16} />
+			<DropdownMenu.Trigger disabled={noMoveTarget}>
+				{#snippet child({ props })}
+					<Toolbar.Button
+						{...props}
+						class={cn(
+							buttonVariants({ variant: 'outline', size: 'xs' }),
+							'data-[state=open]:bg-muted'
+						)}
+						aria-disabled={idle || noMoveTarget ? undefined : 'true'}
+						aria-busy={busy === 'move' ? 'true' : undefined}
+					>
+						<Icon name="folder" />
+						<span>{busy === 'move' ? $_('toolbar.moving') : $_('messages.bulkMove')}</span>
+						<Icon name="chevron-down" size={16} />
+					</Toolbar.Button>
+				{/snippet}
 			</DropdownMenu.Trigger>
 			<MenuContent label={$_('messages.bulkMove')} scroll>
 				<MoveTargetMenuItems targets={moveTargets} onMoveTo={whenIdle(onMoveTo)} />
 			</MenuContent>
 		</DropdownMenu.Root>
-		<Button
-			type="button"
-			variant="outline"
-			size="xs"
-			onclick={whenIdle(onPrint)}
-			aria-disabled={idle ? undefined : 'true'}
-			aria-busy={busy === 'print' ? 'true' : undefined}
-		>
-			<Icon name="printer" />
-			<span>{busy === 'print' ? $_('messages.bulkPrinting') : $_('messages.bulkPrint')}</span>
-		</Button>
+		<Toolbar.Button>
+			{#snippet child({ props })}
+				<Button
+					{...props}
+					variant="outline"
+					size="xs"
+					onclick={whenIdle(onPrint)}
+					aria-disabled={idle ? undefined : 'true'}
+					aria-busy={busy === 'print' ? 'true' : undefined}
+				>
+					<Icon name="printer" />
+					<span>{busy === 'print' ? $_('messages.bulkPrinting') : $_('messages.bulkPrint')}</span>
+				</Button>
+			{/snippet}
+		</Toolbar.Button>
 	{/if}
 	{#if error}
 		<p class="basis-full text-xs text-destructive-foreground" role="alert">{error}</p>
 	{/if}
-</div>
+</Toolbar.Root>
