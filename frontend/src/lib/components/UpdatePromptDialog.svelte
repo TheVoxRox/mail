@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Progress } from 'bits-ui';
 	import { _ } from '#lib/i18n/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { DialogDescription, DialogShell, DialogTitle } from '#lib/components/ui/dialog/index.js';
@@ -102,15 +103,14 @@
 			<!--
 				The bar carries its own value for sighted users; announcements go
 				through the app-wide polite region above, at coarse steps, so the
-				two do not compete. An unknown Content-Length leaves off
-				aria-valuenow, which is what makes the role indeterminate.
+				two do not compete. bits-ui's Progress writes the role and the range;
+				a null value, an unknown Content-Length, leaves off aria-valuenow,
+				which is what makes the role indeterminate.
 			-->
-			<div
-				role="progressbar"
+			<Progress.Root
+				value={percent}
+				max={100}
 				aria-label={$_('update.prompt.progressLabel')}
-				aria-valuemin={0}
-				aria-valuemax={100}
-				aria-valuenow={percent ?? undefined}
 				aria-valuetext={percent === null
 					? $_('update.prompt.progressUnknown')
 					: $_('update.prompt.progressAnnouncement', { values: { percent } })}
@@ -121,7 +121,7 @@
 					class:animate-pulse={percent === null}
 					style:width={percent === null ? '100%' : `${percent}%`}
 				></div>
-			</div>
+			</Progress.Root>
 		</div>
 	{/if}
 
