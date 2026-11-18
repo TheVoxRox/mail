@@ -173,7 +173,7 @@ public abstract class OAuth2TokenService {
                     HttpStatus.UNAUTHORIZED, "error.mail.accountRequiresReauth", email);
         }
 
-        ReentrantLock refreshLock = refreshLocks.computeIfAbsent(accountId, id -> new ReentrantLock());
+        ReentrantLock refreshLock = refreshLocks.computeIfAbsent(accountId, _ -> new ReentrantLock());
         refreshLock.lock();
         try {
             // Double-check under the lock: a concurrent caller may have refreshed

@@ -121,7 +121,7 @@ public class MailContentService {
          * ends in it as one that ended during the account's sync.
          */
         FetchedBody fetched = crashGuard.whileFetching(accountId, () -> folderExecutor.executeReadOnly(accountId,
-                Lane.INTERACTIVE, messageEntity.getFolderName(), (folder, uidFolder) -> {
+                Lane.INTERACTIVE, messageEntity.getFolderName(), (_, uidFolder) -> {
                     Message message = uidFolder.getMessageByUID(messageEntity.getUid());
                     if (message == null) {
                         return null; // signal to outer code: the message is no longer on the server

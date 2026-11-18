@@ -176,7 +176,7 @@ public class ThreadingBackfillService {
                 "id=" + account.getId() + " messages=" + unthreaded);
         int total = 0;
         while (true) {
-            int assigned = Objects.requireNonNull(transactionTemplate.execute(status -> {
+            int assigned = Objects.requireNonNull(transactionTemplate.execute(_ -> {
                 List<MessageEntity> batch = messageRepository.findUnthreadedByAccountOrderByReceivedAt(account.getId(),
                         PageRequest.of(0, BATCH_SIZE));
                 for (MessageEntity msg : batch) {
@@ -251,7 +251,7 @@ public class ThreadingBackfillService {
         long afterId = 0;
         while (true) {
             final long cursor = afterId;
-            List<Long> processed = Objects.requireNonNull(transactionTemplate.execute(status -> {
+            List<Long> processed = Objects.requireNonNull(transactionTemplate.execute(_ -> {
                 List<T> batch = fetch.fetch(account.getId(), cursor, BATCH_SIZE);
                 List<Long> ids = new ArrayList<>(batch.size());
                 for (T row : batch) {

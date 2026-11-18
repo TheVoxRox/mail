@@ -306,7 +306,7 @@ public class AccountService {
                 oauth2TokenServiceRegistry.resolve(account.getOauth2Provider()).revokeToken(account);
             }
 
-            transactionTemplate.executeWithoutResult(tx -> {
+            transactionTemplate.executeWithoutResult(_ -> {
                 credentialService.deleteCredentials(accountId);
                 accountRepository.deleteById(accountId);
 

@@ -178,7 +178,7 @@ class ImapConnectionManagerTest {
         void reauthAccountIsRefusedByEmail() {
             when(accountRepository.findEmailIfRequiresReauth(ACCOUNT_ID)).thenReturn(Optional.of("user@example.com"));
 
-            assertThatThrownBy(() -> manager.executeWithLock(ACCOUNT_ID, Lane.BACKGROUND, s -> "unreachable"))
+            assertThatThrownBy(() -> manager.executeWithLock(ACCOUNT_ID, Lane.BACKGROUND, _ -> "unreachable"))
                     .isInstanceOf(MailOperationException.class).extracting("code", "messageKey", "messageArgs")
                     .containsExactly(ErrorCode.MAIL_ACCOUNT_REQUIRES_REAUTH, "error.mail.accountRequiresReauth",
                             new Object[]{"user@example.com"});
@@ -242,7 +242,7 @@ class ImapConnectionManagerTest {
             when(connectionDetailsService.getImapConnectionDetails(ACCOUNT_ID)).thenReturn(details);
             when(oauth2TokenServiceRegistry.resolve(GoogleTokenService.PROVIDER_NAME)).thenReturn(oauth2TokenService);
 
-            assertThatThrownBy(() -> spy.executeWithLock(ACCOUNT_ID, Lane.BACKGROUND, s -> {
+            assertThatThrownBy(() -> spy.executeWithLock(ACCOUNT_ID, Lane.BACKGROUND, _ -> {
                 throw new AuthenticationFailedException("still bad");
             })).isInstanceOf(MailOperationException.class).hasMessageContaining("denied IMAP access")
                     .satisfies(ex -> assertThat(((MailOperationException) ex).getCode())
@@ -279,7 +279,7 @@ class ImapConnectionManagerTest {
             AccountConnectionDetails details = passwordDetails();
             when(connectionDetailsService.getImapConnectionDetails(ACCOUNT_ID)).thenReturn(details);
 
-            assertThatThrownBy(() -> spy.executeWithLock(ACCOUNT_ID, Lane.BACKGROUND, s -> {
+            assertThatThrownBy(() -> spy.executeWithLock(ACCOUNT_ID, Lane.BACKGROUND, _ -> {
                 throw new AuthenticationFailedException("[AUTHENTICATIONFAILED] Incorrect authentication data");
             })).isInstanceOf(MailAuthenticationException.class).satisfies(ex -> {
                 MailAuthenticationException mae = (MailAuthenticationException) ex;
@@ -306,7 +306,7 @@ class ImapConnectionManagerTest {
         void wrapsMessagingException() throws Exception {
             pool().put(key(Lane.BACKGROUND), aliveStore());
 
-            assertThatThrownBy(() -> manager.executeWithLock(ACCOUNT_ID, Lane.BACKGROUND, s -> {
+            assertThatThrownBy(() -> manager.executeWithLock(ACCOUNT_ID, Lane.BACKGROUND, _ -> {
                 throw new MessagingException("boom");
             })).isInstanceOf(MailConnectionException.class).hasMessageContaining("Critical IMAP error")
                     .hasMessageContaining(String.valueOf(ACCOUNT_ID));
@@ -317,7 +317,7 @@ class ImapConnectionManagerTest {
         void wrapsIoException() throws Exception {
             pool().put(key(Lane.BACKGROUND), aliveStore());
 
-            assertThatThrownBy(() -> manager.executeWithLock(ACCOUNT_ID, Lane.BACKGROUND, s -> {
+            assertThatThrownBy(() -> manager.executeWithLock(ACCOUNT_ID, Lane.BACKGROUND, _ -> {
                 throw new java.io.IOException("network down");
             })).isInstanceOf(MailConnectionException.class).cause().hasMessageContaining("network down");
         }
@@ -350,7 +350,7 @@ class ImapConnectionManagerTest {
 
             CountDownLatch backgroundHoldsLock = new CountDownLatch(1);
             CountDownLatch releaseBackground = new CountDownLatch(1);
-            Thread holder = new Thread(() -> manager.executeWithLock(ACCOUNT_ID, Lane.BACKGROUND, s -> {
+            Thread holder = new Thread(() -> manager.executeWithLock(ACCOUNT_ID, Lane.BACKGROUND, _ -> {
                 backgroundHoldsLock.countDown();
                 try {
                     // Stands in for a folder cycle: holds its connection until the
@@ -376,7 +376,7 @@ class ImapConnectionManagerTest {
             CountDownLatch interactiveFinished = new CountDownLatch(1);
             String[] seen = new String[1];
             Thread reader = new Thread(() -> {
-                seen[0] = manager.executeWithLock(ACCOUNT_ID, Lane.INTERACTIVE, s -> "read through");
+                seen[0] = manager.executeWithLock(ACCOUNT_ID, Lane.INTERACTIVE, _ -> "read through");
                 interactiveFinished.countDown();
             }, "interactive-lane-reader");
             reader.setDaemon(true);
@@ -437,7 +437,7 @@ class ImapConnectionManagerTest {
 
             CountDownLatch interactiveHeld = new CountDownLatch(1);
             CountDownLatch releaseInteractive = new CountDownLatch(1);
-            Thread holder = new Thread(() -> manager.executeWithLock(ACCOUNT_ID, Lane.INTERACTIVE, s -> {
+            Thread holder = new Thread(() -> manager.executeWithLock(ACCOUNT_ID, Lane.INTERACTIVE, _ -> {
                 interactiveHeld.countDown();
                 try {
                     releaseInteractive.await(HOLD_TIMEOUT_SECONDS, TimeUnit.SECONDS);
@@ -466,7 +466,7 @@ class ImapConnectionManagerTest {
              */
             CountDownLatch degradedFinished = new CountDownLatch(1);
             Thread degraded = new Thread(() -> {
-                manager.executeWithLock(ACCOUNT_ID, Lane.INTERACTIVE, s -> null);
+                manager.executeWithLock(ACCOUNT_ID, Lane.INTERACTIVE, _ -> null);
                 degradedFinished.countDown();
             }, "degraded-request");
             degraded.setDaemon(true);
@@ -489,7 +489,7 @@ class ImapConnectionManagerTest {
 
             CountDownLatch backgroundHeld = new CountDownLatch(1);
             CountDownLatch releaseBackground = new CountDownLatch(1);
-            Thread holder = new Thread(() -> manager.executeWithLock(ACCOUNT_ID, Lane.BACKGROUND, s -> {
+            Thread holder = new Thread(() -> manager.executeWithLock(ACCOUNT_ID, Lane.BACKGROUND, _ -> {
                 backgroundHeld.countDown();
                 try {
                     releaseBackground.await(HOLD_TIMEOUT_SECONDS, TimeUnit.SECONDS);
@@ -549,7 +549,7 @@ class ImapConnectionManagerTest {
             when(oauth2TokenServiceRegistry.resolve(GoogleTokenService.PROVIDER_NAME)).thenReturn(oauth2TokenService);
 
             int[] calls = {0};
-            String result = spy.executeWithLock(ACCOUNT_ID, Lane.INTERACTIVE, s -> {
+            String result = spy.executeWithLock(ACCOUNT_ID, Lane.INTERACTIVE, _ -> {
                 if (++calls[0] == 1) {
                     throw new AuthenticationFailedException("token expired");
                 }
@@ -840,7 +840,7 @@ class ImapConnectionManagerTest {
             // What the store's connections would read had they opened when it was asked
             // for; an assertion here would be caught with the connect's own failure.
             AtomicLong budgetAtGetStore = new AtomicLong();
-            lenient().when(session.getStore("imaps")).thenAnswer(invocation -> {
+            lenient().when(session.getStore("imaps")).thenAnswer(_ -> {
                 budgetAtGetStore.set(BoundedImapProtocol.openFolderBudget(sessionProps, "imaps"));
                 return mock(Store.class);
             });
@@ -883,7 +883,7 @@ class ImapConnectionManagerTest {
             List<Throwable> connects = new ArrayList<>();
 
             try (MockedStatic<Session> sessions = mockStatic(Session.class)) {
-                sessions.when(() -> Session.getInstance(any(Properties.class))).thenAnswer(invocation -> {
+                sessions.when(() -> Session.getInstance(any(Properties.class))).thenAnswer(_ -> {
                     Properties props = new Properties();
                     sessionProps.add(props);
                     Session session = mock(Session.class);

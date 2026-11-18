@@ -31,7 +31,7 @@ public class SseNotificationService {
 
         emitter.onCompletion(() -> emitters.remove(emitter));
         emitter.onTimeout(() -> emitters.remove(emitter));
-        emitter.onError(e -> emitters.remove(emitter));
+        emitter.onError(_ -> emitters.remove(emitter));
 
         log.debug("{} SSE client connected, active connections: {}", LogCategory.SYNC, emitters.size());
         return emitter;

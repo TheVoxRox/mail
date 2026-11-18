@@ -121,7 +121,7 @@ public class DiagnosticDumpService {
      */
     private @Nullable State readState(List<SectionDump> sections) {
         try {
-            State state = readOnlyTransaction.execute(status -> buildState());
+            State state = readOnlyTransaction.execute(_ -> buildState());
             sections.add(new SectionDump("database", "read"));
             return state;
         } catch (RuntimeException e) {

@@ -182,6 +182,13 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- With #939, VS Code's Java extension shows no Eclipse JDT warnings in the
+  backend. Unused lambda parameters are now `_`, Java's unnamed variable: a
+  rename with no change in behaviour, acknowledged for the four audits whose
+  code it touches. `backend/.vscode/org.eclipse.jdt.core.prefs` switches off
+  the two JDT checks that do not fit this codebase, Error Prone suppression
+  tokens JDT cannot read and `serialVersionUID` on classes nothing serializes,
+  with the reason for each (#942).
 - The `check:eol` test that `checkout --` and `reset --hard` cannot clean a
   CRLF blob no longer depends on the clock. Straight after a discard,
   `git status` re-reads the file only if git wrote it and the index within the

@@ -1,0 +1,18 @@
+# Eclipse JDT compiler settings for VS Code's Java extension, loaded through
+# java.settings.url in settings.json next to this file. The extension resolves
+# that path against the opened folder, so open backend/ itself. Only what
+# differs from Eclipse's defaults is here, each with its reason. The build
+# (javac with Error Prone, SpotBugs) does not read this file.
+
+# Error Prone suppressions such as @SuppressWarnings("ReferenceEquality") are
+# tokens JDT does not know, and it reports each one as unsupported. The build
+# needs them, so JDT stops judging tokens it cannot read. A token JDT does
+# know, such as "resource", is still reported when it suppresses nothing.
+org.eclipse.jdt.core.compiler.problem.unhandledWarningToken=ignore
+
+# Nothing in the backend uses Java serialization: errors leave as JSON and
+# entities go through JPA. Exceptions and Spring's Page are Serializable only
+# by inheritance, and a serialVersionUID on each would be ceremony that javac's
+# lint does not ask for either (backend/pom.xml enables deprecation and removal
+# only).
+org.eclipse.jdt.core.compiler.problem.missingSerialVersion=ignore

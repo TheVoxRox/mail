@@ -68,7 +68,7 @@ public class SyncLockManager {
          * running pass releases the lock between the two.
          */
         boolean[] acquired = {false};
-        activeSyncs.compute(accountId, (id, running) -> {
+        activeSyncs.compute(accountId, (_, running) -> {
             if (running == null) {
                 acquired[0] = true;
                 return reportOnFinish;

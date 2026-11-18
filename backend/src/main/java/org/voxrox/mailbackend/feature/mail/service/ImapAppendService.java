@@ -247,7 +247,7 @@ public class ImapAppendService {
         // the draft is short and read-only, so it belongs in front of a sync rather
         // than behind one.
         MimeMessage detached = imapFolderService.executeInFolder(accountId, Lane.INTERACTIVE, folderName,
-                Folder.READ_ONLY, (folder, uidFolder) -> {
+                Folder.READ_ONLY, (_, uidFolder) -> {
                     try {
                         Message msg = uidFolder.getMessageByUID(uid);
                         if (msg == null) {

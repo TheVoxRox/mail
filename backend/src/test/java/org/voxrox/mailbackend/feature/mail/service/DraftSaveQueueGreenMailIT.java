@@ -240,7 +240,7 @@ class DraftSaveQueueGreenMailIT {
         CountDownLatch held = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
         Thread holder = Thread.ofVirtual().start(
-                () -> imapConnectionManager.executeWithLock(accountId, ImapConnectionManager.Lane.BACKGROUND, store -> {
+                () -> imapConnectionManager.executeWithLock(accountId, ImapConnectionManager.Lane.BACKGROUND, _ -> {
                     held.countDown();
                     try {
                         release.await();

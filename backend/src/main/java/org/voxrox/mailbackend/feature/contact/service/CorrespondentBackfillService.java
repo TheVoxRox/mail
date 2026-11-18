@@ -160,7 +160,7 @@ public class CorrespondentBackfillService {
      */
     public int rebuildAccount(AccountEntity account) {
         int dropped = Objects.requireNonNull(
-                transactionTemplate.execute(status -> correspondentRepository.deleteAllForAccount(account.getId())));
+                transactionTemplate.execute(_ -> correspondentRepository.deleteAllForAccount(account.getId())));
         log.info("{} Correspondent rebuild: dropped {} cached address(es) for account {}.", LogCategory.SYNC, dropped,
                 account.getId());
         AuditLog.success("correspondent_rebuild", LogMasker.maskEmail(account.getEmail()),
@@ -208,7 +208,7 @@ public class CorrespondentBackfillService {
         long afterId = 0;
         while (true) {
             final long cursor = afterId;
-            List<Long> processed = Objects.requireNonNull(transactionTemplate.execute(status -> {
+            List<Long> processed = Objects.requireNonNull(transactionTemplate.execute(_ -> {
                 List<CorrespondentBackfillRow> batch = messageRepository.findMessagesForCorrespondentBackfill(
                         account.getId(), cursor, maxId, PageRequest.of(0, BATCH_SIZE));
                 List<Long> ids = new ArrayList<>(batch.size());

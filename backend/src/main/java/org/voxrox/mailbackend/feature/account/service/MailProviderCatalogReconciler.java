@@ -67,7 +67,7 @@ public class MailProviderCatalogReconciler {
     @PostConstruct
     void reconcileOnStartup() {
         long started = startupTimingService.start();
-        int changed = Objects.requireNonNullElse(transactionTemplate.execute(status -> reconcile()), 0);
+        int changed = Objects.requireNonNullElse(transactionTemplate.execute(_ -> reconcile()), 0);
         startupTimingService.record("providers.catalog-reconcile", started);
 
         if (changed > 0) {

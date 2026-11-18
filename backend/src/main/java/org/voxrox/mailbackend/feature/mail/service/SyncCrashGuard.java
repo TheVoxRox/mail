@@ -215,7 +215,7 @@ public class SyncCrashGuard implements SmartInitializingSingleton {
     }
 
     private boolean begin(Long accountId, boolean crashOnRecord) {
-        InFlight running = inFlight.computeIfAbsent(accountId, id -> new InFlight());
+        InFlight running = inFlight.computeIfAbsent(accountId, _ -> new InFlight());
         synchronized (running) {
             if (crashOnRecord && !claimIsolation(accountId)) {
                 return false;

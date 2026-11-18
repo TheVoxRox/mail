@@ -302,7 +302,7 @@ public class ImapConnectionManager {
     }
 
     private ReentrantLock lockFor(Long accountId, Lane lane) {
-        return accountLocks.computeIfAbsent(new ConnectionKey(accountId, lane), k -> new ReentrantLock(true));
+        return accountLocks.computeIfAbsent(new ConnectionKey(accountId, lane), _ -> new ReentrantLock(true));
     }
 
     /**

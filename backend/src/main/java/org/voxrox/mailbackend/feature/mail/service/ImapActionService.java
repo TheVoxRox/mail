@@ -232,7 +232,7 @@ public class ImapActionService {
     public void updateFlagsOnServerAsync(Long accountId, String folderName, long uid, MessageFlag flag, boolean value) {
         Flags.Flag imapFlag = toJavaMailFlag(flag);
         try {
-            folderExecutor.executeReadWrite(accountId, Lane.BACKGROUND, folderName, (folder, uidFolder) -> {
+            folderExecutor.executeReadWrite(accountId, Lane.BACKGROUND, folderName, (_, uidFolder) -> {
                 Message msg = uidFolder.getMessageByUID(uid);
                 if (msg != null) {
                     msg.setFlag(imapFlag, value);

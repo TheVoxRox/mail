@@ -151,7 +151,7 @@ class ImapCondstoreCommandsTest {
         Response exists = mock(Response.class);
         Response tagged = stubStream(protocol, listed, exists);
 
-        ImapCondstoreCommands.readEach(protocol, "UID FETCH", new Argument(), 10, r -> {
+        ImapCondstoreCommands.readEach(protocol, "UID FETCH", new Argument(), 10, _ -> {
         });
 
         ArgumentCaptor<Response[]> notified = ArgumentCaptor.captor();
@@ -255,7 +255,7 @@ class ImapCondstoreCommandsTest {
         FetchResponse first = uidOnlyResponse(1L);
         stubStream(protocol, first);
 
-        ImapCondstoreCommands.readEach(protocol, "UID FETCH", new Argument(), 10, r -> {
+        ImapCondstoreCommands.readEach(protocol, "UID FETCH", new Argument(), 10, _ -> {
         });
 
         InOrder order = inOrder(protocol);
@@ -278,7 +278,7 @@ class ImapCondstoreCommandsTest {
         FetchResponse third = uidOnlyResponse(3L);
         stubStream(protocol, first, second, third);
 
-        assertThatThrownBy(() -> ImapCondstoreCommands.readEach(protocol, "UID FETCH", new Argument(), 1, r -> {
+        assertThatThrownBy(() -> ImapCondstoreCommands.readEach(protocol, "UID FETCH", new Argument(), 1, _ -> {
         })).isInstanceOf(ProtocolException.class);
 
         InOrder order = inOrder(protocol);

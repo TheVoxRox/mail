@@ -129,13 +129,13 @@ class AccountMemoryBudgetIT {
         AtomicInteger admitted = new AtomicInteger();
 
         assertThatThrownBy(() -> imapFolderService.executeInFolder(account.getId(), Lane.BACKGROUND, "INBOX",
-                Folder.READ_ONLY, (folder, uidFolder) -> {
+                Folder.READ_ONLY, (_, uidFolder) -> {
                     uidFolder.getMessageByUID(RENAMES + 1L);
                     admitted.incrementAndGet();
                     // The interactive lane is a connection of its own, with a folder of its
                     // own, while the sync's stays open with what it keeps.
                     imapFolderService.executeInFolder(account.getId(), Lane.INTERACTIVE, "INBOX", Folder.READ_ONLY,
-                            (other, otherUids) -> {
+                            (_, otherUids) -> {
                                 otherUids.getMessageByUID(RENAMES + 2L);
                                 admitted.incrementAndGet();
                                 return null;
@@ -160,11 +160,11 @@ class AccountMemoryBudgetIT {
         AtomicInteger admitted = new AtomicInteger();
 
         imapFolderService.executeInFolder(account.getId(), Lane.BACKGROUND, "INBOX", Folder.READ_ONLY,
-                (folder, uidFolder) -> {
+                (_, uidFolder) -> {
                     uidFolder.getMessageByUID(RENAMES + 1L);
                     SERVER.listUidsOfOneMessage(RENAMES / 3);
                     imapFolderService.executeInFolder(account.getId(), Lane.INTERACTIVE, "INBOX", Folder.READ_ONLY,
-                            (other, otherUids) -> {
+                            (_, otherUids) -> {
                                 otherUids.getMessageByUID(RENAMES + 2L);
                                 admitted.incrementAndGet();
                                 return null;
@@ -180,13 +180,13 @@ class AccountMemoryBudgetIT {
     @DisplayName("A folder that has closed no longer counts, so the next one of the account is admitted")
     void aClosedFolderNoLongerCounts() throws Exception {
         imapFolderService.executeInFolder(account.getId(), Lane.BACKGROUND, "INBOX", Folder.READ_ONLY,
-                (folder, uidFolder) -> {
+                (_, uidFolder) -> {
                     uidFolder.getMessageByUID(RENAMES + 1L);
                     return null;
                 });
 
         imapFolderService.executeInFolder(account.getId(), Lane.INTERACTIVE, "INBOX", Folder.READ_ONLY,
-                (folder, uidFolder) -> {
+                (_, uidFolder) -> {
                     uidFolder.getMessageByUID(RENAMES + 2L);
                     return null;
                 });

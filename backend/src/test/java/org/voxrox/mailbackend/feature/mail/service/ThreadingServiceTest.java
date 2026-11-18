@@ -85,7 +85,7 @@ class ThreadingServiceTest {
         if (message.getMessageId() == null) {
             return;
         }
-        messagesByMessageId.computeIfAbsent(message.getMessageId(), k -> new java.util.ArrayList<>()).add(message);
+        messagesByMessageId.computeIfAbsent(message.getMessageId(), _ -> new java.util.ArrayList<>()).add(message);
         if (message.getThreadId() != null) {
             maxPositionByThreadId.merge(message.getThreadId(),
                     message.getThreadPosition() != null ? message.getThreadPosition() : 1, Math::max);
@@ -363,7 +363,7 @@ class ThreadingServiceTest {
                     .thenReturn(List.of(orphanThreadId));
             AtomicInteger reassignCalls = new AtomicInteger();
             when(repo.reassignThreads(eq(ACCOUNT_ID), eq(List.of(orphanThreadId)), anyString(),
-                    eq("<late-parent@example.com>"))).thenAnswer(inv -> {
+                    eq("<late-parent@example.com>"))).thenAnswer(_ -> {
                         reassignCalls.incrementAndGet();
                         return 1;
                     });

@@ -126,7 +126,7 @@ class MailConnectionProbeTest {
             when(sessionMock.getProperties()).thenReturn(sessionProps);
             AtomicLong budgetAtGetStore = new AtomicLong();
             AtomicLong accountBudgetAtGetStore = new AtomicLong();
-            when(sessionMock.getStore("imaps")).thenAnswer(invocation -> {
+            when(sessionMock.getStore("imaps")).thenAnswer(_ -> {
                 budgetAtGetStore.set(BoundedImapProtocol.openFolderBudget(sessionProps, "imaps"));
                 if (sessionProps.get("mail.imaps."
                         + BoundedImapProtocol.ACCOUNT_BUDGET_PROPERTY) instanceof AccountMemoryBudget account) {

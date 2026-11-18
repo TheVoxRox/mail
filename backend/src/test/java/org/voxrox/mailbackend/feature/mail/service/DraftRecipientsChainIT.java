@@ -119,7 +119,7 @@ class DraftRecipientsChainIT {
         when(accountService.getAccountOrThrow(account.getId())).thenReturn(account);
         ImapFolderService folders = mock(ImapFolderService.class);
         when(folders.findFolderNameByRoleOrThrow(account.getId(), FolderRole.DRAFTS)).thenReturn("Drafts");
-        when(builder.build(any(), any(), any(), any(), any())).thenAnswer(invocation -> mock(MimeMessage.class));
+        when(builder.build(any(), any(), any(), any(), any())).thenAnswer(_ -> mock(MimeMessage.class));
         // As the service runs it: the draft is asked for under the lane, and a source
         // with nothing to append is not appended.
         when(appendService.appendDraft(anyLong(), anyString(), any())).thenAnswer(invocation -> {

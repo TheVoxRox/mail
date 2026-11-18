@@ -411,7 +411,7 @@ public class ContactService {
         for (String email : seen) {
             matches.stream().filter(other -> excludeContactId == null || !other.getId().equals(excludeContactId))
                     .filter(other -> other.getEmails().stream().anyMatch(e -> email.equals(e.getEmail()))).findFirst()
-                    .ifPresent(other -> {
+                    .ifPresent(_ -> {
                         throw new DuplicateContactException(email);
                     });
         }

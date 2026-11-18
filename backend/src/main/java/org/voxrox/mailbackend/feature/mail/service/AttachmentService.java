@@ -105,7 +105,7 @@ public class AttachmentService {
         // The action either returns a written temp file or throws — it never
         // yields null, so the nullable executor result can be required here.
         return java.util.Objects.requireNonNull(folderExecutor.executeReadOnly(entity.getAccount().getId(),
-                Lane.INTERACTIVE, entity.getFolderName(), (folder, uidFolder) -> {
+                Lane.INTERACTIVE, entity.getFolderName(), (_, uidFolder) -> {
                     Path tempFile = null;
                     try {
                         jakarta.mail.Message msg = uidFolder.getMessageByUID(entity.getUid());

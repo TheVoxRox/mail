@@ -465,7 +465,7 @@ public class MailSyncService {
             Folder folder, UIDFolder uidFolder, @Nullable List<MailEvent> resyncEvents) {
         final FolderRole role = detectedRole;
         FolderSyncStateEntity syncState = transactionTemplate
-                .execute(status -> syncStateService.getOrCreateState(account.getId(), folderName, role));
+                .execute(_ -> syncStateService.getOrCreateState(account.getId(), folderName, role));
 
         FolderSyncContext ctx = new FolderSyncContext(account, folderName, folder, uidFolder, syncState);
         String maskedEmail = LogMasker.maskEmail(account.getEmail());
@@ -811,7 +811,7 @@ public class MailSyncService {
         long needed = ((long) page + 1) * size;
 
         Long serverCount = imapFolderService.executeInFolder(account.getId(), Lane.INTERACTIVE, folderName,
-                Folder.READ_ONLY, (folder, uidFolder) -> {
+                Folder.READ_ONLY, (folder, _) -> {
                     try {
                         long count = folder.getMessageCount();
                         folderCountCache.put(account.getId(), folderName, count);
@@ -904,7 +904,7 @@ public class MailSyncService {
                             if (target <= localCount) {
                                 return null;
                             }
-                            FolderSyncStateEntity syncState = transactionTemplate.execute(status -> syncStateService
+                            FolderSyncStateEntity syncState = transactionTemplate.execute(_ -> syncStateService
                                     .getOrCreateState(account.getId(), folderName, FolderRole.USER));
                             FolderSyncContext ctx = new FolderSyncContext(account, folderName, folder, uidFolder,
                                     syncState);
@@ -1051,8 +1051,8 @@ public class MailSyncService {
 
                         // USER = "do not change the existing role". Backfill targets an
                         // already-synced folder whose role was set by performFullSyncCycle.
-                        FolderSyncStateEntity syncState = transactionTemplate.execute(status -> syncStateService
-                                .getOrCreateState(account.getId(), folderName, FolderRole.USER));
+                        FolderSyncStateEntity syncState = transactionTemplate.execute(
+                                _ -> syncStateService.getOrCreateState(account.getId(), folderName, FolderRole.USER));
                         FolderSyncContext ctx = new FolderSyncContext(account, folderName, folder, uidFolder,
                                 syncState);
 
