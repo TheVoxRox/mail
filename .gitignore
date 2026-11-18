@@ -29,6 +29,8 @@ desktop.ini
 !**/.env.e2e
 *.key
 *.pem
+# ...except the public Let's Encrypt certificates the sidecar ships (MailTlsContext).
+!backend/src/main/resources/tls/letsencrypt-*.pem
 *.p12
 *.pfx
 *.jks

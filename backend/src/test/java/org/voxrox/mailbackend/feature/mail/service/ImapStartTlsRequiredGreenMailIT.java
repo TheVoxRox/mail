@@ -52,7 +52,7 @@ class ImapStartTlsRequiredGreenMailIT {
                 DataSize.ofMegabytes(64), DataSize.ofMegabytes(96));
         SmtpProperties smtp = new SmtpProperties(Duration.ofSeconds(5), Duration.ofSeconds(5));
         probe = new MailConnectionProbe(new MailClientProperties(imap, smtp, null, null),
-                mock(OAuth2TokenServiceRegistry.class), mock(SmtpTransportFactory.class));
+                mock(OAuth2TokenServiceRegistry.class), mock(SmtpTransportFactory.class), new MailTlsContext());
     }
 
     @Test

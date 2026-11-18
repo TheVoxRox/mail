@@ -136,6 +136,44 @@ real one.
 **Revisit when:** importing a database made by another tool becomes a feature.
 That needs its own path with a schema check, not baselining.
 
+### An incomplete Let's Encrypt chain is completed from bundled intermediates, not fetched
+
+**Decided 2026-11-18** (#928). The sidecar's JDK trusts ISRG Root X1 and X2
+but not Let's Encrypt's Generation Y roots, and fetches no certificate a
+server leaves out. A server that sends its leaf alone, or the leaf and a YE/YR
+intermediate without the cross-sign, therefore fails path building, and the
+account reports `error.mail.cause.tls`. `MailTlsContext` completes the chain
+from the intermediates and the Generation Y cross-signs bundled in
+`backend/src/main/resources/tls/`. They are path material in a `CertStore`,
+never trust anchors, so nothing becomes trusted that the server's full chain
+could not already have reached.
+
+Why not AIA fetching (`com.sun.security.enableAIAcaIssuers`): on JDK 25.0.4 it
+does nothing without `com.sun.security.allowedAIALocations`, which is deny-all
+by default and matches hostnames exactly. It needs the same per-CA list the
+bundle is, with both hops allowed, so it is no more general. On top of that it
+makes cleartext HTTP requests during the handshake (15 s timeout per hop),
+applies to the whole JVM, and is new egress that `PRIVACY.md` would have to
+disclose. The allow-all value `any` would let any server certificate make the
+client fetch an arbitrary URL, localhost and intranet hosts included. A
+per-account "trust this certificate anyway" exception was rejected as well:
+the certificate is valid, only its chain is incomplete.
+
+The bundle is two files. `letsencrypt-intermediates.pem` holds what
+letsencrypt.org/certificates lists as active or backup (backups because Let's
+Encrypt may switch to them without notice) and the two cross-signs;
+`LetsEncryptIntermediatesTest` fails six months before one of them expires.
+`letsencrypt-retired-intermediates.pem` holds the retired Generation X
+intermediates, which still complete the chains of certificates issued before
+they were retired. They expire on 2027-03-12, inside any six-month margin, so
+they get none: the test fails once one has expired, and the fix is to delete
+it.
+
+**Revisit when:** the bundle needs a refresh more often than about once a
+year; Let's Encrypt announces an intermediate the bundle lacks (the test sees
+only the expiry of the certificates it holds, never a new one); or a server
+whose certificate comes from another CA fails the same way.
+
 ### The desktop shortcut is always created
 
 **Decided 2026-09-07** while revising the release checklist (#418). The

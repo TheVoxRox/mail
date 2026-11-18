@@ -52,11 +52,13 @@ public class SmtpTransportFactory {
 
     private final OAuth2TokenServiceRegistry oauth2TokenServiceRegistry;
     private final MailClientProperties mailProperties;
+    private final MailTlsContext tls;
 
     public SmtpTransportFactory(OAuth2TokenServiceRegistry oauth2TokenServiceRegistry,
-            MailClientProperties mailProperties) {
+            MailClientProperties mailProperties, MailTlsContext tls) {
         this.oauth2TokenServiceRegistry = oauth2TokenServiceRegistry;
         this.mailProperties = mailProperties;
+        this.tls = tls;
     }
 
     public Session createSession(AccountConnectionDetails details) {
@@ -81,6 +83,11 @@ public class SmtpTransportFactory {
         // can
         // confirm the check is in place.
         props.put("mail.smtp.ssl.checkserveridentity", "true");
+        // The shared TLS context, which completes a chain the server sent incomplete,
+        // for implicit SSL and the STARTTLS upgrade alike; no second attempt through
+        // the JDK's default factory when it refuses (#928, see MailTlsContext).
+        props.put("mail.smtp.ssl.socketFactory", tls.socketFactory());
+        props.put("mail.smtp.socketFactory.fallback", "false");
         if (details.useSsl()) {
             props.put("mail.smtp.ssl.enable", "true");
         } else {

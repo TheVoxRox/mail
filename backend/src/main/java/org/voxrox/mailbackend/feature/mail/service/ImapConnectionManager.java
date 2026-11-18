@@ -116,11 +116,12 @@ public class ImapConnectionManager {
     private final RetryTemplate imapRetryTemplate;
     private final MailMetrics metrics;
     private final ApplicationEventPublisher eventPublisher;
+    private final MailTlsContext tls;
 
     public ImapConnectionManager(AccountConnectionDetailsService connectionDetailsService,
             AccountRepository accountRepository, OAuth2TokenServiceRegistry oauth2TokenServiceRegistry,
             MailClientProperties mailProps, RetryTemplate imapRetryTemplate, MailMetrics metrics,
-            ApplicationEventPublisher eventPublisher) {
+            ApplicationEventPublisher eventPublisher, MailTlsContext tls) {
         this.connectionDetailsService = connectionDetailsService;
         this.accountRepository = accountRepository;
         this.oauth2TokenServiceRegistry = oauth2TokenServiceRegistry;
@@ -128,6 +129,7 @@ public class ImapConnectionManager {
         this.imapRetryTemplate = imapRetryTemplate;
         this.metrics = metrics;
         this.eventPublisher = eventPublisher;
+        this.tls = tls;
     }
 
     @PostConstruct
@@ -701,8 +703,8 @@ public class ImapConnectionManager {
         props.put("mail." + protocol + ".port", String.valueOf(port));
 
         // Implicit SSL, or required STARTTLS with the same identity check — never
-        // cleartext (audit B1-4).
-        ImapTransportSecurity.configure(props, protocol, details.useSsl());
+        // cleartext (audit B1-4) — through the shared TLS context (#928).
+        ImapTransportSecurity.configure(props, protocol, details.useSsl(), tls.socketFactory());
 
         /*
          * Pin partial fetch ON (the Angus default) rather than trusting it: the B1-1
