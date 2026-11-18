@@ -193,7 +193,7 @@ Entries before 2026-09-17 predate that split and are left as written.
   a dialog or takes focus away (WCAG 3.2.2); with the pre-#929 account
   switcher put back, it fails. `check:design` rejects a looping animation that
   does not stop under reduced motion (2.2.2), and `CLAUDE.md` now states the
-  WCAG 2.2 AA target and the questions no scan answers.
+  WCAG 2.2 AA target and the questions no scan answers (#943).
 - With #939, VS Code's Java extension shows no Eclipse JDT warnings in the
   backend. Unused lambda parameters are now `_`, Java's unnamed variable: a
   rename with no change in behaviour, acknowledged for the four audits whose
