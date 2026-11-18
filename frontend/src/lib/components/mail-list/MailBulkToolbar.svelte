@@ -25,6 +25,7 @@
 	import Icon from '#lib/components/Icon.svelte';
 	import MoveTargetMenuItems from '#lib/components/MoveTargetMenuItems.svelte';
 	import { Button, buttonVariants } from '#lib/components/ui/button/index.js';
+	import { rovingToolbar } from '#lib/components/ui/toolbar/index.js';
 	import {
 		nativeChoiceClass,
 		nativeChoiceControlClass
@@ -116,6 +117,7 @@
 
 <div
 	role="toolbar"
+	{@attach rovingToolbar()}
 	aria-label={$_('messages.bulkToolbarLabel')}
 	class="flex min-h-11 flex-wrap items-center gap-2 border-b border-border/80 bg-muted/20 px-3 py-2"
 >

@@ -63,6 +63,16 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- The toolbars over an open message ("Akce se zprávami") and over a selection
+  ("Hromadné akce") are one Tab stop each: Tab enters at the button used last
+  and leaves with the next press, the left and right arrows move between the
+  buttons, Home and End go to the first and the last. Every button used to be
+  a Tab stop of its own, so the message behind the toolbar was eight presses
+  away and a screen reader announced a toolbar whose arrow keys did nothing.
+  The keys are listed in Nastavení, Klávesové zkratky.
+- Escape in a menu opened over a message, such as the account switcher's,
+  closes the menu and returns to its button. It closed the message along with
+  the menu and left focus in the list.
 - Links that look like text, such as "Zpět na seznam účtů", "Nastavit ručně"
   or "Zadat jiný e-mail", are underlined all the time, not only under the
   mouse. A link inside a line of text has to differ from it by more than
@@ -188,6 +198,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- Every screen of the accessibility suite is walked for the keyboard contract
+  its ARIA patterns share: a grid, toolbar or other composite widget is one Tab
+  stop that the arrows never leave, a menu button opens on Enter with focus on
+  an item and returns focus on Escape. The walk found the two toolbars above
+  and the Escape that closed a message; a test holds the bulk toolbar, which no
+  screen shows as it loads (#946).
 - The axe scans run axe's best-practice rules beside the WCAG ones, all but
   `region`, so an ARIA role its element does not allow, an unnamed dialog, a
   second `main` or a page with no `<h1>` fail the suite. The first run found

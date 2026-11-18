@@ -1052,3 +1052,24 @@ neither list names.
 **Revisit when:** a best-practice rule fails on a pattern the app uses on
 purpose and that meets the WCAG criterion it stands near, which then moves to
 `BEST_PRACTICE_LEFT_OUT` with that reason rather than being worked around.
+
+### A toolbar is one Tab stop, with the arrow keys between its controls
+
+**Decided 2026-11-18** (maintainer). The two toolbars of the mail view, "Akce
+se zprávami" over an open message and "Hromadné akce" over a selection, follow
+the WAI-ARIA toolbar pattern through `rovingToolbar()` in
+[ui/toolbar](../frontend/src/lib/components/ui/toolbar/roving-toolbar.ts): Tab
+enters at the control used last and leaves with the next press, ArrowLeft and
+ArrowRight move between the controls and wrap, Home and End go to the first
+and the last. Every button used to be a Tab stop of its own, eight over a
+message, so the role promised arrow keys that did nothing and the message
+behind the toolbar was eight presses away.
+
+ArrowUp and ArrowDown stay with the control, so a menu button in a toolbar
+still opens its menu on ArrowDown. A text field in a toolbar keeps the arrows,
+Home and End. `apgLosses` holds every toolbar the per-screen walk reaches to
+one Tab stop, and the settings page of keyboard shortcuts lists the keys.
+
+**Revisit when:** a toolbar gains a control that needs ArrowLeft or ArrowRight
+itself, such as a slider, which the pattern lets keep them only by ending the
+toolbar's arrow movement at it.

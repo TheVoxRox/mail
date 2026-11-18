@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, type Locator, type Page } from '@playwright/test';
+import { expect, type ElementHandle, type Locator, type Page } from '@playwright/test';
 import { CHECK_OPTIONS, FORCED_RULES, WCAG_TAGS } from './a11y-target.js';
 import type {
 	MessageBodyView,
@@ -977,6 +977,188 @@ export async function contextChangeLosses(page: Page): Promise<string[]> {
 		});
 		await handle.dispose();
 		if (elsewhere) losses.push(`${label}: moved focus to ${elsewhere}`);
+	}
+	return losses;
+}
+
+/**
+ * The arrow keys a composite widget moves with. A toolbar, tablist or menubar
+ * is horizontal unless it says otherwise, and its cross axis belongs to the
+ * control: ArrowDown on a menu button in a toolbar opens the menu, which is
+ * the pattern, not focus escaping. A grid moves on both axes.
+ */
+function arrowsOf(widget: ElementHandle<HTMLElement>): Promise<string[]> {
+	return widget.evaluate((el) => {
+		const linear = ['toolbar', 'tablist', 'menubar'].includes(el.getAttribute('role') ?? '');
+		if (!linear) return ['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft'];
+		return el.getAttribute('aria-orientation') === 'vertical'
+			? ['ArrowDown', 'ArrowUp']
+			: ['ArrowRight', 'ArrowLeft'];
+	});
+}
+
+/**
+ * Composite widgets and menu buttons that break the keyboard contract of their
+ * WAI-ARIA Authoring Practices pattern.
+ *
+ * A grid, treegrid, toolbar, tablist, radiogroup or menubar is one Tab stop:
+ * at most one element inside it is in the Tab order, exactly one as soon as
+ * anything in it can be used, the others are reached by the arrow keys, and
+ * no arrow key takes focus out of it. A menu button (`aria-haspopup` "menu" or
+ * "true") opens its menu on Enter with focus on an item and says
+ * `aria-expanded="true"` while it is open; Escape closes the menu and gives
+ * focus back to the button. Of the menu buttons in a grid only the first is
+ * opened: every row renders the same one.
+ *
+ * The screen is measured as it loaded. Tab stops are counted first, before
+ * any key; the menus come next, since Enter and Escape leave the screen as
+ * they found it; the arrow keys come last, because in a message list they
+ * open the next message and change what the rest would see.
+ *
+ * What a widget does with the keys beyond that, such as which cell an arrow
+ * reaches, is the widget's own test. This holds every widget on a screen to
+ * the part of its pattern they all share, so a new one is held to it without
+ * a test of its own.
+ */
+export async function apgLosses(page: Page): Promise<string[]> {
+	const COMPOSITES =
+		'[role="grid"], [role="treegrid"], [role="toolbar"], [role="tablist"], [role="radiogroup"], [role="menubar"]';
+	const losses: string[] = [];
+
+	const widgets: { handle: ElementHandle<HTMLElement>; label: string }[] = [];
+	for (const handle of (await page
+		.locator(COMPOSITES)
+		.elementHandles()) as ElementHandle<HTMLElement>[]) {
+		const { label, stops, usable } = await handle.evaluate((el) => {
+			const focusable = [
+				...el.querySelectorAll<HTMLElement>(
+					'a[href], button, input, select, textarea, summary, iframe, [tabindex], [contenteditable="true"]'
+				)
+			].filter(
+				(node) =>
+					!(node as HTMLButtonElement).disabled &&
+					!node.closest('[inert]') &&
+					node.checkVisibility()
+			);
+			return {
+				label: `${el.getAttribute('role')} "${el.getAttribute('aria-label') ?? el.id}"`,
+				stops: el.checkVisibility() ? focusable.filter((node) => node.tabIndex >= 0).length : -1,
+				usable: focusable.length
+			};
+		});
+		if (stops === -1) {
+			await handle.dispose();
+		} else if (stops > 1 || (stops === 0 && usable > 0)) {
+			losses.push(`${label}: ${stops} Tab stops, not one`);
+			await handle.dispose();
+		} else if (stops === 1) {
+			widgets.push({ handle, label });
+		} else {
+			await handle.dispose();
+		}
+	}
+
+	const gridsSeen = new Set<string>();
+	const triggers = (await page
+		.locator('[aria-haspopup="menu"], [aria-haspopup="true"]')
+		.elementHandles()) as ElementHandle<HTMLElement>[];
+	for (const [index, handle] of triggers.entries()) {
+		const { label, grid, usable } = await handle.evaluate((el) => {
+			const owner = el.closest('[role="grid"], [role="treegrid"]');
+			const name = (el.getAttribute('aria-label') ?? el.textContent ?? '')
+				.replace(/\s+/g, ' ')
+				.trim()
+				.slice(0, 40);
+			return {
+				label: `menu button "${name}"`,
+				grid: owner ? (owner.getAttribute('aria-label') ?? owner.id) : null,
+				usable: el.checkVisibility() && !(el as HTMLButtonElement).disabled
+			};
+		});
+		if (!usable || (grid !== null && gridsSeen.has(grid))) {
+			await handle.dispose();
+			continue;
+		}
+		if (grid !== null) gridsSeen.add(grid);
+		const url = page.url();
+		await handle.press('Enter');
+		const opened = await page
+			.waitForFunction(
+				() => {
+					const active = document.activeElement;
+					return (
+						!!active?.closest('[role="menu"]') &&
+						/^menuitem/.test(active.getAttribute('role') ?? '')
+					);
+				},
+				undefined,
+				{ timeout: 2000 }
+			)
+			.then(
+				() => true,
+				() => false
+			);
+		if (page.url() !== url) {
+			losses.push(`${label}: Enter left the page instead of opening a menu`);
+			// The walk ends here; the handles it will not reach are let go too.
+			await Promise.all(triggers.slice(index).map((rest) => rest.dispose()));
+			break;
+		}
+		if (!opened) {
+			losses.push(`${label}: Enter puts no focus on an item of an open menu`);
+		} else if ((await handle.getAttribute('aria-expanded')) !== 'true') {
+			losses.push(`${label}: aria-expanded is not "true" while its menu is open`);
+		}
+		const menuShown = await page.evaluate(() =>
+			[...document.querySelectorAll('[role="menu"]')].some((menu) => menu.checkVisibility())
+		);
+		// Escape on anything but an open menu can close the reading pane or a
+		// dialog, which would change the screen under the rest of the walk.
+		if (menuShown) {
+			await page.keyboard.press('Escape');
+			const returned = await handle.evaluate(
+				(el) =>
+					new Promise<boolean>((resolve) => {
+						const started = performance.now();
+						const poll = () => {
+							const menuGone = ![...document.querySelectorAll('[role="menu"]')].some((menu) =>
+								menu.checkVisibility()
+							);
+							if (menuGone && document.activeElement === el) resolve(true);
+							else if (performance.now() - started > 2000) resolve(false);
+							else requestAnimationFrame(poll);
+						};
+						poll();
+					})
+			);
+			if (!returned) {
+				losses.push(`${label}: Escape does not close the menu and give focus back`);
+			} else if ((await handle.getAttribute('aria-expanded')) === 'true') {
+				losses.push(`${label}: aria-expanded stays "true" after Escape`);
+			}
+		}
+		await handle.dispose();
+	}
+
+	for (const { handle, label } of widgets) {
+		const stop = (
+			await handle.evaluateHandle((el) =>
+				[...el.querySelectorAll<HTMLElement>('*')].find(
+					(node) => node.tabIndex >= 0 && node.checkVisibility()
+				)
+			)
+		).asElement();
+		if (stop && (await handle.evaluate((el) => el.isConnected))) {
+			for (const key of await arrowsOf(handle)) {
+				await stop.press(key);
+				if (!(await handle.evaluate((el) => el.contains(document.activeElement)))) {
+					losses.push(`${label}: ${key} takes focus out of it`);
+					break;
+				}
+			}
+		}
+		await stop?.dispose();
+		await handle.dispose();
 	}
 	return losses;
 }

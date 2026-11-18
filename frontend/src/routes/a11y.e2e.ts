@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import {
+	apgLosses,
 	bodyFrame,
 	choiceLabelLosses,
 	contactGrid,
@@ -309,6 +310,29 @@ test.describe('Přístupnost', () => {
 
 		const results = await wcagScan(page).analyze();
 		await expectNoFindings(page, results);
+	});
+
+	test('toolbar hromadných akcí je jedna zastávka Tabu a projdou jím šipky (APG)', async ({
+		page
+	}) => {
+		// The per-screen walk sees the list with nothing ticked, where this
+		// toolbar does not exist; it comes with the first ticked row.
+		await openApp(page, `/mail/${mailFixture.accountId}/${mailFixture.folderName}`);
+		await rowsOf(messageGrid(page)).first().locator('input[type="checkbox"]').check();
+		const bulk = page.getByRole('toolbar', { name: 'Hromadné akce' });
+		await expect(bulk).toBeVisible();
+		expect(await apgLosses(page)).toEqual([]);
+
+		// Tab from its stop leaves it at once, and Shift+Tab comes back to it.
+		const stop = bulk.locator('[tabindex="0"]');
+		await expect(stop).toHaveCount(1);
+		await stop.press('End');
+		const last = bulk.locator('[tabindex="0"]');
+		await expect(last).toBeFocused();
+		await last.press('Tab');
+		await expect(bulk.locator(':focus')).toHaveCount(0);
+		await page.keyboard.press('Shift+Tab');
+		await expect(last).toBeFocused();
 	});
 
 	test('nabídka Přesunout se skupinou podsložek nemá a11y porušení', async ({ page }) => {
@@ -2151,6 +2175,13 @@ test.describe('Přístupnost – jednotlivé obrazovky', () => {
 			await openApp(page, path);
 			await expect(ready(page)).toBeVisible();
 			expect(await choiceLabelLosses(page)).toEqual([]);
+		});
+
+		test(`${name} (${path}) ovládá widgety klávesnicí podle vzorů APG`, async ({ page }) => {
+			if (flags) await setMockFlags(page, flags);
+			await openApp(page, path);
+			await expect(ready(page)).toBeVisible();
+			expect(await apgLosses(page)).toEqual([]);
 		});
 
 		test(`${name} (${path}) nezmění kontext změnou hodnoty prvku (3.2.2)`, async ({ page }) => {

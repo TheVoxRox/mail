@@ -242,6 +242,13 @@ check:audits` fails when code under an audit's `Code paths` changed after its
   `main`, landmarks of one kind told apart by name, an `<h1>` per page). A rule
   that does not fit goes into `BEST_PRACTICE_LEFT_OUT` with its reason, never
   around the scan.
+- Every screen is walked for the keyboard contract of its ARIA patterns
+  (`apgLosses` in `frontend/src/routes/e2e-helpers.ts`): a grid, treegrid,
+  toolbar, tablist, radiogroup or menubar is one Tab stop that the arrow keys
+  never leave, and a menu button opens on Enter with focus on an item and
+  gives focus back on Escape. A new `role="toolbar"` takes `rovingToolbar()`
+  from `ui/toolbar`; a widget in a state the walk does not reach (it sees each
+  screen as it loads) gets its own `apgLosses` call in that state.
 - The maintainer uses a screen reader. Data-rich rows are **ARIA grids with
   roving tabindex**, never one button carrying a monolithic `aria-label`.
 - Keyboard shortcuts follow Microsoft Outlook. Ctrl+R/F/U collide with the
