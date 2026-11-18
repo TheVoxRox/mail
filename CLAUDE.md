@@ -236,6 +236,12 @@ check:audits` fails when code under an audit's `Code paths` changed after its
   an image with no `alt`, a role missing its properties) fail `npm run check`,
   which runs `svelte-check --fail-on-warnings`, and so fail the push. Fix the
   markup; silence one only with its reason (`check:a11y-ignores`).
+- The axe scans run axe's best-practice rules beside the WCAG ones, all but
+  `region`: the ARIA rules (a role allowed on its element, a named dialog, no
+  `role="presentation"` on anything focusable) and the structure rules (one
+  `main`, landmarks of one kind told apart by name, an `<h1>` per page). A rule
+  that does not fit goes into `BEST_PRACTICE_LEFT_OUT` with its reason, never
+  around the scan.
 - The maintainer uses a screen reader. Data-rich rows are **ARIA grids with
   roving tabindex**, never one button carrying a monolithic `aria-label`.
 - Keyboard shortcuts follow Microsoft Outlook. Ctrl+R/F/U collide with the

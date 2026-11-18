@@ -5,7 +5,13 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { CHECK_OPTIONS, FORCED_RULES, WCAG_TAGS } from './a11y-target.js';
+import {
+	BEST_PRACTICE_LEFT_OUT,
+	BEST_PRACTICE_RULES,
+	CHECK_OPTIONS,
+	FORCED_RULES,
+	WCAG_TAGS
+} from './a11y-target.js';
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -61,16 +67,42 @@ describe('WCAG conformance target', () => {
 		for (const tag of levelTags('aaa')) expect(WCAG_TAGS).not.toContain(tag);
 	});
 
-	it('forces on only rules that exist and sit inside the target', () => {
+	it('forces on only rules that exist and sit inside the target or the best practice', () => {
 		for (const ruleId of Object.keys(FORCED_RULES)) {
 			const rule = ruleset.find((candidate) => candidate.ruleId === ruleId);
 			// A rule axe renamed or dropped would otherwise go on being "enabled"
 			// against nothing, which reads like coverage and is not.
 			expect(rule, `${ruleId} is not in axe-core ${axe.version}`).toBeDefined();
+			// AAA stays out by this: no rule may be forced on that carries
+			// neither a target level tag nor the best-practice one.
 			expect(
-				rule?.tags.some((tag) => WCAG_TAGS.includes(tag)),
-				`${ruleId} carries no level tag from the target`
+				rule?.tags.some((tag) => WCAG_TAGS.includes(tag)) ||
+					(BEST_PRACTICE_RULES.includes(ruleId) && rule?.tags.includes('best-practice')),
+				`${ruleId} carries no level tag from the target and is no listed best practice`
 			).toBe(true);
+		}
+	});
+
+	/*
+	 * The same guard as the level tags above, for the rules outside them: an
+	 * axe-core bump that adds a best-practice rule has to be answered, run or
+	 * left out with a reason, rather than going unrun without anyone deciding.
+	 */
+	it('answers every best-practice rule the installed axe-core carries', () => {
+		const askable = ruleset
+			.filter(
+				(rule) =>
+					rule.tags.includes('best-practice') &&
+					!rule.tags.some((tag) => ['experimental', 'deprecated', 'review-item'].includes(tag))
+			)
+			.map((rule) => rule.ruleId)
+			.sort();
+		const answered = [...BEST_PRACTICE_RULES, ...Object.keys(BEST_PRACTICE_LEFT_OUT)].sort();
+		expect(answered).toEqual(askable);
+		for (const ruleId of BEST_PRACTICE_RULES) {
+			expect(BEST_PRACTICE_LEFT_OUT, `${ruleId} is both run and left out`).not.toHaveProperty(
+				ruleId
+			);
 		}
 	});
 
