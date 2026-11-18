@@ -189,6 +189,26 @@ Entries before 2026-09-17 predate that split and are left as written.
   the two JDT checks that do not fit this codebase, Error Prone suppression
   tokens JDT cannot read and `serialVersionUID` on classes nothing serializes,
   with the reason for each (#942).
+- The `check:eol` test that `checkout --` and `reset --hard` cannot clean a
+  CRLF blob no longer depends on the clock. Straight after a discard,
+  `git status` re-reads the file only if git wrote it and the index within the
+  same second, and otherwise calls it clean from the stat cache, which failed
+  a pre-push run on 2026-11-17. The test now moves the file's mtime before
+  each status so git compares content, and so does the mixed-ending test,
+  whose `update-index --really-refresh` never bypassed the cache (#941).
+- `check:java-imports` counts only an unqualified occurrence of a name as a use
+  of its import. A dot is a word boundary, so the tail of `a.b.Pageable` kept an
+  import of `Pageable` alive that the IDE reported as unused; a name after `.`
+  or `::`, in code or in a javadoc reference, now needs no import. The one
+  leftover it finds is that `Pageable` in `ConversationViewServiceTest`, whose
+  uses now go through the import, as in #939 (#940).
+- Three Eclipse JDT warnings VS Code showed in backend tests are gone. The
+  Dovecot container factory's "resource leak" was a false alarm (JDT cannot see
+  that the fluent `with...()` calls return the same container, which goes back
+  to the caller) and is suppressed there with that reason; the suppression on
+  the caller's field, stale since #792 moved the chain into the factory, is
+  removed. `ConversationViewServiceTest` imported `Pageable` and then spelled it
+  out in full, so the import served nothing (#939).
 - `npm run audit:ci` can accept an advisory that has no fixed version, for a
   dated while, in `frontend/npm-audit-accepted.json`. GHSA-fc5q-39xc-vjpf
   (picomatch, build tooling only, no release fixes it) turned every pull

@@ -131,6 +131,98 @@ describe('check-unused-java-imports', () => {
 		expect(repo.run(SCRIPT).status).toBe(0);
 	});
 
+	it('counts a method reference on the imported type', () => {
+		repo.write(
+			'backend/src/main/java/org/example/Sample.java',
+			javaFile({
+				imports: ['import java.util.Objects;'],
+				body: '    java.util.function.Predicate<Object> p = Objects::isNull;'
+			})
+		);
+		repo.commit();
+
+		expect(repo.run(SCRIPT).status).toBe(0);
+	});
+
+	it('counts a type argument as a reference, also after a qualified call', () => {
+		repo.write(
+			'backend/src/main/java/org/example/Sample.java',
+			javaFile({
+				imports: ['import java.util.UUID;', 'import java.time.Instant;'],
+				body: [
+					'    java.util.Map<String, java.util.List<UUID>> ids;',
+					// A dot two characters back is not a qualifier of the name.
+					'    Object empty = java.util.Collections.<Instant>emptyList();'
+				].join('\n')
+			})
+		);
+		repo.commit();
+
+		expect(repo.run(SCRIPT).status).toBe(0);
+	});
+
+	it('counts the imported type qualifying a member of its own', () => {
+		repo.write(
+			'backend/src/main/java/org/example/Sample.java',
+			javaFile({
+				imports: ['import java.time.Duration;'],
+				body: '    Object d = Duration.ZERO;'
+			})
+		);
+		repo.commit();
+
+		expect(repo.run(SCRIPT).status).toBe(0);
+	});
+
+	it('counts an unqualified use even where the same name is also spelled out in full', () => {
+		repo.write(
+			'backend/src/main/java/org/example/Sample.java',
+			javaFile({
+				imports: ['import java.util.List;'],
+				body: '    java.util.List<String> a;\n    List<String> b;'
+			})
+		);
+		repo.commit();
+
+		expect(repo.run(SCRIPT).status).toBe(0);
+	});
+
+	it('counts a type named in the parameters of a javadoc member reference', () => {
+		repo.write(
+			'backend/src/main/java/org/example/Sample.java',
+			javaFile({
+				imports: ['import java.time.Duration;'],
+				body: '    /** Same as {@link #run(Duration)} with no wait. */\n    void now() {}'
+			})
+		);
+		repo.commit();
+
+		expect(repo.run(SCRIPT).status).toBe(0);
+	});
+
+	/*
+	 * Each javadoc reference is judged on its own. A reference ending a sentence
+	 * with its full stop must not read as the qualifier of the next one.
+	 */
+	it('does not read one javadoc reference as the qualifier of the next', () => {
+		repo.write(
+			'backend/src/main/java/org/example/Sample.java',
+			javaFile({
+				imports: ['import java.io.IOException;', 'import java.util.Optional;'],
+				body: [
+					'    /**',
+					'     * @throws IOException.',
+					'     * {@link Optional}',
+					'     */',
+					'    void io() {}'
+				].join('\n')
+			})
+		);
+		repo.commit();
+
+		expect(repo.run(SCRIPT).status).toBe(0);
+	});
+
 	it('does not treat a longer word containing the symbol as a reference', () => {
 		repo.write(
 			'backend/src/main/java/org/example/Sample.java',
@@ -199,6 +291,118 @@ describe('check-unused-java-imports', () => {
 
 		expect(result.status).toBe(1);
 		expect(result.output).toContain('Optional');
+	});
+
+	/*
+	 * A qualified name is resolved through its qualifier, never through an
+	 * import of its last segment. A dot is a word boundary, so a plain
+	 * `\bName\b` read the tail of a fully qualified name as a use; this is the
+	 * shape #939 found, in a test that spelled the type out twice and imported
+	 * it as well.
+	 */
+	it('does not accept the tail of a fully qualified name as a reference', () => {
+		repo.write(
+			'backend/src/main/java/org/example/Sample.java',
+			javaFile({
+				imports: ['import org.springframework.data.domain.Pageable;'],
+				body: '    Object p = any(org.springframework.data.domain.Pageable.class);'
+			})
+		);
+		repo.commit();
+
+		const result = repo.run(SCRIPT);
+
+		expect(result.status).toBe(1);
+		expect(result.output).toContain('Sample.java:3 Pageable');
+	});
+
+	it('does not accept a qualified name broken across lines as a reference', () => {
+		repo.write(
+			'backend/src/main/java/org/example/Sample.java',
+			javaFile({
+				imports: ['import java.util.Optional;'],
+				body: '    java.util.\n            Optional<String> o;'
+			})
+		);
+		repo.commit();
+
+		const result = repo.run(SCRIPT);
+
+		expect(result.status).toBe(1);
+		expect(result.output).toContain('Sample.java:3 Optional');
+	});
+
+	it('does not accept a nested type reached through its outer type as a use of its own import', () => {
+		repo.write(
+			'backend/src/main/java/org/example/Sample.java',
+			javaFile({
+				imports: ['import java.util.Map;', 'import java.util.Map.Entry;'],
+				body: '    Map.Entry<String, String> e;'
+			})
+		);
+		repo.commit();
+
+		const result = repo.run(SCRIPT);
+
+		expect(result.status).toBe(1);
+		expect(result.output).toContain('Sample.java:4 Entry');
+		// The outer type is what the code does use.
+		expect(result.output).not.toContain('Sample.java:3 Map');
+	});
+
+	it('does not accept a qualified call as a use of a static import', () => {
+		repo.write(
+			'backend/src/main/java/org/example/Sample.java',
+			javaFile({
+				imports: ['import java.util.Objects;', 'import static java.util.Objects.requireNonNull;'],
+				body: '    Object o = Objects.requireNonNull(null);'
+			})
+		);
+		repo.commit();
+
+		const result = repo.run(SCRIPT);
+
+		expect(result.status).toBe(1);
+		expect(result.output).toContain('Sample.java:4 requireNonNull');
+	});
+
+	it('does not accept a method reference as a use of a static import', () => {
+		repo.write(
+			'backend/src/main/java/org/example/Sample.java',
+			javaFile({
+				imports: ['import java.util.Objects;', 'import static java.util.Objects.isNull;'],
+				body: '    java.util.function.Predicate<Object> p = Objects::isNull;'
+			})
+		);
+		repo.commit();
+
+		const result = repo.run(SCRIPT);
+
+		expect(result.status).toBe(1);
+		expect(result.output).toContain('Sample.java:4 isNull');
+	});
+
+	it('does not accept a fully qualified javadoc reference as a reference', () => {
+		repo.write(
+			'backend/src/main/java/org/example/Sample.java',
+			javaFile({
+				imports: ['import java.util.Optional;', 'import java.time.Duration;'],
+				body: [
+					'    /**',
+					'     * See {@link java.util.Optional#empty()}.',
+					'     * @see java.time.Duration',
+					'     */',
+					'    void doc() {}'
+				].join('\n')
+			})
+		);
+		repo.commit();
+
+		const result = repo.run(SCRIPT);
+
+		expect(result.status).toBe(1);
+		expect(result.output).toContain('Sample.java:3 Optional');
+		expect(result.output).toContain('Sample.java:4 Duration');
 	});
 
 	/*

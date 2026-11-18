@@ -141,12 +141,27 @@ function splitCodeAndComments(src) {
 const JAVADOC_REFERENCE_TAGS =
 	/\{@(?:link|linkplain|value)\s+([^}]*)\}|@(?:see|throws|exception)\s+([^\s*]+)/g;
 
+/*
+ * One string per tag, judged apart. Glued together, a reference ending in a dot
+ * (`@see Foo.` closing a sentence) would read as the qualifier of the next one.
+ */
 function javadocReferences(comments) {
-	let refs = '';
-	for (const m of comments.matchAll(JAVADOC_REFERENCE_TAGS)) {
-		refs += ' ' + (m[1] ?? m[2] ?? '');
-	}
-	return refs;
+	return [...comments.matchAll(JAVADOC_REFERENCE_TAGS)].map((m) => m[1] ?? m[2] ?? '');
+}
+
+/*
+ * A use is an occurrence Java resolves through the import: an unqualified one.
+ * After a `.` or a `::` the name belongs to whatever stands left of it and is
+ * looked up there — `org.example.Pageable`, `Outer.Inner`, `softly.assertThat`,
+ * `Objects::requireNonNull` — so none of those keeps an import of `Pageable`,
+ * `Inner`, `assertThat` or `requireNonNull` alive. A dot is a word boundary, and
+ * a bare `\bName\b` took the tail of a fully qualified name for a use: a test
+ * kept an import that only `any(org.springframework.data.domain.Pageable.class)`
+ * mentioned, while the IDE reported it (#939). Whitespace, a line break
+ * included, may stand between the qualifier and the name.
+ */
+function usePattern(symbol) {
+	return new RegExp(`(?<!(?:\\.|::)\\s*)\\b${symbol}\\b`);
 }
 
 /**
@@ -173,9 +188,12 @@ function unusedImports(src) {
 	// The import block itself is not a usage of what it imports.
 	const withoutImports = lines.filter((l) => !SINGLE_TYPE_IMPORT.test(l)).join('\n');
 	const { code, comments } = splitCodeAndComments(withoutImports);
-	const usage = code + javadocReferences(comments);
+	const usage = [code, ...javadocReferences(comments)];
 
-	return imports.filter(({ symbol }) => !new RegExp(`\\b${symbol}\\b`).test(usage));
+	return imports.filter(({ symbol }) => {
+		const use = usePattern(symbol);
+		return !usage.some((text) => use.test(text));
+	});
 }
 
 const files = execFileSync('git', ['ls-files', '-z', '*.java'], {
