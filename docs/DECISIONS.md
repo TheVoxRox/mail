@@ -290,6 +290,22 @@ noise, or is not heard at all; or a mail server is found that files legitimate
 mail from trusted senders under junk often enough for the missing auto-load to
 be the complaint.
 
+### Link-style buttons are underlined at rest
+
+**Decided 2026-11-18** (maintainer). The `link` variant of
+[button.svelte](../frontend/src/lib/components/ui/button/button.svelte) carries
+`underline`, where it used to underline only on hover. WCAG 1.4.1 asks a link
+inside text to differ from that text by more than colour; the variant's
+`text-primary` sat at 1.16:1 against the sender line it stood in (1.03:1
+dark), and #929 had to underline that one link by hand. Most uses today stand
+on their own, where 1.4.1 asks nothing, so the underline there is the price of
+one spelling that is right wherever the next link lands.
+
+**Revisit when:** links get another cue that 1.4.1 accepts without an
+underline (3:1 against the surrounding text and a non-colour change on hover
+and focus), or a standalone link is wanted without the underline, which then
+takes a variant of its own so that `link` stays safe inside text.
+
 ### The pane toggle stands at the foot of the rail, outside its landmark
 
 **Decided 2026-11-07** (#861), after testers took the toggle at the head of the

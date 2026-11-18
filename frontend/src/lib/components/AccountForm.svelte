@@ -1044,7 +1044,7 @@
 				<Button
 					variant="link"
 					size="sm"
-					class="flex w-fit px-0 underline"
+					class="flex w-fit px-0"
 					href={appPasswordHint.helpUrl}
 					target="_blank"
 					rel="noopener noreferrer"

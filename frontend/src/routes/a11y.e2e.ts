@@ -4,6 +4,7 @@ import {
 	bodyFrame,
 	choiceLabelLosses,
 	contactGrid,
+	contextChangeLosses,
 	conversationGrid,
 	expectNoFindings,
 	focusIndicatorLosses,
@@ -2150,6 +2151,13 @@ test.describe('Přístupnost – jednotlivé obrazovky', () => {
 			await openApp(page, path);
 			await expect(ready(page)).toBeVisible();
 			expect(await choiceLabelLosses(page)).toEqual([]);
+		});
+
+		test(`${name} (${path}) nezmění kontext změnou hodnoty prvku (3.2.2)`, async ({ page }) => {
+			if (flags) await setMockFlags(page, flags);
+			await openApp(page, path);
+			await expect(ready(page)).toBeVisible();
+			expect(await contextChangeLosses(page)).toEqual([]);
 		});
 
 		test(`${name} (${path}) má živou oblast, skip-link a main landmark`, async ({ page }) => {

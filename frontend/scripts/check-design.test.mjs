@@ -396,6 +396,123 @@ describe('check-design', () => {
 		});
 	});
 
+	/*
+	 * WCAG 2.2.2 at AA: a loop has to stop when the system asks for less
+	 * motion. The boundaries are the element (the answer has to be on the one
+	 * that loops) and the animation (a finite one is 2.3.3, at AAA, and passes).
+	 */
+	describe('looping animations', () => {
+		it('fails on a spinner that ignores reduced motion, with file and line', () => {
+			repo.write(
+				'frontend/src/lib/A.svelte',
+				['<div>', '\t<span class="size-4 animate-spin rounded-full"></span>', '</div>', ''].join(
+					'\n'
+				)
+			);
+
+			const result = run();
+
+			expect(result.status).not.toBe(0);
+			expect(result.output).toContain('looping-animation');
+			expect(result.output.replaceAll('\\', '/')).toContain('src/lib/A.svelte:2');
+		});
+
+		it('passes a spinner stopped by motion-reduce on the same element', () => {
+			repo.write(
+				'frontend/src/lib/A.svelte',
+				'<span class="animate-spin motion-reduce:animate-none"></span>\n'
+			);
+
+			expect(run().status).toBe(0);
+		});
+
+		it('accepts the answer with the important modifier', () => {
+			repo.write(
+				'frontend/src/lib/A.svelte',
+				'<span class="animate-spin motion-reduce:!animate-none"></span>\n'
+			);
+
+			expect(run().status).toBe(0);
+		});
+
+		it('passes a loop that runs only under motion-safe', () => {
+			repo.write('frontend/src/lib/A.svelte', '<span class="motion-safe:animate-pulse"></span>\n');
+
+			expect(run().status).toBe(0);
+		});
+
+		/* The shape UpdatePromptDialog has: the answer and the loop on two lines. */
+		it('reads a class: directive with the class attribute of its element', () => {
+			repo.write(
+				'frontend/src/lib/A.svelte',
+				[
+					'<div',
+					'\tclass="h-full motion-reduce:animate-none"',
+					'\tclass:animate-pulse={percent === null}',
+					'></div>',
+					''
+				].join('\n')
+			);
+
+			expect(run().status).toBe(0);
+		});
+
+		it('fails a class: directive with no answer on its element', () => {
+			repo.write('frontend/src/lib/A.svelte', '<div class:animate-pulse={busy}></div>\n');
+
+			expect(run().status).not.toBe(0);
+		});
+
+		it('fails when only the parent stops its animations', () => {
+			repo.write(
+				'frontend/src/lib/A.svelte',
+				[
+					'<div class="motion-reduce:animate-none">',
+					'\t<span class="hover:animate-ping"></span>',
+					'</div>',
+					''
+				].join('\n')
+			);
+
+			expect(run().status).not.toBe(0);
+		});
+
+		it('passes a finite animation, which 2.2.2 does not reach', () => {
+			repo.write(
+				'frontend/src/lib/A.svelte',
+				'<div class="data-[state=open]:animate-in data-[state=open]:fade-in-0"></div>\n'
+			);
+
+			expect(run().status).toBe(0);
+		});
+
+		it('reads a TypeScript class string line by line', () => {
+			repo.write(
+				'frontend/src/lib/spinner.ts',
+				[
+					"export const spinner = 'animate-bounce';",
+					"export const stopped = 'animate-bounce motion-reduce:animate-none';",
+					''
+				].join('\n')
+			);
+
+			const result = run();
+
+			expect(result.status).not.toBe(0);
+			expect(result.output.replaceAll('\\', '/')).toContain('src/lib/spinner.ts:1');
+			expect(result.output.replaceAll('\\', '/')).not.toContain('src/lib/spinner.ts:2');
+		});
+
+		it('ignores a comment that names the animation', () => {
+			repo.write(
+				'frontend/src/lib/A.svelte',
+				['<!-- A bare animate-spin would loop forever. -->', '<span>x</span>', ''].join('\n')
+			);
+
+			expect(run().status).toBe(0);
+		});
+	});
+
 	it('reports every rule that was broken, not just the first', () => {
 		repo.write('frontend/src/lib/A.svelte', '<div class="bg-emerald-500">a</div>\n');
 		repo.write('frontend/src/lib/B.svelte', '<div class="rounded bg-muted/45">b</div>\n');

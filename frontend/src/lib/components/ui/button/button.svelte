@@ -50,8 +50,14 @@
 				 * ran it out of its card and past the window at 320 CSS px (WCAG
 				 * 1.4.10). The size's height becomes a minimum (compoundVariants), so a
 				 * label on one line looks as before.
+				 *
+				 * Underlined at rest, not only on hover. A link inside a line of text
+				 * is told from the text by more than colour or it fails WCAG 1.4.1, and
+				 * the sender line's contact link sat at 1.16:1 against its neighbours
+				 * with the underline left to hover (#929). One spelling for every link
+				 * keeps the next inline use from repeating it.
 				 */
-				link: 'shrink whitespace-normal text-left text-primary underline-offset-4 hover:underline'
+				link: 'shrink whitespace-normal text-left text-primary underline underline-offset-4'
 			},
 			size: {
 				default:

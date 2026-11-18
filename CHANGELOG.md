@@ -63,6 +63,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- Links that look like text, such as "Zpět na seznam účtů", "Nastavit ručně"
+  or "Zadat jiný e-mail", are underlined all the time, not only under the
+  mouse. A link inside a line of text has to differ from it by more than
+  colour, and the contact link in a message's sender line did not until #929
+  underlined it by hand; with every such link underlined, the next one placed
+  in a sentence cannot repeat it.
 - The Contacts pane no longer shows the account switcher. The address book is
   one for the whole application, so picking another account there changed
   nothing in Contacts and only took you to that account's mail. The account a
@@ -182,6 +188,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The accessibility suite changes every select, radio button and checkbox on
+  each screen by keyboard and fails a screen where that leaves the page, opens
+  a dialog or takes focus away (WCAG 3.2.2); with the pre-#929 account
+  switcher put back, it fails. `check:design` rejects a looping animation that
+  does not stop under reduced motion (2.2.2), and `CLAUDE.md` now states the
+  WCAG 2.2 AA target and the questions no scan answers (#943).
 - With #939, VS Code's Java extension shows no Eclipse JDT warnings in the
   backend. Unused lambda parameters are now `_`, Java's unnamed variable: a
   rename with no change in behaviour, acknowledged for the four audits whose

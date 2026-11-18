@@ -873,3 +873,110 @@ export function choiceLabelLosses(page: Page): Promise<string[]> {
 		return losses;
 	});
 }
+
+/**
+ * Selects, radio buttons and checkboxes whose new value changes the context
+ * (WCAG 3.2.2 On Input): the page leaves its URL, a dialog opens, or focus
+ * leaves the control.
+ *
+ * Each control gets keys that set a value and do nothing else. A closed select
+ * takes End, Home and PageDown without opening, which is how the sidebar's
+ * account switcher, a select that switched on `change`, left the mailbox for
+ * the other account's and put focus on its heading (#929). ArrowDown is not
+ * among them: the app's Select turns it into showPicker, and an open list is
+ * not a new value. A radio button takes ArrowDown and ArrowUp, which move focus
+ * to another button of its group by design, so focus anywhere in the group
+ * still counts as staying. A checkbox takes Space twice and ends as it began.
+ *
+ * A navigation lands once its load functions have run, not with the key, so
+ * each control is judged a fixed while after its keys. With that switcher put
+ * back, its navigation had landed 40 ms after the keys in the mock build, and
+ * the walk still failed on it; 250 ms leaves room for a slower runner. A new
+ * URL or an open dialog ends the walk, since what follows is no longer this
+ * screen.
+ */
+export async function contextChangeLosses(page: Page): Promise<string[]> {
+	const KEYS: Record<string, string[]> = {
+		select: ['End', 'Home', 'PageDown'],
+		radio: ['ArrowDown', 'ArrowUp'],
+		checkbox: ['Space', 'Space']
+	};
+	const SETTLE_MS = 250;
+	const openDialogs = () =>
+		page.evaluate(
+			() =>
+				[
+					...document.querySelectorAll('[role="dialog"], [role="alertdialog"], dialog[open]')
+				].filter((el) => el.checkVisibility()).length
+		);
+	const controls = page.locator('select, input[type="radio"], input[type="checkbox"]');
+	const startUrl = page.url();
+	const startDialogs = await openDialogs();
+	const losses: string[] = [];
+	for (let i = 0; i < (await controls.count()); i++) {
+		const control = controls.nth(i);
+		if (!(await control.isVisible()) || !(await control.isEnabled())) continue;
+		const handle = await control.elementHandle();
+		if (!handle) continue;
+		const { kind, label } = await handle.evaluate((el) => {
+			const field = el as HTMLInputElement | HTMLSelectElement;
+			const kind = field instanceof HTMLSelectElement ? 'select' : field.type;
+			const name =
+				el.getAttribute('aria-label') ??
+				field.labels?.[0]?.textContent ??
+				el.getAttribute('name') ??
+				'';
+			return { kind, label: `${kind} "${name.replace(/\s+/g, ' ').trim().slice(0, 40)}"` };
+		});
+		// A key that navigates leaves the next one a detached control to press,
+		// so a failed press is judged after the URL, and only a control the
+		// page really dropped counts as removed; anything else is rethrown.
+		let pressError: unknown = null;
+		try {
+			for (const key of KEYS[kind] ?? []) await handle.press(key);
+		} catch (error) {
+			pressError = error;
+		}
+		await page.waitForTimeout(SETTLE_MS);
+		if (pressError && page.url() === startUrl) {
+			if (await handle.evaluate((el) => el.isConnected)) throw pressError;
+			losses.push(`${label}: removed from the page by its own new value`);
+			await handle.dispose();
+			continue;
+		}
+		if (page.url() !== startUrl) {
+			losses.push(
+				`${label}: left ${new URL(startUrl).pathname} for ${new URL(page.url()).pathname}`
+			);
+			await handle.dispose();
+			break;
+		}
+		if ((await openDialogs()) > startDialogs) {
+			losses.push(`${label}: opened a dialog`);
+			await handle.dispose();
+			break;
+		}
+		const elsewhere = await handle.evaluate((el) => {
+			const active = document.activeElement;
+			if (active === el) return null;
+			const sameGroup =
+				el instanceof HTMLInputElement &&
+				el.type === 'radio' &&
+				active instanceof HTMLInputElement &&
+				active.type === 'radio' &&
+				active.name !== '' &&
+				active.name === el.name &&
+				active.form === el.form;
+			if (sameGroup) return null;
+			if (!active || active === document.body) return 'the page body';
+			const text = (active.getAttribute('aria-label') ?? active.textContent ?? '')
+				.replace(/\s+/g, ' ')
+				.trim()
+				.slice(0, 40);
+			return `${active.getAttribute('role') ?? active.tagName.toLowerCase()} "${text}"`;
+		});
+		await handle.dispose();
+		if (elsewhere) losses.push(`${label}: moved focus to ${elsewhere}`);
+	}
+	return losses;
+}
