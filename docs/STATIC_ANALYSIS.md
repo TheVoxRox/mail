@@ -109,7 +109,7 @@ Conventions established during the burn-down:
 
 | Tool                              | When                                 | Gate                                                            |
 | --------------------------------- | ------------------------------------ | --------------------------------------------------------------- |
-| TypeScript strict + svelte-check  | `npm run check` / pre-push           | fails on any error                                              |
+| TypeScript strict + svelte-check  | `npm run check` / pre-push           | fails on any error or warning, accessibility warnings included  |
 | ESLint (js/ts/svelte recommended) | `npm run lint` / pre-push            | fails the run                                                   |
 | ESLint type-aware promise rules   | `src/**/*.ts`                        | `no-floating-promises`, `await-thenable` as errors              |
 | knip                              | `npm run knip` / pre-push            | unused files, exports, types, dependencies                      |
@@ -117,6 +117,7 @@ Conventions established during the burn-down:
 | npm entry callers                 | `check:npm-callers` / pre-push       | a script entry nothing reaches, or two entries with one command |
 | rename residue                    | `check:rename-residue` (CI only)     | a removed symbol still named in a comment or a test name        |
 | test claims                       | `check:test-claims` / pre-push       | duplicate test bodies in one file, tests switched off silently  |
+| a11y ignores                      | `check:a11y-ignores` / pre-push      | a silenced Svelte accessibility warning with no reason          |
 | i18n key checks                   | `check:i18n` (also pre-commit)       | locale parity **and** unused base-locale keys fail              |
 | backend i18n key parity           | `check:i18n:backend`                 | cs/en key + placeholder parity; `messages.properties` == cs     |
 | translations whitelist            | `check:translations:strict`          | Czech diacritics outside i18n need a justified whitelist entry  |

@@ -24,7 +24,7 @@
 	let { colIndex, placement, children }: Props = $props();
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events -->
+<!-- svelte-ignore a11y_click_events_have_key_events (the handler only keeps a click in this cell from reaching the row, which opens the message; the control inside the cell takes the keys) -->
 <div
 	role="gridcell"
 	aria-colindex={colIndex}

@@ -186,6 +186,14 @@ someone a rework at least once. For the human-facing versions see
     click or from the app is a question the gate cannot judge and does not try
     to. Exceptions take `// focus-settled: <reason>`. Three occurrences before
     it existed (#284, #293, #412), the last costing four PRs in a day.
+  - `check:a11y-ignores` — a `svelte-ignore` of an `a11y_` warning says why,
+    in prose after the codes:
+    `<!-- svelte-ignore a11y_click_events_have_key_events (the row takes the keys) -->`.
+    Svelte reads everything after the last code without a comma as prose, so
+    the reason costs nothing. It matters because `svelte-check` runs with
+    `--fail-on-warnings`: the compiler's accessibility warnings stop the push,
+    and the ignore is the one way past them. Nine ignores carried no reason
+    when the gate came in.
   - `check:rename-residue` (CI only) — a symbol the change stopped declaring
     may not still be named in source. It reads the **diff**, not the tree, and
     reports a name only once it is gone from code everywhere (code = the file
@@ -224,6 +232,10 @@ check:audits` fails when code under an audit's `Code paths` changed after its
   (3.1.2), is anything told apart by colour alone (1.4.1), does anything move
   on its own for more than five seconds (2.2.2; `check:design` covers
   Tailwind's looping animations).
+- The Svelte compiler's accessibility warnings (a click with no key handler,
+  an image with no `alt`, a role missing its properties) fail `npm run check`,
+  which runs `svelte-check --fail-on-warnings`, and so fail the push. Fix the
+  markup; silence one only with its reason (`check:a11y-ignores`).
 - The maintainer uses a screen reader. Data-rich rows are **ARIA grids with
   roving tabindex**, never one button carrying a monolithic `aria-label`.
 - Keyboard shortcuts follow Microsoft Outlook. Ctrl+R/F/U collide with the
