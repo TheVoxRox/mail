@@ -192,7 +192,8 @@ Entries before 2026-09-17 predate that split and are left as written.
   `region`, so an ARIA role its element does not allow, an unnamed dialog, a
   second `main` or a page with no `<h1>` fail the suite. The first run found
   the command palette's search field named only by its placeholder; it now
-  carries the same words as its `aria-label`, so the spoken name is unchanged.
+  carries the same words as its `aria-label`, so the spoken name is unchanged
+  (#945).
 - `npm run check` runs `svelte-check --fail-on-warnings`, so the Svelte
   compiler's accessibility warnings (a click with no key handler, an image
   with no `alt`) fail the push; they passed it as warnings before. The new
