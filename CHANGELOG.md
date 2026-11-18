@@ -198,6 +198,11 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The updater audit is re-verified (1.27) against the squash commit of #949,
+  clearing its six drift acknowledgements with no finding. The one gap was a
+  list: #886's new-mail notification command was named neither in the audit's
+  §1 nor in the threat model's B4 row that points to it, and both now describe
+  it (#953).
 - The content-rendering audit is re-verified (2.3) against the squash commit
   of #948, clearing its six drift acknowledgements: no finding, the frame's
   CSP hashes recomputed from source, and one stale claim corrected — §2's list
