@@ -126,7 +126,8 @@
       "frontend/src-tauri/tauri.conf.json": "b73d7a2502466008501be2bc69f6534b30325145",
       "frontend/src/lib/updates.ts": "9836b55156603091b0f01446dcb975c2d639eea5",
       "frontend/src/lib/components/UpdateFailureDialog.svelte": "bdda2d24531e8cfdd11b41a1f638631e4f2fea41",
-      "frontend/src/lib/components/boot/BootErrorView.svelte": "810f20c5dfaed3cfc7f167d98e076261285923d5"
+      "frontend/src/lib/components/boot/BootErrorView.svelte": "810f20c5dfaed3cfc7f167d98e076261285923d5",
+      "frontend/src/lib/components/UpdatePromptDialog.svelte": "494b890883e9a9d6f00a3977398817f3328b167a"
     },
     "acknowledgements": [
       {
@@ -148,6 +149,10 @@
       {
         "date": "2026-11-16",
         "note": "WCAG 2.2 AA fixes, display only. updates.ts: showUpdateFailure takes the dialog text from diagnosticErrorText (the error's own text, `en` when nothing localized it) and stores its language as messageLang; checkForUpdateManually's `message`, which nothing displays, comes from technicalMessage: the error's raw text, as toErrorMessage returned it before this change. UpdateFailureDialog.svelte renders that text with `lang`. BootErrorView.svelte takes an optional errorLang for its error paragraph. AboutSettings.svelte shows the session error through diagnosticErrorText with its `lang`. When an update is checked, which endpoint and channel are asked, how the download is verified against the pubkey and how it is installed are untouched, as are the releases-page fallback and the update channel setting. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-18",
+        "note": "Display only. UpdatePromptDialog.svelte's download bar is bits-ui's Progress.Root instead of a hand-written div with role=\"progressbar\": the same aria-label, aria-valuetext, range 0-100 and value, with aria-valuenow left off for an unknown Content-Length as before. The phase line, the polite announcements, the install and postpone buttons and every call into updates.ts are byte-identical; which endpoint and channel are asked, how the download is verified against the pubkey and how it is installed are untouched. Verdict unchanged."
       }
     ]
   }
