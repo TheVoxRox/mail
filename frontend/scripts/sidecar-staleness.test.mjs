@@ -26,6 +26,7 @@ function write(relative, contents = 'x') {
 }
 
 const JAR = 'frontend/src-tauri/binaries/app/mail-backend-0.1.0.jar';
+const PACKAGING_SCRIPT = 'backend/scripts/package-sidecar-windows.ps1';
 const LAUNCHER = 'frontend/src-tauri/binaries/voxrox-mail-backend-x86_64-pc-windows-msvc.exe';
 
 /** The two things the launcher name is judged by: the config and what sits in binaries/. */
@@ -46,6 +47,7 @@ function packagedSidecar(launcher = LAUNCHER, externalBin = 'binaries/voxrox-mai
 async function syncedFixture(launcher = LAUNCHER, externalBin) {
 	write('backend/src/main/java/org/voxrox/Service.java', 'class Service {}');
 	write('backend/pom.xml', '<project/>');
+	write(PACKAGING_SCRIPT, '$jvmOptions = @("-Xmx384m")');
 	packagedSidecar(launcher, externalBin);
 	const { hash } = await hashBackendSources(root);
 	write(`frontend/src-tauri/binaries/app/${HASH_FILE_NAME}`, `${hash}\n`);
@@ -219,6 +221,23 @@ describe('sidecar freshness', () => {
 		write('backend/pom.xml', '<project><modelVersion/></project>');
 
 		expect((await checkSidecarFreshness(root)).status).toBe('stale');
+	});
+
+	it('flags a changed packaging script, which shapes the image without a source changing', async () => {
+		// #562 added -XX:+ExitOnOutOfMemoryError there and nowhere else; an image
+		// packaged before it hashed as fresh after it.
+		await syncedFixture();
+		write(PACKAGING_SCRIPT, '$jvmOptions = @("-Xmx384m", "-XX:+ExitOnOutOfMemoryError")');
+
+		expect((await checkSidecarFreshness(root)).status).toBe('stale');
+	});
+
+	it('leaves out the backend scripts that build nothing that ships', async () => {
+		await syncedFixture();
+		write('backend/scripts/measure-cold-start-windows.ps1', 'measures');
+		write('backend/package-sidecar-dev-windows.ps1', 'loads backend/.env and forwards');
+
+		expect((await checkSidecarFreshness(root)).status).toBe('ok');
 	});
 
 	it('survives a checkout that rewrites timestamps without changing content', async () => {

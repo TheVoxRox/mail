@@ -102,7 +102,7 @@ Invoke-Step "Taking the backend source digest" {
     if ($script:sourceDigest -notmatch '^[0-9a-f]{64}$') {
         throw "The backend source digest is not a SHA-256 in hex: '$($script:sourceDigest)'."
     }
-    Write-Host "  $($script:sourceDigest.Substring(0, 12)) over backend/src/main and backend/pom.xml."
+    Write-Host "  $($script:sourceDigest.Substring(0, 12)) over backend/src/main, backend/pom.xml and this script."
 }
 
 Invoke-Step "Building Spring Boot jar" {
@@ -193,6 +193,17 @@ Invoke-Step "Extracting the application from the executable jar" {
     Write-Host "  $($jar.Name) and $libCount libraries in lib\."
 }
 
+# The OAuth client values the launcher carries, by the environment variable each
+# comes from. Read by the resolving step below and again by the verification
+# step after publishing; frontend/scripts/lib/sidecar-oauth.mjs names the same
+# properties, for `npm run tauri:build` to warn about a launcher without them,
+# and its suite pins the two lists together.
+$oauthMappings = [ordered]@{
+    "GOOGLE_OAUTH_CLIENT_ID"     = "spring.security.oauth2.client.registration.google.client-id"
+    "GOOGLE_OAUTH_CLIENT_SECRET" = "spring.security.oauth2.client.registration.google.client-secret"
+    "MICROSOFT_OAUTH_CLIENT_ID"  = "spring.security.oauth2.client.registration.microsoft.client-id"
+}
+
 Invoke-Step "Resolving OAuth client configuration" {
     # Bake the production OAuth client identifiers into the launcher as JVM system
     # properties (they override application.properties at runtime). Values come
@@ -206,11 +217,6 @@ Invoke-Step "Resolving OAuth client configuration" {
     # falls back to the non-working placeholder and breaks OAuth only in
     # production.
     $script:oauthArgs = @()
-    $oauthMappings = [ordered]@{
-        "GOOGLE_OAUTH_CLIENT_ID"     = "spring.security.oauth2.client.registration.google.client-id"
-        "GOOGLE_OAUTH_CLIENT_SECRET" = "spring.security.oauth2.client.registration.google.client-secret"
-        "MICROSOFT_OAUTH_CLIENT_ID"  = "spring.security.oauth2.client.registration.microsoft.client-id"
-    }
 
     foreach ($envName in $oauthMappings.Keys) {
         $value = [Environment]::GetEnvironmentVariable($envName)
@@ -457,10 +463,12 @@ Invoke-Step "Verifying launcher version resource" {
 
 Invoke-Step "Verifying OAuth client configuration in launcher" {
     # Defense in depth for the silent-prod-breakage class of bug: independently of
-    # the bake step above, assert the *published* launcher .cfg actually carries a
-    # non-placeholder Google client-id before the image is shipped. Without it the
-    # runtime falls back to application.properties' "mail-local-*" placeholder and
-    # Google rejects the login with invalid_client. -AllowPlaceholderOAuth opts a
+    # the bake step above, assert the *published* launcher .cfg actually carries
+    # every value of $oauthMappings, none of them a placeholder, before the image
+    # is shipped. Without one the runtime falls back to application.properties'
+    # "mail-local-*" placeholder and the provider rejects the login with
+    # invalid_client. It used to look for the Google client-id alone, so a
+    # launcher without the Microsoft one passed. -AllowPlaceholderOAuth opts a
     # local build out of this gate.
     if ($AllowPlaceholderOAuth) {
         Write-Host "  Skipped (-AllowPlaceholderOAuth)."
@@ -470,15 +478,20 @@ Invoke-Step "Verifying OAuth client configuration in launcher" {
     if (-not (Test-Path -LiteralPath $cfgPath)) {
         throw "Launcher config not found for OAuth verification: $cfgPath"
     }
-    $cfg = Get-Content -LiteralPath $cfgPath -Raw
-    $clientIdKey = "spring.security.oauth2.client.registration.google.client-id"
-    if ($cfg -notmatch [regex]::Escape($clientIdKey)) {
-        throw "Launcher $cfgPath does not bake $clientIdKey — OAuth login would fall back to the placeholder and fail in production. Package with the OAuth env vars set (CI secrets / package-sidecar-dev-windows.ps1)."
+    # One whole line per option, as in the JVM option check below.
+    $cfgLines = @(Get-Content -LiteralPath $cfgPath)
+    foreach ($property in $oauthMappings.Values) {
+        $prefix = "java-options=-D$property="
+        $line = @($cfgLines | Where-Object { $_.StartsWith($prefix) }) | Select-Object -First 1
+        if (-not $line) {
+            throw "Launcher $cfgPath does not bake $property — OAuth login would fall back to the placeholder and fail in production. Package with the OAuth env vars set (CI secrets / package-sidecar-dev-windows.ps1)."
+        }
+        $value = $line.Substring($prefix.Length).Trim()
+        if (-not $value -or $value -like "mail-local-*") {
+            throw "Launcher $cfgPath carries no real value for $property (empty or a 'mail-local-*' placeholder) — OAuth login would fail in production."
+        }
     }
-    if ($cfg -match "mail-local-") {
-        throw "Launcher $cfgPath still carries a 'mail-local-*' OAuth placeholder — OAuth login would fail in production."
-    }
-    Write-Host "  Google client-id baked into the launcher; no placeholder."
+    Write-Host "  All $($oauthMappings.Count) OAuth client values baked into the launcher; no placeholder."
 }
 
 Invoke-Step "Verifying JVM options in launcher" {

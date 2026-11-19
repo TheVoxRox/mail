@@ -2,6 +2,7 @@ import { readdir, readFile, rename, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { run } from './lib/run.mjs';
+import { describeUnbakedOAuth, unbakedOAuthProperties } from './lib/sidecar-oauth.mjs';
 import { requireUsableSidecar } from './lib/sidecar-staleness.mjs';
 
 const frontendRoot = process.cwd();
@@ -37,13 +38,23 @@ const tauriCli = path.join(frontendRoot, 'node_modules', '@tauri-apps', 'cli', '
  * build, and a reminder after it, where cargo's output has scrolled the first
  * one away. Recorded in docs/DECISIONS.md with what would reopen it.
  */
+const repoRoot = path.resolve(frontendRoot, '..');
 let builtOverStaleSidecar;
 try {
-	builtOverStaleSidecar =
-		(await requireUsableSidecar(path.resolve(frontendRoot, '..'), 'tauri-build')) === 'stale';
+	builtOverStaleSidecar = (await requireUsableSidecar(repoRoot, 'tauri-build')) === 'stale';
 } catch (error) {
 	console.error(error instanceof Error ? error.message : String(error));
 	process.exit(1);
+}
+
+/*
+ * A sidecar packaged with --allow-placeholder-oauth, said before the build and
+ * again after it, as the opt-out above is. Asked here and not in a dev run,
+ * which takes the values from backend/.env (see lib/sidecar-oauth.mjs).
+ */
+const unbakedOAuth = (await unbakedOAuthProperties(repoRoot)) ?? [];
+if (unbakedOAuth.length > 0) {
+	console.warn(`\n[tauri-build] ${describeUnbakedOAuth(unbakedOAuth)}\n`);
 }
 
 const exitCode = await run(process.execPath, [tauriCli, 'build', ...process.argv.slice(2)], {
@@ -60,6 +71,13 @@ if (builtOverStaleSidecar) {
 	console.warn(
 		'\n[tauri-build] WARNING: this build carries a sidecar that was not packaged from the checked-out\n' +
 			'backend (MAIL_ALLOW_STALE_SIDECAR=1). Do not hand the installer on; rebuild with:\n' +
+			'  npm run sidecar:rebuild:windows   (from frontend/)\n'
+	);
+}
+if (unbakedOAuth.length > 0) {
+	console.warn(
+		'\n[tauri-build] WARNING: the sidecar in this build carries no OAuth client ids; signing in\n' +
+			'to a Google or Microsoft account will not work in it. Define them in backend/.env and rebuild:\n' +
 			'  npm run sidecar:rebuild:windows   (from frontend/)\n'
 	);
 }

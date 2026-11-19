@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { BAKED_OAUTH_PROPERTIES } from './lib/sidecar-oauth.mjs';
 import { HASH_FILE_NAME, hashBackendSources } from './lib/sidecar-staleness.mjs';
 import { createGateRepo } from './test-support/gate-repo.mjs';
 
@@ -68,14 +69,32 @@ afterEach(() => {
 });
 
 /**
+ * The launcher .cfg as packaging writes it: the OAuth client values it baked,
+ * one `java-options` line each. `oauth` maps a property to its value, and a
+ * property left out is one packaging did not bake.
+ */
+function launcherCfg(oauth) {
+	return [
+		'[JavaOptions]',
+		'java-options=-Dspring.aot.enabled=true',
+		...Object.entries(oauth).map(([property, value]) => `java-options=-D${property}=${value}`)
+	].join('\r\n');
+}
+
+const BAKED = Object.fromEntries(
+	BAKED_OAUTH_PROPERTIES.map((property) => [property, `fixture-${property.split('.').pop()}`])
+);
+
+/**
  * What backend/scripts/package-sidecar-windows.ps1 leaves in target/sidecar:
  * the launcher, app/ and runtime/, and the digest of the sources as they stood
- * before the build, beside the jar — unless the image predates that.
+ * before the build, beside the jar — unless the image predates that. With the
+ * OAuth client values baked in, as packaging does unless told otherwise.
  */
-async function packageImage({ recordDigest = true } = {}) {
+async function packageImage({ recordDigest = true, oauth = BAKED } = {}) {
 	repo.write(`${IMAGE}/${LAUNCHER}`, 'launcher');
 	repo.write(`${IMAGE}/app/mail-backend-0.1.0.jar`, 'jar');
-	repo.write(`${IMAGE}/app/voxrox-mail-backend-x86_64-pc-windows-msvc.cfg`, '[Application]');
+	repo.write(`${IMAGE}/app/voxrox-mail-backend-x86_64-pc-windows-msvc.cfg`, launcherCfg(oauth));
 	repo.write(`${IMAGE}/runtime/release`, 'JAVA_VERSION="25"');
 	if (!recordDigest) return;
 	const { hash } = await hashBackendSources(repo.root);
@@ -303,5 +322,76 @@ describe('npm run tauri:build after a packaging and a sync', () => {
 		expect(result.status).toBe(1);
 		expect(result.stderr).toContain('was not built from the backend sources');
 		expect(tauriInvokedWith()).toBeNull();
+	});
+});
+
+/*
+ * A sidecar packaged with --allow-placeholder-oauth works in a dev run, which
+ * hands the sidecar the values in backend/.env, and nowhere else: an installed
+ * sidecar has only what its launcher carries. Packaging warned once; the build
+ * is where an installer is made over it, so the build says it again.
+ */
+describe('npm run tauri:build and the OAuth client ids in the launcher', () => {
+	const GOOGLE_ID = 'spring.security.oauth2.client.registration.google.client-id';
+	const MICROSOFT_ID = 'spring.security.oauth2.client.registration.microsoft.client-id';
+
+	it('warns before and after building over a sidecar packaged without them', async () => {
+		await packageImage({ oauth: {} });
+		sync();
+
+		const result = build();
+
+		expect(result.status, result.output).toBe(0);
+		expect(tauriInvokedWith()).toEqual(['build']);
+		const before = result.stderr.indexOf(
+			'[tauri-build] The sidecar launcher carries no OAuth client value for google.client-id, ' +
+				'google.client-secret, microsoft.client-id.'
+		);
+		const after = result.stderr.indexOf('WARNING: the sidecar in this build carries no OAuth');
+		expect(before).toBeGreaterThan(-1);
+		expect(after).toBeGreaterThan(before);
+		expect(result.stderr).toContain('npm run sidecar:rebuild:windows');
+	});
+
+	it('names the one value missing, and takes a placeholder for a missing one', async () => {
+		await packageImage({
+			oauth: { ...BAKED, [MICROSOFT_ID]: 'mail-local-microsoft-client-id' }
+		});
+		sync();
+
+		const result = build();
+
+		expect(result.status, result.output).toBe(0);
+		expect(result.stderr).toContain('carries no OAuth client value for microsoft.client-id.');
+	});
+
+	it('takes an empty value for a missing one', async () => {
+		await packageImage({ oauth: { ...BAKED, [GOOGLE_ID]: '' } });
+		sync();
+
+		expect(build().stderr).toContain('carries no OAuth client value for google.client-id.');
+	});
+
+	it('says nothing in a dev run, which takes the values from backend/.env', async () => {
+		await packageImage({ oauth: {} });
+		sync();
+		repo.write('backend/.env', 'GOOGLE_OAUTH_CLIENT_ID=from-the-env-file\n');
+
+		const dev = repo.run('tauri-dev-with-env.mjs', [], { env: { MAIL_ALLOW_STALE_SIDECAR: '' } });
+
+		expect(dev.status, dev.output).toBe(0);
+		expect(dev.output).not.toContain('OAuth');
+	});
+
+	it('looks for exactly the properties packaging bakes', () => {
+		const script = readFileSync(
+			path.join(repoRoot, 'backend', 'scripts', 'package-sidecar-windows.ps1'),
+			'utf8'
+		);
+		const block = script.match(/\$oauthMappings = \[ordered\]@\{([^}]*)\}/);
+		expect(block, 'the $oauthMappings table in package-sidecar-windows.ps1').not.toBeNull();
+		const mapped = [...block[1].matchAll(/=\s*"([^"]+)"/g)].map((match) => match[1]);
+
+		expect(mapped).toEqual(BAKED_OAUTH_PROPERTIES);
 	});
 });

@@ -109,16 +109,25 @@ It refuses while anything runs out of `src-tauri/binaries/` or `src-tauri/target
 
 `-- --skip-smoke` leaves out the last step. `-- --allow-placeholder-oauth`
 packages without the OAuth client ids, for a sidecar whose OAuth login will not
-work.
+work. A dev run is not affected, since `npm run tauri:dev` hands the ids from
+`backend/.env` to the sidecar itself. An installer is, and `npm run tauri:build`
+warns before and after it builds over such a sidecar.
 
-Packaging records the digest of the backend sources it built from beside the
-jar, in `app/packaged-backend-source.sha256`, and the sync carries it along
-unchanged. `npm run tauri:dev` and `npm run tauri:build` compare it with the
-checked-out backend before they start and refuse a sidecar packaged from other
-sources, so after a backend change run the rebuild again: a sync alone copies
-the old image, digest and all. `MAIL_ALLOW_STALE_SIDECAR=1` lets either go
-ahead over such a sidecar, with a warning; nothing lets them past a missing
-sidecar or a launcher named other than `tauri.conf.json` expects.
+Packaging records a digest of what it built from beside the jar, in
+`app/packaged-backend-source.sha256`: `backend/src/main`, `backend/pom.xml` and
+`backend/scripts/package-sidecar-windows.ps1`, which decides the launcher's JVM
+options and the runtime's modules. The sync carries it along unchanged.
+`npm run tauri:dev` and `npm run tauri:build` compare it with the checked-out
+backend before they start and refuse a sidecar packaged from other sources, so
+after a backend change run the rebuild again: a sync alone copies the old
+image, digest and all. `MAIL_ALLOW_STALE_SIDECAR=1` lets either go ahead over
+such a sidecar, with a warning; nothing lets them past a missing sidecar or a
+launcher named other than `tauri.conf.json` expects.
+
+The sync checks the image before it deletes anything in `src-tauri/binaries/`,
+and puts `app/` in place last, whole, so a sync that stops halfway leaves no
+`app/` behind: the next `tauri:dev` or `tauri:build` reports the sidecar
+missing instead of starting one with half a runtime.
 
 Then build the desktop app:
 
