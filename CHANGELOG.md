@@ -35,7 +35,7 @@ Entries before 2026-09-17 predate that split and are left as written.
   `docs/VERIFYING_THE_INSTALLER.md`, and the README and the release-notes
   template link it; the release notes are English and used to send their
   reader to the Czech user guide. Both versions now say that `gh` has to be
-  signed in before either check runs (#PR).
+  signed in before either check runs (#962).
 - The README now opens with what the app is for and who it is made for: a
   screen reader user, the accounts it takes, what stays on the computer, and
   where to download it. It used to open with the monorepo and the sidecar
