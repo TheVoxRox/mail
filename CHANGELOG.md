@@ -25,6 +25,9 @@ Entries before 2026-09-17 predate that split and are left as written.
   open blocker and the known issues of 0.2.0, §3b taken from an installation of
   0.2.0 once the prerelease is published, and the release notes in
   `docs/release-notes/v0.2.1-beta.1.md` (#957).
+- RELEASE_CHECKLIST §3b for `v0.2.1-beta.1` is ticked: on 2026-11-19 an
+  installation of 0.2.0 on the beta channel took the published prerelease
+  through the updater and kept its mail (#958).
 
 ## [0.2.1-beta.1] - 2026-11-19
 
