@@ -19,6 +19,16 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Frontend
+
+- Settings, Language now says only what the page is for and that the choice
+  applies at once. Its opening sentence and the hint of the language list
+  both said that the change also reaches screen readers ("v atributech pro
+  odečítače obrazovky", "atribut lang v HTML"): a developer's words, which a
+  screen reader user heard twice in a row, under the heading and again on the
+  list. What a screen reader does with the language is not the user's concern
+  while it works.
+
 ### Repo
 
 - The `v0.2.1-beta.1` release decision: §9 of the 2026-11-19 sheet, with no

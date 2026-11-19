@@ -707,9 +707,9 @@
 		},
 		"language": {
 			"pageTitle": "Mail – Settings – Language",
-			"intro": "Language changes apply immediately in the UI and in the accessibility metadata used by screen readers.",
+			"intro": "Choose the language of the application's interface.",
 			"heading": "Application language",
-			"hint": "The change applies immediately. The HTML lang attribute is updated so screen readers use the correct pronunciation.",
+			"hint": "The change applies immediately.",
 			"label": "Language"
 		},
 		"shortcuts": {
