@@ -31,6 +31,11 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The Czech installer verification steps in `frontend/END_USER_README.md` now
+  say everything their English copy says: download only from the Releases
+  page, no administrator rights needed, run it only after verifying, how to run
+  the commands, what to do when a check fails, and that in-app updates need
+  none of it (#964).
 - `SECURITY.md` and the bug report template name the app version's place as
   Settings → About, like every other document; they said Settings → Help →
   About and Help → About, the second of which the app has no menu for (#963).
