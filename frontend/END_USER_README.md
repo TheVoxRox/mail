@@ -48,21 +48,31 @@ IMAP/SMTP servery a poskytuje API pro uživatelské rozhraní.
 
 ## Instalace a ověření instalátoru
 
-Instalátor `voxrox-mail-<verze>-windows-x64-setup.exe` zatím **není podepsaný**
-code-signing certifikátem (open source projekt). Windows SmartScreen proto při
-spuštění zobrazí varování „Windows ochránil váš počítač / Neznámý vydavatel".
-Instalaci spustíte přes **Další informace → Přesto spustit**.
+Instalátor stahujte jen ze stránky
+[Releases](https://github.com/TheVoxRox/mail/releases) tohoto repozitáře.
+Jmenuje se `voxrox-mail-<verze>-windows-x64-setup.exe` a nová instalace
+nepotřebuje práva správce. Kopii odjinud mají odhalit právě kontroly níže.
+
+Instalátor zatím **není podepsaný** certifikátem Authenticode; jak budeme
+vydání podepisovat, popisují
+[zásady podepisování kódu](https://voxrox.org/code-signing/). Windows
+SmartScreen proto při spuštění zobrazí varování „Windows ochránil váš počítač /
+Neznámý vydavatel". Instalaci spustíte přes **Další informace → Přesto
+spustit** — až když soubor ověříte.
 
 ### Ověření před spuštěním
 
 <!-- The same procedure in English is docs/VERIFYING_THE_INSTALLER.md, linked
 from the release notes. A change to one is a change to both. -->
 
-Protože build není podepsaný code-signing certifikátem, doporučujeme ověřit jeho
-původ. Nejsilnější je **ověření původu (build provenance)** pomocí GitHub CLI —
-potvrdí, že instalátor postavil přímo oficiální release workflow tohoto
-repozitáře (kryptograficky, přes Sigstore; nelze podvrhnout pouhou záměnou
-souboru v releasu):
+První dvě kontroly potřebují [GitHub CLI](https://cli.github.com/) (`gh`)
+přihlášené k libovolnému účtu GitHub (`gh auth login`); bez přihlášení ani
+jeden příkaz neproběhne. Spusťte je v PowerShellu ve složce, kam jste instalátor
+stáhli, a `<verze>` nahraďte staženou verzí, například `0.2.0`.
+
+Nejsilnější je **ověření původu (build provenance)** — potvrdí, že instalátor
+postavil přímo oficiální release workflow tohoto repozitáře (kryptograficky,
+přes Sigstore; nelze podvrhnout pouhou záměnou souboru v releasu):
 
 ```powershell
 gh attestation verify "voxrox-mail-<verze>-windows-x64-setup.exe" --repo TheVoxRox/mail
@@ -76,10 +86,6 @@ potvrdí:
 gh release verify-asset v<verze> "voxrox-mail-<verze>-windows-x64-setup.exe" --repo TheVoxRox/mail
 ```
 
-Obě kontroly potřebují [GitHub CLI](https://cli.github.com/) přihlášené
-k libovolnému účtu GitHub (`gh auth login`); bez přihlášení ani jedna
-neproběhne.
-
 Přiložený `…-setup.exe.sha256` slouží už jen jako **rychlá kontrola integrity**
 (že se soubor nepoškodil při stahování) — sám o sobě nechrání proti úmyslné
 záměně, protože leží ve stejném releasu:
@@ -89,6 +95,14 @@ certutil -hashfile "voxrox-mail-<verze>-windows-x64-setup.exe" SHA256
 ```
 
 Vypsaný otisk musí odpovídat hodnotě v `…-setup.exe.sha256`.
+
+**Když některá kontrola neprojde**, instalátor nespouštějte. Stáhněte ho znovu
+ze stránky Releases a kontrolu zopakujte. Pokud neprojde ani potom, nahlaste to
+jako bezpečnostní problém podle stránky [Podpora](https://voxrox.org/support/).
+
+Aktualizace nainstalovaná z aplikace nic z toho nepotřebuje: aplikace sama
+ověří podpis každé aktualizace, než ji nainstaluje (viz
+[Aktualizace](#aktualizace)).
 
 ## Před prvním spuštěním
 
