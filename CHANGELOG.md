@@ -21,6 +21,18 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- The toolbar over an open message drops its labels when they would not fit
+  in it, not below a window width of 1280px. On a 1366px screen with the
+  sidebar at its default width the Czech labels did not fit, and the move
+  button sat cut off at the edge behind a horizontal scroll; folding or
+  narrowing the sidebar now brings the labels back wherever they fit.
+- The dark theme draws checkboxes, scrollbars and the other controls the
+  webview paints itself dark too. They stayed light, so the message list's
+  column of checkboxes was the brightest thing on the dark screen.
+- A message, search or contact list that fits on one page shows its count
+  alone ("25 zpráv"). The pager under it said "Strana 1 z 1" beside four
+  disabled buttons and a page box that could only hold 1, and its navigation
+  landmark was a stop for a screen reader with nothing to navigate.
 - Settings, Language now says only what the page is for and that the choice
   applies at once. Its opening sentence and the hint of the language list
   both said that the change also reaches screen readers ("v atributech pro

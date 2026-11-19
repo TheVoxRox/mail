@@ -70,6 +70,23 @@ test.describe('Settings – appearance', () => {
 		expect(await page.evaluate(() => window.localStorage.getItem('mail.readingPane'))).toBeNull();
 	});
 
+	/*
+	 * The theme reaches what the webview paints itself as well — checkboxes,
+	 * scrollbars, a select's list — through `color-scheme`. Without it they
+	 * stayed light in the dark theme.
+	 */
+	test('motiv přepne i prvky, které kreslí webview sám', async ({ page }) => {
+		await openApp(page, '/settings/appearance');
+		const colorScheme = () =>
+			page.evaluate(() => getComputedStyle(document.documentElement).colorScheme);
+		const select = page.locator('#theme-select');
+
+		await select.selectOption('dark');
+		await expect.poll(colorScheme).toBe('dark');
+		await select.selectOption('light');
+		await expect.poll(colorScheme).toBe('light');
+	});
+
 	test('rozbalovací seznam motivu se otevře šipkou dolů', async ({ page }) => {
 		await openApp(page, '/settings/appearance');
 
