@@ -19,6 +19,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+## [0.2.1-beta.1] - 2026-11-19
+
 ### Backend
 
 - A mail server with a Let's Encrypt certificate can be added and synced when
@@ -208,6 +210,37 @@ Entries before 2026-09-17 predate that split and are left as written.
   of which the shell does, and brings `constant_time_eq` and `zeroize_derive`
   with it; flate2's fixes are to gzip header and partial reads, the path the
   rotated logs take. The shell's license list and the notice follow (#918).
+
+### Known issues
+
+Provisional until §9 of the 2026-11-19 candidate sheet, per
+[RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) step 4. Unchanged from 0.2.0:
+
+- **A transient IMAP hiccup, `failed to create new store connection`, appears
+  in the log a couple of times a day.** A bounded retry with backoff recovers it
+  on the next attempt.
+- **Google sign-in works only for accounts on the test list.** The OAuth
+  consent screen stays in `Testing`.
+- **A hostile mail server can still run the mail service out of memory when
+  two such accounts sync at once.** What one account keeps is bounded by an
+  account budget, so a single hostile server costs only its own account. Three
+  restarts in a row still pause that account's sync.
+
+### Manual steps
+
+- **For the user:** an installation switched to the beta channel, on 0.2.0 or
+  on 0.2.0-beta.2 to 0.2.0-beta.4, takes this release through the updater; the
+  stable channel stays on 0.2.0. An installation of 0.1.0 or 0.2.0-beta.1
+  trusts only the retired signing key and installs this release by hand: run
+  its installer over the existing installation, which keeps mail, accounts and
+  settings.
+- **For the operator:** the update code moved since 0.2.0 (#929, #950), so take
+  the RELEASE_CHECKLIST §3b updater item from an installation of 0.2.0 on the
+  beta channel once this release is published as a prerelease. The
+  screen-reader passes that #929, #934, #945, #946, #948 and #950 left open in
+  their descriptions, and the check of #936 against a live Google account, were
+  taken by the maintainer during development; each pull request carries its
+  `Heard by the maintainer: …` note.
 
 ### Repo
 
@@ -443,6 +476,8 @@ Entries before 2026-09-17 predate that split and are left as written.
   fixes are to rule autofixes and to rules that missed `<script module>`, and
   knip 6.44.2, which follows more extended configuration files. Neither reaches
   the build, so the license list does not move (#916).
+- The `0.2.1-beta.1` cut: the version in the seven files `bump:version`
+  writes, and the 2026-11-19 candidate sheet with §0 to §2 ticked (#956).
 
 ## [0.2.0] - 2026-11-11
 
