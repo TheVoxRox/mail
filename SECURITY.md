@@ -43,7 +43,7 @@ Report it privately, in either of two ways:
 Please include:
 
 - A description of the issue and how to reproduce it.
-- The affected version (Settings → Help → About in the desktop app, or the
+- The affected version (Settings → About in the desktop app, or the
   `appVersion` field in `session.json`).
 - Your operating system, mail provider, and whether the issue requires
   network access to a specific server.
