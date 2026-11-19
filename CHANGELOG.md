@@ -31,6 +31,9 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- `SECURITY.md` and the bug report template name the app version's place as
+  Settings → About, like every other document; they said Settings → Help →
+  About and Help → About, the second of which the app has no menu for (#963).
 - How to verify a downloaded installer now exists in English,
   `docs/VERIFYING_THE_INSTALLER.md`, and the README and the release-notes
   template link it; the release notes are English and used to send their
