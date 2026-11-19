@@ -105,7 +105,7 @@ class ImapCapabilitiesTest {
     }
 
     @Test
-    @DisplayName("Both — Gmail / Outlook / Seznam / iCloud typical state")
+    @DisplayName("CONDSTORE and QRESYNC -> both detected")
     void bothCapabilities() throws Exception {
         IMAPStore store = mock(IMAPStore.class);
         when(store.hasCapability("CONDSTORE")).thenReturn(true);
