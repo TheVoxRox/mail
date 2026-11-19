@@ -26,9 +26,40 @@
 
 	let innerWidth = $state(1200);
 	let moreOpen = $state(false);
+	let toolbarEl = $state<HTMLElement | null>(null);
+	let actionsEl = $state<HTMLElement | null>(null);
+	/** The toolbar's own width: what is left of the window once the sidebar has its share. */
+	let availableWidth = $state(0);
+	/** How wide the labelled controls were the last time they did not fit. */
+	let labelledWidth = $state(0);
 
-	const compact = $derived(innerWidth <= 1280);
+	/*
+	 * The labels go when they would not fit in the toolbar itself, not below a
+	 * window width. A window breakpoint cannot know how much of the window the
+	 * sidebar takes — the user resizes and folds it — or how long the labels
+	 * are in the current language: with the one it had, a 1366px laptop with
+	 * the default sidebar showed the Czech labels and scrolled the move button
+	 * out of view. The width is recorded when the labelled controls overflow
+	 * and the labels come back once the toolbar is that wide again, so the two
+	 * forms cannot alternate at any one width.
+	 */
+	const compact = $derived(labelledWidth > availableWidth);
 	const overflow = $derived(innerWidth < 640);
+
+	$effect(() => {
+		const root = toolbarEl;
+		const actions = actionsEl;
+		if (!root) return;
+		const observer = new ResizeObserver(() => {
+			availableWidth = root.clientWidth;
+			if (!compact && root.scrollWidth > root.clientWidth) labelledWidth = root.scrollWidth;
+		});
+		observer.observe(root);
+		// The labels change width on their own (a flag toggled, the locale
+		// switched) while the toolbar stays as wide as it was.
+		if (actions) observer.observe(actions);
+		return () => observer.disconnect();
+	});
 	const hasSelection = $derived(Boolean($selectedMessage?.stableId));
 	const selectedStableId = $derived($selectedMessage?.stableId ?? null);
 	const selectedDetail = $derived($selectedMessage?.detail ?? null);
@@ -123,12 +154,13 @@
 	trigger's child snippet), or it would stay a Tab stop of its own.
 -->
 <Toolbar.Root
+	bind:ref={toolbarEl}
 	data-print="chrome"
 	aria-label={$_('toolbar.ariaLabel')}
 	class="flex min-h-9 min-w-0 flex-1 flex-nowrap items-center gap-1.5 overflow-x-auto"
 >
 	{#if !overflow}
-		<div class="flex shrink-0 items-center gap-1">
+		<div bind:this={actionsEl} class="flex shrink-0 items-center gap-1">
 			{#each messageActions() as action (action.id)}
 				<Toolbar.Button disabled={!hasSelection}>
 					{#snippet child({ props })}

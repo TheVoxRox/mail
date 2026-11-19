@@ -138,39 +138,50 @@
 	}
 </script>
 
-<nav
-	aria-label={landmarkLabel}
-	class="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-muted px-4 py-2 text-xs"
->
-	<span class="text-muted-foreground">
-		{$_(keys.pageInfo, {
-			values: {
-				current: page + 1,
-				total: pageCount,
-				totalCount: $_(keys.totalCount, { values: { count: totalElements } })
-			}
-		})}
-	</span>
-	<div class="flex flex-wrap items-center gap-1">
-		<Button
-			bind:ref={firstButtonEl}
-			variant="outline"
-			size="xs"
-			onclick={() => navigate(0)}
-			disabled={first}
-		>
-			{$_(keys.first)}
-		</Button>
-		<Button
-			bind:ref={prevButtonEl}
-			variant="outline"
-			size="xs"
-			onclick={() => navigate(page - 1)}
-			disabled={first}
-		>
-			{$_(keys.prev)}
-		</Button>
-		<!--
+<!--
+	One page has nowhere to go, so it gets the count alone: no "page 1 of 1",
+	four buttons that are all disabled and a jump box that can only say 1. Nor
+	a navigation landmark, which would offer a screen reader user a stop with
+	nothing to navigate in it.
+-->
+{#if pageCount === 1}
+	<p class="border-t border-border bg-muted px-4 py-2 text-xs text-muted-foreground">
+		{$_(keys.totalCount, { values: { count: totalElements } })}
+	</p>
+{:else}
+	<nav
+		aria-label={landmarkLabel}
+		class="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-muted px-4 py-2 text-xs"
+	>
+		<span class="text-muted-foreground">
+			{$_(keys.pageInfo, {
+				values: {
+					current: page + 1,
+					total: pageCount,
+					totalCount: $_(keys.totalCount, { values: { count: totalElements } })
+				}
+			})}
+		</span>
+		<div class="flex flex-wrap items-center gap-1">
+			<Button
+				bind:ref={firstButtonEl}
+				variant="outline"
+				size="xs"
+				onclick={() => navigate(0)}
+				disabled={first}
+			>
+				{$_(keys.first)}
+			</Button>
+			<Button
+				bind:ref={prevButtonEl}
+				variant="outline"
+				size="xs"
+				onclick={() => navigate(page - 1)}
+				disabled={first}
+			>
+				{$_(keys.prev)}
+			</Button>
+			<!--
 				`novalidate`, with min/max kept: the two attributes are what tells a
 				screen reader the spin button's range, but leaving the browser to
 				enforce them meant it refused to submit an out-of-range page and
@@ -185,41 +196,42 @@
 				visually hidden, as the tutorial allows where the purpose is clear
 				from context: a number box between the page buttons and Go.
 			-->
-		<form class="flex items-center gap-1" novalidate onsubmit={handleJump}>
-			<label for={jumpId} class="flex items-center">
-				<span class="sr-only">{$_(keys.jumpLabel)}</span>
-				<Input
-					id={jumpId}
-					type="number"
-					inputmode="numeric"
-					min="1"
-					max={pageCount}
-					bind:value={jumpValue}
-					size="sm"
-					class="h-6 w-14 px-1 text-center"
-				/>
-			</label>
-			<Button type="submit" variant="outline" size="xs">
-				{$_(keys.jumpButton)}
+			<form class="flex items-center gap-1" novalidate onsubmit={handleJump}>
+				<label for={jumpId} class="flex items-center">
+					<span class="sr-only">{$_(keys.jumpLabel)}</span>
+					<Input
+						id={jumpId}
+						type="number"
+						inputmode="numeric"
+						min="1"
+						max={pageCount}
+						bind:value={jumpValue}
+						size="sm"
+						class="h-6 w-14 px-1 text-center"
+					/>
+				</label>
+				<Button type="submit" variant="outline" size="xs">
+					{$_(keys.jumpButton)}
+				</Button>
+			</form>
+			<Button
+				bind:ref={nextButtonEl}
+				variant="outline"
+				size="xs"
+				onclick={() => navigate(page + 1)}
+				disabled={last}
+			>
+				{$_(keys.next)}
 			</Button>
-		</form>
-		<Button
-			bind:ref={nextButtonEl}
-			variant="outline"
-			size="xs"
-			onclick={() => navigate(page + 1)}
-			disabled={last}
-		>
-			{$_(keys.next)}
-		</Button>
-		<Button
-			bind:ref={lastButtonEl}
-			variant="outline"
-			size="xs"
-			onclick={() => navigate(totalPages - 1)}
-			disabled={last}
-		>
-			{$_(keys.last)}
-		</Button>
-	</div>
-</nav>
+			<Button
+				bind:ref={lastButtonEl}
+				variant="outline"
+				size="xs"
+				onclick={() => navigate(totalPages - 1)}
+				disabled={last}
+			>
+				{$_(keys.last)}
+			</Button>
+		</div>
+	</nav>
+{/if}

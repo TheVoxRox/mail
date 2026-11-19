@@ -15,7 +15,14 @@
  * A coarse ladder means picking a tint is picking a role. Enforced by
  * check:design.
  */
+/*
+ * `color-scheme` tells the webview which way to draw what it paints itself:
+ * checkboxes, radio buttons, scrollbars, the number box's spinner, a native
+ * select's list. Without it they stay light in the dark theme, and the
+ * message list's checkboxes were the brightest thing on the dark screen.
+ */
 :root {
+	color-scheme: light;
 	--radius: 0.625rem;
 	--background: oklch(0.996 0.003 250);
 	--foreground: oklch(0.18 0.018 250);
@@ -79,6 +86,7 @@
 }
 
 .dark {
+	color-scheme: dark;
 	--background: oklch(0.16 0.018 250);
 	--foreground: oklch(0.97 0.004 250);
 	--card: oklch(0.205 0.02 250);

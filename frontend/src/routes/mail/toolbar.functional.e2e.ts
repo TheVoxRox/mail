@@ -453,3 +453,33 @@ test.describe('Mail toolbar', () => {
 		await expect(panel).toHaveAccessibleName('Více');
 	});
 });
+
+test.describe('Mail toolbar – šířka', () => {
+	/*
+	 * The labels go when they would not fit in the toolbar, whatever the window
+	 * is. A 1366px window with the default sidebar and no reading pane is the
+	 * case that broke: a window breakpoint kept the Czech labels there, which
+	 * need more than the toolbar has, and scrolled the move button out of view.
+	 * Folding the sidebar gives the toolbar room for them again.
+	 */
+	test('popisky se skryjí, když se do lišty nevejdou, a vrátí se, když ano', async ({ page }) => {
+		await page.setViewportSize({ width: 1366, height: 768 });
+		await setPrefs(page, { locale: 'cs', readingPane: 'off' });
+		await openApp(
+			page,
+			`/mail/${fixture.accountId}/${encodeURIComponent(fixture.folderName)}/${encodeURIComponent(fixture.stableId)}`
+		);
+
+		const toolbar = page.getByRole('toolbar', { name: 'Akce se zprávami' });
+		const replyLabel = toolbar.getByText('Odpovědět', { exact: true });
+		const overflows = () => toolbar.evaluate((el) => el.scrollWidth > el.clientWidth);
+		await expect(toolbar.getByRole('button', { name: 'Přesunout' })).toBeVisible();
+
+		await expect(replyLabel).toHaveClass(/\bsr-only\b/);
+		expect(await overflows()).toBe(false);
+
+		await page.getByRole('button', { name: 'Zobrazit nebo skrýt podokno pošty' }).click();
+		await expect(replyLabel).not.toHaveClass(/\bsr-only\b/);
+		expect(await overflows()).toBe(false);
+	});
+});

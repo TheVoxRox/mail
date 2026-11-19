@@ -478,7 +478,10 @@ test.describe('MSW bootstrap', () => {
 	test('paginace výpisu používá mockovaná data', async ({ page }) => {
 		await openApp(page, '/mail/1/INBOX');
 
-		await expect(page.getByText('Strana 1 z 1')).toBeVisible();
+		// The 25 fixture messages are one page, which has nowhere to go: the
+		// count shows, and neither the page controls nor their landmark do.
+		await expect(page.getByText('25 zpráv', { exact: true })).toBeVisible();
+		await expect(page.getByRole('navigation', { name: 'Stránkování zpráv' })).toHaveCount(0);
 		await expect(rowsOf(page)).toHaveCount(25);
 	});
 
