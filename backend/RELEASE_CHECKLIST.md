@@ -426,6 +426,41 @@ every section.
 The skeleton of a new sheet is in [RELEASE_PROCESS.md](../docs/RELEASE_PROCESS.md)
 "Templates", next to the commands that fill its object id table.
 
+### Candidate 2026-11-19 — tag `v0.2.1-beta.1` (see the object ids below)
+
+```text
+Platform:  Windows 11 Pro x64, machine lacina-hp-650 (§0–§2)
+Tester:    machine half automated; §3–§9 are the maintainer's
+```
+
+| path                         | object id      |
+| ---------------------------- | -------------- |
+| `backend/src`                | `a69378f073bf` |
+| `backend/pom.xml`            | `4cc18498756f` |
+| `backend/scripts`            | `a6977fc2f2fe` |
+| `frontend/src`               | `933457868a72` |
+| `frontend/src-tauri`         | `296df55c3d60` |
+| `frontend/package.json`      | `b2d86bb30387` |
+| `frontend/package-lock.json` | `c67bb2005d08` |
+
+- [x] **§0 Version** — `npm run bump:version 0.2.1-beta.1` and `npm run check:versions` OK on all seven files.
+- [x] **§1 Backend build** — `clean verify` on the tree this cut tags, the version already bumped: 0 failures and 0 errors on surefire and failsafe; the one skip is `MailSyncQresyncDovecotIT` without Docker, which CI runs. SpotBugs reports no bug instance. `mail-backend-0.2.1-beta.1.jar` produced. Sidecar packaged by `npm run sidecar:rebuild:windows` with the OAuth values from `backend/.env`: the application jar and 107 libraries in `lib\`, "Google client-id baked into the launcher; no placeholder", all 10 JVM options present in the launcher, "A copy of the image outside target\ started to ready and exited", and the packaged sidecar smoke passed. `regen:licenses:all` after `npm ci`, before this section, changed only the `Generated:` line. The run without a system JDK is taken on the installed candidate.
+- [x] **§2 Frontend automation** — on the same tree: `generate:api` (no drift in `schema.d.ts`), `check:i18n`, `build`, `test:unit`, and `test:e2e`, the functional project and then the a11y suite, all passed with no flake and no re-run.
+- [ ] **§3 Fresh install**
+- [ ] **§3a Installer behaviour**
+- [ ] **§3b Updater**
+- [ ] **§4 Account flows**
+- [ ] **§5 Mail workflows**
+- [ ] **§6 Sidecar lifecycle**
+- [ ] **§7 Diagnostics**
+- [ ] **§8 Long run**
+- [ ] **§9**
+
+Findings:
+
+- **`regen:licenses:all` after `npm ci` changed only the `Generated:` line of `NOTICE.txt`**, discarded per §8a: the inventories and the notice match the tree.
+- **This cut takes everything merged since `v0.2.0` (`d49c12b`):** #898 to #955. What ships: the Let's Encrypt intermediates (#952); the sign-in-again error naming the account and linking to Settings, Accounts (#917, #936); folder names that can no longer stall an account (audit B1-27 and B1-28, #912, #913); a database with tables but no migration history refused (#912); Microsoft accounts through the sign-in alone (#920, #922) and a Gmail app password without spaces (#919); the WCAG 2.2 AA findings (#929), the grouped list's single announcement (#934), the Contacts pane without the account switcher (#938), and both mail toolbars one Tab stop on bits-ui (#946, #948, #950); dependency updates (#915, #916, #918, #927). The rest is audits, gates, tests and documents.
+
 ### Candidate 2026-11-11 — tag `v0.2.0` (see the object ids below)
 
 ```text
