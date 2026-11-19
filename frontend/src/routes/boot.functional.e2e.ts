@@ -77,7 +77,7 @@ test.describe('MSW bootstrap', () => {
 				.getByRole('link', { name: 'Pošta (Ctrl+1)' })
 		).toHaveAttribute('aria-current', 'page');
 		await expect(page.getByRole('heading', { level: 1, name: 'Pošta' })).toBeVisible();
-		await expect(page.getByText('Zatím nemáte žádný e-mailový účet.')).toBeVisible();
+		await expect(page.getByText('Zatím zde nemáte žádný e-mailový účet.')).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Přidat účet' })).toBeFocused();
 	});
 
@@ -108,7 +108,7 @@ test.describe('MSW bootstrap', () => {
 
 		const addAccount = page.getByRole('button', { name: 'Přidat účet' });
 		await expect(addAccount).toBeFocused();
-		await expect(addAccount).toHaveAccessibleDescription('Zatím nemáte žádný e-mailový účet.');
+		await expect(addAccount).toHaveAccessibleDescription('Zatím zde nemáte žádný e-mailový účet.');
 		await expect(page.locator('#main-content')).toHaveAttribute('aria-label', 'Pošta – Žádný účet');
 		await expect(page).toHaveTitle('Pošta – Žádný účet');
 	});
