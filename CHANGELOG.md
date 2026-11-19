@@ -211,6 +211,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- `npm run tauri:dev` started from a shell sitting in `c:\...` no longer
+  leaves every navigating button dead. Vite took its root as `C:/...`,
+  SvelteKit kept the lower-case path, SvelteKit's client was served twice and
+  `goto` threw on the copy never started, first seen as an Add account that
+  ignored Enter. The launcher now upper-cases the drive letter, and
+  `vite.config.ts` refuses a dev server whose two roots differ (#955).
 - Three CodeQL alerts in backend tests are fixed in the code rather than
   dismissed, since a dismissal comes back whenever its line moves: a chain test
   takes its last stored revision from a list instead of a variable that starts
