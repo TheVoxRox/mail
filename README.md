@@ -1,6 +1,30 @@
 # VoxRox Mail
 
-Desktop email client for Windows, built as a monorepo: Spring Boot backend (sidecar) + SvelteKit/Tauri desktop UI. Targets single-user, local DB, no SaaS.
+An email client for Windows, made for people who read the screen with a screen
+reader and work by keyboard. It is written by one, and tested with NVDA and
+JAWS.
+
+- **Built for a screen reader.** Message and contact lists are grids you move
+  through with the arrow keys, each cell saying what its column holds; the
+  keyboard shortcuts follow Microsoft Outlook; and the conformance target is
+  WCAG 2.2 Level AA.
+- **Your mail stays on your computer.** Accounts, messages and contacts live in
+  a local database. The app collects no telemetry, analytics or crash reports,
+  and remote images in a message stay blocked until you allow them.
+- **The accounts you have.** Gmail with an app password, Outlook.com and
+  Microsoft 365, Seznam, and any other IMAP/SMTP server.
+- **Everyday mail, done properly.** Conversations, drafts, contacts with vCard
+  export, Markdown formatting in an ordinary text field, and updates that
+  install from inside the app.
+- **Czech and English** interface. Free and open source under the MIT license.
+
+**Download:** the installer is on the
+[latest release](https://github.com/TheVoxRox/mail/releases/latest) page. It is
+not signed yet, so Windows SmartScreen reports an unknown publisher; how to
+verify the file before running it is in the user guide,
+[`frontend/END_USER_README.md`](frontend/END_USER_README.md) (Czech), and how
+releases will be signed is in the
+[Code signing policy](CODE_SIGNING_POLICY.md).
 
 Project website: [voxrox.org](https://voxrox.org) (Czech/English) — includes the [support](https://voxrox.org/support/) and [privacy policy](https://voxrox.org/privacy/) pages.
 
@@ -8,6 +32,11 @@ Have an idea for the app? Start a discussion in
 [Ideas](https://github.com/TheVoxRox/mail/discussions/categories/ideas) rather
 than opening an issue — upvotes there help us prioritise. Bug reports go
 through [Issues](https://github.com/TheVoxRox/mail/issues/new/choose).
+
+## How it is built
+
+A monorepo: a Spring Boot backend that runs as a Tauri sidecar, and a
+SvelteKit/Tauri desktop UI. Single user, local database, no SaaS.
 
 The backend runs as a local Tauri sidecar bound to 127.0.0.1 on a random port. The frontend discovers the port and an in-memory API key via a handshake file (`session.json`) the backend writes on startup. Single ship artifact, single user, all data on disk under `%LOCALAPPDATA%\VoxRox\Mail`.
 

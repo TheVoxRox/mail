@@ -31,6 +31,10 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The README now opens with what the app is for and who it is made for: a
+  screen reader user, the accounts it takes, what stays on the computer, and
+  where to download it. It used to open with the monorepo and the sidecar
+  handshake, which now sit under "How it is built" (#PR).
 - The `v0.2.1-beta.1` release decision: §9 of the 2026-11-19 sheet, with no
   open blocker and the known issues of 0.2.0, §3b taken from an installation of
   0.2.0 once the prerelease is published, and the release notes in
