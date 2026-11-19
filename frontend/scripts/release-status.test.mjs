@@ -1121,7 +1121,7 @@ describe('a beta and the manual sections', () => {
 		expect(notes).toContain(
 			'§3 carry from v0.2.0-beta.4, the beta this promotes: tick each as carried from its ' +
 				'2026-11-10 sheet. The record of the passes is that sheet and the "Heard by the ' +
-				'maintainer:" notes of the pull requests'
+				'maintainer:" and "Accepted by the maintainer:" notes of the pull requests'
 		);
 		expect(notes).toContain('§3b can carry: tick each with the sheet it carries from named');
 	});

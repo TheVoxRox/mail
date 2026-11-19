@@ -38,6 +38,13 @@ Entries before 2026-09-17 predate that split and are left as written.
 - RELEASE_CHECKLIST §3b for `v0.2.1-beta.1` is ticked: on 2026-11-19 an
   installation of 0.2.0 on the beta channel took the published prerelease
   through the updater and kept its mail (#958).
+- A pull request's "Not verified" note is also answered by `Accepted by the
+maintainer: …`, when the maintainer accepts what stands in for a check not
+  taken: an agent's check at their request, or the automated evidence of one
+  nobody here can take by hand. Only `Heard by the maintainer: …` counted, so
+  the four items the 0.2.1-beta.1 sheet named as unseen had no way out before
+  the promotion; all four are now accepted on their pull requests, and
+  `docs/DECISIONS.md` records the rule (#960).
 
 ## [0.2.1-beta.1] - 2026-11-19
 

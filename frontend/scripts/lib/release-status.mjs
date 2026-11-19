@@ -1024,7 +1024,8 @@ export function decideNextStep(facts) {
 			notes.push(
 				`${fromBeta.map((verdict) => verdict.section.id).join(', ')} carry from ${beta.promotes}, ` +
 					`the beta this promotes: tick each as carried from its ${beta.date} sheet. The record of ` +
-					'the passes is that sheet and the "Heard by the maintainer:" notes of the pull requests; ' +
+					'the passes is that sheet and the "Heard by the maintainer:" and "Accepted by the ' +
+					'maintainer:" notes of the pull requests; ' +
 					'what its §9 names as not seen or heard yet is heard before publishing, on the beta ' +
 					'or on this candidate.'
 			);
