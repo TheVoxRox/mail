@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { BAKED_OAUTH_PROPERTIES } from './lib/sidecar-oauth.mjs';
+import { LAUNCHER_CLIENT_PROPERTIES } from './lib/sidecar-oauth.mjs';
 import { HASH_FILE_NAME, hashBackendSources } from './lib/sidecar-staleness.mjs';
 import { createGateRepo } from './test-support/gate-repo.mjs';
 
@@ -82,7 +82,7 @@ function launcherCfg(oauth) {
 }
 
 const BAKED = Object.fromEntries(
-	BAKED_OAUTH_PROPERTIES.map((property) => [property, `fixture-${property.split('.').pop()}`])
+	LAUNCHER_CLIENT_PROPERTIES.map((property) => [property, `fixture-${property.split('.').pop()}`])
 );
 
 /**
@@ -392,6 +392,6 @@ describe('npm run tauri:build and the OAuth client ids in the launcher', () => {
 		expect(block, 'the $oauthMappings table in package-sidecar-windows.ps1').not.toBeNull();
 		const mapped = [...block[1].matchAll(/=\s*"([^"]+)"/g)].map((match) => match[1]);
 
-		expect(mapped).toEqual(BAKED_OAUTH_PROPERTIES);
+		expect(mapped).toEqual(LAUNCHER_CLIENT_PROPERTIES);
 	});
 });

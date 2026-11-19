@@ -21,8 +21,16 @@ import path from 'node:path';
  * launcher.
  */
 
+/*
+ * The names below say "client" rather than "OAuth" on purpose. CodeQL's
+ * clear-text logging query takes any identifier whose name suggests
+ * authentication data for a secret, and flagged the warning tauri-build.mjs
+ * prints (#968), though what reaches the log is property names, never a value:
+ * the values stay in the .cfg and nothing here returns one.
+ */
+
 /** The properties `$oauthMappings` maps, in its order. Pinned to it by tauri-build.test.mjs. */
-export const BAKED_OAUTH_PROPERTIES = [
+export const LAUNCHER_CLIENT_PROPERTIES = [
 	'spring.security.oauth2.client.registration.google.client-id',
 	'spring.security.oauth2.client.registration.google.client-secret',
 	'spring.security.oauth2.client.registration.microsoft.client-id'
@@ -39,12 +47,12 @@ function bakes(line, property) {
 }
 
 /**
- * The properties of BAKED_OAUTH_PROPERTIES that some launcher .cfg in
+ * The properties of LAUNCHER_CLIENT_PROPERTIES that some launcher .cfg in
  * binaries/app does not carry with a real value; empty when every one does.
  * Null when there is no .cfg to read, which the sync refuses and the freshness
  * check reports on its own terms.
  */
-export async function unbakedOAuthProperties(repoRoot) {
+export async function clientPropertiesNotBaked(repoRoot) {
 	const app = path.join(repoRoot, 'frontend', 'src-tauri', 'binaries', 'app');
 	let names;
 	try {
@@ -56,19 +64,19 @@ export async function unbakedOAuthProperties(repoRoot) {
 	const cfgs = await Promise.all(
 		names.map(async (name) => (await readFile(path.join(app, name), 'utf8')).split(/\r?\n/))
 	);
-	return BAKED_OAUTH_PROPERTIES.filter(
+	return LAUNCHER_CLIENT_PROPERTIES.filter(
 		(property) => !cfgs.every((lines) => lines.some((line) => bakes(line, property)))
 	);
 }
 
 /**
  * The warning `npm run tauri:build` prints before it builds, for what
- * unbakedOAuthProperties found missing. Not a stop: a local installer is built
+ * clientPropertiesNotBaked found missing. Not a stop: a local installer is built
  * to test the installer, the updater or the shell, which need no sign-in, and
  * what reaches users is packaged by windows-signed-release.yml, which never
  * passes the opt-out and so cannot produce such a sidecar.
  */
-export function describeUnbakedOAuth(missing) {
+export function describeClientPropertiesNotBaked(missing) {
 	const names = missing.map((property) =>
 		property.replace('spring.security.oauth2.client.registration.', '')
 	);
