@@ -77,7 +77,7 @@ test.describe('MSW bootstrap', () => {
 				.getByRole('link', { name: 'Pošta (Ctrl+1)' })
 		).toHaveAttribute('aria-current', 'page');
 		await expect(page.getByRole('heading', { level: 1, name: 'Pošta' })).toBeVisible();
-		await expect(page.getByText('Začněte přidáním e-mailového účtu.')).toBeVisible();
+		await expect(page.getByText('Zatím zde nemáte žádný e-mailový účet.')).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Přidat účet' })).toBeFocused();
 	});
 
@@ -96,6 +96,11 @@ test.describe('MSW bootstrap', () => {
 		 * For the same reason it names the state rather than greeting: it was
 		 * "Vitejte", which the card never shows, and the sentence that does say
 		 * why Mail is empty was skipped once focus went past it to the button.
+		 *
+		 * That sentence is the button's description, so it states the state too.
+		 * It used to be "Start by adding an email account", which a reader heard
+		 * right after the button's own name: the same action twice, and still no
+		 * word on why Mail had nowhere to open.
 		 */
 		await setMockFlags(page, { noAccounts: true });
 
@@ -103,7 +108,7 @@ test.describe('MSW bootstrap', () => {
 
 		const addAccount = page.getByRole('button', { name: 'Přidat účet' });
 		await expect(addAccount).toBeFocused();
-		await expect(addAccount).toHaveAccessibleDescription('Začněte přidáním e-mailového účtu.');
+		await expect(addAccount).toHaveAccessibleDescription('Zatím zde nemáte žádný e-mailový účet.');
 		await expect(page.locator('#main-content')).toHaveAttribute('aria-label', 'Pošta – Žádný účet');
 		await expect(page).toHaveTitle('Pošta – Žádný účet');
 	});

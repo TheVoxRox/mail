@@ -28,6 +28,12 @@ Entries before 2026-09-17 predate that split and are left as written.
   screen reader user heard twice in a row, under the heading and again on the
   list. What a screen reader does with the language is not the user's concern
   while it works.
+- With no account, Mail's start says "Zatím zde nemáte žádný e-mailový
+  účet." instead of "Začněte přidáním e-mailového účtu.". The sentence is the
+  description of the focused Add account button, so a screen reader read the
+  same action twice, first as the button's name and then as its description,
+  and never said why Mail had nothing to open. "Zde" keeps it from claiming
+  the user has no email account at all.
 
 ### Repo
 

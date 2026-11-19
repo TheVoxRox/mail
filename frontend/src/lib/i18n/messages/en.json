@@ -321,7 +321,7 @@
 		"backToList": "← Back to accounts",
 		"addAccount": "Add account",
 		"addFirstAccount": "Add first account",
-		"none": "Start by adding an email account.",
+		"none": "You have no email account here yet.",
 		"emptyHeading": "Add your first mail account",
 		"emptyDescription": "Start with an email address. Known providers are prefilled automatically, and other accounts can use custom IMAP/SMTP settings.",
 		"noProvider": "no provider",

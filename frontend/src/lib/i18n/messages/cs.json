@@ -321,7 +321,7 @@
 		"backToList": "← Zpět na Účty",
 		"addAccount": "Přidat účet",
 		"addFirstAccount": "Přidat první účet",
-		"none": "Začněte přidáním e-mailového účtu.",
+		"none": "Zatím zde nemáte žádný e-mailový účet.",
 		"emptyHeading": "Přidejte první poštovní účet",
 		"emptyDescription": "Začněte e-mailovou adresou. Známé poskytovatele předvyplníme automaticky, u ostatních můžete zadat vlastní IMAP/SMTP.",
 		"noProvider": "bez poskytovatele",
