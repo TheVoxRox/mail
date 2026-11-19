@@ -314,15 +314,19 @@ class FlagSyncServiceTest {
     }
 
     /**
-     * The UID-enumeration path is the one real providers take: Gmail, Outlook,
-     * Seznam and iCloud all advertise CONDSTORE, so {@code MailSyncService} routes
-     * them through {@link FlagSyncService#cleanupDeletedViaUidEnumeration}. Unlike
-     * the window fallback (whose server set is range-fetched over
+     * The UID-enumeration path is the one a server that advertises CONDSTORE
+     * takes: {@code MailSyncService} routes it through
+     * {@link FlagSyncService#cleanupDeletedViaUidEnumeration} on every cycle, and a
+     * QRESYNC server whenever the enumeration is due. Which servers those are is
+     * read at runtime and not written down here (see {@link ImapCapabilities}).
+     * Unlike the window fallback (whose server set is range-fetched over
      * {@code [min, max]} and is interior by construction), here
      * {@code fetchAllServerUids} returns the WHOLE server UID set — so the interior
      * restriction has to actively drop the below-window backfill tail. GreenMail
-     * does not advertise CONDSTORE, so the integration test only exercises the
-     * fallback; these cover the production path.
+     * does not advertise CONDSTORE, so the GreenMail sync ITs exercise only the
+     * fallback. {@code MailSyncQresyncDovecotIT} runs this path in its first cycle,
+     * against Dovecot, on three messages that leave no tail below the window; these
+     * cover the tail.
      */
     @Nested
     @DisplayName("Cleanup deleted — UID enumeration (IMAPFolder / CONDSTORE)")

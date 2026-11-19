@@ -31,6 +31,11 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- Two backend tests no longer credit providers with capabilities they do not
+  advertise. `ImapCapabilitiesTest` called CONDSTORE with QRESYNC the Gmail,
+  Outlook, Seznam and iCloud state, and a `FlagSyncServiceTest` comment said
+  all four advertise CONDSTORE; the 2026-09-09 measurement found it on Gmail
+  alone of the three it covered, and iCloud was never measured (#966).
 - The Czech installer verification steps in `frontend/END_USER_README.md` now
   say everything their English copy says: download only from the Releases
   page, no administrator rights needed, run it only after verifying, how to run
