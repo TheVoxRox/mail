@@ -237,8 +237,10 @@ Findings:
 Written for someone deciding whether to install, and readable in a minute. The
 opening states the limits that decide whether the build works for the reader at
 all, such as the closed beta and the platform. The notes link to the changelog
-and to `END_USER_README.md` instead of copying them, and an empty known-issues
-list is written as "None known.".
+and to `docs/VERIFYING_THE_INSTALLER.md` instead of copying them, and an empty
+known-issues list is written as "None known.". The notes are English, so the
+verification link goes to the English page, not to the Czech
+`END_USER_README.md`.
 
 ```markdown
 <one or two sentences: what this is, and the limits that decide whether it works for the reader>
@@ -251,7 +253,7 @@ All changes: <link to CHANGELOG.md>
 
 ## Install or update
 
-<in place or not; anything done by hand; while unsigned, the unknown-publisher warning and a link to END_USER_README.md>
+<in place or not; anything done by hand; while unsigned, the unknown-publisher warning and a link to docs/VERIFYING_THE_INSTALLER.md>
 
 ## Known issues
 
