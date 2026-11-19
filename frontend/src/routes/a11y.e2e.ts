@@ -6,12 +6,14 @@ import {
 	choiceLabelLosses,
 	contactGrid,
 	contextChangeLosses,
+	czechLosses,
 	languageLosses,
 	conversationGrid,
 	expectNoFindings,
 	focusIndicatorLosses,
 	messageGrid,
 	openApp,
+	recordServedText,
 	reflowLosses,
 	rowsOf,
 	searchResultsGrid,
@@ -22,6 +24,7 @@ import {
 	waitForRootRedirect,
 	wcagScan,
 	zoomLosses,
+	type Locale,
 	type MockFlags
 } from './e2e-helpers';
 
@@ -44,33 +47,42 @@ const mailFixture = {
  * while the data and most of the controls arrived after axe had finished. The
  * scans stayed green through a badge that failed 1.4.3 for that reason (#675).
  * So `ready` names something only the loaded page has — its data where it has
- * any, its heading where it does not.
+ * any, its heading where it does not. It takes the locale, because the
+ * English sweep waits for the same element by its English name.
  */
 const routes: ReadonlyArray<{
 	path: string;
 	name: string;
-	ready: (page: Page) => Locator;
+	ready: (page: Page, locale: Locale) => Locator;
 	flags?: MockFlags;
 }> = [
 	{
 		path: '/settings/appearance',
 		name: 'Nastavení vzhledu',
-		ready: (page) => page.getByRole('combobox', { name: 'Téma' })
+		ready: (page, locale) => page.getByRole('combobox', { name: say(locale, 'Téma', 'Theme') })
 	},
 	{
 		path: '/settings/language',
 		name: 'Nastavení jazyka',
-		ready: (page) => page.getByRole('combobox', { name: 'Jazyk' })
+		ready: (page, locale) => page.getByRole('combobox', { name: say(locale, 'Jazyk', 'Language') })
 	},
 	{
 		path: '/settings/shortcuts',
 		name: 'Nastavení klávesových zkratek',
-		ready: (page) => page.getByRole('heading', { name: 'Navigace' })
+		ready: (page, locale) =>
+			page.getByRole('heading', { name: say(locale, 'Navigace', 'Navigation') })
 	},
 	{
 		path: '/settings/about',
 		name: 'Nastavení aplikace',
-		ready: (page) => page.getByText('Aplikace je připojená ke službě pošty.')
+		ready: (page, locale) =>
+			page.getByText(
+				say(
+					locale,
+					'Aplikace je připojená ke službě pošty.',
+					'The application is connected to the mail service.'
+				)
+			)
 	},
 	{
 		path: '/settings/accounts',
@@ -85,52 +97,75 @@ const routes: ReadonlyArray<{
 	{
 		path: '/settings/accounts/1',
 		name: 'Detail účtu',
-		ready: (page) => page.getByRole('form', { name: 'Účet' })
+		ready: (page, locale) => page.getByRole('form', { name: say(locale, 'Účet', 'Account') })
 	},
 	{
 		path: '/settings/accounts/4',
 		name: 'Detail účtu s vlastním serverem',
-		ready: (page) => page.getByRole('form', { name: 'Účet' }),
+		ready: (page, locale) => page.getByRole('form', { name: say(locale, 'Účet', 'Account') }),
 		flags: { customAccount: true }
 	},
 	{
 		path: '/compose',
 		name: 'Nová zpráva',
 		// Send is disabled until the prefill is done; the body field is there before it.
-		ready: (page) => page.getByRole('button', { name: 'Odeslat' }).and(page.locator(':enabled'))
+		ready: (page, locale) =>
+			page
+				.getByRole('button', { name: say(locale, 'Odeslat', 'Send') })
+				.and(page.locator(':enabled'))
 	},
 	{
 		path: '/contacts',
 		name: 'Kontakty bez účtu',
-		ready: (page) => contactGrid(page).getByRole('row').nth(1),
+		ready: (page, locale) => contactGrid(page, locale).getByRole('row').nth(1),
 		flags: { noAccounts: true }
 	},
 	{
 		path: '/contacts',
 		name: 'Kontakty',
-		ready: (page) => contactGrid(page).getByRole('row').nth(1)
+		ready: (page, locale) => contactGrid(page, locale).getByRole('row').nth(1)
 	},
 	{
 		path: '/contacts?create=1',
 		name: 'Nový kontakt',
-		ready: (page) => page.getByRole('form', { name: 'Nový kontakt' })
+		ready: (page, locale) =>
+			page.getByRole('form', { name: say(locale, 'Nový kontakt', 'New contact') })
 	},
 	{
 		path: '/search/1?q=test',
 		name: 'Hledání',
-		ready: (page) => rowsOf(searchResultsGrid(page)).first()
+		ready: (page, locale) => rowsOf(searchResultsGrid(page, locale)).first()
 	},
 	{
 		path: '/mail/1/INBOX',
 		name: 'Výpis složky',
-		ready: (page) => rowsOf(messageGrid(page)).first()
+		ready: (page, locale) => rowsOf(messageGrid(page, locale)).first()
 	},
 	{
 		path: `/mail/${mailFixture.accountId}/${mailFixture.folderName}/${mailFixture.stableId}`,
 		name: 'Detail zprávy',
-		ready: (page) => bodyFrame(page).contentFrame().locator('body')
+		ready: (page, locale) => bodyFrame(page, locale).contentFrame().locator('body')
 	}
 ];
+
+/** UI text in the locale under test, written out in both languages. */
+function say(locale: Locale, cs: string, en: string): string {
+	return locale === 'cs' ? cs : en;
+}
+
+/*
+ * The checks whose result depends on the words run in English as well. Every
+ * English string is written into en.json by hand beside its Czech one, so an
+ * accessible name can drift from the visible label it has to contain (2.5.3,
+ * which axe checks), and a longer word can push a box past its edge at 200 %,
+ * at 320 px or under the text spacing of 1.4.12. Contrast, focus indicators
+ * and the keyboard contract do not change with the language and are measured
+ * in Czech alone.
+ */
+const LOCALES = [
+	['cs', ''],
+	['en', ' v angličtině']
+] as const;
 
 /**
  * The pages the system browser shows at the end of an OAuth sign-in. The
@@ -2149,45 +2184,64 @@ test.describe('Přístupnost – jednotlivé obrazovky', () => {
 				await setPrefs(page, { theme });
 				if (flags) await setMockFlags(page, flags);
 				await openApp(page, path);
-				await expect(ready(page)).toBeVisible();
+				await expect(ready(page, 'cs')).toBeVisible();
 				expect(await focusIndicatorLosses(page)).toEqual([]);
 			});
 		}
 
-		test(`${name} (${path}) unese zvětšení na 200 % (1.4.4)`, async ({ page }) => {
-			// The app opens maximized, and a 1280px window at 200% is 640 CSS px.
-			await page.setViewportSize({ width: 640, height: 400 });
-			if (flags) await setMockFlags(page, flags);
-			await openApp(page, path);
-			await expect(ready(page)).toBeVisible();
-			expect(await zoomLosses(page)).toEqual([]);
-		});
+		for (const [locale, inLocale] of LOCALES) {
+			test(`${name} (${path})${inLocale} unese zvětšení na 200 % (1.4.4)`, async ({ page }) => {
+				// The app opens maximized, and a 1280px window at 200% is 640 CSS px.
+				await page.setViewportSize({ width: 640, height: 400 });
+				await setPrefs(page, { locale });
+				if (flags) await setMockFlags(page, flags);
+				await openApp(page, path);
+				await expect(ready(page, locale)).toBeVisible();
+				expect(await zoomLosses(page)).toEqual([]);
+			});
 
-		test(`${name} (${path}) se přeskládá na šířku 320 px (1.4.10)`, async ({ page }) => {
-			// 400% zoom of a 1280px window. Below 768px the workspace pane folds
-			// away (stores/workspacePane.ts), so the content has the width to itself.
-			await page.setViewportSize({ width: 320, height: 256 });
-			if (flags) await setMockFlags(page, flags);
-			await openApp(page, path);
-			await expect(ready(page)).toBeVisible();
-			expect(await reflowLosses(page)).toEqual([]);
-		});
+			test(`${name} (${path})${inLocale} se přeskládá na šířku 320 px (1.4.10)`, async ({
+				page
+			}) => {
+				// 400% zoom of a 1280px window. Below 768px the workspace pane folds
+				// away (stores/workspacePane.ts), so the content has the width to itself.
+				await page.setViewportSize({ width: 320, height: 256 });
+				await setPrefs(page, { locale });
+				if (flags) await setMockFlags(page, flags);
+				await openApp(page, path);
+				await expect(ready(page, locale)).toBeVisible();
+				expect(await reflowLosses(page)).toEqual([]);
+			});
+
+			test(`${name} (${path})${inLocale} unese rozestupy textu (1.4.12)`, async ({ page }) => {
+				await setPrefs(page, { locale });
+				if (flags) await setMockFlags(page, flags);
+				await openApp(page, path);
+				await expect(ready(page, locale)).toBeVisible();
+				expect(await textSpacingLosses(page)).toEqual([]);
+			});
+		}
 
 		/*
 		 * Both themes, as the focus walk above: each has its own palette, and a
 		 * colour pair that holds 4.5:1 in one says nothing about the other. The
 		 * scan ran in the light theme alone, so the dark one's contrast went
-		 * unmeasured by anything but the focus walk.
+		 * unmeasured by anything but the focus walk. English runs in the light
+		 * theme only: the language changes the names and the text, not the
+		 * colours.
 		 */
-		for (const [theme, themeName] of [
-			['light', 'světlý'],
-			['dark', 'tmavý']
+		for (const [locale, inLocale, theme, themeName] of [
+			['cs', '', 'light', 'světlý'],
+			['cs', '', 'dark', 'tmavý'],
+			['en', ' v angličtině', 'light', 'světlý']
 		] as const) {
-			test(`${name} (${path}) nemá a11y porušení, ${themeName} motiv`, async ({ page }) => {
-				await setPrefs(page, { theme });
+			test(`${name} (${path})${inLocale} nemá a11y porušení, ${themeName} motiv`, async ({
+				page
+			}) => {
+				await setPrefs(page, { theme, locale });
 				if (flags) await setMockFlags(page, flags);
 				await openApp(page, path);
-				await expect(ready(page)).toBeVisible();
+				await expect(ready(page, locale)).toBeVisible();
 				const results = await wcagScan(page).analyze();
 				await expectNoFindings(page, results);
 			});
@@ -2196,57 +2250,83 @@ test.describe('Přístupnost – jednotlivé obrazovky', () => {
 		test(`${name} (${path}) čte zaškrtávátka na jednom řádku s popiskem`, async ({ page }) => {
 			if (flags) await setMockFlags(page, flags);
 			await openApp(page, path);
-			await expect(ready(page)).toBeVisible();
+			await expect(ready(page, 'cs')).toBeVisible();
 			expect(await choiceLabelLosses(page)).toEqual([]);
 		});
 
 		test(`${name} (${path}) ovládá widgety klávesnicí podle vzorů APG`, async ({ page }) => {
 			if (flags) await setMockFlags(page, flags);
 			await openApp(page, path);
-			await expect(ready(page)).toBeVisible();
+			await expect(ready(page, 'cs')).toBeVisible();
 			expect(await apgLosses(page)).toEqual([]);
 		});
 
 		test(`${name} (${path}) nemá anglický text bez lang (3.1.2)`, async ({ page }) => {
 			if (flags) await setMockFlags(page, flags);
 			await openApp(page, path);
-			await expect(ready(page)).toBeVisible();
+			await expect(ready(page, 'cs')).toBeVisible();
 			expect(await languageLosses(page)).toEqual([]);
+		});
+
+		/*
+		 * 3.1.1 and 3.1.2 from the English side: the page says it is English,
+		 * which a store sets as the app starts (app.html says `cs` until then),
+		 * and shows no Czech that nothing marks as Czech.
+		 */
+		test(`${name} (${path}) v angličtině má jazyk stránky en a žádný český text bez lang (3.1.1, 3.1.2)`, async ({
+			page
+		}) => {
+			await setPrefs(page, { locale: 'en' });
+			await recordServedText(page);
+			if (flags) await setMockFlags(page, flags);
+			await openApp(page, path);
+			await expect(ready(page, 'en')).toBeVisible();
+			await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+			expect(await czechLosses(page)).toEqual([]);
 		});
 
 		test(`${name} (${path}) nezmění kontext změnou hodnoty prvku (3.2.2)`, async ({ page }) => {
 			if (flags) await setMockFlags(page, flags);
 			await openApp(page, path);
-			await expect(ready(page)).toBeVisible();
+			await expect(ready(page, 'cs')).toBeVisible();
 			expect(await contextChangeLosses(page)).toEqual([]);
 		});
 
 		test(`${name} (${path}) má živou oblast, skip-link a main landmark`, async ({ page }) => {
 			if (flags) await setMockFlags(page, flags);
 			await openApp(page, path);
-			await expect(ready(page)).toBeVisible();
+			await expect(ready(page, 'cs')).toBeVisible();
 			await expect(page.locator('a[href="#main-content"]')).toBeAttached();
 			await expect(page.getByRole('link', { name: 'Přejít na klávesové zkratky' })).toBeAttached();
 			await expect(page.locator('main#main-content')).toBeAttached();
 			await expect(page.locator('#live-region[aria-live="polite"]')).toBeAttached();
 		});
-
-		test(`${name} (${path}) unese rozestupy textu (1.4.12)`, async ({ page }) => {
-			if (flags) await setMockFlags(page, flags);
-			await openApp(page, path);
-			await expect(ready(page)).toBeVisible();
-			expect(await textSpacingLosses(page)).toEqual([]);
-		});
 	}
 });
+
+/**
+ * Waits for an alert that says something, up to 5 s, and returns either way:
+ * a screen shows its failure in its own way, and not every way is an alert.
+ */
+async function waitForAlert(page: Page): Promise<void> {
+	await page
+		.waitForFunction(
+			() => [...document.querySelectorAll('[role="alert"]')].some((el) => el.textContent?.trim()),
+			undefined,
+			{ timeout: 5000 }
+		)
+		.catch(() => undefined);
+}
 
 /*
  * The error states, which the screens above never show: every request for
  * data fails, once with an empty 500 and once as a network error, the two
  * shapes whose English text (#929: "API error 500: …", "Failed to fetch")
- * reached the screen. A screen shows its failure in its own way, so the
- * test waits for an alert to say something rather than for a known element,
- * and scans whatever is there once it has, or after the wait if none comes.
+ * reached the screen. In English the same failures are judged the other way
+ * round: with no detail from the backend the app words them itself, and none
+ * of that may be Czech. The test waits for an alert to say something rather
+ * than for a known element, and scans whatever is there once it has, or
+ * after the wait if none comes.
  */
 test.describe('Přístupnost – jazyk chybových stavů', () => {
 	for (const { path, name, flags } of routes) {
@@ -2256,15 +2336,19 @@ test.describe('Přístupnost – jazyk chybových stavů', () => {
 			}) => {
 				await setMockFlags(page, { ...flags, dataFailure });
 				await openApp(page, path);
-				await page
-					.waitForFunction(
-						() =>
-							[...document.querySelectorAll('[role="alert"]')].some((el) => el.textContent?.trim()),
-						undefined,
-						{ timeout: 5000 }
-					)
-					.catch(() => undefined);
+				await waitForAlert(page);
 				expect(await languageLosses(page)).toEqual([]);
+			});
+
+			test(`${name} (${path}) v angličtině při selhání dat (${dataFailure}) nemá český text bez lang (3.1.2)`, async ({
+				page
+			}) => {
+				await setPrefs(page, { locale: 'en' });
+				await recordServedText(page);
+				await setMockFlags(page, { ...flags, dataFailure });
+				await openApp(page, path);
+				await waitForAlert(page);
+				expect(await czechLosses(page)).toEqual([]);
 			});
 		}
 	}

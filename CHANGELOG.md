@@ -31,6 +31,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The accessibility suite walks its screens in English too. Axe, the 200 %
+  zoom, the 320 px reflow and the text spacing of 1.4.12 run in both
+  languages, since an English name or a longer English word can fail where
+  the Czech passes, and a new check fails Czech on an English screen that no
+  `lang="cs"` marks, the mirror of the English check on the Czech screens
+  (#967).
 - Two backend tests no longer credit providers with capabilities they do not
   advertise. `ImapCapabilitiesTest` called CONDSTORE with QRESYNC the Gmail,
   Outlook, Seznam and iCloud state, and a `FlagSyncServiceTest` comment said
