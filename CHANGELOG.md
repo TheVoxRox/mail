@@ -31,6 +31,13 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- Repackaging the sidecar no longer lets an old or broken image through
+  unnoticed. The digest `tauri:dev` and `tauri:build` compare now covers
+  `package-sidecar-windows.ps1`, which alone changed the image in #562 and
+  #819. A sync that stops halfway now leaves no `app/` instead of a fresh-looking
+  jar beside half a runtime, and it refuses an image without the launcher cfg.
+  `tauri:build` warns about a launcher without the OAuth client ids, and
+  packaging checks all three of them, not only Google's (#968).
 - The accessibility suite walks its screens in English too. Axe, the 200 %
   zoom, the 320 px reflow and the text spacing of 1.4.12 run in both
   languages, since an English name or a longer English word can fail where

@@ -680,6 +680,7 @@ target/sidecar/x86_64-pc-windows-msvc/
 
 Copy the whole directory with `.exe`, `app/` and `runtime/` into the Tauri bundle, not just the `.exe` itself.
 
-`app/packaged-backend-source.sha256` is the digest of the backend sources the
-image was built from, taken before the build. `npm run tauri:dev` compares it
-with the checked-out tree; nothing at runtime reads it.
+`app/packaged-backend-source.sha256` is the digest of what the image was built
+from (`src/main`, `pom.xml` and `scripts/package-sidecar-windows.ps1`), taken
+before the build. `npm run tauri:dev` compares it with the checked-out tree;
+nothing at runtime reads it.

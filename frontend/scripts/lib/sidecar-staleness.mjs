@@ -33,17 +33,37 @@ import process from 'node:process';
  * leaves alone, so a sync after a backend change stamped the old image with the
  * new digest and this check then called the pair fresh.
  *
- * The digest cannot see a renamed launcher, though. Renaming the sidecar (#495:
- * `mail` → `voxrox-mail-backend`) changes the packaging script and
- * `externalBin` in tauri.conf.json, not a byte under `backend/src/main`, so a
- * sidecar synced before the rename still hashes as fresh — while tauri-build
- * fails on the launcher it cannot find, with a message that names a resource
- * path rather than a stale sidecar. So the launcher's name is checked against
- * `externalBin` first.
+ * The launcher's name is checked against `externalBin` before the digest.
+ * Renaming the sidecar (#495: `mail` → `voxrox-mail-backend`) changed the
+ * packaging script, which the digest covers, and `externalBin` in
+ * tauri.conf.json, which it does not. A rename that touches only the config
+ * hashes as fresh, and even one the digest sees would read as `stale`, a
+ * verdict MAIL_ALLOW_STALE_SIDECAR waves through — while tauri-build fails on
+ * a launcher it cannot find, with a message that names a resource path rather
+ * than the sidecar.
  */
 
-/** Backend inputs whose content decides what a packaged sidecar contains. */
-const SOURCE_PATHS = [path.join('backend', 'src', 'main'), path.join('backend', 'pom.xml')];
+/**
+ * The inputs whose content decides what a packaged sidecar contains: the
+ * sources and the pom Maven builds from, and the packaging script, which
+ * decides the rest of the image — the JVM options in the launcher, the
+ * runtime's module set, the layout. #562 (-XX:+ExitOnOutOfMemoryError) and
+ * #819 (the extracted layout) each changed the image through the script alone,
+ * and an image packaged before either still hashed as fresh after it.
+ *
+ * The whole script, comments included, so a comment-only edit asks for a
+ * rebuild too. That is the cheap side of the trade: whoever edits the script
+ * runs it next, and an edit that arrives with a pull is one whose effect on the
+ * image nothing here could judge. The other backend scripts measure or train
+ * and build nothing that ships, and the OAuth client ids come from the
+ * environment rather than from a file (lib/sidecar-oauth.mjs reads what the
+ * launcher carries).
+ */
+const SOURCE_PATHS = [
+	path.join('backend', 'src', 'main'),
+	path.join('backend', 'pom.xml'),
+	path.join('backend', 'scripts', 'package-sidecar-windows.ps1')
+];
 
 const IGNORED_DIRS = new Set(['target', 'node_modules', '.git']);
 
