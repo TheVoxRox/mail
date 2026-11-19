@@ -55,6 +55,9 @@ Instalaci spustíte přes **Další informace → Přesto spustit**.
 
 ### Ověření před spuštěním
 
+<!-- The same procedure in English is docs/VERIFYING_THE_INSTALLER.md, linked
+from the release notes. A change to one is a change to both. -->
+
 Protože build není podepsaný code-signing certifikátem, doporučujeme ověřit jeho
 původ. Nejsilnější je **ověření původu (build provenance)** pomocí GitHub CLI —
 potvrdí, že instalátor postavil přímo oficiální release workflow tohoto
@@ -72,6 +75,10 @@ potvrdí:
 ```powershell
 gh release verify-asset v<verze> "voxrox-mail-<verze>-windows-x64-setup.exe" --repo TheVoxRox/mail
 ```
+
+Obě kontroly potřebují [GitHub CLI](https://cli.github.com/) přihlášené
+k libovolnému účtu GitHub (`gh auth login`); bez přihlášení ani jedna
+neproběhne.
 
 Přiložený `…-setup.exe.sha256` slouží už jen jako **rychlá kontrola integrity**
 (že se soubor nepoškodil při stahování) — sám o sobě nechrání proti úmyslné

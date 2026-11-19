@@ -21,9 +21,9 @@ JAWS.
 **Download:** the installer is on the
 [latest release](https://github.com/TheVoxRox/mail/releases/latest) page. It is
 not signed yet, so Windows SmartScreen reports an unknown publisher; how to
-verify the file before running it is in the user guide,
-[`frontend/END_USER_README.md`](frontend/END_USER_README.md) (Czech), and how
-releases will be signed is in the
+verify the file before running it is in
+[Verifying the installer](docs/VERIFYING_THE_INSTALLER.md), and how releases
+will be signed is in the
 [Code signing policy](CODE_SIGNING_POLICY.md).
 
 Project website: [voxrox.org](https://voxrox.org) (Czech/English) — includes the [support](https://voxrox.org/support/) and [privacy policy](https://voxrox.org/privacy/) pages.
@@ -119,6 +119,7 @@ Module-level entry points:
 - [`backend/README.md`](backend/README.md) — backend stack, quick start, operations TOC
 - [`frontend/README.md`](frontend/README.md) — frontend stack, scripts, tests
 - [`frontend/END_USER_README.md`](frontend/END_USER_README.md) — release notes for end users (Czech)
+- [`docs/VERIFYING_THE_INSTALLER.md`](docs/VERIFYING_THE_INSTALLER.md) — the SmartScreen warning and how to verify a downloaded installer, in English; the same steps as the Czech guide's
 
 Operations and release:
 
