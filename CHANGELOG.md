@@ -19,6 +19,13 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Repo
+
+- The `v0.2.1-beta.1` release decision: §9 of the 2026-11-19 sheet, with no
+  open blocker and the known issues of 0.2.0, §3b taken from an installation of
+  0.2.0 once the prerelease is published, and the release notes in
+  `docs/release-notes/v0.2.1-beta.1.md` (#957).
+
 ## [0.2.1-beta.1] - 2026-11-19
 
 ### Backend
@@ -213,7 +220,7 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Known issues
 
-Provisional until §9 of the 2026-11-19 candidate sheet, per
+Reconciled with §9 of the 2026-11-19 candidate sheet, per
 [RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) step 4. Unchanged from 0.2.0:
 
 - **A transient IMAP hiccup, `failed to create new store connection`, appears
@@ -240,7 +247,10 @@ Provisional until §9 of the 2026-11-19 candidate sheet, per
   screen-reader passes that #929, #934, #945, #946, #948 and #950 left open in
   their descriptions, and the check of #936 against a live Google account, were
   taken by the maintainer during development; each pull request carries its
-  `Heard by the maintainer: …` note.
+  `Heard by the maintainer: …` note. Not yet seen: a live Gmail sign-in with
+  an app password (#919, #921), the underlined links in the running app
+  (#943), and a sync against a real server that sends a leaf-only Generation Y
+  chain (#952).
 
 ### Repo
 
