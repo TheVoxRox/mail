@@ -465,7 +465,8 @@ between the beta's sheet and the candidate's, and only what moved since the
 beta, which no tester had, is taken by hand on the installed candidate. When
 the installer is the beta's code under a new version, as it is for a
 promotion, nothing is. The record of a carried section is the beta's sheet and
-the `Heard by the maintainer: …` notes on the pull requests it shipped. The
+the `Heard by the maintainer: …` and `Accepted by the maintainer: …` notes on
+the pull requests it shipped. The
 machine half still runs on the stable candidate as on every candidate,
 including the update smoke from the previous stable release. A stable
 candidate with no beta of its version, which only `v0.1.0` has been, carries
@@ -500,6 +501,18 @@ published. Revised 2026-11-10 (#894): the
 notes alone, and the maintainer had heard every one of them during
 development.
 
+Revised 2026-11-19 (#960): a "Not verified" note is also answered by
+`Accepted by the maintainer: …`, written when the maintainer does not take the
+check and accepts what stands in for it, named in the note with its date: a
+check an agent session took at the maintainer's request, as the screenshots of
+#943's underlined links in Microsoft Edge, or the automated evidence of a check
+the maintainer has no means to take, as a sign-in with a Gmail app password
+(#919, #921) or a mail server that sends a leaf-only Let's Encrypt chain
+(#952). Why: only the maintainer's own pass counted, so those had no way out
+of §9 but to be taken by hand before the promotion, which nobody here could
+do; the 0.2.1-beta.1 sheet listed all four. The note keeps the decision on the
+pull request, where the release reads the others.
+
 In the same change, a section's inputs that moved only in comments and layout
 no longer count as moved, read the way `check:audits` reads audit drift ("A
 change only in comments is not audit drift" below).
@@ -526,7 +539,9 @@ that does not arrive), or when the beta grows beyond the closed beta of about
 the revision: a stable release ships a defect in a by-hand item that a pass on
 the installed stable candidate would have caught and the beta's testers did
 not meet, or the beta cycle grows so short that the beta's testers stop being
-a check on the build the promotion ships.
+a check on the build the promotion ships. For the revision of 2026-11-19: a
+release ships a defect in an item that an `Accepted by the maintainer: …` note
+let through without a live check.
 
 ### The updater is taken by hand only when it changed
 

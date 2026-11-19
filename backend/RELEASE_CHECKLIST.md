@@ -320,7 +320,9 @@ those four shapes.
 candidate re-takes by hand only what changed. A beta's sheet ticks none of §3
 to §8 (RELEASE_PROCESS step 1): the maintainer takes them during
 development and at the latest on the beta, and the pull requests record those
-passes as `Heard by the maintainer: …`. So a stable candidate that promotes a
+passes as `Heard by the maintainer: …`, or as `Accepted by the maintainer: …`
+where the maintainer accepts what stands in for a pass not taken. So a stable
+candidate that promotes a
 beta carries each section from the beta: from the newest sheet whose tag is a
 prerelease of this version, when none of the section's inputs in the table
 below moved between that sheet's object ids and this sheet's, which are the
@@ -460,6 +462,7 @@ Findings:
 
 - **`regen:licenses:all` after `npm ci` changed only the `Generated:` line of `NOTICE.txt`**, discarded per §8a: the inventories and the notice match the tree.
 - **CI on `main` for the tag commit passed on its second attempt.** The first, [44489339751](https://github.com/TheVoxRox/mail/actions/runs/44489339751), failed Backend build at "Package JAR": Maven Central answered `spring-boot-starter-parent:pom:4.1.2` as absent, though the same job had resolved it on the pull request an hour before. A re-run of that job alone passed, and the tag was pushed only after it.
+- **What §9 named as not yet seen or heard was accepted after the decision.** On 2026-11-19 the maintainer accepted, each by an `Accepted by the maintainer: …` note on its pull request, an agent's screenshots of #943's underlined links in Microsoft Edge 157 in place of the Tauri window, and the automated evidence of a Gmail app-password sign-in (#919, #921) and of a mail server with a leaf-only Generation Y chain (#952), which the maintainer has no means to take by hand. The promotion of 0.2.1 has none of them left to take (#960).
 - **This cut takes everything merged since `v0.2.0` (`d49c12b`):** #898 to #955. What ships: the Let's Encrypt intermediates (#952); the sign-in-again error naming the account and linking to Settings, Accounts (#917, #936); folder names that can no longer stall an account (audit B1-27 and B1-28, #912, #913); a database with tables but no migration history refused (#912); Microsoft accounts through the sign-in alone (#920, #922) and a Gmail app password without spaces (#919); the WCAG 2.2 AA findings (#929), the grouped list's single announcement (#934), the Contacts pane without the account switcher (#938), and both mail toolbars one Tab stop on bits-ui (#946, #948, #950); dependency updates (#915, #916, #918, #927). The rest is audits, gates, tests and documents.
 
 ### Candidate 2026-11-11 — tag `v0.2.0` (see the object ids below)

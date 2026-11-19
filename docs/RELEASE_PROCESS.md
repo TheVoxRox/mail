@@ -133,7 +133,8 @@ something goes wrong").
 2. **§9 on the sheet:** blockers, known issues, the signed build and smoke run
    links, and `Approved: the maintainer, YYYY-MM-DD, by merging #N`. On a beta,
    also list what nobody has seen or heard yet: a pull request's "Not verified"
-   note that no `Heard by the maintainer: …` note on it answers.
+   note that no `Heard by the maintainer: …` or `Accepted by the maintainer: …`
+   note on it answers.
 3. **Release notes.** Write `docs/release-notes/<tag>.md` from the template
    below, named after the tag (`v0.2.0-beta.4.md`).
 4. **Known issues match.** The changelog section, the release notes and §9

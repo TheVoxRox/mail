@@ -49,5 +49,9 @@ A check only a person can take (a screen-reader pass, an installed build) that
 the author did not take goes in as `Not verified: …`. When the maintainer takes
 it during development, add `Heard by the maintainer: …`: a release counts that
 and does not ask for the pass again (docs/DECISIONS.md, "A beta's sheet takes
-no manual section; the promotion carries them from the beta").
+no manual section; the promotion carries them from the beta"). When the
+maintainer does not take it and accepts what stands in for it, a check an
+agent took at their request or the automated evidence of a check nobody here
+can take by hand, add `Accepted by the maintainer: …` with the date and what
+stands in; a release counts that too.
 -->
