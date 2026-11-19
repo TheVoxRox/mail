@@ -4,7 +4,17 @@ import { envForDesktopSidecar, loadBackendEnv } from './lib/dotenv.mjs';
 import { run } from './lib/run.mjs';
 import { requireUsableSidecar } from './lib/sidecar-staleness.mjs';
 
-const rootDir = process.cwd();
+/*
+ * Spelled with an upper-case drive letter whatever the shell handed over. A
+ * shell can sit in `c:\...`, and tauri passes that on to the Vite dev server it
+ * starts. Vite then resolves its root to the real `C:/...` while SvelteKit keeps
+ * the lower-case working directory, the two serve SvelteKit's client under two
+ * URLs, and the copy the app imports `goto` from was never started: every
+ * button that navigates throws and does nothing (found as a dead Add account
+ * on the accountless start screen). The check in vite.config.ts stops a dev
+ * server started that way by any other route.
+ */
+const rootDir = process.cwd().replace(/^[a-z]:/, (drive) => drive.toUpperCase());
 const tauriCliPath = path.join(rootDir, 'node_modules', '@tauri-apps', 'cli', 'tauri.js');
 const includeBackendEnvCrypto =
 	process.argv.includes('--include-backend-env-crypto') ||
