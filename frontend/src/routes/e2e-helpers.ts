@@ -179,29 +179,35 @@ export function setMockFlags(page: Page, flags: MockFlags): Promise<void> {
 	return seed(page, entries);
 }
 
+/** The UI language a spec runs the app in. */
+export type Locale = NonNullable<AppPrefs['locale']>;
+
 /*
- * The lists, by their accessible names. Deliberately still Czech: the suite
- * runs under `mail.locale = 'cs'` and asserts against the real UI text, and
- * making the selectors locale-agnostic is a separate task (see the policy note
- * in docs/translation-whitelist.txt). One place per list is the point — a
- * renamed grid used to mean a sweep across two dozen spec files.
+ * The lists, by their accessible names. Czech unless asked otherwise: the
+ * suite runs under `mail.locale = 'cs'` and asserts against the real UI text,
+ * and making the selectors locale-agnostic is a separate task (see the policy
+ * note in docs/translation-whitelist.txt). The English names serve the a11y
+ * suite, which walks its screens in English as well. One place per list is
+ * the point — a renamed grid used to mean a sweep across two dozen spec files.
  */
 
 /** The flat message list (MessageList). */
-export const messageGrid = (page: Page): Locator =>
-	page.getByRole('grid', { name: 'Seznam zpráv' });
+export const messageGrid = (page: Page, locale: Locale = 'cs'): Locator =>
+	page.getByRole('grid', { name: locale === 'cs' ? 'Seznam zpráv' : 'Message list' });
 
 /** The conversation treegrid (ConversationList), in grouped mode. */
-export const conversationGrid = (page: Page): Locator =>
-	page.getByRole('treegrid', { name: 'Seznam konverzací' });
+export const conversationGrid = (page: Page, locale: Locale = 'cs'): Locator =>
+	page.getByRole('treegrid', {
+		name: locale === 'cs' ? 'Seznam konverzací' : 'Conversation list'
+	});
 
 /** The search results grid (SearchResultsGrid). */
-export const searchResultsGrid = (page: Page): Locator =>
-	page.getByRole('grid', { name: 'Výsledky' });
+export const searchResultsGrid = (page: Page, locale: Locale = 'cs'): Locator =>
+	page.getByRole('grid', { name: locale === 'cs' ? 'Výsledky' : 'Results' });
 
 /** The contact list (ContactList) — a native table carrying grid roles. */
-export const contactGrid = (page: Page): Locator =>
-	page.getByRole('grid', { name: 'Seznam kontaktů' });
+export const contactGrid = (page: Page, locale: Locale = 'cs'): Locator =>
+	page.getByRole('grid', { name: locale === 'cs' ? 'Seznam kontaktů' : 'Contacts list' });
 
 /**
  * The message-body iframe (MessageContent), by its accessible title — never by
@@ -209,7 +215,8 @@ export const contactGrid = (page: Page): Locator =>
  * and a bare `iframe` locator turns that into a strict-mode failure in tests
  * that have nothing to do with it.
  */
-export const bodyFrame = (page: Page): Locator => page.getByTitle('Obsah zprávy');
+export const bodyFrame = (page: Page, locale: Locale = 'cs'): Locator =>
+	page.getByTitle(locale === 'cs' ? 'Obsah zprávy' : 'Message content');
 
 /**
  * The data rows under `root`, in render order — never the sr-only header row,
@@ -1188,40 +1195,162 @@ export async function apgLosses(page: Page): Promise<string[]> {
  * fetch" and "API error 500: Internal Server Error".
  */
 export function languageLosses(page: Page): Promise<string[]> {
-	return page.evaluate(() => {
-		const ENGLISH =
-			/\b(?:error|failed|failure|fetch|undefined|null|NaN|exception|unexpected|invalid|request|response|network|timeout|timed out|cannot|unable|not found|forbidden|unauthorized|bad request|server error|TypeError|SyntaxError|object Object)\b/i;
-		const declaredEnglish = (el: Element | null) =>
-			/^en\b/i.test(el?.closest('[lang]')?.getAttribute('lang') ?? '');
-		const losses = new Set<string>();
-		const report = (where: Element, text: string) => {
-			const match = ENGLISH.exec(text);
-			if (!match || declaredEnglish(where)) return;
-			const tag = where.getAttribute('role') ?? where.tagName.toLowerCase();
-			losses.add(`${tag}: "${text.replace(/\s+/g, ' ').trim().slice(0, 80)}"`);
-		};
+	return unmarkedTextLosses(page, { foreign: ENGLISH_ERROR_TEXT, language: 'en' });
+}
 
-		const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-		for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-			const parent = node.parentElement;
-			const text = node.textContent ?? '';
-			if (!parent || !text.trim()) continue;
-			if (parent.closest('script, style, template, noscript')) continue;
-			// Hidden text still counts when it is what a screen reader reads:
-			// sr-only spans and live regions are exactly where an error is said.
-			const hidden = !parent.checkVisibility() && !parent.closest('.sr-only, [aria-live]');
-			if (hidden) continue;
-			report(parent, text);
-		}
-		for (const el of document.body.querySelectorAll(
-			'[aria-label], [title], img[alt], [placeholder]'
-		)) {
-			if (!el.checkVisibility() && !el.closest('.sr-only')) continue;
-			for (const attribute of ['aria-label', 'title', 'alt', 'placeholder']) {
-				const value = el.getAttribute(attribute);
-				if (value) report(el, value);
+const ENGLISH_ERROR_TEXT =
+	/\b(?:error|failed|failure|fetch|undefined|null|NaN|exception|unexpected|invalid|request|response|network|timeout|timed out|cannot|unable|not found|forbidden|unauthorized|bad request|server error|TypeError|SyntaxError|object Object)\b/i;
+
+/** The letters of Czech that English has none of; en.json holds not one. */
+const CZECH_LETTERS = /[áčďéěíňóřšťúůýž]/iu;
+
+/** Where `recordServedText` keeps what the backend sent. */
+interface ServedTextWindow {
+	__servedText?: { text: Set<string>; reading: Promise<void>[] };
+}
+
+/**
+ * Records every string the backend sends, for `czechLosses`. The mock's
+ * mailbox is Czech — senders, subjects, contacts, folder names — and an
+ * English screen shows it as it is, as it would show a real user's Czech
+ * mail. That text is the user's, in a language the app cannot know and so
+ * does not declare.
+ *
+ * Wraps `window.fetch`, which every request of the browser build goes through
+ * (`lib/api/http.ts`), and keeps each string value of a JSON response. It is
+ * an init script, so call it before `openApp`. Text that arrives any other
+ * way, such as on the notification stream, is not recorded and is judged as
+ * the app's own.
+ */
+export async function recordServedText(page: Page): Promise<void> {
+	await page.addInitScript(() => {
+		const record = { text: new Set<string>(), reading: [] as Promise<void>[] };
+		(window as ServedTextWindow).__servedText = record;
+		const collect = (value: unknown): void => {
+			if (typeof value === 'string') record.text.add(value);
+			else if (value && typeof value === 'object') Object.values(value).forEach(collect);
+		};
+		const fetch = window.fetch.bind(window);
+		window.fetch = async (input, init) => {
+			const response = await fetch(input, init);
+			if ((response.headers.get('content-type') ?? '').includes('json')) {
+				record.reading.push(
+					response
+						.clone()
+						.json()
+						.then(collect, () => undefined)
+				);
 			}
-		}
-		return [...losses];
+			return response;
+		};
 	});
+}
+
+/**
+ * Czech on an English screen that nothing marks as Czech: the English UI's
+ * counterpart of `languageLosses` (WCAG 3.1.2). A screen reader reads it with
+ * English pronunciation, and axe cannot see it any more than it sees the
+ * other direction.
+ *
+ * Czech is told by its letters, á č ď é ě í ň ó ř š ť ú ů ý ž. A Czech word
+ * with none of them, such as "Smazat", goes unseen; most Czech strings have
+ * one, and what shows Czech where English belongs — a component reading the
+ * Czech bundle, a date formatted for `cs`, a fallback to the default locale —
+ * shows more than one string.
+ *
+ * Text the backend served passes, as the user's own (`recordServedText`,
+ * which has to run before the app loads): text that is part of a served
+ * string, such as a subject split by a search highlight, and text left with
+ * no Czech letter once the served strings are taken out of it, such as a name
+ * that says whose row a checkbox selects. The mock answers in Czech whatever
+ * `Accept-Language` asks for, so a problem detail from it passes too; what
+ * the real backend says in English is the backend's own test.
+ */
+export async function czechLosses(page: Page): Promise<string[]> {
+	const served = await page.evaluate(async () => {
+		const record = (window as ServedTextWindow).__servedText;
+		if (!record) return null;
+		await Promise.all(record.reading);
+		return [...record.text];
+	});
+	if (served === null) {
+		throw new Error('czechLosses needs recordServedText, called before openApp.');
+	}
+	return unmarkedTextLosses(page, {
+		foreign: CZECH_LETTERS,
+		language: 'cs',
+		served: served.filter((text) => CZECH_LETTERS.test(text))
+	});
+}
+
+/**
+ * Text that `foreign` matches and nothing marks as being in `language`, which
+ * is what `languageLosses` and `czechLosses` both look for. Runs in the page.
+ *
+ * Visible text, screen-reader-only text and live regions are read, and the
+ * names given by `aria-label`, `title`, `alt` and `placeholder`. Whatever sits
+ * under a `lang` of `language` passes by declaration, as do the message body
+ * frame, a document of its own, and form field values, which hold the user's
+ * content. So does text from `served` as `czechLosses` describes it.
+ */
+function unmarkedTextLosses(
+	page: Page,
+	options: { foreign: RegExp; language: string; served?: string[] }
+): Promise<string[]> {
+	return page.evaluate(
+		({ source, flags, language, served }) => {
+			const foreign = new RegExp(source, flags);
+			const squeeze = (text: string) => text.replace(/\s+/g, ' ').trim();
+			// Longest first, so a name inside a subject leaves with the subject.
+			const own = served
+				.map(squeeze)
+				.filter(Boolean)
+				.sort((a, b) => b.length - a.length);
+			const userContent = (text: string) => {
+				const squeezed = squeeze(text);
+				if (own.some((string) => string.includes(squeezed))) return true;
+				let rest = squeezed;
+				for (const string of own) rest = rest.split(string).join(' ');
+				return !foreign.test(rest);
+			};
+			const declared = new RegExp(`^${language}\\b`, 'i');
+			const declaredForeign = (el: Element) =>
+				declared.test(el.closest('[lang]')?.getAttribute('lang') ?? '');
+			const losses = new Set<string>();
+			const report = (where: Element, text: string) => {
+				if (!foreign.test(text) || declaredForeign(where) || userContent(text)) return;
+				const tag = where.getAttribute('role') ?? where.tagName.toLowerCase();
+				losses.add(`${tag}: "${squeeze(text).slice(0, 80)}"`);
+			};
+
+			const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+			for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+				const parent = node.parentElement;
+				const text = node.textContent ?? '';
+				if (!parent || !text.trim()) continue;
+				if (parent.closest('script, style, template, noscript')) continue;
+				// Hidden text still counts when it is what a screen reader reads:
+				// sr-only spans and live regions are exactly where an error is said.
+				const hidden = !parent.checkVisibility() && !parent.closest('.sr-only, [aria-live]');
+				if (hidden) continue;
+				report(parent, text);
+			}
+			for (const el of document.body.querySelectorAll(
+				'[aria-label], [title], img[alt], [placeholder]'
+			)) {
+				if (!el.checkVisibility() && !el.closest('.sr-only')) continue;
+				for (const attribute of ['aria-label', 'title', 'alt', 'placeholder']) {
+					const value = el.getAttribute(attribute);
+					if (value) report(el, value);
+				}
+			}
+			return [...losses];
+		},
+		{
+			source: options.foreign.source,
+			flags: options.foreign.flags,
+			language: options.language,
+			served: options.served ?? []
+		}
+	);
 }
