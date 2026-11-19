@@ -314,8 +314,8 @@ class FlagSyncServiceTest {
     }
 
     /**
-     * The UID-enumeration path is the one a server that advertises CONDSTORE
-     * takes: {@code MailSyncService} routes it through
+     * The UID-enumeration path is the one a server that advertises CONDSTORE takes:
+     * {@code MailSyncService} routes it through
      * {@link FlagSyncService#cleanupDeletedViaUidEnumeration} on every cycle, and a
      * QRESYNC server whenever the enumeration is due. Which servers those are is
      * read at runtime and not written down here (see {@link ImapCapabilities}).
