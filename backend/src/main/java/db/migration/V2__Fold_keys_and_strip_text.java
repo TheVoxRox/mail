@@ -5,6 +5,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Arrays;
 import java.util.Objects;
 
 import org.flywaydb.core.api.migration.BaseJavaMigration;
@@ -64,18 +65,22 @@ import org.voxrox.mailbackend.util.TextFold;
  * The text, which the forms used to send as typed and the application stored
  * that way:
  * <ul>
- * <li>{@code contacts.name}, {@code surname} and {@code note} — stripped, a
- * blank one as null, and the fold keys computed from what is left. Stored with
- * a stray space, a name showed with a doubled space between name and surname
- * and went into the vCard export that way, and a name of spaces alone read as
+ * <li>{@code contacts.name} and {@code surname} — stripped, a blank one as
+ * null, and the fold keys computed from what is left. Stored with a stray
+ * space, a name showed with a doubled space between name and surname and went
+ * into the vCard export that way, and a name of spaces alone read as
  * present.</li>
- * <li>{@code accounts.account_name} and {@code account_credentials.username} —
- * stripped and never nulled: both are required and validated non-blank on the
- * way in, so nulling a blank one could only break a row that is broken already.
- * A username with a trailing space was the login the server refused.</li>
- * <li>{@code accounts.display_name} and {@code signature} — stripped, a blank
- * one as null. The display name goes into the From header of every message sent
- * from the account.</li>
+ * <li>{@code accounts.account_name}, {@code imap_host}, {@code smtp_host} and
+ * {@code account_credentials.username} — stripped and never nulled: all are
+ * required and validated non-blank on the way in, so nulling a blank one could
+ * only break a row that is broken already. A username with a trailing space was
+ * the login the server refused.</li>
+ * <li>{@code accounts.display_name} — stripped, a blank one as null. It goes
+ * into the From header of every message sent from the account.</li>
+ * <li>{@code contacts.note} and {@code accounts.signature} — multi-line, so
+ * stored as a block ({@link StoredText#stripBlankLinesToNull}): the blank lines
+ * they start with and the whitespace they end with go, a blank one is null, and
+ * the indentation of the first line stays in line with the lines below.</li>
  * </ul>
  * {@code accounts.email} is left alone. Every path that stores one validates it
  * with {@code @Email}, which refuses whitespace, so no stored address carries
@@ -125,7 +130,7 @@ public class V2__Fold_keys_and_strip_text extends BaseJavaMigration {
                 String surname = StoredText.stripToNull(rows.getString(3));
                 write.setString(1, name);
                 write.setString(2, surname);
-                write.setString(3, StoredText.stripToNull(rows.getString(4)));
+                write.setString(3, StoredText.stripBlankLinesToNull(rows.getString(4)));
                 write.setString(4, TextFold.key(name));
                 write.setString(5, TextFold.key(surname));
                 write.setLong(6, rows.getLong(1));
@@ -168,24 +173,22 @@ public class V2__Fold_keys_and_strip_text extends BaseJavaMigration {
     /** Only the rows the strip changes are written. */
     private static void stripAccounts(Connection connection) throws SQLException {
         try (Statement read = connection.createStatement();
-                ResultSet rows = read.executeQuery("SELECT id, account_name, display_name, signature FROM accounts");
-                PreparedStatement write = connection.prepareStatement(
-                        "UPDATE accounts SET account_name = ?, display_name = ?, signature = ? WHERE id = ?")) {
+                ResultSet rows = read.executeQuery(
+                        "SELECT id, account_name, display_name, signature, imap_host, smtp_host FROM accounts");
+                PreparedStatement write = connection.prepareStatement("UPDATE accounts SET account_name = ?, "
+                        + "display_name = ?, signature = ?, imap_host = ?, smtp_host = ? WHERE id = ?")) {
             while (rows.next()) {
-                String accountName = rows.getString(2);
-                String displayName = rows.getString(3);
-                String signature = rows.getString(4);
-                String strippedName = strip(accountName);
-                String strippedDisplayName = StoredText.stripToNull(displayName);
-                String strippedSignature = StoredText.stripToNull(signature);
-                if (Objects.equals(accountName, strippedName) && Objects.equals(displayName, strippedDisplayName)
-                        && Objects.equals(signature, strippedSignature)) {
+                String[] stored = {rows.getString(2), rows.getString(3), rows.getString(4), rows.getString(5),
+                        rows.getString(6)};
+                String[] stripped = {strip(stored[0]), StoredText.stripToNull(stored[1]),
+                        StoredText.stripBlankLinesToNull(stored[2]), strip(stored[3]), strip(stored[4])};
+                if (Arrays.equals(stored, stripped)) {
                     continue;
                 }
-                write.setString(1, strippedName);
-                write.setString(2, strippedDisplayName);
-                write.setString(3, strippedSignature);
-                write.setLong(4, rows.getLong(1));
+                for (int i = 0; i < stripped.length; i++) {
+                    write.setString(i + 1, stripped[i]);
+                }
+                write.setLong(stripped.length + 1, rows.getLong(1));
                 write.addBatch();
             }
             write.executeBatch();
@@ -214,6 +217,6 @@ public class V2__Fold_keys_and_strip_text extends BaseJavaMigration {
 
     /** The rule for a required field: stripped, and never nulled. */
     private static @Nullable String strip(@Nullable String value) {
-        return value == null ? null : value.strip();
+        return value == null ? null : StoredText.strip(value);
     }
 }

@@ -13,21 +13,27 @@ import org.junit.jupiter.api.Test;
 class AccountTextFieldsTest {
 
     @Test
-    @DisplayName("account name, address and username are stored without surrounding whitespace")
+    @DisplayName("account name, address, username and hosts are stored without surrounding whitespace")
     void requiredFieldsAreStripped() {
         AccountEntity account = new AccountEntity();
         account.setAccountName("  Work ");
         account.setEmail("jan@example.com ");
         AccountCredentialEntity credentials = new AccountCredentialEntity();
-        credentials.setUsername("\tjan@example.com ");
+        // An em space, and a no-break space String.strip() would keep.
+        credentials.setUsername("\u2003jan@example.com\u00A0");
+        MailServerConfig imap = new MailServerConfig(" imap.example.com\t", 993, true);
+        MailServerConfig smtp = new MailServerConfig("smtp.example.com", 465, true);
+        smtp.setHost("\u00A0smtp.example.com ");
 
         assertThat(account.getAccountName()).isEqualTo("Work");
         assertThat(account.getEmail()).isEqualTo("jan@example.com");
         assertThat(credentials.getUsername()).isEqualTo("jan@example.com");
+        assertThat(imap.getHost()).isEqualTo("imap.example.com");
+        assertThat(smtp.getHost()).isEqualTo("smtp.example.com");
     }
 
     @Test
-    @DisplayName("display name and signature are stripped, and a blank one is stored as null")
+    @DisplayName("display name is stripped, signature loses its blank lines, and a blank one is stored as null")
     void optionalFieldsAreStrippedOrNulled() {
         AccountEntity account = new AccountEntity();
         account.setDisplayName(" Jan Novak ");
@@ -39,5 +45,14 @@ class AccountTextFieldsTest {
         account.setSignature(" \n ");
         assertThat(account.getDisplayName()).isNull();
         assertThat(account.getSignature()).isNull();
+    }
+
+    @Test
+    @DisplayName("a signature keeps the indentation of its first line, in line with the lines below")
+    void signatureKeepsItsIndentation() {
+        AccountEntity account = new AccountEntity();
+        account.setSignature("\n   Jan Novak\n   VoxRox  \n");
+
+        assertThat(account.getSignature()).isEqualTo("   Jan Novak\n   VoxRox");
     }
 }

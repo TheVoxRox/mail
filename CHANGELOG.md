@@ -21,6 +21,16 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Backend
 
+- What counts as whitespace around stored text is now the same in the
+  backend as in the form, the set JavaScript's `trim()` removes. Java's
+  `strip()` kept the no-break spaces and the byte order mark, the characters
+  a paste from a word processor or a web page most often brings along, so a
+  name of no-break spaces alone was stored as a name. A contact's note and an
+  account's signature now keep the indentation of their first line, in line
+  with the lines below; only the blank lines they start with and the
+  whitespace they end with go. The server hosts and contact label names
+  follow the same rule. Shared vectors run against both implementations
+  (#984).
 - An account's name, address, display name, signature and username are
   stored without the whitespace around them, and a blank display name or
   signature as none. A space around the display name went into the From

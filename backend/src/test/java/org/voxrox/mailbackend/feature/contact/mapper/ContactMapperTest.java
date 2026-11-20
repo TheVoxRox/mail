@@ -113,20 +113,22 @@ class ContactMapperTest {
     }
 
     @Test
-    @DisplayName("toEntity — names and note stored without surrounding whitespace, blank as null")
+    @DisplayName("toEntity — names stored without surrounding whitespace, the note as a block, blank as null")
     void toEntityStripsNamesAndNote() {
         ContactEntity e = mapper.toEntity(new ContactCreateRequest(List.of(new ContactEmailRequest("a@b.cz", null)),
-                null, "  Alice ", "   ", "\n VIP \n"), null);
+                null, "  Alice ", "   ", "\n  VIP\n  since 2020 \n"), null);
 
         assertThat(e.getName()).isEqualTo("Alice");
         // Spaces alone are no surname, so the list falls back to its placeholder.
         assertThat(e.getSurname()).isNull();
         assertThat(e.getSurnameFold()).isNull();
-        assertThat(e.getNote()).isEqualTo("VIP");
+        // The blank line it starts with and the whitespace it ends with go; the
+        // indentation its lines share stays.
+        assertThat(e.getNote()).isEqualTo("  VIP\n  since 2020");
     }
 
     @Test
-    @DisplayName("applyUpdate — names and note stored without surrounding whitespace, blank as null")
+    @DisplayName("applyUpdate — names stored without surrounding whitespace, the note as a block, blank as null")
     void applyUpdateStripsNamesAndNote() {
         ContactEntity e = entityWithEmails("old@x.cz");
         e.setName("Old");

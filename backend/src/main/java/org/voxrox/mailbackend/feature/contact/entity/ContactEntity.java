@@ -164,10 +164,13 @@ public class ContactEntity {
     }
 
     /**
-     * As {@link #setName}, without a folded key: the search does not read notes.
+     * Stored as a block ({@link StoredText#stripBlankLinesToNull}): a note may run
+     * over several lines, and their layout is the user's, so only the blank lines
+     * it starts with and the whitespace it ends with go. No folded key: the search
+     * does not read notes.
      */
     public void setNote(@Nullable String note) {
-        this.note = StoredText.stripToNull(note);
+        this.note = StoredText.stripBlankLinesToNull(note);
     }
 
     public LocalDateTime getCreatedAt() {

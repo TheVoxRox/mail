@@ -147,13 +147,13 @@ public class AccountEntity {
     }
 
     /**
-     * Stored without surrounding whitespace, the {@link StoredText} rule. Required
+     * Stored without surrounding whitespace ({@link StoredText#strip}). Required
      * (the requests validate it non-blank), so nothing is left blank to turn into
      * null; the rows stored before are cleaned by
      * {@code V2__Fold_keys_and_strip_text}.
      */
     public void setAccountName(String accountName) {
-        this.accountName = accountName.strip();
+        this.accountName = StoredText.strip(accountName);
     }
 
     public String getEmail() {
@@ -164,7 +164,7 @@ public class AccountEntity {
      * As {@link #setAccountName}: a pasted address often carries a trailing space.
      */
     public void setEmail(String email) {
-        this.email = email.strip();
+        this.email = StoredText.strip(email);
     }
 
     public @Nullable String getDisplayName() {
@@ -185,12 +185,14 @@ public class AccountEntity {
     }
 
     /**
-     * Stored stripped, a blank one as null ({@link StoredText}). The compose form
-     * adds the {@code "-- "} separator and the line breaks around the signature
-     * itself, so whitespace at its ends only added to those.
+     * Stored as a block ({@link StoredText#stripBlankLinesToNull}): without the
+     * blank lines it starts with and the whitespace it ends with, a blank one as
+     * null. The compose form adds the {@code "-- "} separator and the line breaks
+     * around it itself, so those only added to them; the indentation of its first
+     * line stays, as it lines up with the lines below.
      */
     public void setSignature(@Nullable String signature) {
-        this.signature = StoredText.stripToNull(signature);
+        this.signature = StoredText.stripBlankLinesToNull(signature);
     }
 
     public boolean isSignatureAutoInsert() {
