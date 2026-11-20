@@ -202,8 +202,11 @@
 	 * captured before the mutation, while the rows are still on the page, and
 	 * applied once the reloaded page arrives — the parent reloads in place, so
 	 * this component survives and the reload is what re-runs the effect.
+	 * `fromPage` is the page the action was taken on, so the effect can tell
+	 * when the reload had to move back a page.
 	 */
-	let pendingFocus: { contactId: number | null; fallbackIndex: number } | null = null;
+	let pendingFocus: { contactId: number | null; fallbackIndex: number; fromPage: number } | null =
+		null;
 
 	$effect(() => {
 		// Tracks the reload: the parent hands over a new page object each time.
@@ -221,7 +224,14 @@
 			if (target) requestAnimationFrame(() => target.focus());
 			return;
 		}
-		scheduleRowFocus(pending.contactId, pending.fallbackIndex, () => (pendingFocus = null));
+		/*
+		 * The removal emptied the last page and the parent moved back to the page
+		 * before it. The rows that followed the removed ones went with that page,
+		 * so the nearest survivor is the one just before them: this page's last
+		 * row, not the index the removal left behind.
+		 */
+		const fallbackIndex = page.page < pending.fromPage ? content.length - 1 : pending.fallbackIndex;
+		scheduleRowFocus(pending.contactId, fallbackIndex, () => (pendingFocus = null));
 	});
 
 	$effect(() => {
@@ -336,7 +346,11 @@
 		try {
 			await deleteContact(c.id);
 			pushToast($_('contacts.deleteDone'), { tone: 'success' });
-			pendingFocus = { contactId: neighbour, fallbackIndex: Math.max(0, index) };
+			pendingFocus = {
+				contactId: neighbour,
+				fallbackIndex: Math.max(0, index),
+				fromPage: page.page
+			};
 			await onChanged();
 		} catch (err) {
 			pushToast(toErrorMessage(err), { tone: 'error' });
@@ -372,7 +386,11 @@
 				{ tone: (result.failed ?? 0) > 0 ? 'error' : 'success' }
 			);
 			selectedIds = [];
-			pendingFocus = { contactId: null, fallbackIndex: Math.max(0, firstIndex) };
+			pendingFocus = {
+				contactId: null,
+				fallbackIndex: Math.max(0, firstIndex),
+				fromPage: page.page
+			};
 			await onChanged();
 		} catch (err) {
 			bulkError = toErrorMessage(err);
@@ -512,7 +530,11 @@
 			// The selection survives on purpose — assigning labels does not remove
 			// rows, and the user may want to apply a second label to the same set.
 			// Focus goes back to the first selected row, which the dialog took it from.
-			pendingFocus = { contactId: selectedVisibleIds[0] ?? null, fallbackIndex: 0 };
+			pendingFocus = {
+				contactId: selectedVisibleIds[0] ?? null,
+				fallbackIndex: 0,
+				fromPage: page.page
+			};
 			await onChanged();
 		}}
 	/>
@@ -525,7 +547,7 @@
 			selectedIds = [];
 			// The merged-away rows are gone; the surviving target is where the
 			// user's attention belongs.
-			pendingFocus = { contactId: targetId, fallbackIndex: 0 };
+			pendingFocus = { contactId: targetId, fallbackIndex: 0, fromPage: page.page };
 			await onChanged();
 		}}
 	/>

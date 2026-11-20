@@ -650,6 +650,53 @@ test.describe('Contacts', () => {
 		await expect(empty).toBeFocused();
 	});
 
+	test('smazání jediného kontaktu na poslední stránce vrátí seznam na stránku před ní', async ({
+		page
+	}) => {
+		/*
+		 * After a removal the list reloads the page it was on. When that took the
+		 * last page's only row, the backend answers the same index with no rows
+		 * and a positive total, and the list used to render it as it came:
+		 * "Žádné kontakty." and no pager, over an address book of 25. The mock
+		 * pages by 25 (contactDefaultPageSize), so 25 seeds and the fixture's
+		 * Jana make two pages, the second holding only the last seed.
+		 */
+		await openApp(page, '/contacts');
+		await bulkCreateContacts(
+			page,
+			Array.from({ length: 25 }, (_, index) => ({
+				name: 'Osoba',
+				surname: String(index + 1).padStart(2, '0'),
+				emails: [{ email: `osoba${index + 1}@example.com` }]
+			}))
+		);
+		await page.locator('#contacts-sidebar-search').fill('example.com');
+		await page.keyboard.press('Enter');
+		await page.waitForURL('**/contacts?q=example.com');
+		const rows = page.locator('tbody tr[data-contact-id]');
+		await expect(rows).toHaveCount(25);
+
+		const pager = page.getByRole('navigation', { name: 'Stránkování kontaktů' });
+		await pager.getByRole('button', { name: 'Další →' }).click();
+		await expect(rows).toHaveCount(1);
+
+		await page.getByRole('button', { name: 'Smazat kontakt Osoba 25' }).click();
+		await page
+			.getByRole('dialog', { name: 'Smazat kontakt' })
+			.getByRole('button', { name: 'Smazat' })
+			.click();
+
+		await expect(rows).toHaveCount(25);
+		await expect(page.getByText('Žádné kontakty.')).toHaveCount(0);
+		await expect(page.getByText('Osoba 25')).toHaveCount(0);
+		// One page left, so the pager is down to its count.
+		await expect(page.getByText('25 kontaktů', { exact: true })).toBeVisible();
+		// The deleted row had no successor, so focus goes to the one before it —
+		// the last row of the page now shown, not the top of it.
+		await expect(page.locator('tbody tr[data-row-index="24"]')).toContainText('Osoba 24');
+		await expect(page.locator('tbody [data-row-index="24"] [data-col="1"]')).toBeFocused();
+	});
+
 	test('návrat z úpravy kontaktu vrátí fokus na jeho řádek', async ({ page }) => {
 		await openApp(page, '/contacts');
 

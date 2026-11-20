@@ -270,7 +270,13 @@ export function parseVCard(text: string): ParsedVCardFile {
 			buf.fnValue = decode(value);
 		} else if (fieldUpper === 'EMAIL') {
 			const email = unescapeVCard(decode(value)).trim();
-			if (email && email.includes('@')) {
+			/*
+			 * The backend stores an address lower-cased and refuses a contact that
+			 * lists one twice, which costs the whole card. A card naming the same
+			 * mailbox twice (repeated, or as Jan@X.cz and jan@x.cz) keeps the first.
+			 */
+			const key = email.toLowerCase();
+			if (email.includes('@') && !buf.emails.some((known) => known.email.toLowerCase() === key)) {
 				buf.emails.push({ email, label: parseEmailLabel(params) });
 			}
 		} else if (fieldUpper === 'NOTE') {

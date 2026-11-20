@@ -262,10 +262,15 @@ describe('bulk outcome messages — the failure clause only when there is a fail
 			'Smazáno 5 kontaktů.',
 			'Smazáno 5 kontaktů, 2 kontakty se nepodařilo smazat.'
 		],
-		['contacts.vcardImportDone', { created: 7 }, 'Importováno: 7.', 'Importováno: 7. Selhalo: 2.'],
+		[
+			'contacts.vcardImportDone',
+			{ created: 7, duplicates: 0 },
+			'Importováno: 7.',
+			'Importováno: 7. Selhalo: 2.'
+		],
 		[
 			'contacts.vcardImportDoneSkipped',
-			{ created: 7, skipped: 1 },
+			{ created: 7, duplicates: 0, skipped: 1 },
 			'Importováno: 7. Přeskočeno bez e-mailu: 1.',
 			'Importováno: 7. Selhalo: 2. Přeskočeno bez e-mailu: 1.'
 		]
@@ -281,6 +286,47 @@ describe('bulk outcome messages — the failure clause only when there is a fail
 		const mod = await freshModule();
 		mod.setLocale('cs');
 		expect(get(mod._)(key, { values: { ...values, failed: 2 } })).toBe(withFail);
+	});
+});
+
+describe('vCard import outcome — cards already in the address book', () => {
+	/*
+	 * Re-importing a file is the ordinary way to meet these, and they used to be
+	 * counted as failures: "Importováno: 0. Selhalo: 5." with no reason. They
+	 * get a clause of their own, said only when there are some, ahead of the
+	 * real failures.
+	 */
+	const cases: Array<[AppLocale, string, Record<string, string | number>, string]> = [
+		[
+			'cs',
+			'contacts.vcardImportDone',
+			{ created: 0, duplicates: 5, failed: 0 },
+			'Importováno: 0. Už v adresáři: 5.'
+		],
+		[
+			'cs',
+			'contacts.vcardImportDone',
+			{ created: 3, duplicates: 5, failed: 2 },
+			'Importováno: 3. Už v adresáři: 5. Selhalo: 2.'
+		],
+		[
+			'cs',
+			'contacts.vcardImportDoneSkipped',
+			{ created: 3, duplicates: 5, failed: 0, skipped: 1 },
+			'Importováno: 3. Už v adresáři: 5. Přeskočeno bez e-mailu: 1.'
+		],
+		[
+			'en',
+			'contacts.vcardImportDone',
+			{ created: 0, duplicates: 5, failed: 0 },
+			'Imported: 0. Already in the address book: 5.'
+		]
+	];
+
+	it.each(cases)('%s %s %j', async (locale, key, values, expected) => {
+		const mod = await freshModule();
+		mod.setLocale(locale);
+		expect(get(mod._)(key, { values })).toBe(expected);
 	});
 });
 

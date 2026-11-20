@@ -65,6 +65,21 @@ Entries before 2026-09-17 predate that split and are left as written.
   same action twice, first as the button's name and then as its description,
   and never said why Mail had nothing to open. "Zde" keeps it from claiming
   the user has no email account at all.
+- Removing the last contacts on the last page of the address book (a delete,
+  a merge, or a label taken off the list filtered by it) shows the page
+  before it, with focus on its last row. The list used to stay on the page
+  that no longer existed and say "Žádné kontakty." with no pager, so with 26
+  contacts, deleting the one on page 2 told the user the address book was
+  empty and left no way back to the other 25.
+- A vCard import counts the contacts that are already in the address book on
+  their own ("Už v adresáři: 5.") instead of among the failures, and only a
+  real failure makes the report an error. Importing a file a second time
+  used to end in an error read out at once, "Importováno: 0. Selhalo: 5.",
+  with no reason given, for an import that had lost nothing.
+- A card that lists the same address twice, also in a different case
+  (`Jan@X.cz` and `jan@x.cz`), imports with the address once. The address
+  book stores addresses in lower case and refuses a contact that names one
+  twice, so the whole card used to fail.
 
 ### Repo
 

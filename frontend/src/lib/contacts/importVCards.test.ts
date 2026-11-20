@@ -64,7 +64,7 @@ describe('importVCardFiles — batching', () => {
 
 		expect(batchSizes()).toEqual([100]);
 		expect(t).toHaveBeenCalledWith('contacts.vcardImportDone', {
-			values: { created: 100, failed: 0 }
+			values: { created: 100, duplicates: 0, failed: 0 }
 		});
 	});
 
@@ -73,7 +73,7 @@ describe('importVCardFiles — batching', () => {
 
 		expect(batchSizes()).toEqual([100, 100, 50]);
 		expect(t).toHaveBeenCalledWith('contacts.vcardImportDone', {
-			values: { created: 250, failed: 0 }
+			values: { created: 250, duplicates: 0, failed: 0 }
 		});
 	});
 
@@ -93,7 +93,7 @@ describe('importVCardFiles — batching', () => {
 		// to reload its list.
 		expect(await importVCardFiles([vcardFile(250)], t)).toBe(true);
 		expect(t).toHaveBeenCalledWith('contacts.vcardImportDone', {
-			values: { created: 150, failed: 100 }
+			values: { created: 150, duplicates: 0, failed: 100 }
 		});
 		// The counts alone would not say why 100 are missing.
 		expect(vi.mocked(pushToast)).toHaveBeenCalledWith('Error: offline', { tone: 'error' });
@@ -121,7 +121,7 @@ describe('importVCardFiles — cards without an address', () => {
 
 		expect(batchSizes()).toEqual([1]);
 		expect(t).toHaveBeenCalledWith('contacts.vcardImportDoneSkipped', {
-			values: { created: 1, failed: 0, skipped: 2 }
+			values: { created: 1, duplicates: 0, failed: 0, skipped: 2 }
 		});
 	});
 
@@ -136,5 +136,84 @@ describe('importVCardFiles — cards without an address', () => {
 
 		expect(vi.mocked(bulkCreateContacts)).not.toHaveBeenCalled();
 		expect(t).toHaveBeenCalledWith('contacts.vcardImportEmpty');
+	});
+});
+
+/** A batch answer built from per-card outcomes, the way the backend counts them. */
+function outcome(...codes: Array<'CREATED' | string>) {
+	const results = codes.map((code, index) =>
+		code === 'CREATED'
+			? { index, status: 'CREATED' as const }
+			: { index, status: 'FAILED' as const, errorCode: code, errorMessage: code }
+	);
+	const created = results.filter((item) => item.status === 'CREATED').length;
+	return { total: codes.length, created, failed: codes.length - created, results };
+}
+
+describe('importVCardFiles — cards already in the address book', () => {
+	/*
+	 * Re-importing a file is the ordinary way to meet these. The backend counts
+	 * them among the failures, and so did the report: an error-toned "Selhalo"
+	 * with no reason, read out assertively, for an import that lost nothing.
+	 */
+	it('counts them apart from the failures, and the toast is not an error', async () => {
+		vi.mocked(bulkCreateContacts).mockResolvedValueOnce(
+			outcome('CREATED', 'CONTACT_DUPLICATE', 'CONTACT_DUPLICATE')
+		);
+
+		expect(await importVCardFiles([vcardFile(3)], t)).toBe(true);
+
+		expect(t).toHaveBeenCalledWith('contacts.vcardImportDone', {
+			values: { created: 1, duplicates: 2, failed: 0 }
+		});
+		expect(vi.mocked(pushToast)).toHaveBeenCalledWith(expect.any(String), { tone: 'info' });
+	});
+
+	it('reports a file that is all in the address book without an error', async () => {
+		vi.mocked(bulkCreateContacts).mockResolvedValueOnce(
+			outcome('CONTACT_DUPLICATE', 'CONTACT_DUPLICATE')
+		);
+
+		await importVCardFiles([vcardFile(2)], t);
+
+		expect(t).toHaveBeenCalledWith('contacts.vcardImportDone', {
+			values: { created: 0, duplicates: 2, failed: 0 }
+		});
+		expect(vi.mocked(pushToast)).not.toHaveBeenCalledWith(expect.any(String), { tone: 'error' });
+	});
+
+	it('keeps the error tone for a real failure beside them', async () => {
+		vi.mocked(bulkCreateContacts).mockResolvedValueOnce(
+			outcome('CREATED', 'CONTACT_DUPLICATE', 'VALIDATION_ERROR')
+		);
+
+		await importVCardFiles([vcardFile(3)], t);
+
+		expect(t).toHaveBeenCalledWith('contacts.vcardImportDone', {
+			values: { created: 1, duplicates: 1, failed: 1 }
+		});
+		expect(vi.mocked(pushToast)).toHaveBeenCalledWith(expect.any(String), { tone: 'error' });
+	});
+
+	it('sums them over the batches', async () => {
+		vi.mocked(bulkCreateContacts)
+			.mockResolvedValueOnce(outcome(...Array<string>(100).fill('CONTACT_DUPLICATE')))
+			.mockResolvedValueOnce(outcome('CONTACT_DUPLICATE', 'CREATED'));
+
+		await importVCardFiles([vcardFile(102)], t);
+
+		expect(t).toHaveBeenCalledWith('contacts.vcardImportDone', {
+			values: { created: 1, duplicates: 101, failed: 0 }
+		});
+	});
+
+	it('carries them into the message that also reports skipped cards', async () => {
+		vi.mocked(bulkCreateContacts).mockResolvedValueOnce(outcome('CONTACT_DUPLICATE'));
+
+		await importVCardFiles([vcardFile(1, 1)], t);
+
+		expect(t).toHaveBeenCalledWith('contacts.vcardImportDoneSkipped', {
+			values: { created: 0, duplicates: 1, failed: 0, skipped: 1 }
+		});
 	});
 });

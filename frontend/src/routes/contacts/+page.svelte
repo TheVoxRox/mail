@@ -25,6 +25,7 @@
 	import ContactForm from '#lib/components/ContactForm.svelte';
 	import { importVCardFiles } from '#lib/contacts/importVCards.js';
 	import { dragHasFiles } from '#lib/dragPayload.js';
+	import { lastPageIfPastEnd } from '#lib/paging.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { PageShell } from '#lib/components/ui/page-shell/index.js';
 	import { StateMessage } from '#lib/components/ui/state-message/index.js';
@@ -48,7 +49,13 @@
 	let listState = $state<ListState>({ status: 'idle' });
 	let editState = $state<EditState>({ status: 'idle' });
 	let loadedEditId: number | null = null;
-	let pageNumber = $state(0);
+	/*
+	 * The page the list shows, 0-based. Plain rather than state: load() writes
+	 * it when a removal emptied the page in view, and as state that write would
+	 * re-run the list effect, whose reload unmounts the list and with it the
+	 * focus target the removal had set up. Paging calls load() itself.
+	 */
+	let pageNumber = 0;
 	let lastContext = $state('');
 	// Set by pagination handlers and list-context switches (search, filter,
 	// account change) so the next successful load announces the result to
@@ -108,13 +115,26 @@
 		// block or fail the list itself.
 		void refreshContactCounts();
 		try {
-			const result = await listContacts({
-				q: query || undefined,
-				page,
-				size: getClientConfigSnapshot().contactDefaultPageSize,
-				sort: sort ?? undefined,
-				labelId: labelId ?? undefined
-			});
+			const size = getClientConfigSnapshot().contactDefaultPageSize;
+			const fetchPage = (target: number) =>
+				listContacts({
+					q: query || undefined,
+					page: target,
+					size,
+					sort: sort ?? undefined,
+					labelId: labelId ?? undefined
+				});
+			let result = await fetchPage(page);
+			/*
+			 * A removal that took the last rows of the last page reloads a page that
+			 * no longer exists. Shown as it came, it said the address book was empty
+			 * and drew no pager to get back by; the last page that exists holds the
+			 * rows just before the ones that went, which is where the user was.
+			 */
+			for (let back = lastPageIfPastEnd(result); back !== null; back = lastPageIfPastEnd(result)) {
+				result = await fetchPage(back);
+			}
+			pageNumber = result.page;
 			listState = { status: 'ready', page: result };
 			if (announceNextLoad) {
 				announceNextLoad = false;
@@ -289,6 +309,7 @@
 		if (listState.status !== 'ready') return;
 		announceNextLoad = true;
 		pageNumber = target;
+		void load(data.query, target, data.sort, data.labelId);
 	}
 
 	// The list heading, window title and reload announcement all carry the
