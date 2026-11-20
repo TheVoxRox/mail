@@ -53,6 +53,39 @@ describe('parseVCard — contact basics', () => {
 	});
 });
 
+describe('parseVCard — an address listed twice', () => {
+	/*
+	 * The backend stores addresses lower-cased and refuses a contact that names
+	 * one twice, which loses the whole card, so the parser keeps one of each.
+	 */
+	it('keeps one copy of a repeated address', () => {
+		const [parsed] = parse(card('FN:Jan\r\nEMAIL:jan@x.cz\r\nEMAIL:jan@x.cz'));
+
+		expect(parsed.contact.emails).toEqual([{ email: 'jan@x.cz', label: null }]);
+	});
+
+	it('treats addresses that differ only in case as one, keeping the first', () => {
+		const [parsed] = parse(card('FN:Jan\r\nEMAIL;TYPE=WORK:Jan@X.cz\r\nEMAIL;TYPE=HOME:jan@x.cz'));
+
+		expect(parsed.contact.emails).toEqual([{ email: 'Jan@X.cz', label: 'WORK' }]);
+	});
+
+	it('keeps different addresses in the order the card lists them', () => {
+		const [parsed] = parse(card('FN:Jan\r\nEMAIL:jan@x.cz\r\nEMAIL:jan@y.cz\r\nEMAIL:JAN@X.CZ'));
+
+		expect(parsed.contact.emails.map((email) => email.email)).toEqual(['jan@x.cz', 'jan@y.cz']);
+	});
+
+	it('does not carry an address over into the next card', () => {
+		const cards = parse(card('FN:Jan\r\nEMAIL:jan@x.cz') + card('FN:Jana\r\nEMAIL:jan@x.cz'));
+
+		expect(cards.map((item) => item.contact.emails)).toEqual([
+			[{ email: 'jan@x.cz', label: null }],
+			[{ email: 'jan@x.cz', label: null }]
+		]);
+	});
+});
+
 describe('parseVCard — CATEGORIES', () => {
 	it('is an empty list when the property is absent', () => {
 		const [parsed] = parse(card('FN:Jan\r\nEMAIL:jan@x.cz'));

@@ -29,3 +29,27 @@ export function clampPageTarget(
 	const next = Math.min(Math.max(0, Math.trunc(target)), lastPage);
 	return next === currentPage ? null : next;
 }
+
+/**
+ * The page to load in place of `shown` when `shown` lies past the end of the
+ * list: the last page that still exists. Null when `shown` is fine as it came —
+ * it has rows, or the whole list is empty and page 0 is where that is said.
+ *
+ * A list reloads the page it is on after a removal (a delete, a merge, a label
+ * taken off the view filtered by it). When that removal took the last rows of
+ * the last page, the server answers the same index with no rows and a positive
+ * total, and a list that renders the page as it came reads as empty and draws
+ * no pager to leave it by.
+ *
+ * The answer is always before `shown.page`, so a caller that keeps asking until
+ * it gets null stops even when the list shrinks again between two requests.
+ */
+export function lastPageIfPastEnd(shown: {
+	content: readonly unknown[];
+	page: number;
+	totalPages: number;
+	totalElements: number;
+}): number | null {
+	if (shown.content.length > 0 || shown.page <= 0 || shown.totalElements <= 0) return null;
+	return Math.max(0, Math.min(shown.page - 1, shown.totalPages - 1));
+}

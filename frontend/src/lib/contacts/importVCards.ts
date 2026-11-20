@@ -13,7 +13,7 @@ import { toErrorMessage } from '#lib/api/errors.js';
 import { parseVCard, type ParsedVCard } from '#lib/contacts/vcard.js';
 import { refreshContactCounts } from '#lib/stores/contactCounts.js';
 import { pushToast } from '#lib/stores/toasts.js';
-import type { ContactCreateRequest } from '#lib/types.js';
+import type { BulkContactCreateResponse, ContactCreateRequest } from '#lib/types.js';
 
 /**
  * Structurally compatible with `MessageFormatter` from svelte-i18n (`$_` /
@@ -34,6 +34,18 @@ type ImportMessageFn = (
  * made the import that matters most the one that could not run.
  */
 const BULK_CHUNK_SIZE = 100;
+
+/**
+ * The results of a batch that failed only because the address is already in
+ * the address book. The backend counts them among `failed`, but re-importing
+ * a file is the ordinary way to meet them, and calling them failures made a
+ * harmless re-import read as an error with no reason given.
+ */
+function alreadyInAddressBook(result: BulkContactCreateResponse): number {
+	return (result.results ?? []).filter(
+		(item) => item.status === 'FAILED' && item.errorCode === 'CONTACT_DUPLICATE'
+	).length;
+}
 
 export function looksLikeVCardFile(file: File): boolean {
 	const type = file.type.toLowerCase();
@@ -120,6 +132,7 @@ export async function importVCardFiles(candidates: File[], t: ImportMessageFn): 
 		}));
 
 		let created = 0;
+		let duplicates = 0;
 		let failed = 0;
 		let firstErrorMessage: string | null = null;
 
@@ -127,8 +140,10 @@ export async function importVCardFiles(candidates: File[], t: ImportMessageFn): 
 			const chunk = allContacts.slice(start, start + BULK_CHUNK_SIZE);
 			try {
 				const result = await bulkCreateContacts({ contacts: chunk });
+				const known = alreadyInAddressBook(result);
 				created += result.created ?? 0;
-				failed += result.failed ?? 0;
+				duplicates += known;
+				failed += Math.max(0, (result.failed ?? 0) - known);
 			} catch (err) {
 				// One rejected request must not throw away the batches that already
 				// landed: its items count as failures, the rest of the file still
@@ -147,11 +162,16 @@ export async function importVCardFiles(candidates: File[], t: ImportMessageFn): 
 			if (created === 0) return false;
 		}
 
+		// Only a real failure is an error, which the toast region also says
+		// assertively; cards already in the address book or without an address
+		// are what the file held, not something that went wrong.
 		pushToast(
 			skipped > 0
-				? t('contacts.vcardImportDoneSkipped', { values: { created, failed, skipped } })
-				: t('contacts.vcardImportDone', { values: { created, failed } }),
-			{ tone: failed > 0 ? 'error' : skipped > 0 ? 'info' : 'success' }
+				? t('contacts.vcardImportDoneSkipped', {
+						values: { created, duplicates, failed, skipped }
+					})
+				: t('contacts.vcardImportDone', { values: { created, duplicates, failed } }),
+			{ tone: failed > 0 ? 'error' : skipped > 0 || duplicates > 0 ? 'info' : 'success' }
 		);
 		return true;
 	} catch (err) {
