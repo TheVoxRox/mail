@@ -767,7 +767,9 @@ test.describe('Accounts', () => {
 		expect(probeRequests).toHaveLength(0);
 	});
 
-	test('úprava účtu pošle textová pole bez okolních mezer, prázdné jako null', async ({ page }) => {
+	test('úprava účtu pošle textová pole bez okolních mezer, podpis jako blok, prázdné jako null', async ({
+		page
+	}) => {
 		const putBodies: unknown[] = [];
 		const probeRequests: string[] = [];
 		page.on('request', (request) => {
@@ -787,7 +789,9 @@ test.describe('Accounts', () => {
 		// server's used to refuse it.
 		await page.locator('#acc-email').fill('personal@another.test ');
 		await page.locator('#acc-displayName').fill('   ');
-		await page.locator('#acc-signature').fill('\nJan Novák\n\n');
+		// A signature is a block: its blank lines at the ends go, the indentation
+		// its lines share stays.
+		await page.locator('#acc-signature').fill('\n  Jan Novák\n  VoxRox  \n\n');
 		await page.getByRole('button', { name: 'Uložit změny' }).click();
 
 		await page.waitForURL('**/settings/accounts');
@@ -796,7 +800,7 @@ test.describe('Accounts', () => {
 			accountName: 'Osobní účet',
 			email: 'personal@another.test',
 			displayName: null,
-			signature: 'Jan Novák'
+			signature: '  Jan Novák\n  VoxRox'
 		});
 		// Stripped, the address is the one already stored, so the save did not
 		// treat it as a changed login.

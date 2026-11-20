@@ -159,9 +159,11 @@ How it is applied:
   is for the user; correctness does not rest on it.
 - **Changing the rule** after a release is a migration over the stored rows,
   since a row is rewritten only when it is saved again.
-
-The frontend does not follow it in full yet: it strips a note and a signature
-like a single line, with no helper of its own and outside the shared vectors.
+- **One set of vectors** holds both implementations to it:
+  `backend/src/test/resources/text/stored-text-vectors.json`, run by
+  `StoredTextTest` and by
+  [storedText.test.ts](../frontend/src/lib/storedText.test.ts) against the
+  frontend's [storedText.ts](../frontend/src/lib/storedText.ts).
 
 **Revisit when:** a single-line field turns out to carry meaning in its
 surrounding whitespace, or a multi-line one has to be compared or searched,

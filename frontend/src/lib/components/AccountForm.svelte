@@ -8,6 +8,8 @@
 	} from '#lib/accounts/providerPresets.js';
 	import { createProviderResolver, type ProviderResolver } from '#lib/accounts/providerResolver.js';
 	import { shouldVerifyOnSave } from '#lib/accounts/verifyOnSave.js';
+	import { stripAccountText } from '#lib/accounts/accountText.js';
+	import { strip } from '#lib/storedText.js';
 	import {
 		FIELD_INPUT_IDS,
 		validateAccountForm,
@@ -387,7 +389,7 @@
 			providerId = provider.id;
 			providerResolvedFromEmail = true;
 			providerUnmatched = false;
-			if (!username) username = email.trim();
+			if (!username) username = strip(email);
 			announceOutcome(
 				`provider:${provider.id}`,
 				$_('accounts.form.providerDetected', { values: { name: provider.name } })
@@ -441,7 +443,7 @@
 			showFieldErrors(emailErrors);
 			return;
 		}
-		onUseOAuth?.(oauthCtaPreset, email.trim());
+		onUseOAuth?.(oauthCtaPreset, strip(email));
 	}
 
 	function startPasswordChange(): void {
@@ -535,8 +537,8 @@
 			return { providerId: providerId ?? undefined };
 		}
 		return {
-			imap: { host: imapHost.trim(), port: imapPort as number, useSsl: imapUseSsl },
-			smtp: { host: smtpHost.trim(), port: smtpPort as number, useSsl: smtpUseSsl }
+			imap: { host: strip(imapHost), port: imapPort as number, useSsl: imapUseSsl },
+			smtp: { host: strip(smtpHost), port: smtpPort as number, useSsl: smtpUseSsl }
 		};
 	}
 
@@ -549,11 +551,22 @@
 	 * a space in it is part of it.
 	 */
 	function stripTextFields(): void {
-		email = email.trim();
-		accountName = accountName.trim();
-		displayName = displayName.trim();
-		username = username.trim();
-		signature = signature.trim();
+		const stripped = stripAccountText({
+			accountName,
+			email,
+			displayName,
+			username,
+			signature,
+			imapHost,
+			smtpHost
+		});
+		accountName = stripped.accountName;
+		email = stripped.email;
+		displayName = stripped.displayName;
+		username = stripped.username;
+		signature = stripped.signature;
+		imapHost = stripped.imapHost;
+		smtpHost = stripped.smtpHost;
 	}
 
 	async function handleSubmit(event: SubmitEvent) {

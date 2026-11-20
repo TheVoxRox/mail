@@ -19,13 +19,10 @@
 	} from '#lib/components/ui/native-control/index.js';
 	import { cn } from '#lib/utils.js';
 	import { onMount, tick } from 'svelte';
-	import type {
-		ContactCreateRequest,
-		ContactEmailRequest,
-		ContactResponse,
-		EmailLabel
-	} from '#lib/types.js';
+	import type { ContactCreateRequest, ContactResponse, EmailLabel } from '#lib/types.js';
 	import type { ContactPrefill } from '#lib/contacts/prefill.js';
+	import { storedNote, toContactPayload } from '#lib/contacts/contactPayload.js';
+	import { strip } from '#lib/storedText.js';
 	import { MAX_NOTE_LENGTH } from '#lib/contacts/mergePreview.js';
 
 	interface Props {
@@ -223,8 +220,8 @@
 
 	function validate(): boolean {
 		let ok = true;
-		// Measured as it will be sent: the surrounding whitespace is dropped first.
-		const noteLength = note.trim().length;
+		// Measured as it is stored: a block without its blank lines at the ends.
+		const noteLength = storedNote(note).length;
 		noteError =
 			noteLength > MAX_NOTE_LENGTH
 				? $_('contacts.noteTooLong', { values: { count: noteLength, max: MAX_NOTE_LENGTH } })
@@ -233,7 +230,7 @@
 		const nextErrors: (string | null)[] = emails.map(() => null);
 		let hasFilled = false;
 		emails.forEach((row, index) => {
-			const value = row.email.trim();
+			const value = strip(row.email);
 			if (value.length === 0) return;
 			hasFilled = true;
 			if (!isValidEmailAddress(value)) {
@@ -249,9 +246,21 @@
 		return ok;
 	}
 
+	/*
+	 * Puts the text into the form it is stored in (#lib/storedText.js) before
+	 * anything is checked or sent, so the user sees the value the backend keeps.
+	 */
+	function stripTextFields(): void {
+		name = strip(name);
+		surname = strip(surname);
+		note = storedNote(note);
+		for (const row of emails) row.email = strip(row.email);
+	}
+
 	async function handleSubmit(event: SubmitEvent) {
 		event.preventDefault();
 		error = null;
+		stripTextFields();
 		if (!validate()) {
 			const firstErrorIdx = emailErrors.findIndex((e) => e);
 			if (firstErrorIdx >= 0) {
@@ -262,38 +271,11 @@
 			return;
 		}
 
-		// The first address in the request becomes primary (backend semantics), so
-		// reorder the chosen primary to the front. If the primary row was left empty
-		// it drops out — fall back to the first remaining address.
-		const entries = emails
-			.map((row) => ({
-				email: row.email.trim(),
-				label: row.label,
-				primary: row.primary
-			}))
-			.filter((e) => e.email.length > 0);
-		if (!entries.some((e) => e.primary)) entries[0].primary = true;
-		const primary = entries.find((e) => e.primary)!;
-		const ordered = [primary, ...entries.filter((e) => e !== primary)];
-		const payloadEmails: ContactEmailRequest[] = ordered.map((e) => ({
-			email: e.email,
-			label: e.label === '' ? null : e.label
-		}));
-
 		busy = true;
 		error = null;
 		bypassLeaveGuard = true;
 		try {
-			await onSubmit({
-				// Without the surrounding whitespace, the form the backend stores
-				// (ContactMapper.stripToNull): a stray space would otherwise show as
-				// "Jan  Novak", and a name of spaces alone hide the no-name placeholder.
-				name: name.trim() || null,
-				surname: surname.trim() || null,
-				note: note.trim() || null,
-				emails: payloadEmails,
-				labelIds
-			});
+			await onSubmit(toContactPayload({ name, surname, note, emails, labelIds }));
 		} catch (err) {
 			error = toErrorMessage(err);
 			bypassLeaveGuard = false;
