@@ -75,7 +75,7 @@ class FoldKeysAndStripTextMigrationTest {
                 Statement statement = connection.createStatement()) {
             statement.execute("INSERT INTO contacts (id, name, surname, note, created_at, updated_at) VALUES "
                     // Whitespace around every field, an em space and a tab among it.
-                    + "(1, '  Jan ', ' Novak', ' VIP\t', " + AT + ", " + AT + "), "
+                    + "(1, '\u2003 Jan ', ' Novak', ' VIP\t', " + AT + ", " + AT + "), "
                     // A name of spaces alone, and a note of spaces alone.
                     + "(2, '   ', 'Dvorak', '  ', " + AT + ", " + AT + "), "
                     // Already clean.
@@ -112,7 +112,7 @@ class FoldKeysAndStripTextMigrationTest {
             statement.execute("INSERT INTO account_credentials (account_id, auth_type, username, password) VALUES "
                     // An em space before the third.
                     + "(1, 'PASSWORD', 'jan@example.com ', 'sealed'), (2, 'PASSWORD', 'eva', 'sealed'), "
-                    + "(3, 'PASSWORD', ' petr', 'sealed')");
+                    + "(3, 'PASSWORD', '\u2003petr', 'sealed')");
         }
 
         migrateToV2(url);
