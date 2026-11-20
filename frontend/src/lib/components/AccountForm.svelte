@@ -540,11 +540,28 @@
 		};
 	}
 
+	/*
+	 * Drops the whitespace around the free-text fields in place, before anything
+	 * is validated, verified or sent, so the save, the credential check and the
+	 * connection test all see one value and the user sees the one that is stored.
+	 * A pasted address with a trailing space passed the form's own check (which
+	 * trims) and was then refused by the server's. The password is left as typed:
+	 * a space in it is part of it.
+	 */
+	function stripTextFields(): void {
+		email = email.trim();
+		accountName = accountName.trim();
+		displayName = displayName.trim();
+		username = username.trim();
+		signature = signature.trim();
+	}
+
 	async function handleSubmit(event: SubmitEvent) {
 		event.preventDefault();
 		errorMessage = '';
 		connectionTestMessage = '';
 		clearFieldErrors();
+		stripTextFields();
 
 		const errors = formErrors('save');
 		if (errors.length > 0) {
@@ -589,7 +606,7 @@
 					accountName,
 					email,
 					displayName: displayName || null,
-					signature: signature.trim() ? signature : null,
+					signature: signature || null,
 					signatureAutoInsert,
 					username,
 					password: sentPassword || null,
@@ -658,6 +675,7 @@
 		errorMessage = '';
 		connectionTestMessage = '';
 		clearFieldErrors();
+		stripTextFields();
 		const errors = formErrors('test');
 		if (errors.length > 0) {
 			showFieldErrors(errors);

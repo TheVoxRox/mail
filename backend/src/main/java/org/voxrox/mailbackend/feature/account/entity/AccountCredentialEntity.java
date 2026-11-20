@@ -76,8 +76,13 @@ public class AccountCredentialEntity {
         return username;
     }
 
+    /**
+     * Stored without surrounding whitespace ({@code StoredText}'s rule): it is the
+     * login the server sees, and a trailing space pasted with it made the sign-in
+     * fail as wrong credentials. Required, so never blank here.
+     */
     public void setUsername(String username) {
-        this.username = username;
+        this.username = username.strip();
     }
 
     public String getEncryptedPassword() {

@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 
 import org.jspecify.annotations.Nullable;
 import org.voxrox.mailbackend.util.LogMasker;
+import org.voxrox.mailbackend.util.StoredText;
 
 @Entity
 @Table(name = "accounts")
@@ -17,7 +18,7 @@ public class AccountEntity {
 
     private String accountName;
     private String email;
-    private String displayName;
+    private @Nullable String displayName;
 
     /**
      * Per-account outgoing signature inserted by the frontend into the compose body
@@ -145,32 +146,50 @@ public class AccountEntity {
         return accountName;
     }
 
+    /**
+     * Stored without surrounding whitespace, the {@link StoredText} rule. Required
+     * (the requests validate it non-blank), so nothing is left blank to turn into
+     * null; the rows stored before were cleaned by {@code V4__Strip_account_text}.
+     */
     public void setAccountName(String accountName) {
-        this.accountName = accountName;
+        this.accountName = accountName.strip();
     }
 
     public String getEmail() {
         return email;
     }
 
+    /**
+     * As {@link #setAccountName}: a pasted address often carries a trailing space.
+     */
     public void setEmail(String email) {
-        this.email = email;
+        this.email = email.strip();
     }
 
-    public String getDisplayName() {
+    public @Nullable String getDisplayName() {
         return displayName;
     }
 
-    public void setDisplayName(String displayName) {
-        this.displayName = displayName;
+    /**
+     * Stored stripped, a blank one as null ({@link StoredText}): the display name
+     * goes into the From header of every message sent from the account, and a space
+     * around it went out with them.
+     */
+    public void setDisplayName(@Nullable String displayName) {
+        this.displayName = StoredText.stripToNull(displayName);
     }
 
     public @Nullable String getSignature() {
         return signature;
     }
 
+    /**
+     * Stored stripped, a blank one as null ({@link StoredText}). The compose form
+     * adds the {@code "-- "} separator and the line breaks around the signature
+     * itself, so whitespace at its ends only added to those.
+     */
     public void setSignature(@Nullable String signature) {
-        this.signature = signature;
+        this.signature = StoredText.stripToNull(signature);
     }
 
     public boolean isSignatureAutoInsert() {

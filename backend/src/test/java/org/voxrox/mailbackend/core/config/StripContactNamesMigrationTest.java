@@ -47,7 +47,8 @@ class StripContactNamesMigrationTest {
                     + "(3, 'Eva', 'Mala', NULL, 'eva', 'mala', " + AT + ", " + AT + ")");
         }
 
-        MigrateResult result = flyway(url).load().migrate();
+        // Up to V3 alone: later migrations are tested on their own.
+        MigrateResult result = flyway(url).target("3").load().migrate();
         assertThat(result.migrationsExecuted).isEqualTo(1);
 
         try (Connection connection = DriverManager.getConnection(url)) {

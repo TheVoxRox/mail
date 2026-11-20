@@ -38,7 +38,9 @@ export function buildMailRequest(draft: ComposeDraft): MailRequest {
 		to: draft.to,
 		cc: draft.cc || null,
 		bcc: draft.bcc || null,
-		subject: draft.subject,
+		// Without the whitespace around it, as typed spaces at either end mean
+		// nothing to the recipient; the body is sent exactly as written.
+		subject: draft.subject.trim(),
 		body: draft.body,
 		attachments: toAttachmentRequest(draft.attachments),
 		inReplyTo: draft.inReplyTo,
@@ -51,7 +53,7 @@ export function buildDraftRequest(draft: ComposeDraft): DraftRequest {
 		to: draft.to || null,
 		cc: draft.cc || null,
 		bcc: draft.bcc || null,
-		subject: draft.subject || null,
+		subject: draft.subject.trim() || null,
 		body: draft.body || null,
 		attachments: toAttachmentRequest(draft.attachments),
 		inReplyTo: draft.inReplyTo,

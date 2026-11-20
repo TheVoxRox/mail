@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
+	buildDraftRequest,
+	buildMailRequest,
 	draftFingerprint,
 	MAX_ATTACHMENTS,
 	type ComposeAttachment,
@@ -74,5 +76,24 @@ describe('MAX_ATTACHMENTS', () => {
 		expect(apiDocs.components.schemas[schema]?.properties.attachments.maxItems).toBe(
 			MAX_ATTACHMENTS
 		);
+	});
+});
+
+describe('the subject on the wire', () => {
+	it('leaves out the whitespace around it, in a send and in a draft save', () => {
+		const draft = { ...makeDraft([]), subject: '  Podklady k smlouve \t' };
+
+		expect(buildMailRequest(draft).subject).toBe('Podklady k smlouve');
+		expect(buildDraftRequest(draft).subject).toBe('Podklady k smlouve');
+	});
+
+	it('saves a draft whose subject is whitespace alone as having none', () => {
+		expect(buildDraftRequest({ ...makeDraft([]), subject: '   ' }).subject).toBeNull();
+	});
+
+	it('sends the body exactly as written', () => {
+		const draft = { ...makeDraft([]), body: '  odsazeny radek\n\n' };
+
+		expect(buildMailRequest(draft).body).toBe('  odsazeny radek\n\n');
 	});
 });
