@@ -48,24 +48,6 @@
     "Both clocks reset the same way: re-verify the audit, bump `Audited commit`,",
     "and delete the entry from this file."
   ],
-  "docs/API_SURFACE_AUDIT.md": {
-    "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/core/diagnostic": "d46e16dd37ca2b73fbd3ebe17a396d6f275a5f3c",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service/AttachmentService.java": "03c03b5ec198e4e87e2c32872c4e6f16ceb85bce",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/contact/controller": "f8a74d341a57bc42a508fd94790353169eea8e83",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/contact/dto": "449a52037241fd0f4c39ae4cb4908cfc6adfc998"
-    },
-    "acknowledgements": [
-      {
-        "date": "2026-11-17",
-        "note": "Unused lambda parameters renamed to `_` (Java unnamed variables) so Eclipse JDT stops flagging them, and nothing else: every changed line was read, each swaps one parameter name for `_` in a lambda whose body never named it. Arity and parameter types are unchanged, so the same overloads resolve and the same code runs. Here: DiagnosticDumpService's read-only transaction callback (status) and AttachmentService's folder callback (folder). What the dump contains and what the attachment endpoint serves are untouched. Verdict unchanged."
-      },
-      {
-        "date": "2026-11-20",
-        "note": "1.32: PATCH /api/v1/contacts/{contactId} removed with ContactPatchRequest, and the labelIds description of ContactCreateRequest corrected. Every changed line was read. ContactController loses one mapping and its import and nothing else: the remaining mappings, their parameters, constraints and @Validated are as before, and no route, field or error path is added. The dto change is one @Schema description and one javadoc sentence on ContactUpdateRequest, plus the deleted record. The surface only shrinks, the security chain is untouched, and the controllers stay 18. Verdict unchanged; the change waits for an independent pass."
-      }
-    ]
-  },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "f1e0c7b7a96ce1c45ac25408d38f5f617ebf4c1e",

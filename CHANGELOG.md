@@ -108,6 +108,10 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The API surface audit is re-verified against `a82a5954` as 1.33, the
+  independent pass over the removal of 1.32, clearing its two
+  acknowledgements from the drift ledger. The removal holds and the surface
+  gains nothing; §2 now names the merge's note bound of #977 (#979).
 - `PATCH /api/v1/contacts/{contactId}` is removed with `ContactPatchRequest`:
   the client never called it, and it was the one write path that let a
   contact lose every address. The API surface audit records it as 1.32,
