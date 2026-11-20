@@ -54,7 +54,7 @@ class CorrespondentServiceTest {
     private java.util.List<String> harvestedEmails() {
         ArgumentCaptor<String> email = ArgumentCaptor.forClass(String.class);
         verify(correspondentRepository, org.mockito.Mockito.atLeastOnce()).upsert(eq(ACCOUNT_ID), email.capture(),
-                any(), anyInt(), anyInt(), any());
+                any(), any(), anyInt(), anyInt(), any());
         return email.getAllValues();
     }
 
@@ -69,7 +69,8 @@ class CorrespondentServiceTest {
             // fragments, neither of them a valid address.
             harvestOutgoing("\"Novak, Jan\" <jan@example.com>", null, null);
 
-            verify(correspondentRepository).upsert(ACCOUNT_ID, "jan@example.com", "Novak, Jan", 1, 0, SEEN_AT);
+            verify(correspondentRepository).upsert(ACCOUNT_ID, "jan@example.com", "Novak, Jan", "novak, jan", 1, 0,
+                    SEEN_AT);
         }
 
         @Test
@@ -77,7 +78,8 @@ class CorrespondentServiceTest {
         void normalizesAddress() {
             harvestIncoming("  Jana Novak <Jana@EXAMPLE.com>  ");
 
-            verify(correspondentRepository).upsert(ACCOUNT_ID, "jana@example.com", "Jana Novak", 0, 1, SEEN_AT);
+            verify(correspondentRepository).upsert(ACCOUNT_ID, "jana@example.com", "Jana Novak", "jana novak", 0, 1,
+                    SEEN_AT);
         }
 
         @Test
@@ -93,7 +95,7 @@ class CorrespondentServiceTest {
         void displayNameEqualToAddressIsDropped() {
             harvestIncoming("jana@example.com <jana@example.com>");
 
-            verify(correspondentRepository).upsert(ACCOUNT_ID, "jana@example.com", null, 0, 1, SEEN_AT);
+            verify(correspondentRepository).upsert(ACCOUNT_ID, "jana@example.com", null, null, 0, 1, SEEN_AT);
         }
 
         @Test
@@ -122,7 +124,8 @@ class CorrespondentServiceTest {
         void senderNameWithComma() {
             harvestIncoming("Novak, Jan <jan@example.com>");
 
-            verify(correspondentRepository).upsert(ACCOUNT_ID, "jan@example.com", "Novak, Jan", 0, 1, SEEN_AT);
+            verify(correspondentRepository).upsert(ACCOUNT_ID, "jan@example.com", "Novak, Jan", "novak, jan", 0, 1,
+                    SEEN_AT);
         }
 
         @Test
@@ -144,7 +147,7 @@ class CorrespondentServiceTest {
             harvestOutgoing("a@example.com", "b@example.com", "c@example.com");
 
             assertThat(harvestedEmails()).containsExactly("a@example.com", "b@example.com", "c@example.com");
-            verify(correspondentRepository).upsert(ACCOUNT_ID, "a@example.com", null, 1, 0, SEEN_AT);
+            verify(correspondentRepository).upsert(ACCOUNT_ID, "a@example.com", null, null, 1, 0, SEEN_AT);
         }
 
         @Test
@@ -152,7 +155,7 @@ class CorrespondentServiceTest {
         void draftsCountAsSent() {
             service.harvest(account(), new HarvestInput(FolderRole.DRAFTS, SEEN_AT, null, "a@example.com", null, null));
 
-            verify(correspondentRepository).upsert(ACCOUNT_ID, "a@example.com", null, 1, 0, SEEN_AT);
+            verify(correspondentRepository).upsert(ACCOUNT_ID, "a@example.com", null, null, 1, 0, SEEN_AT);
         }
 
         @Test
@@ -179,7 +182,7 @@ class CorrespondentServiceTest {
         void skipsOwnAddressRegardlessOfCase() {
             harvestOutgoing("OWNER@Example.COM", null, null);
 
-            verify(correspondentRepository, never()).upsert(any(), any(), any(), anyInt(), anyInt(), any());
+            verify(correspondentRepository, never()).upsert(any(), any(), any(), any(), anyInt(), anyInt(), any());
         }
     }
 

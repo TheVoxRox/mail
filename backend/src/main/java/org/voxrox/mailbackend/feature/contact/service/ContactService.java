@@ -32,6 +32,7 @@ import org.voxrox.mailbackend.feature.contact.repository.ContactRepository;
 import org.voxrox.mailbackend.util.AuditLog;
 import org.voxrox.mailbackend.util.LogCategory;
 import org.voxrox.mailbackend.util.LogMasker;
+import org.voxrox.mailbackend.util.TextFold;
 
 import module java.base;
 
@@ -52,12 +53,21 @@ public class ContactService {
      * {@link ContactAutocompleteService} fetches its contact half in the same
      * order, so the contacts that make its limit are the ones the listing shows
      * first.
+     * <p>
+     * By the folded names ({@code TextFold}) first, so a surname starting with a C
+     * with a caron sorts among the C names and one written in lower case among the
+     * capitalized ones — by the stored names SQLite compares code points and put
+     * both after Z. The names themselves only break a tie between two that fold the
+     * same (they differ in case or diacritics alone), so those keep one stable
+     * order.
      */
-    static final Sort DEFAULT_SORT = Sort.by(Sort.Order.asc("surname").nullsLast(), Sort.Order.asc("name").nullsLast(),
+    static final Sort DEFAULT_SORT = Sort.by(Sort.Order.asc("surnameFold").nullsLast(),
+            Sort.Order.asc("nameFold").nullsLast(), Sort.Order.asc("surname"), Sort.Order.asc("name"),
             Sort.Order.asc("id"));
 
-    private static final Sort SORT_BY_NAME = Sort.by(Sort.Order.asc("name").nullsLast(),
-            Sort.Order.asc("surname").nullsLast(), Sort.Order.asc("id"));
+    private static final Sort SORT_BY_NAME = Sort.by(Sort.Order.asc("nameFold").nullsLast(),
+            Sort.Order.asc("surnameFold").nullsLast(), Sort.Order.asc("name"), Sort.Order.asc("surname"),
+            Sort.Order.asc("id"));
 
     private static final Sort SORT_BY_RECENT = Sort.by(Sort.Order.desc("updatedAt"), Sort.Order.asc("id"));
 
@@ -106,7 +116,7 @@ public class ContactService {
         long total = contactRepository.count();
         Map<Long, Long> byLabel = contactRepository.countGroupedByLabel().stream()
                 .collect(Collectors.toMap(ContactLabelCount::labelId, ContactLabelCount::contacts));
-        List<ContactLabelCountResponse> labels = contactLabelRepository.findAllByOrderByNameKeyAsc().stream()
+        List<ContactLabelCountResponse> labels = contactLabelRepository.findAllByOrderByNameFoldAscNameKeyAsc().stream()
                 .map(l -> new ContactLabelCountResponse(l.getId(), l.getName(), byLabel.getOrDefault(l.getId(), 0L)))
                 .toList();
         return new ContactCountsResponse(total, labels);
@@ -133,9 +143,9 @@ public class ContactService {
                     "validation.contactQueryRequired");
         }
         ensureLabelExists(labelId);
-        String pattern = "%" + q.toLowerCase(Locale.ROOT) + "%";
         Pageable pageable = PageRequest.of(page, size, resolveSort(sort));
-        Page<ContactEntity> contacts = contactRepository.search(pattern, labelId, pageable);
+        Page<ContactEntity> contacts = contactRepository.search(containsPattern(q.strip().toLowerCase(Locale.ROOT)),
+                foldedContainsPattern(q), labelId, pageable);
         return contacts.map(contactMapper::toResponse);
     }
 
@@ -374,6 +384,21 @@ public class ContactService {
             }
         }
         return parts.isEmpty() ? null : String.join(NOTE_SEPARATOR, parts);
+    }
+
+    static String containsPattern(String text) {
+        return "%" + text + "%";
+    }
+
+    /**
+     * The name half of {@link ContactRepository#search}: the query folded the way
+     * the stored names are. A query that folds to nothing (combining marks alone)
+     * falls back to the lower-cased form rather than to {@code %%}, which would
+     * match every contact with a name.
+     */
+    static String foldedContainsPattern(String q) {
+        String folded = TextFold.fold(q);
+        return containsPattern(folded.isEmpty() ? q.toLowerCase(Locale.ROOT) : folded);
     }
 
     private ContactEntity getContactOrThrow(Long contactId) {

@@ -21,6 +21,7 @@ import org.voxrox.mailbackend.feature.mail.dto.FolderRole;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 import org.voxrox.mailbackend.util.AuditLog;
 import org.voxrox.mailbackend.util.HeaderAddresses;
+import org.voxrox.mailbackend.util.TextFold;
 
 /**
  * Harvests the addresses the account exchanges mail with, and serves them to
@@ -149,15 +150,17 @@ public class CorrespondentService {
                 // the user never needs suggested is their own.
                 continue;
             }
-            correspondentRepository.upsert(account.getId(), address.email(), address.displayName(), outgoing ? 1 : 0,
-                    outgoing ? 0 : 1, input.seenAt());
+            correspondentRepository.upsert(account.getId(), address.email(), address.displayName(),
+                    TextFold.key(address.displayName()), outgoing ? 1 : 0, outgoing ? 0 : 1, input.seenAt());
         }
     }
 
     /**
      * Typeahead lookup. Returns at most {@code limit} harvested addresses ranked by
      * {@code CorrespondentRepository.search}; an empty or blank query yields
-     * nothing rather than the whole table.
+     * nothing rather than the whole table. The address is matched by the query
+     * lower-cased, the display name by the query folded ({@link TextFold}), the
+     * forms the two are stored in.
      */
     @Transactional(readOnly = true)
     public List<CorrespondentEntity> search(Long accountId, String q, int limit) {
@@ -165,8 +168,10 @@ public class CorrespondentService {
         if (normalized.isEmpty() || limit <= 0) {
             return List.of();
         }
-        String escaped = escapeLikeWildcards(normalized);
-        return correspondentRepository.search(accountId, escaped + "%", "%" + escaped + "%", ROBOT_LOCAL_PARTS, limit);
+        String folded = TextFold.fold(normalized);
+        String escapedFold = escapeLikeWildcards(folded.isEmpty() ? normalized : folded);
+        return correspondentRepository.search(accountId, escapeLikeWildcards(normalized) + "%", "%" + escapedFold + "%",
+                ROBOT_LOCAL_PARTS, limit);
     }
 
     /**

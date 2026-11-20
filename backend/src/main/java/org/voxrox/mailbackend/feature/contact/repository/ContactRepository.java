@@ -43,10 +43,19 @@ public interface ContactRepository extends JpaRepository<ContactEntity, Long> {
     Page<ContactEntity> findAllFiltered(@Param("labelId") @Nullable Long labelId, Pageable pageable);
 
     /**
-     * Case-insensitive substring search across all contact emails, first name, and
-     * surname, with an optional filter by contact label. A subquery instead of JOIN
-     * avoids duplicates when there are multiple emails and supports paging. The
-     * caller wraps {@code q} in {@code %...%}.
+     * Substring search across all contact emails, first name, and surname, with an
+     * optional filter by contact label. A subquery instead of JOIN avoids
+     * duplicates when there are multiple emails and supports paging. The caller
+     * wraps both patterns in {@code %...%}.
+     * <p>
+     * The two patterns are the same query in two forms. Names are matched on their
+     * stored folded form ({@code TextFold}) against {@code qFold}, so case and
+     * diacritics do not count: a surname starting with a capital C with a caron is
+     * found by its first letters typed with the caron or without it, in either
+     * case, which a {@code LOWER(name)} could not do — SQLite folds ASCII only.
+     * Addresses are matched against {@code q}, the query lower-cased and nothing
+     * else: they are stored lower-cased, and an address is typed the way it is
+     * spelled.
      * <p>
      * Like {@link #findAllFiltered}, the collections are batch-loaded rather than
      * fetch-joined so {@code Pageable} stays a SQL-level limit (no HHH90003004).
@@ -55,12 +64,13 @@ public interface ContactRepository extends JpaRepository<ContactEntity, Long> {
             SELECT DISTINCT c FROM ContactEntity c
             WHERE (EXISTS (SELECT e FROM ContactEmailEntity e
                            WHERE e.contact = c AND LOWER(e.email) LIKE :q)
-                   OR (c.name IS NOT NULL AND LOWER(c.name) LIKE :q)
-                   OR (c.surname IS NOT NULL AND LOWER(c.surname) LIKE :q))
+                   OR c.nameFold LIKE :qFold
+                   OR c.surnameFold LIKE :qFold)
               AND (:labelId IS NULL OR EXISTS (SELECT 1 FROM ContactEntity c2 JOIN c2.labels cl
                                                 WHERE c2.id = c.id AND cl.id = :labelId))
             """)
-    Page<ContactEntity> search(@Param("q") String q, @Param("labelId") @Nullable Long labelId, Pageable pageable);
+    Page<ContactEntity> search(@Param("q") String q, @Param("qFold") String qFold,
+            @Param("labelId") @Nullable Long labelId, Pageable pageable);
 
     /**
      * Batch variant of the duplicate check for create/update/patch contact. Returns

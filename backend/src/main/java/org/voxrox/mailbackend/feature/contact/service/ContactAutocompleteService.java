@@ -12,6 +12,7 @@ import org.voxrox.mailbackend.feature.contact.entity.ContactEmailEntity;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEntity;
 import org.voxrox.mailbackend.feature.contact.entity.CorrespondentEntity;
 import org.voxrox.mailbackend.feature.contact.repository.ContactRepository;
+import org.voxrox.mailbackend.util.TextFold;
 
 import module java.base;
 
@@ -32,15 +33,14 @@ public class ContactAutocompleteService {
     private static final int HISTORY_SECOND = 1;
 
     /**
-     * Alphabetical order used inside the contact half before the merge. The
-     * nullable name fields are read into a local before use — reading the accessor
-     * twice (once to null-check, once to fold) is what SpotBugs flags, since
-     * nothing tells it the second call returns the same value.
+     * Alphabetical order used inside the contact half before the merge — the
+     * address book's own (ContactService.DEFAULT_SORT): folded surname, then folded
+     * given name, a missing one last.
      */
     private static final Comparator<AutocompleteRow> CONTACT_ORDER = Comparator
             .<AutocompleteRow>comparingInt(AutocompleteRow::rank)
-            .thenComparing(r -> lowerOrEmpty(r.response().surname()))
-            .thenComparing(r -> lowerOrEmpty(r.response().name()))
+            .thenComparing(r -> TextFold.key(r.response().surname()), Comparator.nullsLast(Comparator.naturalOrder()))
+            .thenComparing(r -> TextFold.key(r.response().name()), Comparator.nullsLast(Comparator.naturalOrder()))
             .thenComparing(r -> r.response().email().toLowerCase(Locale.ROOT));
 
     private static final Comparator<AutocompleteRow> AUTOCOMPLETE_RANKING = Comparator
@@ -114,11 +114,15 @@ public class ContactAutocompleteService {
         // untrimmed form, would then score a genuine prefix hit from history as a
         // substring match and sort it below every weak contact match.
         String qLower = q.trim().toLowerCase(Locale.ROOT);
+        // The names are compared folded (TextFold), so "cer" ranks a surname that
+        // starts with a C with a caron as the surname prefix match it is. Addresses
+        // keep qLower: they are stored lower-cased and compared as spelled.
+        String qFold = TextFold.fold(qLower);
 
-        List<AutocompleteRow> rows = new ArrayList<>(contactRows(qLower, cappedLimit));
+        List<AutocompleteRow> rows = new ArrayList<>(contactRows(qLower, qFold, cappedLimit));
         Set<String> offered = rows.stream().map(r -> r.response().email().toLowerCase(Locale.ROOT))
                 .collect(Collectors.toCollection(HashSet::new));
-        rows.addAll(historyRows(accountId, qLower, cappedLimit, offered));
+        rows.addAll(historyRows(accountId, qLower, qFold, cappedLimit, offered));
 
         rows.sort(AUTOCOMPLETE_RANKING);
         return rows.stream().limit(cappedLimit).map(AutocompleteRow::response).toList();
@@ -130,12 +134,13 @@ public class ContactAutocompleteService {
      * user saved. Fetched in the address book's own default order, so the contacts
      * that make the cut are the ones its listing would show first.
      */
-    private List<AutocompleteRow> contactRows(String qLower, int cappedLimit) {
+    private List<AutocompleteRow> contactRows(String qLower, String qFold, int cappedLimit) {
         Pageable pageable = PageRequest.of(0, cappedLimit, ContactService.DEFAULT_SORT);
-        List<ContactEntity> matched = contactRepository.search("%" + qLower + "%", (Long) null, pageable).getContent();
+        List<ContactEntity> matched = contactRepository.search(ContactService.containsPattern(qLower),
+                ContactService.foldedContainsPattern(qLower), (Long) null, pageable).getContent();
 
         List<AutocompleteRow> ranked = matched.stream()
-                .flatMap(c -> c.getEmails().stream().map(e -> toContactRow(c, e, qLower))).sorted(CONTACT_ORDER)
+                .flatMap(c -> c.getEmails().stream().map(e -> toContactRow(c, e, qLower, qFold))).sorted(CONTACT_ORDER)
                 .limit(cappedLimit).toList();
 
         // Stamp each row with the position it landed on, so the merge preserves this
@@ -157,7 +162,8 @@ public class ContactAutocompleteService {
      * (once by address prefix, once by display name) and a duplicate suggestion is
      * worse than a missing one.
      */
-    private List<AutocompleteRow> historyRows(Long accountId, String qLower, int cappedLimit, Set<String> offered) {
+    private List<AutocompleteRow> historyRows(Long accountId, String qLower, String qFold, int cappedLimit,
+            Set<String> offered) {
         List<CorrespondentEntity> harvested = correspondentService.search(accountId, qLower, cappedLimit);
         List<AutocompleteRow> rows = new ArrayList<>(harvested.size());
         for (CorrespondentEntity c : harvested) {
@@ -167,29 +173,31 @@ public class ContactAutocompleteService {
             }
             ContactAutocompleteResponse resp = ContactAutocompleteResponse.ofHistory(c.getId(), c.getEmail(),
                     c.getDisplayName());
-            rows.add(new AutocompleteRow(rankOfHistory(c, qLower), HISTORY_SECOND, rows.size(), resp));
+            rows.add(new AutocompleteRow(rankOfHistory(c, qLower, qFold), HISTORY_SECOND, rows.size(), resp));
         }
         return rows;
     }
 
-    private static String lowerOrEmpty(@Nullable String value) {
-        return value == null ? "" : value.toLowerCase(Locale.ROOT);
-    }
-
-    private static int rankOfContact(ContactAutocompleteResponse resp, String qLower) {
-        String emailLower = resp.email().toLowerCase(Locale.ROOT);
-        String surnameLower = lowerOrEmpty(resp.surname());
-        String nameLower = lowerOrEmpty(resp.name());
-        if (emailLower.startsWith(qLower)) {
+    /**
+     * The names are compared in their stored folded form, the one the search
+     * matched them on; a name the SQL found by "cer" has to rank by the same rule,
+     * or every surname with a diacritic would score as a mere substring match.
+     */
+    private static int rankOfContact(ContactEntity contact, ContactEmailEntity email, String qLower, String qFold) {
+        if (email.getEmail().toLowerCase(Locale.ROOT).startsWith(qLower)) {
             return 0;
         }
-        if (!surnameLower.isEmpty() && surnameLower.startsWith(qLower)) {
+        if (startsWith(contact.getSurnameFold(), qFold)) {
             return 1;
         }
-        if (!nameLower.isEmpty() && nameLower.startsWith(qLower)) {
+        if (startsWith(contact.getNameFold(), qFold)) {
             return 2;
         }
         return 3;
+    }
+
+    private static boolean startsWith(@Nullable String folded, String qFold) {
+        return folded != null && !qFold.isEmpty() && folded.startsWith(qFold);
     }
 
     /**
@@ -200,18 +208,18 @@ public class ContactAutocompleteService {
      * scored as rank 2 when it starts with the query and 3 when it merely contains
      * it.
      */
-    private static int rankOfHistory(CorrespondentEntity correspondent, String qLower) {
+    private static int rankOfHistory(CorrespondentEntity correspondent, String qLower, String qFold) {
         if (correspondent.getEmail().startsWith(qLower)) {
             return 0;
         }
-        String nameLower = lowerOrEmpty(correspondent.getDisplayName());
-        return !nameLower.isEmpty() && nameLower.startsWith(qLower) ? 2 : 3;
+        return startsWith(TextFold.key(correspondent.getDisplayName()), qFold) ? 2 : 3;
     }
 
-    private static AutocompleteRow toContactRow(ContactEntity contact, ContactEmailEntity email, String qLower) {
+    private static AutocompleteRow toContactRow(ContactEntity contact, ContactEmailEntity email, String qLower,
+            String qFold) {
         ContactAutocompleteResponse resp = ContactAutocompleteResponse.ofContact(contact.getId(), email.getId(),
                 email.getEmail(), email.getLabel(), email.isPrimary(), contact.getName(), contact.getSurname());
-        return new AutocompleteRow(rankOfContact(resp, qLower), CONTACT_FIRST, 0, resp);
+        return new AutocompleteRow(rankOfContact(contact, email, qLower, qFold), CONTACT_FIRST, 0, resp);
     }
 
     /**

@@ -106,7 +106,7 @@ class ContactServiceTest {
         // The aggregate only knows labels somebody uses — "Archive" is missing from it.
         when(contactRepository.countGroupedByLabel())
                 .thenReturn(List.of(new ContactLabelCount(1L, 3L), new ContactLabelCount(3L, 1L)));
-        when(contactLabelRepository.findAllByOrderByNameKeyAsc())
+        when(contactLabelRepository.findAllByOrderByNameFoldAscNameKeyAsc())
                 .thenReturn(List.of(label(1L, "Clients"), label(2L, "Archive"), label(3L, "Family")));
 
         ContactCountsResponse counts = service.getCounts();
@@ -128,10 +128,12 @@ class ContactServiceTest {
     @Test
     @DisplayName("searchContacts — q zabaleno %...% a lowercased")
     void searchContactsWrapsPattern() {
-        when(contactRepository.search(eq("%alice%"), eq(null), any(Pageable.class)))
+        when(contactRepository.search(eq("%alice%"), eq("%alice%"), eq(null), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(contact(10L, EMAIL))));
 
-        Page<ContactResponse> result = service.searchContacts("ALICE", 0, 20, null, null);
+        // Padded on purpose: both halves search the trimmed query, as autocomplete
+        // does.
+        Page<ContactResponse> result = service.searchContacts(" ALICE ", 0, 20, null, null);
 
         assertThat(result.getContent()).hasSize(1);
     }
@@ -421,7 +423,7 @@ class ContactServiceTest {
     void searchContactsNullQ() {
         assertThatThrownBy(() -> service.searchContacts(null, 0, 20, null, null))
                 .isInstanceOf(ValidationException.class);
-        verify(contactRepository, never()).search(any(), any(), any());
+        verify(contactRepository, never()).search(any(), any(), any(), any());
     }
 
     @Test
@@ -446,7 +448,7 @@ class ContactServiceTest {
     }
 
     @Test
-    @DisplayName("listContacts — sort=name → primary order asc by name")
+    @DisplayName("listContacts — sort=name → primary order asc by the folded given name")
     void listContactsSortByName() {
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
         when(contactRepository.findAllFiltered(eq(null), pageableCaptor.capture()))
@@ -455,7 +457,8 @@ class ContactServiceTest {
         service.listContacts(0, 10, "name", null);
 
         var orders = pageableCaptor.getValue().getSort().toList();
-        assertThat(orders.get(0).getProperty()).isEqualTo("name");
+        // The folded key, not the name: ContactRepositoryIT.CzechNames shows why.
+        assertThat(orders.get(0).getProperty()).isEqualTo("nameFold");
         assertThat(orders.get(0).getDirection()).isEqualTo(org.springframework.data.domain.Sort.Direction.ASC);
     }
 
@@ -508,7 +511,7 @@ class ContactServiceTest {
 
         assertThatThrownBy(() -> service.searchContacts("alice", 0, 10, null, 99L))
                 .isInstanceOf(ContactLabelNotFoundException.class);
-        verify(contactRepository, never()).search(any(), any(), any());
+        verify(contactRepository, never()).search(any(), any(), any(), any());
     }
 
     // --- merge ---
