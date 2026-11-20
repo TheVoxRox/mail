@@ -134,7 +134,7 @@ public class ContactEntity {
      * Stores the name without surrounding whitespace, a blank one as null
      * ({@link StoredText}), and derives its folded key. Here rather than in the
      * callers so that no write path can store the whitespace; the rows stored
-     * before this rule were cleaned by {@code V3__Strip_contact_names}.
+     * before this rule are cleaned by {@code V2__Fold_keys_and_strip_text}.
      */
     public void setName(@Nullable String name) {
         this.name = StoredText.stripToNull(name);

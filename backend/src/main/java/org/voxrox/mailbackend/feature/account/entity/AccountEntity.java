@@ -149,7 +149,8 @@ public class AccountEntity {
     /**
      * Stored without surrounding whitespace, the {@link StoredText} rule. Required
      * (the requests validate it non-blank), so nothing is left blank to turn into
-     * null; the rows stored before were cleaned by {@code V4__Strip_account_text}.
+     * null; the rows stored before are cleaned by
+     * {@code V2__Fold_keys_and_strip_text}.
      */
     public void setAccountName(String accountName) {
         this.accountName = accountName.strip();
