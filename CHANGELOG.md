@@ -27,14 +27,14 @@ Entries before 2026-09-17 predate that split and are left as written.
   own and may hit the given name, the surname or an address. Matched as one
   string, a query with a space found no contact at all, and the compose window
   then offered the same person from the correspondence history, marked "není v
-  kontaktech".
+  kontaktech" (#976).
 - The compose suggestions keep the best matches from the address book on a
   short query. The contacts were taken in alphabetical order and ranked only
   afterwards, so for "in" every Martin and Kristina filled the limit and a
   contact whose address starts with "info@" but whose surname sorts late was
-  never suggested.
+  never suggested (#976).
 - "_" and "%" in a contact search match themselves. A search for "_" listed
-  the whole address book, and "jan_novak" also found "jan.novak".
+  the whole address book, and "jan_novak" also found "jan.novak" (#976).
 - Contacts are found by their names however they are typed: "cer", "čer" and
   "ČER" all find "Čermák", and "novak" finds "Novák", in the contact search
   and in the suggestions of the compose window, for contacts and for
