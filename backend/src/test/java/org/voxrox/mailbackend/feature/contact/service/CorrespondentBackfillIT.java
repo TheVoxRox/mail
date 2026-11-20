@@ -190,7 +190,7 @@ class CorrespondentBackfillIT {
         seedMailbox();
         // What an interrupted first run leaves behind: some rows present, so the
         // startup guard will never revisit this account.
-        correspondentRepository.upsert(account.getId(), "leftover@example.com", null, 0, 1, RECEIVED_AT);
+        correspondentRepository.upsert(account.getId(), "leftover@example.com", null, null, 0, 1, RECEIVED_AT);
         em.flush();
         assertThat(backfillService.backfillAccount(account)).isZero();
 

@@ -10,6 +10,7 @@ import jakarta.persistence.*;
 
 import org.hibernate.annotations.BatchSize;
 import org.jspecify.annotations.Nullable;
+import org.voxrox.mailbackend.util.TextFold;
 
 @Entity
 @Table(name = "contacts")
@@ -37,11 +38,12 @@ public class ContactEntity {
      * — cascading a contact delete into the label would wipe it off every other
      * contact too. Batch-loaded for the same reason as emails: the paginated
      * listings must keep their SQL-level limit/offset, so this cannot be fetch
-     * joined. Ordered by nameKey so the response order matches the sidebar.
+     * joined. Ordered the way the sidebar orders labels, so the response order
+     * matches it.
      */
     @ManyToMany
     @JoinTable(name = "contact_label_links", joinColumns = @JoinColumn(name = "contact_id"), inverseJoinColumns = @JoinColumn(name = "label_id"))
-    @OrderBy("nameKey ASC")
+    @OrderBy("nameFold ASC, nameKey ASC")
     @BatchSize(size = 50)
     private Set<ContactLabelEntity> labels = new LinkedHashSet<>();
 
@@ -50,6 +52,19 @@ public class ContactEntity {
 
     @Column(name = "surname", length = 255)
     private String surname;
+
+    /*
+     * The folded forms of name and surname (TextFold.key), which the search matches
+     * and the listing orders by — SQLite's own lower() and ORDER BY know nothing
+     * beyond ASCII. Derived, never set on their own: the setters of the two names
+     * write them, which is every write path the names have, and Hibernate's field
+     * access means loading a row does not recompute them.
+     */
+    @Column(name = "name_fold", length = 255)
+    private @Nullable String nameFold;
+
+    @Column(name = "surname_fold", length = 255)
+    private @Nullable String surnameFold;
 
     @Column(name = "note", length = 1000)
     private @Nullable String note;
@@ -116,6 +131,7 @@ public class ContactEntity {
 
     public void setName(String name) {
         this.name = name;
+        this.nameFold = TextFold.key(name);
     }
 
     public String getSurname() {
@@ -124,6 +140,15 @@ public class ContactEntity {
 
     public void setSurname(String surname) {
         this.surname = surname;
+        this.surnameFold = TextFold.key(surname);
+    }
+
+    public @Nullable String getNameFold() {
+        return nameFold;
+    }
+
+    public @Nullable String getSurnameFold() {
+        return surnameFold;
     }
 
     public @Nullable String getNote() {

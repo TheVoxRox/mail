@@ -28,7 +28,9 @@ public interface CorrespondentRepository extends JpaRepository<CorrespondentEnti
      * <ul>
      * <li>{@code display_name} falls back to the stored value when the incoming one
      * is NULL, so a header that carried a bare address does not erase a name
-     * learned earlier.</li>
+     * learned earlier. {@code display_name_fold} follows whichever name is kept —
+     * decided on the incoming name, not on its fold, so the two can never come from
+     * different sightings.</li>
      * <li>the counters add rather than assign, because each call reports one
      * sighting.</li>
      * <li>{@code last_seen_at} takes the later of the two. The backfill walks by
@@ -37,6 +39,9 @@ public interface CorrespondentRepository extends JpaRepository<CorrespondentEnti
      * whatever message happened to be last in id order.</li>
      * </ul>
      *
+     * @param displayNameFold
+     *            {@code TextFold.key(displayName)}, which the name half of
+     *            {@link #search} matches on
      * @param sentDelta
      *            1 when the sighting came from the user's own Sent/Drafts copy,
      *            else 0
@@ -45,16 +50,20 @@ public interface CorrespondentRepository extends JpaRepository<CorrespondentEnti
      */
     @Modifying
     @Query(value = """
-            INSERT INTO correspondent (account_id, email, display_name, sent_count, received_count, last_seen_at)
-            VALUES (:accountId, :email, :displayName, :sentDelta, :receivedDelta, :lastSeenAt)
+            INSERT INTO correspondent (account_id, email, display_name, display_name_fold, sent_count,
+                                       received_count, last_seen_at)
+            VALUES (:accountId, :email, :displayName, :displayNameFold, :sentDelta, :receivedDelta, :lastSeenAt)
             ON CONFLICT (account_id, email) DO UPDATE SET
-                display_name   = COALESCE(excluded.display_name, correspondent.display_name),
+                display_name      = COALESCE(excluded.display_name, correspondent.display_name),
+                display_name_fold = CASE WHEN excluded.display_name IS NULL THEN correspondent.display_name_fold
+                                         ELSE excluded.display_name_fold END,
                 sent_count     = correspondent.sent_count + excluded.sent_count,
                 received_count = correspondent.received_count + excluded.received_count,
                 last_seen_at   = MAX(correspondent.last_seen_at, excluded.last_seen_at)
             """, nativeQuery = true)
     void upsert(@Param("accountId") Long accountId, @Param("email") String email,
-            @Param("displayName") @Nullable String displayName, @Param("sentDelta") int sentDelta,
+            @Param("displayName") @Nullable String displayName,
+            @Param("displayNameFold") @Nullable String displayNameFold, @Param("sentDelta") int sentDelta,
             @Param("receivedDelta") int receivedDelta, @Param("lastSeenAt") LocalDateTime lastSeenAt);
 
     /**
@@ -64,9 +73,12 @@ public interface CorrespondentRepository extends JpaRepository<CorrespondentEnti
      * Matching is an address-prefix match OR a display-name substring match. The
      * name half is a substring because a Czech address book is searched by surname
      * ("novak" has to find "Jana Novakova") while the stored name starts with the
-     * given name. {@code lower()} folds ASCII only, so the caller lower-cases the
-     * query the same way — an all-caps query with diacritics is the one case that
-     * can miss, which is why the address half carries the load.
+     * given name. It matches the stored folded name ({@code TextFold}), so the
+     * caller folds the query the same way and a name is found by its letters with
+     * or without their diacritics: a {@code lower(display_name)} could not, because
+     * SQLite folds ASCII only and left every name holding a capital letter with a
+     * diacritic unfindable by its own letters. The address half takes the query
+     * lower-cased only, as addresses are stored.
      *
      * <p>
      * Ranking, strongest signal first:
@@ -91,7 +103,7 @@ public interface CorrespondentRepository extends JpaRepository<CorrespondentEnti
             SELECT * FROM correspondent c
             WHERE c.account_id = :accountId
               AND (c.email LIKE :prefixPattern ESCAPE '\\'
-                   OR lower(c.display_name) LIKE :containsPattern ESCAPE '\\')
+                   OR c.display_name_fold LIKE :containsPattern ESCAPE '\\')
               AND (c.sent_count > 0
                    OR substr(c.email, 1, instr(c.email, '@') - 1) NOT IN (:robotLocalParts))
             ORDER BY

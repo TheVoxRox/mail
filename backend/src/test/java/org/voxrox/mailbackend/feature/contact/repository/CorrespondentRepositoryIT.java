@@ -29,6 +29,7 @@ import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.account.repository.MailProviderRepository;
 import org.voxrox.mailbackend.feature.contact.entity.CorrespondentEntity;
 import org.voxrox.mailbackend.feature.contact.service.CorrespondentService;
+import org.voxrox.mailbackend.util.TextFold;
 
 /**
  * Integration tests for the correspondent cache against real SQLite + Flyway.
@@ -104,18 +105,27 @@ class CorrespondentRepositoryIT {
 
     /** One received sighting, the shape the harvest produces for incoming mail. */
     private void received(AccountEntity owner, String email, String displayName, LocalDateTime at) {
-        correspondentRepository.upsert(owner.getId(), email, displayName, 0, 1, at);
+        correspondentRepository.upsert(owner.getId(), email, displayName, TextFold.key(displayName), 0, 1, at);
         em.flush();
     }
 
     private void sent(AccountEntity owner, String email, String displayName, LocalDateTime at) {
-        correspondentRepository.upsert(owner.getId(), email, displayName, 1, 0, at);
+        correspondentRepository.upsert(owner.getId(), email, displayName, TextFold.key(displayName), 1, 0, at);
         em.flush();
     }
 
     private CorrespondentEntity reload(AccountEntity owner, String email) {
         em.clear();
         return correspondentRepository.findByAccountIdAndEmail(owner.getId(), email).orElseThrow();
+    }
+
+    /**
+     * Through the service, which folds the query the way the stored name is folded.
+     */
+    private List<String> serviceSearch(String q) {
+        em.clear();
+        return new CorrespondentService(correspondentRepository).search(account.getId(), q, 10).stream()
+                .map(CorrespondentEntity::getEmail).toList();
     }
 
     private List<String> searchEmails(String q, int limit) {
@@ -160,6 +170,20 @@ class CorrespondentRepositoryIT {
             received(account, "jana@example.com", null, RECENT);
 
             assertThat(reload(account, "jana@example.com").getDisplayName()).isEqualTo("Jana Novak");
+        }
+
+        @Test
+        @DisplayName("the folded name follows the display name that is kept")
+        void foldedNameFollowsTheKeptName() {
+            received(account, "jan@example.com", "Jan Čermák", OLD);
+            // A bare address keeps the name learned earlier, and with it its fold.
+            received(account, "jan@example.com", null, RECENT);
+            assertThat(serviceSearch("cer")).containsExactly("jan@example.com");
+
+            // A new name replaces both.
+            received(account, "jan@example.com", "Honza Dvořák", RECENT);
+            assertThat(serviceSearch("dvor")).containsExactly("jan@example.com");
+            assertThat(serviceSearch("cer")).isEmpty();
         }
 
         @Test
@@ -261,6 +285,17 @@ class CorrespondentRepositoryIT {
 
             // Without ESCAPE the pattern "a%%" would also drag in jana@example.com.
             assertThat(hits).containsExactly("a%b@example.com");
+        }
+
+        @Test
+        @DisplayName("a display name is matched without case or diacritics")
+        void displayNameIgnoresCaseAndDiacritics() {
+            received(account, "jan@example.com", "Jan Čermák", RECENT);
+            received(account, "petr@example.com", "Petr Svoboda", RECENT);
+
+            for (String q : List.of("čer", "Čer", "cer", "ČERMÁK")) {
+                assertThat(serviceSearch(q)).as("query %s", q).containsExactly("jan@example.com");
+            }
         }
 
         @Test

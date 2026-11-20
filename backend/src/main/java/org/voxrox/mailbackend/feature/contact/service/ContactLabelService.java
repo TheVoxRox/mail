@@ -77,7 +77,8 @@ public class ContactLabelService {
 
     @Transactional(readOnly = true)
     public List<ContactLabelResponse> listLabels() {
-        return labelRepository.findAllByOrderByNameKeyAsc().stream().map(ContactLabelService::toResponse).toList();
+        return labelRepository.findAllByOrderByNameFoldAscNameKeyAsc().stream().map(ContactLabelService::toResponse)
+                .toList();
     }
 
     @Transactional

@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 
 import jakarta.persistence.*;
 
+import org.voxrox.mailbackend.util.TextFold;
+
 /**
  * A user-defined contact label ("Family", "Clients").
  * <p>
@@ -41,6 +43,16 @@ public class ContactLabelEntity {
      */
     @Column(name = "name_key", nullable = false, length = 60)
     private String nameKey;
+
+    /**
+     * {@link #name} without case and diacritics ({@link TextFold#fold}), which the
+     * labels are listed in: a label starting with an S with a caron sorts among the
+     * S labels, where the code point order of {@link #nameKey} put it after Z. Not
+     * the uniqueness key — two Czech words can differ by a diacritic alone. Derived
+     * from the name by {@link #setName}, never set on its own.
+     */
+    @Column(name = "name_fold", nullable = false, length = 60)
+    private String nameFold;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -82,6 +94,11 @@ public class ContactLabelEntity {
 
     public void setName(String name) {
         this.name = name;
+        this.nameFold = TextFold.fold(name);
+    }
+
+    public String getNameFold() {
+        return nameFold;
     }
 
     public String getNameKey() {

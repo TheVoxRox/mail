@@ -37,6 +37,9 @@ import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.account.repository.MailProviderRepository;
 import org.voxrox.mailbackend.feature.contact.EmailLabel;
 import org.voxrox.mailbackend.feature.contact.dto.ContactEmailRequest;
+import org.voxrox.mailbackend.feature.contact.dto.ContactEmailResponse;
+import org.voxrox.mailbackend.feature.contact.dto.ContactLabelResponse;
+import org.voxrox.mailbackend.feature.contact.dto.ContactResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactUpdateRequest;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEmailEntity;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEntity;
@@ -148,6 +151,16 @@ class ContactRepositoryIT {
         l.setNameKey(name.toLowerCase(Locale.ROOT));
         l.setCreatedAt(LocalDateTime.now());
         return labelRepository.saveAndFlush(l);
+    }
+
+    private ContactService newService() {
+        ContactLabelService labelService = new ContactLabelService(labelRepository, contactRepository);
+        return new ContactService(contactRepository, labelRepository, labelService, new ContactMapper());
+    }
+
+    private static String primaryEmailOf(ContactResponse c) {
+        return c.emails().stream().filter(ContactEmailResponse::primary).findFirst().map(ContactEmailResponse::email)
+                .orElse(null);
     }
 
     private String primaryEmail(ContactEntity c) {
@@ -368,7 +381,7 @@ class ContactRepositoryIT {
         @Test
         @DisplayName("Match via the primary email")
         void matchByPrimaryEmail() {
-            Page<ContactEntity> p = contactRepository.search("%bob%", null, PageRequest.of(0, 10));
+            Page<ContactEntity> p = contactRepository.search("%bob%", "%bob%", null, PageRequest.of(0, 10));
             assertThat(p.getContent()).hasSize(1);
             assertThat(primaryEmail(p.getContent().get(0))).isEqualTo("bob@x.cz");
         }
@@ -376,7 +389,8 @@ class ContactRepositoryIT {
         @Test
         @DisplayName("Match via a contact's secondary email")
         void matchBySecondaryEmail() {
-            Page<ContactEntity> p = contactRepository.search("%alice.work%", null, PageRequest.of(0, 10));
+            Page<ContactEntity> p = contactRepository.search("%alice.work%", "%alice.work%", null,
+                    PageRequest.of(0, 10));
             assertThat(p.getContent()).hasSize(1);
             assertThat(primaryEmail(p.getContent().get(0))).isEqualTo("alice@x.cz");
         }
@@ -384,7 +398,7 @@ class ContactRepositoryIT {
         @Test
         @DisplayName("Match via name (case-insensitive) — each contact only once (no duplicates)")
         void matchByNameNoDuplicates() {
-            Page<ContactEntity> p = contactRepository.search("%alice%", null, PageRequest.of(0, 10));
+            Page<ContactEntity> p = contactRepository.search("%alice%", "%alice%", null, PageRequest.of(0, 10));
             // The first Alice has two emails — the join must not return her twice.
             assertThat(p.getContent()).extracting(ContactRepositoryIT.this::primaryEmail)
                     .containsExactlyInAnyOrder("alice@x.cz", "alice2@x.cz");
@@ -393,25 +407,127 @@ class ContactRepositoryIT {
         @Test
         @DisplayName("Match via surname")
         void matchBySurname() {
-            Page<ContactEntity> p = contactRepository.search("%dylan%", null, PageRequest.of(0, 10));
+            Page<ContactEntity> p = contactRepository.search("%dylan%", "%dylan%", null, PageRequest.of(0, 10));
             assertThat(p.getContent()).hasSize(1);
             assertThat(p.getContent().get(0).getSurname()).isEqualTo("Dylan");
         }
     }
 
     @Test
-    @DisplayName("Ordering surname/name with NULLS LAST — null surnames fall to the end")
+    @DisplayName("The listing's default order puts null surnames at the end")
     void sortNullsLast() {
         contactRepository.saveAndFlush(newContact("x@x.cz", "Zoe", null));
         contactRepository.saveAndFlush(newContact("a@x.cz", "Bob", "Alpha"));
         contactRepository.saveAndFlush(newContact("b@x.cz", "Alice", "Beta"));
+        // A blank surname has no key either, so it orders with the missing one
+        // rather than ahead of "Alpha".
+        contactRepository.saveAndFlush(newContact("y@x.cz", "Yan", "  "));
 
-        Sort sort = Sort.by(Sort.Order.asc("surname").nullsLast(), Sort.Order.asc("name").nullsLast(),
-                Sort.Order.asc("id"));
-        Page<ContactEntity> p = contactRepository.findAllFiltered(null, PageRequest.of(0, 10, sort));
+        List<String> emails = newService().listContacts(0, 10, null, null).getContent().stream()
+                .map(ContactRepositoryIT::primaryEmailOf).toList();
 
-        assertThat(p.getContent()).extracting(ContactRepositoryIT.this::primaryEmail).containsExactly("a@x.cz",
-                "b@x.cz", "x@x.cz");
+        assertThat(emails).containsExactly("a@x.cz", "b@x.cz", "y@x.cz", "x@x.cz");
+    }
+
+    @Nested
+    @DisplayName("Czech names — search and order ignore case and diacritics")
+    class CzechNames {
+
+        private List<String> searchEmails(String q) {
+            em.flush();
+            em.clear();
+            return newService().searchContacts(q, 0, 20, null, null).getContent().stream()
+                    .map(ContactRepositoryIT::primaryEmailOf).toList();
+        }
+
+        private List<String> listSurnames(String sort) {
+            em.flush();
+            em.clear();
+            return newService().listContacts(0, 20, sort, null).getContent().stream().map(ContactResponse::surname)
+                    .toList();
+        }
+
+        @Test
+        @DisplayName("a name starting with a capital diacritic is found by its letters, with the diacritics or without")
+        void searchIgnoresCaseAndDiacritics() {
+            contactRepository.saveAndFlush(newContact("jan@x.cz", "Jan", "Čermák"));
+            contactRepository.saveAndFlush(newContact("eva@x.cz", "Eva", "Šťastná"));
+            contactRepository.saveAndFlush(newContact("petr@x.cz", "Řehoř", "Novák"));
+
+            for (String q : List.of("čer", "Čer", "cer", "ČERMÁK")) {
+                assertThat(searchEmails(q)).as("query %s", q).containsExactly("jan@x.cz");
+            }
+            assertThat(searchEmails("stastna")).containsExactly("eva@x.cz");
+            assertThat(searchEmails("novak")).containsExactly("petr@x.cz");
+            // The given name is folded the same way as the surname.
+            assertThat(searchEmails("rehor")).containsExactly("petr@x.cz");
+        }
+
+        @Test
+        @DisplayName("the default order sorts diacritics and lower case among their letters, a missing surname last")
+        void defaultOrderIgnoresCaseAndDiacritics() {
+            int n = 0;
+            for (String surname : List.of("Zeman", "Čermák", "novák", "Adámek", "Šťastný", "Říha", "Žák")) {
+                contactRepository.saveAndFlush(newContact("c" + n++ + "@x.cz", "Jan", surname));
+            }
+            contactRepository.saveAndFlush(newContact("nobody@x.cz", "Petr", null));
+
+            // "Žák" lands before "Zeman": its key is "zak". A folded order, not a
+            // Czech collation, which would put every Ž after every Z (TextFold).
+            assertThat(listSurnames(null)).containsExactly("Adámek", "Čermák", "novák", "Říha", "Šťastný", "Žák",
+                    "Zeman", null);
+        }
+
+        @Test
+        @DisplayName("two surnames that fold the same keep one stable order")
+        void foldTiesBreakOnTheName() {
+            contactRepository.saveAndFlush(newContact("c1@x.cz", "Jan", "novák"));
+            contactRepository.saveAndFlush(newContact("c2@x.cz", "Jan", "Novák"));
+            contactRepository.saveAndFlush(newContact("c3@x.cz", "Jan", "Novak"));
+
+            assertThat(listSurnames(null)).containsExactly("Novak", "Novák", "novák");
+        }
+
+        @Test
+        @DisplayName("the sort by given name folds the same way")
+        void nameOrderIgnoresCaseAndDiacritics() {
+            contactRepository.saveAndFlush(newContact("c1@x.cz", "Šárka", "A"));
+            contactRepository.saveAndFlush(newContact("c2@x.cz", "eva", "B"));
+            contactRepository.saveAndFlush(newContact("c3@x.cz", "Čeněk", "C"));
+            contactRepository.saveAndFlush(newContact("c4@x.cz", "Adam", "D"));
+
+            assertThat(listSurnames("name")).containsExactly("D", "C", "B", "A");
+        }
+
+        @Test
+        @DisplayName("editing a surname refreshes the key the search matches on")
+        void editingTheSurnameRefreshesItsKey() {
+            Long id = contactRepository.saveAndFlush(newContact("jan@x.cz", "Jan", "Čermák")).getId();
+
+            newService().updateContact(id, new ContactUpdateRequest(List.of(new ContactEmailRequest("jan@x.cz", null)),
+                    List.of(), "Jan", "Dvořák", null));
+
+            assertThat(searchEmails("dvor")).containsExactly("jan@x.cz");
+            assertThat(searchEmails("cer")).isEmpty();
+        }
+
+        @Test
+        @DisplayName("labels are listed, on their own and on a contact, with diacritics and case among their letters")
+        void labelOrderIgnoresCaseAndDiacritics() {
+            ContactEntity carrier = newContact("jan@x.cz", "Jan", "Novák");
+            for (String name : List.of("Zahrada", "Škola", "rodina", "Archiv")) {
+                carrier.getLabels().add(newLabel(name));
+            }
+            Long id = contactRepository.saveAndFlush(carrier).getId();
+            em.clear();
+
+            List<String> expected = List.of("Archiv", "rodina", "Škola", "Zahrada");
+            ContactLabelService labelService = new ContactLabelService(labelRepository, contactRepository);
+            assertThat(labelService.listLabels()).extracting(ContactLabelResponse::name)
+                    .containsExactlyElementsOf(expected);
+            assertThat(newService().getContact(id).labels()).extracting(ContactLabelResponse::name)
+                    .containsExactlyElementsOf(expected);
+        }
     }
 
     @Test
@@ -513,7 +629,7 @@ class ContactRepositoryIT {
         @Test
         @DisplayName("search combines the q filter with the label filter")
         void searchWithLabel() {
-            Page<ContactEntity> p = contactRepository.search("%both%", family.getId(), PageRequest.of(0, 10));
+            Page<ContactEntity> p = contactRepository.search("%both%", "%both%", family.getId(), PageRequest.of(0, 10));
             assertThat(p.getContent()).extracting(ContactRepositoryIT.this::primaryEmail).containsExactly("both@x.cz");
         }
     }

@@ -82,6 +82,36 @@ been a V2 migration merging duplicates. `contacts` and `contact_labels` have no
 where the per-account correspondence history (`correspondent`) is mixed into
 the address book.
 
+### Address book names are searched and sorted folded, not in Czech order
+
+**Decided 2026-11-20.** The names of the address book, its labels and the
+correspondence history of the compose suggestions are searched and ordered by
+a stored folded key: lower case, without diacritics
+([TextFold.java](../backend/src/main/java/org/voxrox/mailbackend/util/TextFold.java)).
+`V2__Fold_keys_for_names` added the columns and filled them in; the entity
+setters and the harvest keep them current. "cer" finds "Čermák", "novak" finds
+"Novák", and "Čermák" sorts among the C names instead of after Z.
+
+Why folded rather than in Czech order: Czech order (Č after every C, Ch after
+H) belongs to the language the list is read in. For an English reader
+"Chapman" comes before "Hughes", the application switches between Czech and
+English while it runs, and a stored key cannot follow it. Applying a collation
+per query instead needs a function registered on every SQLite connection in
+the pool, which the data source has no hook for, and any connection that
+missed it would fail the query. The folded order is what the mail search
+already does (FTS5 `unicode61` ignores diacritics), and it keeps every Czech
+name findable and beside its letter, which the code point order did not.
+
+Why stored rather than computed per query: SQLite has no function that
+removes diacritics, and a Java one registered per connection has the same pool
+problem. No index is built on the key: the list is ordered `NULLS LAST`, and
+SQLite does not serve that from an ascending index (`EXPLAIN QUERY PLAN`,
+2026-11-20), the old `ix_contacts_surname_name` included.
+
+**Revisit when:** a user asks for Czech dictionary order, or the order has to
+follow the language of the interface. Either needs a key per language, or a
+collation registered on every connection, and a migration that computes it.
+
 ### `accounts.signature` stays one plain `TEXT` column
 
 **Decided 2026-08-12**, before the first release, because after it a change

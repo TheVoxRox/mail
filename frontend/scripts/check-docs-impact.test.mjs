@@ -56,6 +56,21 @@ describe('check-docs-impact', () => {
 		expect(result.stderr).toContain('capabilities');
 	});
 
+	it.each([
+		['a SQL migration', 'backend/src/main/resources/db/migration/V9__more.sql'],
+		['a Java migration', 'backend/src/main/java/db/migration/V9__More.java']
+	])('treats %s as a change to the stored data', (_kind, migration) => {
+		const base = baseline();
+		repo.write(migration, '-- a new column\n');
+		repo.commit('add a migration');
+
+		const result = repo.run('check-docs-impact.mjs', ['--base', base]);
+
+		expect(result.status).toBe(1);
+		expect(result.stderr).toContain('locally stored user data');
+		expect(result.stderr).toContain(migration);
+	});
+
 	it('passes when the change updates both privacy policies', () => {
 		const base = baseline();
 		repo.write(EGRESS_PATH, JSON.stringify({ permissions: ['http:default'] }));

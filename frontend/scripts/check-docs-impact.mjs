@@ -46,7 +46,10 @@ const RULES = [
 	},
 	{
 		name: 'locally stored user data',
-		triggers: ['backend/src/main/resources/db/migration'],
+		// Both halves of Flyway's classpath:db/migration: the SQL files, and the
+		// Java migrations it finds in the package of the same name. A schema
+		// change written in Java is the same change and must not slip past.
+		triggers: ['backend/src/main/resources/db/migration', 'backend/src/main/java/db/migration'],
 		requires: ['PRIVACY.md', 'PRIVACY.en.md'],
 		why:
 			'A schema change can add a new category of personal data. PRIVACY.md ' +
