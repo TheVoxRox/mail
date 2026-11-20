@@ -19,7 +19,6 @@ import org.voxrox.mailbackend.feature.contact.dto.ContactCreateRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactEmailRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactLabelCountResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactMergeRequest;
-import org.voxrox.mailbackend.feature.contact.dto.ContactPatchRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactUpdateRequest;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEmailEntity;
@@ -202,30 +201,6 @@ public class ContactService {
         ContactEntity saved = contactRepository.save(entity);
 
         AuditLog.success("contact_update", AUDIT_ACTOR,
-                "contact_id=" + saved.getId() + " email=" + LogMasker.maskEmail(primaryEmail(saved)));
-        return contactMapper.toResponse(saved);
-    }
-
-    @Transactional
-    public ContactResponse patchContact(Long contactId, ContactPatchRequest request) {
-        ContactEntity entity = getContactOrThrow(contactId);
-
-        if (request.emails() != null) {
-            List<String> normalizedEmails = normalizeEmailList(request.emails());
-            checkNoDuplicates(contactId, normalizedEmails);
-        }
-
-        // PATCH: an absent labelIds keeps the current labels, an empty list clears
-        // them — so null has to survive all the way into the mapper.
-        Set<ContactLabelEntity> labels = request.labelIds() == null
-                ? null
-                : contactLabelService.resolveLabels(request.labelIds());
-        if (request.emails() != null)
-            deleteEmailsBeforeReplacing(entity);
-        contactMapper.applyPatch(entity, request, labels);
-        ContactEntity saved = contactRepository.save(entity);
-
-        AuditLog.success("contact_patch", AUDIT_ACTOR,
                 "contact_id=" + saved.getId() + " email=" + LogMasker.maskEmail(primaryEmail(saved)));
         return contactMapper.toResponse(saved);
     }

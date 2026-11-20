@@ -31,7 +31,6 @@ export type ContactEmailRequest = Schema<'ContactEmailRequest'>;
 export type ContactEmailResponse = Schema<'ContactEmailResponse'>;
 export type ContactCreateRequest = Schema<'ContactCreateRequest'>;
 export type ContactUpdateRequest = Schema<'ContactUpdateRequest'>;
-export type ContactPatchRequest = Schema<'ContactPatchRequest'>;
 export type ContactResponse = Schema<'ContactResponse'>;
 export type ContactAutocompleteResponse = Schema<'ContactAutocompleteResponse'>;
 export type BulkContactCreateRequest = Schema<'BulkContactCreateRequest'>;

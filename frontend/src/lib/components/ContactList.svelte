@@ -87,7 +87,7 @@
 	const sortValue = $derived<ContactSort>(sort ?? DEFAULT_SORT);
 	let pendingSortValue = $state<ContactSort>(DEFAULT_SORT);
 	const sortFilterDirty = $derived(pendingSortValue !== sortValue);
-	// The filter offers the account's own labels; the counts store already holds
+	// The filter offers every label of the address book; the counts store already holds
 	// them in display order and is refreshed on every list load.
 	const labelOptions = $derived($contactCounts?.labels ?? []);
 	const labelValue = $derived(labelId == null ? '' : String(labelId));

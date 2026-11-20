@@ -125,7 +125,7 @@ public interface ContactRepository extends JpaRepository<ContactEntity, Long> {
             Pageable pageable);
 
     /**
-     * Batch variant of the duplicate check for create/update/patch contact. Returns
+     * Batch variant of the duplicate check for create/update contact. Returns
      * contacts that have at least one of the given emails; emails are fetched via
      * entity graph so the service does not have to issue further lazy queries to
      * determine the conflicting address.

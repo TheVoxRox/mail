@@ -8,7 +8,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -54,7 +53,6 @@ import org.voxrox.mailbackend.feature.contact.dto.ContactEmailRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactEmailResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactLabelCountResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactMergeRequest;
-import org.voxrox.mailbackend.feature.contact.dto.ContactPatchRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactUpdateRequest;
 import org.voxrox.mailbackend.feature.contact.service.ContactAutocompleteService;
@@ -260,19 +258,6 @@ class ContactControllerTest {
                 .content(objectMapper.writeValueAsString(req))).andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Alice")).andExpect(jsonPath("$.surname").value("New Surname"))
                 .andExpect(jsonPath("$.emails[0].email").value("a@x.cz"));
-    }
-
-    @Test
-    @DisplayName("PATCH /{id} with partial body -> delegated to service")
-    void patchContact() throws Exception {
-        var req = new ContactPatchRequest(null, null, "OnlyName", null, null);
-        when(contactService.patchContact(eq(CONTACT_ID), any()))
-                .thenReturn(new ContactResponse(CONTACT_ID, List.of(new ContactEmailResponse(1L, "a@x.cz", null, true)),
-                        List.of(), "OnlyName", "Liddell", null, LocalDateTime.now(), LocalDateTime.now()));
-
-        mockMvc.perform(patch("/api/v1/contacts/{cid}", CONTACT_ID).contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(req))).andExpect(status().isOk())
-                .andExpect(jsonPath("$.name").value("OnlyName")).andExpect(jsonPath("$.surname").value("Liddell"));
     }
 
     @Test

@@ -50,8 +50,9 @@ public final class VCardWriter {
 
         /*
          * FN is required — if we have no name+surname, fall back to the primary email.
-         * Without FN the spec would require a validation error, but we have a guarantee
-         * that a contact has at least one email (DB constraint).
+         * Without FN the spec would require a validation error, but a contact always
+         * has at least one email: create and update both require one, and a merge keeps
+         * the target's. Nothing in the schema enforces it.
          */
         sb.append("FN:").append(escapeText(buildFullName(contact))).append(CRLF);
 

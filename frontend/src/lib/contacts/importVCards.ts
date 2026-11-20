@@ -54,7 +54,7 @@ export function looksLikeVCardFile(file: File): boolean {
 }
 
 /**
- * Maps every CATEGORIES name in the parsed cards to a label id of the account,
+ * Maps every CATEGORIES name in the parsed cards to a label id of the address book,
  * creating the ones that do not exist yet. Keyed by lower-cased name, matching
  * the backend's case-insensitive uniqueness.
  * <p>
@@ -96,7 +96,7 @@ async function resolveCategories(
 }
 
 /**
- * Imports the vCard files among `candidates` into the account and toasts the
+ * Imports the vCard files among `candidates` into the address book and toasts the
  * outcome (including all error cases). Contacts go in batches of
  * {@link BULK_CHUNK_SIZE}, and a batch that fails costs only its own items.
  * Returns true when anything reached the address book — the caller should then

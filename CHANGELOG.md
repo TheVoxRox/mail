@@ -108,6 +108,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- `PATCH /api/v1/contacts/{contactId}` is removed with `ContactPatchRequest`:
+  the client never called it, and it was the one write path that let a
+  contact lose every address. The API surface audit records it as 1.32,
+  waiting for an independent pass, and the wording that still called contact
+  labels per-account is corrected in the API description and the comments
+  (#978).
 - `check:docs-impact` treats a Java migration in
   `backend/src/main/java/db/migration` as a change to the stored data, like
   a SQL one. The first, `V2__Fold_keys_for_names`, would otherwise have

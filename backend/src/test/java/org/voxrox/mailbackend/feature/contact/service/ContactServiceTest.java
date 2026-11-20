@@ -36,7 +36,6 @@ import org.voxrox.mailbackend.feature.contact.dto.ContactEmailResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactLabelCountResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactLabelResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactMergeRequest;
-import org.voxrox.mailbackend.feature.contact.dto.ContactPatchRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactUpdateRequest;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEmailEntity;
@@ -218,36 +217,6 @@ class ContactServiceTest {
         }
 
         @Test
-        @DisplayName("PATCH without labelIds keeps them — the resolver is never called")
-        void patchKeepsLabelsWhenAbsent() {
-            ContactEntity existing = contact(CONTACT_ID, EMAIL);
-            existing.getLabels().add(label(1L, "Family"));
-            when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(existing));
-            when(contactRepository.save(existing)).thenReturn(existing);
-
-            ContactResponse r = service.patchContact(CONTACT_ID,
-                    new ContactPatchRequest(null, null, "NewName", null, null));
-
-            assertThat(r.labels()).containsExactly(new ContactLabelResponse(1L, "Family"));
-            verify(contactLabelService, never()).resolveLabels(any());
-        }
-
-        @Test
-        @DisplayName("PATCH with an explicit empty list clears them")
-        void patchClearsLabelsWhenEmptyList() {
-            ContactEntity existing = contact(CONTACT_ID, EMAIL);
-            existing.getLabels().add(label(1L, "Family"));
-            when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(existing));
-            when(contactLabelService.resolveLabels(List.of())).thenReturn(Set.of());
-            when(contactRepository.save(existing)).thenReturn(existing);
-
-            ContactResponse r = service.patchContact(CONTACT_ID,
-                    new ContactPatchRequest(null, List.of(), null, null, null));
-
-            assertThat(r.labels()).isEmpty();
-        }
-
-        @Test
         @DisplayName("merge unions the labels — one only the source carried is not lost")
         void mergeUnionsLabels() {
             ContactLabelEntity family = label(1L, "Family");
@@ -337,31 +306,6 @@ class ContactServiceTest {
         service.updateContact(CONTACT_ID, new ContactUpdateRequest(List.of(emailReq(EMAIL)), null, "X", null, null));
 
         verify(contactRepository).save(any());
-    }
-
-    @Test
-    @DisplayName("patchContact — null fields are not applied")
-    void patchContactNullFieldsSkipped() {
-        ContactEntity existing = contact(CONTACT_ID, EMAIL);
-        existing.setNote("original");
-        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(existing));
-        when(contactRepository.save(existing)).thenReturn(existing);
-
-        service.patchContact(CONTACT_ID, new ContactPatchRequest(null, null, "NewName", "NewSurname", null));
-
-        assertThat(existing.getEmails().get(0).getEmail()).isEqualTo(EMAIL);
-        assertThat(existing.getName()).isEqualTo("NewName");
-        assertThat(existing.getSurname()).isEqualTo("NewSurname");
-        assertThat(existing.getNote()).isEqualTo("original");
-    }
-
-    @Test
-    @DisplayName("patchContact — missing contact -> ContactNotFoundException")
-    void patchContactMissing() {
-        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> service.patchContact(CONTACT_ID, new ContactPatchRequest(null, null, "X", null, null)))
-                .isInstanceOf(ContactNotFoundException.class);
     }
 
     @Test

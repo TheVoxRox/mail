@@ -12,7 +12,6 @@ import org.voxrox.mailbackend.feature.contact.dto.ContactCreateRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactEmailRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactEmailResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactLabelResponse;
-import org.voxrox.mailbackend.feature.contact.dto.ContactPatchRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactUpdateRequest;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEmailEntity;
@@ -24,8 +23,8 @@ import org.voxrox.mailbackend.feature.contact.entity.ContactLabelEntity;
  * <p>
  * Labels arrive already resolved to entities — the mapper has no repository and
  * turning IDs into rows is a lookup with its own failure mode (unknown ID →
- * 404), which belongs in the service. {@code null} labels mean "leave them
- * alone", matching the PATCH semantics of the other fields.
+ * 404), which belongs in the service. {@code null} labels leave the contact's
+ * labels as they are.
  */
 @Component
 public class ContactMapper {
@@ -59,19 +58,6 @@ public class ContactMapper {
         // preserving them; the service passes an empty set for that case.
         if (labels != null)
             replaceLabels(entity, labels);
-    }
-
-    public void applyPatch(ContactEntity entity, ContactPatchRequest req, @Nullable Set<ContactLabelEntity> labels) {
-        if (req.emails() != null)
-            replaceEmails(entity, req.emails());
-        if (labels != null)
-            replaceLabels(entity, labels);
-        if (req.name() != null)
-            entity.setName(req.name());
-        if (req.surname() != null)
-            entity.setSurname(req.surname());
-        if (req.note() != null)
-            entity.setNote(req.note());
     }
 
     /*
