@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -128,7 +129,7 @@ class ContactServiceTest {
     @Test
     @DisplayName("searchContacts — q zabaleno %...% a lowercased")
     void searchContactsWrapsPattern() {
-        when(contactRepository.search(eq("%alice%"), eq("%alice%"), eq(null), any(Pageable.class)))
+        when(contactRepository.search(eq("%alice%"), isNull(), isNull(), isNull(), eq(null), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(contact(10L, EMAIL))));
 
         // Padded on purpose: both halves search the trimmed query, as autocomplete
@@ -423,7 +424,7 @@ class ContactServiceTest {
     void searchContactsNullQ() {
         assertThatThrownBy(() -> service.searchContacts(null, 0, 20, null, null))
                 .isInstanceOf(ValidationException.class);
-        verify(contactRepository, never()).search(any(), any(), any(), any());
+        verify(contactRepository, never()).search(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -511,7 +512,7 @@ class ContactServiceTest {
 
         assertThatThrownBy(() -> service.searchContacts("alice", 0, 10, null, 99L))
                 .isInstanceOf(ContactLabelNotFoundException.class);
-        verify(contactRepository, never()).search(any(), any(), any(), any());
+        verify(contactRepository, never()).search(any(), any(), any(), any(), any(), any());
     }
 
     // --- merge ---

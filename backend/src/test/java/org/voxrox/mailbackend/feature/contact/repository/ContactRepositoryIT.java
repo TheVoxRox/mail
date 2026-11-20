@@ -17,6 +17,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -35,7 +36,10 @@ import org.voxrox.mailbackend.feature.account.entity.MailProviderEntity;
 import org.voxrox.mailbackend.feature.account.entity.MailServerConfig;
 import org.voxrox.mailbackend.feature.account.repository.AccountRepository;
 import org.voxrox.mailbackend.feature.account.repository.MailProviderRepository;
+import org.voxrox.mailbackend.feature.account.service.AccountService;
+import org.voxrox.mailbackend.feature.contact.AutocompleteSource;
 import org.voxrox.mailbackend.feature.contact.EmailLabel;
+import org.voxrox.mailbackend.feature.contact.dto.ContactAutocompleteResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactEmailRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactEmailResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactLabelResponse;
@@ -45,8 +49,11 @@ import org.voxrox.mailbackend.feature.contact.entity.ContactEmailEntity;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEntity;
 import org.voxrox.mailbackend.feature.contact.entity.ContactLabelEntity;
 import org.voxrox.mailbackend.feature.contact.mapper.ContactMapper;
+import org.voxrox.mailbackend.feature.contact.service.ContactAutocompleteService;
 import org.voxrox.mailbackend.feature.contact.service.ContactLabelService;
 import org.voxrox.mailbackend.feature.contact.service.ContactService;
+import org.voxrox.mailbackend.feature.contact.service.CorrespondentService;
+import org.voxrox.mailbackend.util.TextFold;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
@@ -93,6 +100,8 @@ class ContactRepositoryIT {
     private AccountRepository accountRepository;
     @Autowired
     private MailProviderRepository providerRepository;
+    @Autowired
+    private CorrespondentRepository correspondentRepository;
     @Autowired
     private EntityManager em;
 
@@ -381,7 +390,7 @@ class ContactRepositoryIT {
         @Test
         @DisplayName("Match via the primary email")
         void matchByPrimaryEmail() {
-            Page<ContactEntity> p = contactRepository.search("%bob%", "%bob%", null, PageRequest.of(0, 10));
+            Page<ContactEntity> p = contactRepository.search("%bob%", null, null, null, null, PageRequest.of(0, 10));
             assertThat(p.getContent()).hasSize(1);
             assertThat(primaryEmail(p.getContent().get(0))).isEqualTo("bob@x.cz");
         }
@@ -389,7 +398,7 @@ class ContactRepositoryIT {
         @Test
         @DisplayName("Match via a contact's secondary email")
         void matchBySecondaryEmail() {
-            Page<ContactEntity> p = contactRepository.search("%alice.work%", "%alice.work%", null,
+            Page<ContactEntity> p = contactRepository.search("%alice.work%", null, null, null, null,
                     PageRequest.of(0, 10));
             assertThat(p.getContent()).hasSize(1);
             assertThat(primaryEmail(p.getContent().get(0))).isEqualTo("alice@x.cz");
@@ -398,7 +407,7 @@ class ContactRepositoryIT {
         @Test
         @DisplayName("Match via name (case-insensitive) — each contact only once (no duplicates)")
         void matchByNameNoDuplicates() {
-            Page<ContactEntity> p = contactRepository.search("%alice%", "%alice%", null, PageRequest.of(0, 10));
+            Page<ContactEntity> p = contactRepository.search("%alice%", null, null, null, null, PageRequest.of(0, 10));
             // The first Alice has two emails — the join must not return her twice.
             assertThat(p.getContent()).extracting(ContactRepositoryIT.this::primaryEmail)
                     .containsExactlyInAnyOrder("alice@x.cz", "alice2@x.cz");
@@ -407,7 +416,7 @@ class ContactRepositoryIT {
         @Test
         @DisplayName("Match via surname")
         void matchBySurname() {
-            Page<ContactEntity> p = contactRepository.search("%dylan%", "%dylan%", null, PageRequest.of(0, 10));
+            Page<ContactEntity> p = contactRepository.search("%dylan%", null, null, null, null, PageRequest.of(0, 10));
             assertThat(p.getContent()).hasSize(1);
             assertThat(p.getContent().get(0).getSurname()).isEqualTo("Dylan");
         }
@@ -530,6 +539,98 @@ class ContactRepositoryIT {
         }
     }
 
+    @Nested
+    @DisplayName("Query words — each word matched on its own, LIKE wildcards taken literally")
+    class Words {
+
+        private List<String> searchEmails(String q) {
+            em.flush();
+            em.clear();
+            return newService().searchContacts(q, 0, 20, null, null).getContent().stream()
+                    .map(ContactRepositoryIT::primaryEmailOf).toList();
+        }
+
+        private ContactAutocompleteService typeahead() {
+            return new ContactAutocompleteService(contactRepository, new CorrespondentService(correspondentRepository),
+                    Mockito.mock(AccountService.class));
+        }
+
+        @Test
+        @DisplayName("a full name finds the contact in either order, the words on different fields")
+        void fullNameMatchesWordByWord() {
+            contactRepository.saveAndFlush(newContact("jan@x.cz", "Jan", "Novák"));
+            contactRepository.saveAndFlush(newContact("jana@x.cz", "Jana", "Dvořáková"));
+            contactRepository.saveAndFlush(newContact("petr@x.cz", "Petr", "Novák"));
+
+            for (String q : List.of("Jan Novák", "novák jan", "Novák, Jan", "jan no")) {
+                assertThat(searchEmails(q)).as("query %s", q).containsExactly("jan@x.cz");
+            }
+            // One word still matches every field it occurs in.
+            assertThat(searchEmails("novák")).containsExactlyInAnyOrder("jan@x.cz", "petr@x.cz");
+            // A word may also be found in an address.
+            assertThat(searchEmails("petr x.cz")).containsExactly("petr@x.cz");
+        }
+
+        @Test
+        @DisplayName("_ and % in the query match themselves, not any character")
+        void likeWildcardsMatchLiterally() {
+            contactRepository.saveAndFlush(newContact("jan_novak@x.cz", "Jan", "Novák"));
+            contactRepository.saveAndFlush(newContact("jan.novak@x.cz", "Jan", "Nováček"));
+            contactRepository.saveAndFlush(newContact("eva@x.cz", "Eva", "Malá"));
+
+            // Unescaped, "_" matched the dot as well.
+            assertThat(searchEmails("jan_novak")).containsExactly("jan_novak@x.cz");
+            assertThat(searchEmails("_")).containsExactly("jan_novak@x.cz");
+            // Unescaped, "%" listed the whole address book.
+            assertThat(searchEmails("%")).isEmpty();
+        }
+
+        @Test
+        @DisplayName("a query of separators alone matches nothing rather than everything")
+        void separatorsAloneMatchNothing() {
+            contactRepository.saveAndFlush(newContact("jan@x.cz", "Jan", "Novák"));
+
+            assertThat(searchEmails(",")).isEmpty();
+        }
+
+        @Test
+        @DisplayName("the typeahead keeps the best match even when weaker ones fill its limit alphabetically")
+        void typeaheadRanksBeforeTheLimit() {
+            // Twelve weak matches ("in" inside the given name) that all sort before Z.
+            for (int i = 0; i < 12; i++) {
+                contactRepository.saveAndFlush(newContact("martin" + i + "@x.cz", "Martin", "A" + i));
+            }
+            // The one whose address starts with the query, sorting last by surname.
+            contactRepository.saveAndFlush(newContact("info@zahradnictvi.cz", "Zdeněk", "Zahradník"));
+            em.flush();
+            em.clear();
+
+            List<ContactAutocompleteResponse> rows = typeahead().autocomplete(account.getId(), "in", 10);
+
+            assertThat(rows).hasSize(10);
+            assertThat(rows.getFirst().email()).isEqualTo("info@zahradnictvi.cz");
+        }
+
+        @Test
+        @DisplayName("a contact found by its full name is offered as a contact, not as history")
+        void fullNameTypeaheadOffersTheContact() {
+            contactRepository.saveAndFlush(newContact("jan@x.cz", "Jan", "Novák"));
+            // The same person harvested from mail: a display name is one string, so
+            // the history half always matched "jan no".
+            correspondentRepository.upsert(account.getId(), "jan@x.cz", "Jan Novák", TextFold.key("Jan Novák"), 1, 0,
+                    LocalDateTime.now());
+            em.flush();
+            em.clear();
+
+            List<ContactAutocompleteResponse> rows = typeahead().autocomplete(account.getId(), "jan no", 10);
+
+            assertThat(rows).singleElement().satisfies(row -> {
+                assertThat(row.email()).isEqualTo("jan@x.cz");
+                assertThat(row.source()).isEqualTo(AutocompleteSource.CONTACT);
+            });
+        }
+    }
+
     @Test
     @DisplayName("findAllFiltered — paginates in SQL, not in memory (no HHH90003004 collection fetch-join)")
     void paginationDoesNotApplyLimitInMemory() {
@@ -629,7 +730,8 @@ class ContactRepositoryIT {
         @Test
         @DisplayName("search combines the q filter with the label filter")
         void searchWithLabel() {
-            Page<ContactEntity> p = contactRepository.search("%both%", "%both%", family.getId(), PageRequest.of(0, 10));
+            Page<ContactEntity> p = contactRepository.search("%both%", null, null, null, family.getId(),
+                    PageRequest.of(0, 10));
             assertThat(p.getContent()).extracting(ContactRepositoryIT.this::primaryEmail).containsExactly("both@x.cz");
         }
     }
