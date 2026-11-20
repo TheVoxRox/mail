@@ -31,9 +31,9 @@ public class ContactMapper {
 
     public ContactEntity toEntity(ContactCreateRequest req, @Nullable Set<ContactLabelEntity> labels) {
         ContactEntity e = new ContactEntity();
-        e.setName(req.name());
-        e.setSurname(req.surname());
-        e.setNote(req.note());
+        e.setName(stripToNull(req.name()));
+        e.setSurname(stripToNull(req.surname()));
+        e.setNote(stripToNull(req.note()));
         addEmails(e, req.emails());
         if (labels != null)
             e.setLabels(new LinkedHashSet<>(labels));
@@ -50,9 +50,9 @@ public class ContactMapper {
     }
 
     public void applyUpdate(ContactEntity entity, ContactUpdateRequest req, @Nullable Set<ContactLabelEntity> labels) {
-        entity.setName(req.name());
-        entity.setSurname(req.surname());
-        entity.setNote(req.note());
+        entity.setName(stripToNull(req.name()));
+        entity.setSurname(stripToNull(req.surname()));
+        entity.setNote(stripToNull(req.note()));
         replaceEmails(entity, req.emails());
         // PUT replaces everything, so an absent list clears the labels rather than
         // preserving them; the service passes an empty set for that case.
@@ -88,6 +88,25 @@ public class ContactMapper {
     private void replaceEmails(ContactEntity entity, List<ContactEmailRequest> emailRequests) {
         entity.getEmails().clear();
         addEmails(entity, emailRequests);
+    }
+
+    /**
+     * A name or note as it is stored: without the whitespace around it, and
+     * {@code null} when nothing else is left. Every write of the three fields goes
+     * through here — the form, the vCard import's bulk create — so a value typed
+     * with a stray space cannot reach the list as "Jan Novak", and a name of spaces
+     * alone counts as no name: the list then shows its no-name placeholder
+     * ({@code contacts.noName}) and names the row by its address for a screen
+     * reader, where it used to read out nothing. The search and sort keys
+     * ({@code TextFold.key}) already ignored the whitespace; this makes the shown
+     * value agree with them.
+     */
+    private static @Nullable String stripToNull(@Nullable String value) {
+        if (value == null) {
+            return null;
+        }
+        String stripped = value.strip();
+        return stripped.isEmpty() ? null : stripped;
     }
 
     /**

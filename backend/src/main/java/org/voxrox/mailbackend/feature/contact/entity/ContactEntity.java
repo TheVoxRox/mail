@@ -48,10 +48,10 @@ public class ContactEntity {
     private Set<ContactLabelEntity> labels = new LinkedHashSet<>();
 
     @Column(name = "name", length = 255)
-    private String name;
+    private @Nullable String name;
 
     @Column(name = "surname", length = 255)
-    private String surname;
+    private @Nullable String surname;
 
     /*
      * The folded forms of name and surname (TextFold.key), which the search matches
@@ -125,20 +125,20 @@ public class ContactEntity {
         this.labels = labels;
     }
 
-    public String getName() {
+    public @Nullable String getName() {
         return name;
     }
 
-    public void setName(String name) {
+    public void setName(@Nullable String name) {
         this.name = name;
         this.nameFold = TextFold.key(name);
     }
 
-    public String getSurname() {
+    public @Nullable String getSurname() {
         return surname;
     }
 
-    public void setSurname(String surname) {
+    public void setSurname(@Nullable String surname) {
         this.surname = surname;
         this.surnameFold = TextFold.key(surname);
     }

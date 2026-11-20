@@ -3,6 +3,7 @@ package org.voxrox.mailbackend.feature.contact.service;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.jspecify.annotations.Nullable;
 import org.voxrox.mailbackend.feature.contact.EmailLabel;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEmailEntity;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEntity;
@@ -84,17 +85,17 @@ public final class VCardWriter {
     }
 
     private static String buildFullName(ContactEntity contact) {
+        // Null checks inline rather than through a boolean: NullAway does not carry
+        // a non-null fact through a local flag.
         String name = contact.getName();
         String surname = contact.getSurname();
-        boolean hasName = name != null && !name.isBlank();
-        boolean hasSurname = surname != null && !surname.isBlank();
-        if (hasName && hasSurname) {
+        if (name != null && !name.isBlank() && surname != null && !surname.isBlank()) {
             return name + " " + surname;
         }
-        if (hasSurname) {
+        if (surname != null && !surname.isBlank()) {
             return surname;
         }
-        if (hasName) {
+        if (name != null && !name.isBlank()) {
             return name;
         }
         // Fallback: primary email (contacts without name/surname legitimately exist).
@@ -149,7 +150,7 @@ public final class VCardWriter {
         return out.toString();
     }
 
-    private static String nullToEmpty(String s) {
+    private static String nullToEmpty(@Nullable String s) {
         return s == null ? "" : s;
     }
 }

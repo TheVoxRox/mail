@@ -288,6 +288,29 @@ test.describe('Contacts', () => {
 		await page.waitForURL(/\/contacts\?.*edit=\d+/);
 	});
 
+	test('create pošle jméno, příjmení a poznámku bez okolních mezer, prázdné jako null', async ({
+		page
+	}) => {
+		const createBodies: unknown[] = [];
+		page.on('request', (request) => {
+			if (request.method() === 'POST' && /\/api\/v1\/contacts$/.test(request.url())) {
+				createBodies.push(request.postDataJSON());
+			}
+		});
+
+		await openApp(page, '/contacts?create=1');
+		await page.getByPlaceholder('Jméno').fill('  Marie ');
+		// Spaces alone are no surname: the list shows its no-name fallback, not a blank.
+		await page.getByPlaceholder('Příjmení').fill('   ');
+		await page.getByPlaceholder('jmeno@domena.cz').fill('marie.mezery@example.com');
+		await page.getByPlaceholder('Poznámka').fill('  ');
+		await page.getByRole('button', { name: 'Uložit' }).click();
+
+		await page.waitForURL('**/contacts');
+		expect(createBodies).toHaveLength(1);
+		expect(createBodies[0]).toMatchObject({ name: 'Marie', surname: null, note: null });
+	});
+
 	test('create bez e-mailu zobrazí inline chybu a neodešle request', async ({ page }) => {
 		const createRequests: string[] = [];
 		page.on('request', (request) => {

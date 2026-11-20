@@ -113,6 +113,34 @@ class ContactMapperTest {
     }
 
     @Test
+    @DisplayName("toEntity — names and note stored without surrounding whitespace, blank as null")
+    void toEntityStripsNamesAndNote() {
+        ContactEntity e = mapper.toEntity(new ContactCreateRequest(List.of(new ContactEmailRequest("a@b.cz", null)),
+                null, "  Alice ", "   ", "\n VIP \n"), null);
+
+        assertThat(e.getName()).isEqualTo("Alice");
+        // Spaces alone are no surname, so the list falls back to its placeholder.
+        assertThat(e.getSurname()).isNull();
+        assertThat(e.getSurnameFold()).isNull();
+        assertThat(e.getNote()).isEqualTo("VIP");
+    }
+
+    @Test
+    @DisplayName("applyUpdate — names and note stored without surrounding whitespace, blank as null")
+    void applyUpdateStripsNamesAndNote() {
+        ContactEntity e = entityWithEmails("old@x.cz");
+        e.setName("Old");
+        e.setNote("Old note");
+
+        mapper.applyUpdate(e, new ContactUpdateRequest(List.of(new ContactEmailRequest("new@x.cz", null)), null, " ",
+                " Liddell", "  "), null);
+
+        assertThat(e.getName()).isNull();
+        assertThat(e.getSurname()).isEqualTo("Liddell");
+        assertThat(e.getNote()).isNull();
+    }
+
+    @Test
     @DisplayName("toEntity — emails stored normalized (lowercase + trim)")
     void toEntityNormalizesEmails() {
         AccountEntity account = new AccountEntity();
