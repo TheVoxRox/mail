@@ -270,9 +270,10 @@ public class ContactService {
      * stays canonical (name/surname/primary are preserved); emails from sources are
      * added deduplicated by lowercase variant (collisions drop the source version);
      * notes are concatenated with a separator. Source contacts are deleted. If the
-     * email limit (10) is exceeded the whole operation is rejected with
-     * {@link ValidationException} so the user can manually reduce the address count
-     * and retry — we never drop addresses automatically.
+     * email limit (10) or the note limit (1000 characters) is exceeded the whole
+     * operation is rejected with {@link ValidationException} so the user can reduce
+     * the addresses or shorten a note and retry — we never drop addresses or cut a
+     * note automatically.
      */
     @Transactional
     public ContactResponse merge(Long targetId, ContactMergeRequest request) {
@@ -332,6 +333,11 @@ public class ContactService {
         }
 
         String mergedNote = mergeNotes(target.getNote(), sources);
+        if (mergedNote != null && mergedNote.length() > MAX_NOTE_LENGTH) {
+            throw new ValidationException("After merging, the contact's note would be " + mergedNote.length()
+                    + " characters long; the maximum is " + MAX_NOTE_LENGTH + ". Shorten a note before merging.",
+                    "validation.contactMerge.noteTooLong", mergedNote.length(), MAX_NOTE_LENGTH);
+        }
         boolean targetHasPrimary = target.getEmails().stream().anyMatch(ContactEmailEntity::isPrimary);
 
         for (EmailToAdd add : toAdd) {
@@ -365,6 +371,16 @@ public class ContactService {
     }
 
     private static final int MAX_EMAILS_PER_CONTACT = 10;
+
+    /**
+     * Ceiling on a contact's note; mirrors the {@code @Size(max = 1000)} on
+     * {@code note} in the create and update requests. Merging needs it spelled out
+     * because nothing else enforces it on that path: SQLite does not enforce the
+     * {@code VARCHAR(1000)} of the column, so concatenated notes were stored in
+     * full, and the contact could then not be saved again until the user shortened
+     * a note nobody had told them was too long.
+     */
+    private static final int MAX_NOTE_LENGTH = 1000;
     /**
      * Neutral, language-agnostic separator inserted between concatenated notes when
      * merging contacts. Plain markdown-style horizontal rule reads the same in CZ

@@ -21,6 +21,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Backend
 
+- Merging contacts whose notes would join to more than 1000 characters is
+  refused with a message that says so, the way a merge to more than ten
+  addresses already was. SQLite does not enforce the note's length, so such a
+  merge stored the whole note, and the merged contact could then not be saved
+  until a note was shortened, with an error that did not name the field
+  (#977).
 - A contact is found by its full name: "Jan Novák", "novák jan", "Novák,
   Jan" and "jan no" all find Jan Novák, in the contact search and in the
   suggestions of the compose window. Each word of the query is matched on its
@@ -54,6 +60,11 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- The merge dialog says before merging that the joined note would be too
+  long, with its length, and does not offer the merge. The contact form
+  points at a note longer than 1000 characters, one an earlier merge could
+  leave behind, with an error at the note that says how long it is, instead
+  of a failed save that did not say why (#977).
 - The toolbar over an open message drops its labels when they would not fit
   in it, not below a window width of 1280px. On a 1366px screen with the
   sidebar at its default width the Czech labels did not fit, and the move

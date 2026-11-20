@@ -585,6 +585,87 @@ test.describe('Contacts', () => {
 		);
 	});
 
+	test('merge dialog upozorní a zablokuje sloučení, když by poznámka přesáhla limit', async ({
+		page
+	}) => {
+		const mergeRequests: string[] = [];
+		page.on('request', (request) => {
+			if (request.method() === 'POST' && /\/merge$/.test(request.url())) {
+				mergeRequests.push(request.url());
+			}
+		});
+
+		await openApp(page, '/contacts');
+		await page.evaluate(() => window.__MAIL_MSW__?.reset());
+		// 600 + 500 characters and the seven of the separator: 1107, over 1000.
+		await bulkCreateContacts(page, [
+			{
+				name: 'Prvni',
+				surname: 'Poznamka',
+				note: 'a'.repeat(600),
+				emails: [{ email: 'prvni@poznamka.example' }]
+			},
+			{
+				name: 'Druha',
+				surname: 'Poznamka',
+				note: 'b'.repeat(500),
+				emails: [{ email: 'druha@poznamka.example' }]
+			}
+		]);
+		await page.locator('#contacts-sidebar-search').fill('poznamka.example');
+		await page.keyboard.press('Enter');
+		await page.waitForURL('**/contacts?q=poznamka.example');
+
+		await page.getByLabel('Vybrat kontakt Prvni Poznamka').check();
+		await page.getByLabel('Vybrat kontakt Druha Poznamka').check();
+		await page.getByRole('button', { name: 'Sloučit' }).click();
+
+		const dialog = page.getByRole('dialog', { name: 'Sloučit kontakty' });
+		await expect(dialog.locator('#contact-merge-note-warning')).toHaveText(
+			/^Po sloučení by poznámka měla 1\s?107 znaků, maximum je 1\s?000\. Před sloučením zkraťte poznámku v některém z kontaktů\.$/
+		);
+		const submit = dialog.getByRole('button', { name: 'Sloučit kontakty' });
+		await expect(submit).toBeDisabled();
+		await expect(submit).toHaveAttribute('aria-describedby', 'contact-merge-note-warning');
+		expect(mergeRequests).toHaveLength(0);
+	});
+
+	test('kontakt s poznámkou nad limit ukáže chybu u poznámky a neodešle PUT', async ({ page }) => {
+		const putRequests: string[] = [];
+		page.on('request', (request) => {
+			if (request.method() === 'PUT' && /\/api\/v1\/contacts\/\d+$/.test(request.url())) {
+				putRequests.push(request.url());
+			}
+		});
+
+		await openApp(page, '/contacts');
+		await page.evaluate(() => window.__MAIL_MSW__?.reset());
+		// What a merge before the limit was checked could leave behind.
+		await bulkCreateContacts(page, [
+			{
+				name: 'Dlouha',
+				surname: 'Poznamka',
+				note: 'x'.repeat(1200),
+				emails: [{ email: 'dlouha@poznamka.example' }]
+			}
+		]);
+		await page.locator('#contacts-sidebar-search').fill('dlouha');
+		await page.keyboard.press('Enter');
+		await page.waitForURL('**/contacts?q=dlouha');
+		await page.getByRole('link', { name: 'Upravit kontakt Dlouha Poznamka' }).click();
+		await page.waitForURL(/\/contacts\?.*edit=\d+/);
+
+		await page.getByRole('button', { name: 'Uložit' }).click();
+
+		const note = page.locator('#contact-note');
+		await expect(note).toHaveAttribute('aria-invalid', 'true');
+		await expect(page.locator('#contact-note-error')).toHaveText(
+			/^Poznámka má 1\s?200 znaků, maximum je 1\s?000\. Zkraťte ji, aby šel kontakt uložit\.$/
+		);
+		await expect(note).toBeFocused();
+		expect(putRequests).toHaveLength(0);
+	});
+
 	test('smazání jednoho kontaktu zobrazí success toast a odstraní jej ze seznamu', async ({
 		page
 	}) => {
