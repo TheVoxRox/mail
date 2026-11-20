@@ -223,9 +223,11 @@
 
 	function validate(): boolean {
 		let ok = true;
+		// Measured as it will be sent: the surrounding whitespace is dropped first.
+		const noteLength = note.trim().length;
 		noteError =
-			note.length > MAX_NOTE_LENGTH
-				? $_('contacts.noteTooLong', { values: { count: note.length, max: MAX_NOTE_LENGTH } })
+			noteLength > MAX_NOTE_LENGTH
+				? $_('contacts.noteTooLong', { values: { count: noteLength, max: MAX_NOTE_LENGTH } })
 				: null;
 		if (noteError) ok = false;
 		const nextErrors: (string | null)[] = emails.map(() => null);
@@ -283,9 +285,12 @@
 		bypassLeaveGuard = true;
 		try {
 			await onSubmit({
-				name: name || null,
-				surname: surname || null,
-				note: note || null,
+				// Without the surrounding whitespace, the form the backend stores
+				// (ContactMapper.stripToNull): a stray space would otherwise show as
+				// "Jan  Novak", and a name of spaces alone hide the no-name placeholder.
+				name: name.trim() || null,
+				surname: surname.trim() || null,
+				note: note.trim() || null,
 				emails: payloadEmails,
 				labelIds
 			});
