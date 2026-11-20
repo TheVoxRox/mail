@@ -29,14 +29,14 @@ Entries before 2026-09-17 predate that split and are left as written.
   found by its own first letters, and a name typed without its diacritics was
   not found at all. A suggestion that starts with the query also ranks as
   such now; a diacritic used to demote it below names that merely contained
-  the query.
+  the query (#974).
 - The address book lists "Čermák" among the C names and "novák" next to
   "Novák", where every name starting with a letter outside ASCII, and every
   name written in lower case, came after Z. Sorting by given name and the
   order of the labels follow the same rule. The order ignores diacritics
   rather than following Czech dictionary order, so Č sorts among the C names
   and Ch among the C names rather than after H (docs/DECISIONS.md). The first
-  start after the update migrates the database, after the usual backup.
+  start after the update migrates the database, after the usual backup (#974).
 
 ### Frontend
 
@@ -71,7 +71,7 @@ Entries before 2026-09-17 predate that split and are left as written.
 - `check:docs-impact` treats a Java migration in
   `backend/src/main/java/db/migration` as a change to the stored data, like
   a SQL one. The first, `V2__Fold_keys_for_names`, would otherwise have
-  passed it without the question being asked.
+  passed it without the question being asked (#974).
 - Repackaging the sidecar no longer lets an old or broken image through
   unnoticed. The digest `tauri:dev` and `tauri:build` compare now covers
   `package-sidecar-windows.ps1`, which alone changed the image in #562 and
