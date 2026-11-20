@@ -25,9 +25,9 @@ Entries before 2026-09-17 predate that split and are left as written.
   them, and a name of spaces alone counts as no name. A stray space showed as
   a doubled space between name and surname in the list and went into the
   vCard export, and a name of spaces alone hid the "(bez jména)" placeholder,
-  so a screen reader read the row's checkbox with no name at all. Existing
-  contacts are cleaned when they are next saved; their search and order
-  already ignored the spaces (#980).
+  so a screen reader read the row's checkbox with no name at all. The
+  contacts stored before are cleaned by a migration on the first start after
+  the update (#980, #981).
 - Merging contacts whose notes would join to more than 1000 characters is
   refused with a message that says so, the way a merge to more than ten
   addresses already was. SQLite does not enforce the note's length, so such a
