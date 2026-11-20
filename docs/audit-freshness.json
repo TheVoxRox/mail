@@ -48,6 +48,17 @@
     "Both clocks reset the same way: re-verify the audit, bump `Audited commit`,",
     "and delete the entry from this file."
   ],
+  "docs/API_SURFACE_AUDIT.md": {
+    "reviewedTrees": {
+      "backend/src/main/java/org/voxrox/mailbackend/feature/contact/dto": "6e63b0f7cb3806f43810ba8c52b57f214541f7ca"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-11-20",
+        "note": "ContactResponse: name and surname typed @Nullable, plus a javadoc. Every changed line was read. The mapper now stores a blank name as null, which the column always allowed and the response always carried for a contact without a name; the annotation states it for NullAway. springdoc does not render jspecify @Nullable, so OpenApiSnapshotTest passes unchanged and no route, field, constraint or error path moves. Nothing a caller sends changed. Verdict unchanged."
+      }
+    ]
+  },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "f1e0c7b7a96ce1c45ac25408d38f5f617ebf4c1e",
