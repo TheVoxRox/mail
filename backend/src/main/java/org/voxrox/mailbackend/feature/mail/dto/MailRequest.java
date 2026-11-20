@@ -8,6 +8,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import org.jspecify.annotations.Nullable;
+import org.voxrox.mailbackend.util.StoredText;
 
 public record MailRequest(@NotBlank(message = "{validation.mail.recipientRequired}") String to,
 
@@ -23,7 +24,15 @@ public record MailRequest(@NotBlank(message = "{validation.mail.recipientRequire
         @Size(max = 50, message = "{validation.mail.tooManyAttachments}") List<@Valid AttachmentRequest> attachments,
 
         @Nullable String inReplyTo, @Nullable String references) {
+    /**
+     * The subject without the whitespace around it ({@link StoredText#strip}),
+     * before Bean Validation runs, so a subject of no-break spaces alone is refused
+     * as missing. The body is sent exactly as written.
+     */
     public MailRequest {
+        if (subject != null) {
+            subject = StoredText.strip(subject);
+        }
         if (attachments == null) {
             attachments = List.of();
         }

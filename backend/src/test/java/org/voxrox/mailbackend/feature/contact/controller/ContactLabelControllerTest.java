@@ -1,5 +1,6 @@
 package org.voxrox.mailbackend.feature.contact.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -18,6 +19,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration;
 import org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2ClientAutoConfiguration;
@@ -87,6 +89,31 @@ class ContactLabelControllerTest {
                 .content(objectMapper.writeValueAsString(new ContactLabelCreateRequest(""))))
                 .andExpect(status().isBadRequest());
         verify(contactLabelService, never()).createLabel(any());
+    }
+
+    /*
+     * Raw JSON rather than a serialized record: the request strips its name in its
+     * constructor, so a record built here would arrive already clean.
+     */
+    @Test
+    @DisplayName("POST / with a name of no-break spaces alone → 400, the service is never called")
+    void createLabelNamedWithNoBreakSpaces() throws Exception {
+        mockMvc.perform(post("/api/v1/contact-labels").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\": \"\u00A0\u202F\"}")).andExpect(status().isBadRequest());
+        verify(contactLabelService, never()).createLabel(any());
+    }
+
+    @Test
+    @DisplayName("POST / hands the service the name without the whitespace around it")
+    void createLabelStripsItsName() throws Exception {
+        when(contactLabelService.createLabel(any())).thenReturn(new ContactLabelResponse(LABEL_ID, "Family"));
+
+        mockMvc.perform(post("/api/v1/contact-labels").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\": \" Family\u00A0\"}")).andExpect(status().isCreated());
+
+        ArgumentCaptor<ContactLabelCreateRequest> sent = ArgumentCaptor.forClass(ContactLabelCreateRequest.class);
+        verify(contactLabelService).createLabel(sent.capture());
+        assertThat(sent.getValue().name()).isEqualTo("Family");
     }
 
     @Test

@@ -720,6 +720,34 @@ class AccountServiceTest {
             verify(credentialService, never()).saveCredentials(any(), any(), any(), any());
         }
 
+        /*
+         * The service compares the username with the stored one to tell a credentials
+         * change. Before the request stripped its text, a space pasted around the
+         * unchanged username read as one: the PUT was refused, and the audit log
+         * recorded a blocked credentials mutation that would have changed nothing.
+         */
+        @Test
+        @DisplayName("PUT on an OAuth2 account with its username in whitespace -> passes, nothing blocked")
+        void putWithUsernameInWhitespaceOnOAuth2Allowed() {
+            AccountEntity existing = createAccountEntity();
+            existing.setProvider(createProvider());
+            AccountUpdateRequest request = new AccountUpdateRequest(ACCOUNT_NAME, EMAIL, DISPLAY_NAME, null, true, 10L,
+                    null, null, " " + EMAIL + "\u00A0", null, true);
+
+            when(accountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(existing));
+            stubExistingCredentials(AuthType.OAUTH2, EMAIL);
+            when(providerService.loadProviderById(10L)).thenReturn(createProvider());
+            when(accountRepository.save(existing)).thenReturn(existing);
+            when(accountMapper.toResponse(existing)).thenReturn(dummyResponse());
+
+            service.updateAccount(ACCOUNT_ID, request);
+
+            verify(credentialService, never()).changeUsername(any(), any());
+            verify(credentialService, never()).saveCredentials(any(), any(), any(), any());
+            assertThat(auditAppender.list)
+                    .noneMatch(e -> e.getFormattedMessage().contains("action=oauth2_credentials_mutation_blocked"));
+        }
+
     }
 
     /*

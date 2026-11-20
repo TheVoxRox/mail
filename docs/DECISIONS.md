@@ -160,10 +160,8 @@ How it is applied:
 - **Changing the rule** after a release is a migration over the stored rows,
   since a row is rewritten only when it is saved again.
 
-The code did not follow it in full when this was recorded: the note and the
-signature are stripped like a single line, the backend applies `strip()` in
-the entity setters after validation, and the hosts and the subject are
-stripped by the frontend alone.
+The frontend does not follow it in full yet: it strips a note and a signature
+like a single line, with no helper of its own and outside the shared vectors.
 
 **Revisit when:** a single-line field turns out to carry meaning in its
 surrounding whitespace, or a multi-line one has to be compared or searched,

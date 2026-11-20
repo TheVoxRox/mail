@@ -21,6 +21,15 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Backend
 
+- The text of every request the forms send is stripped where it arrives,
+  before it is validated or compared with what is stored, by the rule the
+  entities keep. An edit of an OAuth account whose username came with a
+  space around it was refused as an attempt to change its credentials and
+  logged as one, and the connection test signed in with the username as
+  pasted while the save stored it stripped. A required field of no-break
+  spaces alone, such as an account name, a label name or a subject, is
+  refused as empty, and the backend strips a message's subject and the
+  server hosts itself instead of relying on the form (#985).
 - What counts as whitespace around stored text is now the same in the
   backend as in the form, the set JavaScript's `trim()` removes. Java's
   `strip()` kept the no-break spaces and the byte order mark, the characters

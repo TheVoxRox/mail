@@ -50,12 +50,18 @@
   ],
   "docs/API_SURFACE_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/contact/dto": "6e63b0f7cb3806f43810ba8c52b57f214541f7ca"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/contact/dto": "be7e6d23b81e3a53d98eaa48a2a480943c760887",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/account/dto": "fe01b33d2348580c8e39ef2d0a6b45deae0b07df",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "8ff281bf6191be96e747fc027a255909636f217b"
     },
     "acknowledgements": [
       {
         "date": "2026-11-20",
         "note": "ContactResponse: name and surname typed @Nullable, plus a javadoc. Every changed line was read. The mapper now stores a blank name as null, which the column always allowed and the response always carried for a contact without a name; the annotation states it for NullAway. springdoc does not render jspecify @Nullable, so OpenApiSnapshotTest passes unchanged and no route, field, constraint or error path moves. Nothing a caller sends changed. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-20",
+        "note": "Compact constructors on the request records (AccountCreateRequest, AccountUpdateRequest, AccountConnectionTestRequest, MailServerSettings, ContactCreateRequest, ContactUpdateRequest, ContactEmailRequest, ContactLabelCreateRequest, ContactLabelUpdateRequest, MailRequest, DraftRequest) strip the text the user types with StoredText before Bean Validation runs; the optional components they null are typed @Nullable. Every changed line was read. Passwords, bodies, folder refs and attachment data are untouched. No route, field, constraint or error code changes and OpenApiSnapshotTest passes unchanged: the same constraints now read the stripped value, so a required field of no-break spaces alone is refused where it was accepted, @Size measures what is stored, and no input is accepted that was refused before. Verdict unchanged."
       }
     ]
   },

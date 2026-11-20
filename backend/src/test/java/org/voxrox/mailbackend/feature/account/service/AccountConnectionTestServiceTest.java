@@ -108,6 +108,30 @@ class AccountConnectionTestServiceTest {
         assertThat(smtp.getValue().port()).isEqualTo(587);
     }
 
+    /*
+     * The save stores the address, the username and the hosts stripped, so the test
+     * signs in with the same values; it used to try the login as pasted.
+     */
+    @Test
+    @DisplayName("custom request signs in with the address, username and hosts the save keeps, password as typed")
+    void customRequestUsesTheStrippedText() {
+        AccountConnectionTestRequest request = new AccountConnectionTestRequest(null, " user@example.com", null,
+                new MailServerSettings(" imap.custom.cz", 143, false),
+                new MailServerSettings("smtp.custom.cz\u00A0", 587, false), "user\t", " secret ");
+
+        service.testConnection(request);
+
+        ArgumentCaptor<AccountConnectionDetails> imap = ArgumentCaptor.forClass(AccountConnectionDetails.class);
+        ArgumentCaptor<AccountConnectionDetails> smtp = ArgumentCaptor.forClass(AccountConnectionDetails.class);
+        verify(mailConnectionProbe).testImap(org.mockito.Mockito.isNull(), imap.capture());
+        verify(mailConnectionProbe).testSmtp(org.mockito.Mockito.isNull(), smtp.capture());
+        assertThat(imap.getValue().email()).isEqualTo("user@example.com");
+        assertThat(imap.getValue().username()).isEqualTo("user");
+        assertThat(imap.getValue().host()).isEqualTo("imap.custom.cz");
+        assertThat(smtp.getValue().host()).isEqualTo("smtp.custom.cz");
+        assertThat(imap.getValue().passwordOrSecret()).isEqualTo(" secret ");
+    }
+
     @Test
     @DisplayName("edit without a new password uses the stored secret and auth type")
     void editWithoutPasswordUsesStoredSecret() {

@@ -17,6 +17,7 @@ import org.voxrox.mailbackend.feature.contact.dto.ContactUpdateRequest;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEmailEntity;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEntity;
 import org.voxrox.mailbackend.feature.contact.entity.ContactLabelEntity;
+import org.voxrox.mailbackend.util.StoredText;
 
 /**
  * Maps contact DTOs to entities and back.
@@ -31,7 +32,8 @@ public class ContactMapper {
 
     public ContactEntity toEntity(ContactCreateRequest req, @Nullable Set<ContactLabelEntity> labels) {
         ContactEntity e = new ContactEntity();
-        // The entity's setters strip and null the blanks (StoredText).
+        // The request arrives normalized (StoredText); the entity's setters apply the
+        // same rule again for the writes that come through no request.
         e.setName(req.name());
         e.setSurname(req.surname());
         e.setNote(req.note());
@@ -92,12 +94,12 @@ public class ContactMapper {
     }
 
     /**
-     * Null-tolerant canonical form: pass-through {@code null}, else trim +
-     * lowercase.
+     * Null-tolerant canonical form: pass-through {@code null}, else stripped
+     * ({@link StoredText#strip}, the request's own rule) and in lower case.
      */
     public @Nullable String normalizeEmail(@Nullable String email) {
         if (email == null)
             return null;
-        return email.trim().toLowerCase(Locale.ROOT);
+        return StoredText.strip(email).toLowerCase(Locale.ROOT);
     }
 }
