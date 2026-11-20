@@ -27,7 +27,7 @@ Entries before 2026-09-17 predate that split and are left as written.
   header of every message sent from the account, and a username with a
   trailing space was the login the server refused. The accounts stored
   before are cleaned by a migration on the first start after the update; the
-  address needs none, as the server never accepted one with a space.
+  address needs none, as the server never accepted one with a space (#982).
 - A contact's name, surname and note are stored without the spaces around
   them, and a name of spaces alone counts as no name. A stray space showed as
   a doubled space between name and surname in the list and went into the
@@ -78,9 +78,9 @@ Entries before 2026-09-17 predate that split and are left as written.
   accepted. The form's own check ignored the space but sent the address with
   it, and the server refused it as invalid; the form now drops the whitespace
   around its text fields before it checks, tests or saves anything, and shows
-  the values as they are stored. The password is left as typed.
+  the values as they are stored. The password is left as typed (#982).
 - The subject of a message, sent or saved as a draft, goes out without the
-  whitespace around it. The body is sent exactly as written.
+  whitespace around it. The body is sent exactly as written (#982).
 - The contact form sends the name, surname and note without the spaces
   around them, and measures the note's length the same way, so a note that
   fits once its trailing spaces are dropped is not refused (#980).
