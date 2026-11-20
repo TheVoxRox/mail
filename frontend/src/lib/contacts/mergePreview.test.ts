@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_EMAILS_PER_CONTACT, buildMergePreview, exceedsEmailLimit } from './mergePreview.js';
+import {
+	MAX_EMAILS_PER_CONTACT,
+	MAX_NOTE_LENGTH,
+	buildMergePreview,
+	exceedsEmailLimit,
+	exceedsNoteLimit,
+	mergedNoteLength
+} from './mergePreview.js';
 import type { ContactEmailResponse, ContactResponse } from '#lib/types.js';
 
 /**
@@ -126,5 +133,36 @@ describe('exceedsEmailLimit', () => {
 		const overCap = buildMergePreview(target, [nine]);
 		expect(overCap).toHaveLength(11);
 		expect(exceedsEmailLimit(overCap.length)).toBe(true);
+	});
+});
+
+function withNote(id: number, note: string | null): ContactResponse {
+	return { ...contact(id, [email(`n${id}@x.cz`)]), note };
+}
+
+describe('mergedNoteLength', () => {
+	it('is zero without a target or without any note', () => {
+		expect(mergedNoteLength(null, [withNote(2, 'x')])).toBe(0);
+		expect(mergedNoteLength(withNote(1, null), [withNote(2, '  ')])).toBe(0);
+	});
+
+	it('joins the notes the way the backend does, the blank ones left out', () => {
+		// ContactServiceTest.mergeNotesConcatenated stores this very note for the same input.
+		const length = mergedNoteLength(withNote(1, 'note A'), [
+			withNote(2, 'note B'),
+			withNote(3, '  ')
+		]);
+		expect(length).toBe('note A\n\n---\n\nnote B'.length);
+	});
+
+	it('counts the separator, so two notes under the limit can join to one over it', () => {
+		// The same boundary as ContactServiceTest.mergeNoteAtTheLimit / mergeExceedsNoteLength.
+		const target = withNote(1, 'a'.repeat(600));
+		const atLimit = mergedNoteLength(target, [withNote(2, 'b'.repeat(393))]);
+		const overLimit = mergedNoteLength(target, [withNote(2, 'b'.repeat(394))]);
+		expect(atLimit).toBe(MAX_NOTE_LENGTH);
+		expect(exceedsNoteLimit(atLimit)).toBe(false);
+		expect(overLimit).toBe(MAX_NOTE_LENGTH + 1);
+		expect(exceedsNoteLimit(overLimit)).toBe(true);
 	});
 });

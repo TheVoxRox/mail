@@ -858,8 +858,9 @@ function contactRoutes(
 				...contact,
 				emails: [...contact.emails, ...addedEmails],
 				note:
-					[contact.note, ...sources.map((source) => source!.note)].filter(Boolean).join('\n\n') ||
-					null,
+					[contact.note, ...sources.map((source) => source!.note)]
+						.filter(Boolean)
+						.join('\n\n---\n\n') || null,
 				updatedAt: new Date().toISOString()
 			};
 			const sourceIdSet = new Set(uniqueSourceIds);

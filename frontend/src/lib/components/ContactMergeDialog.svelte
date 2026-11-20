@@ -14,7 +14,10 @@
 	import {
 		MAX_EMAILS_PER_CONTACT,
 		buildMergePreview,
-		exceedsEmailLimit
+		exceedsEmailLimit,
+		exceedsNoteLimit,
+		MAX_NOTE_LENGTH,
+		mergedNoteLength
 	} from '#lib/contacts/mergePreview.js';
 	import type { ContactResponse } from '#lib/types.js';
 
@@ -46,6 +49,18 @@
 	const mergedEmails = $derived(buildMergePreview(target, sources));
 
 	const exceedsLimit = $derived(exceedsEmailLimit(mergedEmails.length));
+	const noteLength = $derived(mergedNoteLength(target, sources));
+	const noteTooLong = $derived(exceedsNoteLimit(noteLength));
+	// The submit control is described by whichever warnings stand, so a screen
+	// reader says why it is unavailable when it lands on it.
+	const blockingWarningIds = $derived(
+		[
+			exceedsLimit ? 'contact-merge-limit-warning' : null,
+			noteTooLong ? 'contact-merge-note-warning' : null
+		]
+			.filter((id): id is string => id !== null)
+			.join(' ')
+	);
 	const hasEnoughContacts = $derived(contacts.length >= 2 && target !== null);
 
 	function contactLabel(c: ContactResponse): string {
@@ -60,7 +75,7 @@
 	}
 
 	async function submit(): Promise<void> {
-		if (!target || sources.length === 0 || exceedsLimit) return;
+		if (!target || sources.length === 0 || exceedsLimit || noteTooLong) return;
 		busy = true;
 		serverError = null;
 		try {
@@ -174,6 +189,20 @@
 			</StateMessage>
 		{/if}
 
+		{#if noteTooLong}
+			<StateMessage
+				variant="error"
+				padding="none"
+				role="alert"
+				class="mt-3"
+				id="contact-merge-note-warning"
+			>
+				{$_('contacts.mergeNoteLimitWarning', {
+					values: { count: noteLength, max: MAX_NOTE_LENGTH }
+				})}
+			</StateMessage>
+		{/if}
+
 		{#if serverError}
 			<StateMessage variant="error" padding="none" role="alert" class="mt-3">
 				{serverError}
@@ -187,8 +216,8 @@
 		</Button>
 		<Button
 			onclick={submit}
-			disabled={!hasEnoughContacts || exceedsLimit || busy}
-			aria-describedby={exceedsLimit ? 'contact-merge-limit-warning' : undefined}
+			disabled={!hasEnoughContacts || exceedsLimit || noteTooLong || busy}
+			aria-describedby={blockingWarningIds || undefined}
 		>
 			{busy ? $_('contacts.mergeBusy') : $_('contacts.mergeSubmit')}
 		</Button>

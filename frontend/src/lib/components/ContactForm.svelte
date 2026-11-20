@@ -26,6 +26,7 @@
 		EmailLabel
 	} from '#lib/types.js';
 	import type { ContactPrefill } from '#lib/contacts/prefill.js';
+	import { MAX_NOTE_LENGTH } from '#lib/contacts/mergePreview.js';
 
 	interface Props {
 		/** When provided the form edits an existing contact; otherwise it creates a new one. */
@@ -60,6 +61,13 @@
 	let note = $state('');
 	let emails = $state<EmailDraft[]>([newRow('', '', true)]);
 	let emailErrors = $state<(string | null)[]>([null]);
+	/*
+	 * A note longer than a contact may hold. The textarea's maxlength stops typing
+	 * past it, but not a note that is already longer: a merge before that limit was
+	 * checked could store one, and saving it then failed with a message that did
+	 * not name the field.
+	 */
+	let noteError = $state<string | null>(null);
 	/*
 	 * The save is a PUT with replace semantics, so this always travels with the
 	 * request — an edit that never opens the label group must still send back
@@ -215,6 +223,11 @@
 
 	function validate(): boolean {
 		let ok = true;
+		noteError =
+			note.length > MAX_NOTE_LENGTH
+				? $_('contacts.noteTooLong', { values: { count: note.length, max: MAX_NOTE_LENGTH } })
+				: null;
+		if (noteError) ok = false;
 		const nextErrors: (string | null)[] = emails.map(() => null);
 		let hasFilled = false;
 		emails.forEach((row, index) => {
@@ -241,6 +254,8 @@
 			const firstErrorIdx = emailErrors.findIndex((e) => e);
 			if (firstErrorIdx >= 0) {
 				document.getElementById(`contact-email-${firstErrorIdx}`)?.focus();
+			} else if (noteError) {
+				document.getElementById('contact-note')?.focus();
 			}
 			return;
 		}
@@ -513,16 +528,31 @@
 			{/if}
 		</fieldset>
 
-		<Field for="contact-note" label={$_('contacts.noteLabel')} class="flex flex-1 flex-col">
-			<Textarea
-				id="contact-note"
-				bind:value={note}
-				placeholder={$_('contacts.notePlaceholder')}
-				rows={8}
-				maxlength={1000}
-				disabled={busy}
-				class="min-h-32 flex-1 resize-none"
-			/>
+		<!--
+			Announced only when focus goes to it: with an address error as well,
+			focus lands on the address and this one is read with its field.
+		-->
+		<Field
+			for="contact-note"
+			label={$_('contacts.noteLabel')}
+			class="flex flex-1 flex-col"
+			error={noteError}
+			errorId="contact-note-error"
+			announce={!emailErrors.some(Boolean)}
+		>
+			{#snippet children(control)}
+				<Textarea
+					id="contact-note"
+					bind:value={note}
+					oninput={() => (noteError = null)}
+					placeholder={$_('contacts.notePlaceholder')}
+					rows={8}
+					maxlength={MAX_NOTE_LENGTH}
+					disabled={busy}
+					class="min-h-32 flex-1 resize-none"
+					{...control}
+				/>
+			{/snippet}
 		</Field>
 
 		{#if error}

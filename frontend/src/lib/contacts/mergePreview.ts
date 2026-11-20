@@ -56,3 +56,38 @@ export function buildMergePreview(
 export function exceedsEmailLimit(count: number): boolean {
 	return count > MAX_EMAILS_PER_CONTACT;
 }
+
+/**
+ * Longest note a contact may hold, the `@Size(max = 1000)` of the create and
+ * update requests. The backend refuses a merge whose joined notes exceed it
+ * (`ContactService.merge`): SQLite does not enforce the column's width, so such
+ * a merge used to store the whole note, and the contact could then not be saved
+ * again until a note nobody had flagged was shortened.
+ */
+export const MAX_NOTE_LENGTH = 1000;
+
+/** What the backend puts between two joined notes (`ContactService.NOTE_SEPARATOR`). */
+const NOTE_SEPARATOR = '\n\n---\n\n';
+
+/**
+ * Length of the note the merge would store: the target's note, then each
+ * source's, the blank ones left out, joined by the backend's separator. The
+ * same count the backend checks: both measure UTF-16 code units. A pre-flight
+ * guard like {@link exceedsEmailLimit}; the backend stays the one that decides.
+ */
+export function mergedNoteLength(
+	target: ContactResponse | null,
+	sources: ContactResponse[]
+): number {
+	if (!target) return 0;
+	const notes = [target, ...sources]
+		.map((contact) => contact.note)
+		.filter((note): note is string => note != null && note.trim() !== '');
+	if (notes.length === 0) return 0;
+	return notes.join(NOTE_SEPARATOR).length;
+}
+
+/** Whether a note of {@code length} characters is longer than a contact may hold. */
+export function exceedsNoteLimit(length: number): boolean {
+	return length > MAX_NOTE_LENGTH;
+}

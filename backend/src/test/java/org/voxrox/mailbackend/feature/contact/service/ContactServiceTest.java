@@ -587,6 +587,40 @@ class ContactServiceTest {
     }
 
     @Test
+    @DisplayName("merge — notes that join to more than 1000 characters -> ValidationException, nothing deleted")
+    void mergeExceedsNoteLength() {
+        ContactEntity target = contact(CONTACT_ID, "alice@example.com");
+        target.setNote("a".repeat(600));
+        // 600 + the 7-character separator + 394 = 1001, one over.
+        ContactEntity src = contactWithLabel(20L, "src@example.com", null, "b".repeat(394));
+        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(target));
+        when(contactRepository.findById(20L)).thenReturn(Optional.of(src));
+
+        assertThatThrownBy(() -> service.merge(CONTACT_ID, new ContactMergeRequest(List.of(20L))))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("1001 characters long; the maximum is 1000");
+
+        verify(contactRepository, never()).save(any(ContactEntity.class));
+        verify(contactRepository, never()).delete(any(ContactEntity.class));
+        assertThat(target.getNote()).hasSize(600);
+    }
+
+    @Test
+    @DisplayName("merge — notes that join to exactly 1000 characters are kept whole")
+    void mergeNoteAtTheLimit() {
+        ContactEntity target = contact(CONTACT_ID, "alice@example.com");
+        target.setNote("a".repeat(600));
+        ContactEntity src = contactWithLabel(20L, "src@example.com", null, "b".repeat(393));
+        when(contactRepository.findById(CONTACT_ID)).thenReturn(Optional.of(target));
+        when(contactRepository.findById(20L)).thenReturn(Optional.of(src));
+        when(contactRepository.save(any(ContactEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ContactResponse r = service.merge(CONTACT_ID, new ContactMergeRequest(List.of(20L)));
+
+        assertThat(r.note()).hasSize(1000);
+    }
+
+    @Test
     @DisplayName("merge — exceeding the 10-email limit -> ValidationException, save is not called")
     void mergeExceedsMaxEmails() {
         ContactEntity target = new ContactEntity();
