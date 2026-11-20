@@ -27,7 +27,7 @@ Entries before 2026-09-17 predate that split and are left as written.
   vCard export, and a name of spaces alone hid the "(bez jména)" placeholder,
   so a screen reader read the row's checkbox with no name at all. Existing
   contacts are cleaned when they are next saved; their search and order
-  already ignored the spaces.
+  already ignored the spaces (#980).
 - Merging contacts whose notes would join to more than 1000 characters is
   refused with a message that says so, the way a merge to more than ten
   addresses already was. SQLite does not enforce the note's length, so such a
@@ -69,7 +69,7 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 - The contact form sends the name, surname and note without the spaces
   around them, and measures the note's length the same way, so a note that
-  fits once its trailing spaces are dropped is not refused.
+  fits once its trailing spaces are dropped is not refused (#980).
 - The merge dialog says before merging that the joined note would be too
   long, with its length, and does not offer the merge. The contact form
   points at a note longer than 1000 characters, one an earlier merge could
