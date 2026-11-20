@@ -43,34 +43,86 @@ public interface ContactRepository extends JpaRepository<ContactEntity, Long> {
     Page<ContactEntity> findAllFiltered(@Param("labelId") @Nullable Long labelId, Pageable pageable);
 
     /**
-     * Substring search across all contact emails, first name, and surname, with an
-     * optional filter by contact label. A subquery instead of JOIN avoids
-     * duplicates when there are multiple emails and supports paging. The caller
-     * wraps both patterns in {@code %...%}.
+     * Each query word ({@code ContactSearchTerms}) has to occur in the contact's
+     * folded given name, folded surname or one of its addresses; a word may match a
+     * different field than the one before it. {@code :w2} to {@code :w4} are null
+     * when the query has fewer words, which drops their condition. The words arrive
+     * folded and wrapped in {@code %...%} with LIKE's own wildcards escaped, hence
+     * the {@code ESCAPE} on every comparison.
      * <p>
-     * The two patterns are the same query in two forms. Names are matched on their
-     * stored folded form ({@code TextFold}) against {@code qFold}, so case and
-     * diacritics do not count: a surname starting with a capital C with a caron is
-     * found by its first letters typed with the caron or without it, in either
-     * case, which a {@code LOWER(name)} could not do — SQLite folds ASCII only.
-     * Addresses are matched against {@code q}, the query lower-cased and nothing
-     * else: they are stored lower-cased, and an address is typed the way it is
-     * spelled.
+     * Addresses are compared with the same folded word as the names: they are
+     * stored lower-cased and in practice ASCII, so folding the word is what lets a
+     * name typed with its diacritics find an address spelled without them.
+     * <p>
+     * Shared by {@link #search} and {@link #findForTypeahead} so the list and the
+     * compose window can never disagree on what matches.
+     */
+    String WORDS_MATCH = """
+            (:w1 IS NULL OR c.nameFold LIKE :w1 ESCAPE '\\' OR c.surnameFold LIKE :w1 ESCAPE '\\'
+                OR EXISTS (SELECT 1 FROM ContactEmailEntity e1
+                           WHERE e1.contact = c AND LOWER(e1.email) LIKE :w1 ESCAPE '\\'))
+            AND (:w2 IS NULL OR c.nameFold LIKE :w2 ESCAPE '\\' OR c.surnameFold LIKE :w2 ESCAPE '\\'
+                OR EXISTS (SELECT 1 FROM ContactEmailEntity e2
+                           WHERE e2.contact = c AND LOWER(e2.email) LIKE :w2 ESCAPE '\\'))
+            AND (:w3 IS NULL OR c.nameFold LIKE :w3 ESCAPE '\\' OR c.surnameFold LIKE :w3 ESCAPE '\\'
+                OR EXISTS (SELECT 1 FROM ContactEmailEntity e3
+                           WHERE e3.contact = c AND LOWER(e3.email) LIKE :w3 ESCAPE '\\'))
+            AND (:w4 IS NULL OR c.nameFold LIKE :w4 ESCAPE '\\' OR c.surnameFold LIKE :w4 ESCAPE '\\'
+                OR EXISTS (SELECT 1 FROM ContactEmailEntity e4
+                           WHERE e4.contact = c AND LOWER(e4.email) LIKE :w4 ESCAPE '\\'))
+            """;
+
+    /**
+     * The address book search: {@link #WORDS_MATCH} with an optional filter by
+     * contact label. Subqueries instead of a JOIN avoid duplicates when a contact
+     * has several addresses, and keep paging exact.
      * <p>
      * Like {@link #findAllFiltered}, the collections are batch-loaded rather than
      * fetch-joined so {@code Pageable} stays a SQL-level limit (no HHH90003004).
      */
-    @Query("""
-            SELECT DISTINCT c FROM ContactEntity c
-            WHERE (EXISTS (SELECT e FROM ContactEmailEntity e
-                           WHERE e.contact = c AND LOWER(e.email) LIKE :q)
-                   OR c.nameFold LIKE :qFold
-                   OR c.surnameFold LIKE :qFold)
+    @Query("SELECT DISTINCT c FROM ContactEntity c WHERE " + WORDS_MATCH + """
               AND (:labelId IS NULL OR EXISTS (SELECT 1 FROM ContactEntity c2 JOIN c2.labels cl
                                                 WHERE c2.id = c.id AND cl.id = :labelId))
             """)
-    Page<ContactEntity> search(@Param("q") String q, @Param("qFold") String qFold,
+    Page<ContactEntity> search(@Param("w1") String w1, @Param("w2") @Nullable String w2,
+            @Param("w3") @Nullable String w3, @Param("w4") @Nullable String w4,
             @Param("labelId") @Nullable Long labelId, Pageable pageable);
+
+    /**
+     * The address book half of the compose typeahead, best matches first, so the
+     * {@code Pageable}'s limit keeps the contacts worth suggesting. Fetching in the
+     * listing's alphabetical order and ranking afterwards used to let a short query
+     * fill the limit with weak matches: for "in", every Martin and Kristina sorted
+     * before Z, and the contact whose address starts with {@code info@} but whose
+     * surname starts with Z never reached the ranking at all.
+     * <p>
+     * The rank mirrors {@code ContactAutocompleteService}'s per-address ranking,
+     * taken at the contact's best address: an address starting with the query, then
+     * the folded "surname name" starting with it, then "name surname", then any
+     * other match. {@code :prefix} is the query's words joined by spaces as an
+     * escaped prefix pattern, so "Novak, Jan" ranks as the surname-first prefix it
+     * is. Within one rank, the listing's own order.
+     * <p>
+     * No {@code DISTINCT}: every condition is a subquery, so a contact appears
+     * once, and an {@code ORDER BY} on an expression outside the select list is not
+     * portable under {@code DISTINCT}.
+     */
+    @Query("SELECT c FROM ContactEntity c WHERE " + WORDS_MATCH + """
+            ORDER BY
+                CASE
+                    WHEN EXISTS (SELECT 1 FROM ContactEmailEntity ep
+                                 WHERE ep.contact = c AND LOWER(ep.email) LIKE :prefix ESCAPE '\\') THEN 0
+                    WHEN CONCAT(c.surnameFold, COALESCE(CONCAT(' ', c.nameFold), '')) LIKE :prefix ESCAPE '\\'
+                        THEN 1
+                    WHEN CONCAT(c.nameFold, COALESCE(CONCAT(' ', c.surnameFold), '')) LIKE :prefix ESCAPE '\\'
+                        THEN 2
+                    ELSE 3
+                END,
+                c.surnameFold ASC NULLS LAST, c.nameFold ASC NULLS LAST, c.surname, c.name, c.id
+            """)
+    List<ContactEntity> findForTypeahead(@Param("w1") String w1, @Param("w2") @Nullable String w2,
+            @Param("w3") @Nullable String w3, @Param("w4") @Nullable String w4, @Param("prefix") String prefix,
+            Pageable pageable);
 
     /**
      * Batch variant of the duplicate check for create/update/patch contact. Returns

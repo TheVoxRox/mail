@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -22,7 +23,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.voxrox.mailbackend.exception.AccountNotFoundException;
@@ -82,7 +82,7 @@ class ContactAutocompleteServiceTest {
     @DisplayName("autocomplete — empty q -> ValidationException")
     void autocompleteBlankQ() {
         assertThatThrownBy(() -> service.autocomplete(ACCOUNT_ID, "  ", 10)).isInstanceOf(ValidationException.class);
-        verify(contactRepository, never()).search(anyString(), anyString(), any(), any());
+        verify(contactRepository, never()).findForTypeahead(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -98,8 +98,8 @@ class ContactAutocompleteServiceTest {
         // Email prefix match (rank 0)
         ContactEntity c4 = namedContact(4L, "Xena", "Warrior", "ali@example.com");
 
-        when(contactRepository.search(eq("%ali%"), eq("%ali%"), eq(null), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(c1, c2, c3, c4)));
+        when(contactRepository.findForTypeahead(eq("%ali%"), isNull(), isNull(), isNull(), eq("ali%"),
+                any(Pageable.class))).thenReturn(List.of(c1, c2, c3, c4));
 
         List<ContactAutocompleteResponse> result = service.autocomplete(ACCOUNT_ID, "ali", 10);
 
@@ -119,8 +119,8 @@ class ContactAutocompleteServiceTest {
         ContactEntity substring = namedContact(1L, "Alena", "Kocerová", "alena@example.com");
         // Surname prefix of the folded "cermak" (rank 1).
         ContactEntity surname = namedContact(2L, "Jan", "Čermák", "jan@example.com");
-        when(contactRepository.search(eq("%" + query.toLowerCase(java.util.Locale.ROOT) + "%"), eq("%cer%"), eq(null),
-                any(Pageable.class))).thenReturn(new PageImpl<>(List.of(substring, surname)));
+        when(contactRepository.findForTypeahead(eq("%cer%"), isNull(), isNull(), isNull(), eq("cer%"),
+                any(Pageable.class))).thenReturn(List.of(substring, surname));
         // Display-name prefix of the folded "cermakova eva" (rank 2).
         when(correspondentService.search(eq(ACCOUNT_ID), anyString(), anyInt()))
                 .thenReturn(List.of(correspondent("eva@example.com", "Čermáková Eva")));
@@ -132,12 +132,43 @@ class ContactAutocompleteServiceTest {
     }
 
     @Test
+    @DisplayName("autocomplete — a query of several words ranks the full name as the prefix it is")
+    void autocompleteRanksFullNames() {
+        // "jan no" is the start of "jan novak", given name first (rank 2).
+        ContactEntity nameFirst = namedContact(1L, "Jan", "Novák", "jan@example.com");
+        // Both words occur, but neither full name starts with them (rank 3).
+        ContactEntity scattered = namedContact(2L, "Jana", "Nováková", "jana@example.com");
+        when(contactRepository.findForTypeahead(eq("%jan%"), eq("%no%"), isNull(), isNull(), eq("jan no%"),
+                any(Pageable.class))).thenReturn(List.of(scattered, nameFirst));
+
+        List<ContactAutocompleteResponse> result = service.autocomplete(ACCOUNT_ID, "Jan  No", 10);
+
+        assertThat(result).extracting(ContactAutocompleteResponse::email).containsExactly("jan@example.com",
+                "jana@example.com");
+    }
+
+    @Test
+    @DisplayName("autocomplete — Surname, Name ranks as a surname prefix")
+    void autocompleteRanksSurnameFirst() {
+        ContactEntity jan = namedContact(1L, "Jan", "Novák", "jan@example.com");
+        // Substring only (rank 3), and alphabetically first.
+        ContactEntity other = namedContact(2L, "Jana", "Adámková", "novak.jan@example.org");
+        when(contactRepository.findForTypeahead(eq("%novak%"), eq("%jan%"), isNull(), isNull(), eq("novak jan%"),
+                any(Pageable.class))).thenReturn(List.of(other, jan));
+
+        List<ContactAutocompleteResponse> result = service.autocomplete(ACCOUNT_ID, "Novák, Jan", 10);
+
+        assertThat(result).extracting(ContactAutocompleteResponse::email).containsExactly("jan@example.com",
+                "novak.jan@example.org");
+    }
+
+    @Test
     @DisplayName("autocomplete — flattening: a contact with 2 emails produces 2 rows")
     void autocompleteFlattensEmails() {
 
         ContactEntity c = namedContact(10L, "Alice", "Liddell", "work@x.cz", "home@x.cz");
-        when(contactRepository.search(anyString(), anyString(), eq(null), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(c)));
+        when(contactRepository.findForTypeahead(anyString(), any(), any(), any(), anyString(), any(Pageable.class)))
+                .thenReturn(List.of(c));
 
         List<ContactAutocompleteResponse> result = service.autocomplete(ACCOUNT_ID, "alice", 10);
 
@@ -160,8 +191,8 @@ class ContactAutocompleteServiceTest {
         }
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        when(contactRepository.search(anyString(), anyString(), eq(null), pageableCaptor.capture()))
-                .thenReturn(new PageImpl<>(many.subList(0, 20)));
+        when(contactRepository.findForTypeahead(anyString(), any(), any(), any(), anyString(),
+                pageableCaptor.capture())).thenReturn(many.subList(0, 20));
 
         List<ContactAutocompleteResponse> result = service.autocomplete(ACCOUNT_ID, "x", 100);
 
@@ -188,8 +219,8 @@ class ContactAutocompleteServiceTest {
     @Test
     @DisplayName("autocomplete — harvested addresses are offered and marked as not being contacts")
     void autocompleteIncludesHistory() {
-        when(contactRepository.search(anyString(), anyString(), eq(null), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of()));
+        when(contactRepository.findForTypeahead(anyString(), any(), any(), any(), anyString(), any(Pageable.class)))
+                .thenReturn(List.of());
         CorrespondentEntity harvested = correspondent("jan.dvorak@example.com", "Jan Dvorak");
         // The id is generated by the database, and the entity has no setter for it.
         ReflectionTestUtils.setField(harvested, "id", 33L);
@@ -216,8 +247,8 @@ class ContactAutocompleteServiceTest {
     @DisplayName("autocomplete — an address in both sources appears once, as the contact")
     void autocompleteDeduplicatesAcrossSources() {
         ContactEntity jana = namedContact(1L, "Jana", "Novak", "jana@example.com");
-        when(contactRepository.search(anyString(), anyString(), eq(null), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(jana)));
+        when(contactRepository.findForTypeahead(anyString(), any(), any(), any(), anyString(), any(Pageable.class)))
+                .thenReturn(List.of(jana));
         when(correspondentService.search(eq(ACCOUNT_ID), eq("jana"), anyInt()))
                 .thenReturn(List.of(correspondent("jana@example.com", "Jana Novak")));
 
@@ -234,8 +265,8 @@ class ContactAutocompleteServiceTest {
         // matches the prefix (rank 0), so it has to come first even though the
         // address book is the preferred source on a tie.
         ContactEntity weak = namedContact(1L, "Zara", "Smith", "contact.ali@example.com");
-        when(contactRepository.search(anyString(), anyString(), eq(null), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(weak)));
+        when(contactRepository.findForTypeahead(anyString(), any(), any(), any(), anyString(), any(Pageable.class)))
+                .thenReturn(List.of(weak));
         when(correspondentService.search(eq(ACCOUNT_ID), eq("ali"), anyInt()))
                 .thenReturn(List.of(correspondent("ali@example.com", "Ali Baba")));
 
@@ -249,8 +280,8 @@ class ContactAutocompleteServiceTest {
     @DisplayName("autocomplete — a contact wins a rank tie against an equally good history row")
     void autocompleteContactWinsTie() {
         ContactEntity contact = namedContact(1L, "Alice", "Smith", "ali.contact@example.com");
-        when(contactRepository.search(anyString(), anyString(), eq(null), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(contact)));
+        when(contactRepository.findForTypeahead(anyString(), any(), any(), any(), anyString(), any(Pageable.class)))
+                .thenReturn(List.of(contact));
         when(correspondentService.search(eq(ACCOUNT_ID), eq("ali"), anyInt()))
                 .thenReturn(List.of(correspondent("ali.history@example.com", "Ali History")));
 
@@ -263,9 +294,9 @@ class ContactAutocompleteServiceTest {
     @Test
     @DisplayName("autocomplete — the limit applies to the merged list, not per source")
     void autocompleteLimitsTheMergedList() {
-        when(contactRepository.search(anyString(), anyString(), eq(null), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(namedContact(1L, "Ann", "A", "ali1@example.com"),
-                        namedContact(2L, "Ann", "B", "ali2@example.com"))));
+        when(contactRepository.findForTypeahead(anyString(), any(), any(), any(), anyString(), any(Pageable.class)))
+                .thenReturn(List.of(namedContact(1L, "Ann", "A", "ali1@example.com"),
+                        namedContact(2L, "Ann", "B", "ali2@example.com")));
         when(correspondentService.search(eq(ACCOUNT_ID), eq("ali"), anyInt())).thenReturn(
                 List.of(correspondent("ali3@example.com", "Ali Three"), correspondent("ali4@example.com", "Ali Four")));
 

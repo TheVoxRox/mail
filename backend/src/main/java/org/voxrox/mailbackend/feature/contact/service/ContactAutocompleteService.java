@@ -2,7 +2,6 @@ package org.voxrox.mailbackend.feature.contact.service;
 
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.voxrox.mailbackend.exception.ValidationException;
@@ -63,9 +62,9 @@ public class ContactAutocompleteService {
      * addresses ranked by relevance to the {@code q} prefix:
      * <ol>
      * <li>email prefix match</li>
-     * <li>surname prefix match</li>
-     * <li>name prefix match</li>
-     * <li>other substring matches</li>
+     * <li>surname prefix match ("surname name", so "novak j" counts)</li>
+     * <li>name prefix match ("name surname", so "jan no" counts)</li>
+     * <li>other matches: every word of the query somewhere in the contact</li>
      * </ol>
      *
      * <p>
@@ -115,11 +114,11 @@ public class ContactAutocompleteService {
         // substring match and sort it below every weak contact match.
         String qLower = q.trim().toLowerCase(Locale.ROOT);
         // The names are compared folded (TextFold), so "cer" ranks a surname that
-        // starts with a C with a caron as the surname prefix match it is. Addresses
-        // keep qLower: they are stored lower-cased and compared as spelled.
+        // starts with a C with a caron as the surname prefix match it is. The
+        // history half keeps the whole folded query, the form its own SQL matches.
         String qFold = TextFold.fold(qLower);
 
-        List<AutocompleteRow> rows = new ArrayList<>(contactRows(qLower, qFold, cappedLimit));
+        List<AutocompleteRow> rows = new ArrayList<>(contactRows(ContactSearchTerms.of(qLower), cappedLimit));
         Set<String> offered = rows.stream().map(r -> r.response().email().toLowerCase(Locale.ROOT))
                 .collect(Collectors.toCollection(HashSet::new));
         rows.addAll(historyRows(accountId, qLower, qFold, cappedLimit, offered));
@@ -131,16 +130,21 @@ public class ContactAutocompleteService {
     /**
      * The address book half. Not account-scoped — the whole point of a single
      * address book is that composing from any mailbox can reach every contact the
-     * user saved. Fetched in the address book's own default order, so the contacts
-     * that make the cut are the ones its listing would show first.
+     * user saved. Fetched best match first
+     * ({@code ContactRepository.findForTypeahead}), so the limit keeps the
+     * strongest contacts rather than the alphabetically first ones, and ranked here
+     * per address by the same rules.
      */
-    private List<AutocompleteRow> contactRows(String qLower, String qFold, int cappedLimit) {
-        Pageable pageable = PageRequest.of(0, cappedLimit, ContactService.DEFAULT_SORT);
-        List<ContactEntity> matched = contactRepository.search(ContactService.containsPattern(qLower),
-                ContactService.foldedContainsPattern(qLower), (Long) null, pageable).getContent();
+    private List<AutocompleteRow> contactRows(ContactSearchTerms terms, int cappedLimit) {
+        if (terms.isEmpty()) {
+            return List.of();
+        }
+        List<ContactEntity> matched = contactRepository.findForTypeahead(Objects.requireNonNull(terms.word(0)),
+                terms.word(1), terms.word(2), terms.word(3), terms.phrasePrefix(), PageRequest.of(0, cappedLimit));
 
+        String phrase = terms.phrase();
         List<AutocompleteRow> ranked = matched.stream()
-                .flatMap(c -> c.getEmails().stream().map(e -> toContactRow(c, e, qLower, qFold))).sorted(CONTACT_ORDER)
+                .flatMap(c -> c.getEmails().stream().map(e -> toContactRow(c, e, phrase))).sorted(CONTACT_ORDER)
                 .limit(cappedLimit).toList();
 
         // Stamp each row with the position it landed on, so the merge preserves this
@@ -179,21 +183,37 @@ public class ContactAutocompleteService {
     }
 
     /**
-     * The names are compared in their stored folded form, the one the search
-     * matched them on; a name the SQL found by "cer" has to rank by the same rule,
-     * or every surname with a diacritic would score as a mere substring match.
+     * Ranks one address of a contact against {@code phrase}, the query's folded
+     * words joined by single spaces ({@code ContactSearchTerms.phrase}). The SQL
+     * that picked the contact ranks it by the same three prefixes, so the contacts
+     * the limit keeps are the ones that rank highest here. The names are compared
+     * in their stored folded form: a name the SQL found by "cer" has to rank by the
+     * same rule, or every surname with a diacritic would score as a mere substring
+     * match.
      */
-    private static int rankOfContact(ContactEntity contact, ContactEmailEntity email, String qLower, String qFold) {
-        if (email.getEmail().toLowerCase(Locale.ROOT).startsWith(qLower)) {
+    private static int rankOfContact(ContactEntity contact, ContactEmailEntity email, String phrase) {
+        if (email.getEmail().toLowerCase(Locale.ROOT).startsWith(phrase)) {
             return 0;
         }
-        if (startsWith(contact.getSurnameFold(), qFold)) {
+        if (startsWith(joined(contact.getSurnameFold(), contact.getNameFold()), phrase)) {
             return 1;
         }
-        if (startsWith(contact.getNameFold(), qFold)) {
+        if (startsWith(joined(contact.getNameFold(), contact.getSurnameFold()), phrase)) {
             return 2;
         }
         return 3;
+    }
+
+    /**
+     * {@code first}, then {@code second} after a space when there is one; null when
+     * {@code first} is — the CONCAT and COALESCE of {@code findForTypeahead}'s
+     * rank, written in Java.
+     */
+    private static @Nullable String joined(@Nullable String first, @Nullable String second) {
+        if (first == null) {
+            return null;
+        }
+        return second == null ? first : first + " " + second;
     }
 
     private static boolean startsWith(@Nullable String folded, String qFold) {
@@ -215,11 +235,10 @@ public class ContactAutocompleteService {
         return startsWith(TextFold.key(correspondent.getDisplayName()), qFold) ? 2 : 3;
     }
 
-    private static AutocompleteRow toContactRow(ContactEntity contact, ContactEmailEntity email, String qLower,
-            String qFold) {
+    private static AutocompleteRow toContactRow(ContactEntity contact, ContactEmailEntity email, String phrase) {
         ContactAutocompleteResponse resp = ContactAutocompleteResponse.ofContact(contact.getId(), email.getId(),
                 email.getEmail(), email.getLabel(), email.isPrimary(), contact.getName(), contact.getSurname());
-        return new AutocompleteRow(rankOfContact(contact, email, qLower, qFold), CONTACT_FIRST, 0, resp);
+        return new AutocompleteRow(rankOfContact(contact, email, phrase), CONTACT_FIRST, 0, resp);
     }
 
     /**
