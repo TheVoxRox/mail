@@ -365,15 +365,6 @@ export interface ContactUpdateRequest {
 	note?: string | null;
 }
 
-export interface ContactPatchRequest {
-	emails?: ContactEmailRequest[] | null;
-	/** Absent keeps the current labels; an explicit empty list clears them. */
-	labelIds?: number[] | null;
-	name?: string | null;
-	surname?: string | null;
-	note?: string | null;
-}
-
 export interface ContactResponse {
 	id: number;
 	emails: ContactEmailResponse[];
@@ -393,7 +384,7 @@ export interface ContactLabelCountResponse {
 }
 
 /**
- * Sidebar counts. Every label of the account is present, including ones no
+ * Sidebar counts. Every label of the address book is present, including ones no
  * contact carries yet — otherwise a freshly created label would be invisible.
  */
 export interface ContactCountsResponse {

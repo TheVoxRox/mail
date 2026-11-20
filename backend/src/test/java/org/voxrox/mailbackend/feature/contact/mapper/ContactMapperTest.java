@@ -12,7 +12,6 @@ import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.contact.EmailLabel;
 import org.voxrox.mailbackend.feature.contact.dto.ContactCreateRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactEmailRequest;
-import org.voxrox.mailbackend.feature.contact.dto.ContactPatchRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactUpdateRequest;
 import org.voxrox.mailbackend.feature.contact.entity.ContactEmailEntity;
@@ -106,52 +105,6 @@ class ContactMapperTest {
     }
 
     @Test
-    @DisplayName("applyPatch — non-null fields overwrite, null fields keep the original value")
-    void applyPatchOnlyNonNull() {
-        ContactEntity e = entityWithEmails("old@x.cz");
-        e.setName("Old");
-        e.setSurname("Name");
-        e.setNote("Old note");
-
-        mapper.applyPatch(e, new ContactPatchRequest(null, null, "NewName", null, null), null);
-
-        assertThat(e.getEmails()).hasSize(1);
-        assertThat(e.getEmails().get(0).getEmail()).isEqualTo("old@x.cz");
-        assertThat(e.getName()).isEqualTo("NewName");
-        assertThat(e.getSurname()).isEqualTo("Name");
-        assertThat(e.getNote()).isEqualTo("Old note");
-    }
-
-    @Test
-    @DisplayName("applyPatch — all fields null -> no change")
-    void applyPatchAllNull() {
-        ContactEntity e = entityWithEmails("old@x.cz");
-        e.setName("Old");
-        e.setSurname("Name");
-
-        mapper.applyPatch(e, new ContactPatchRequest(null, null, null, null, null), null);
-
-        assertThat(e.getEmails()).hasSize(1);
-        assertThat(e.getEmails().get(0).getEmail()).isEqualTo("old@x.cz");
-        assertThat(e.getName()).isEqualTo("Old");
-    }
-
-    @Test
-    @DisplayName("applyPatch — non-null emails replace the entire list (replace semantics)")
-    void applyPatchEmailsReplaces() {
-        ContactEntity e = entityWithEmails("old@x.cz");
-
-        mapper.applyPatch(e, new ContactPatchRequest(List.of(new ContactEmailRequest("new1@x.cz", EmailLabel.WORK),
-                new ContactEmailRequest("new2@x.cz", EmailLabel.HOME)), null, null, null, null), null);
-
-        assertThat(e.getEmails()).hasSize(2);
-        assertThat(e.getEmails().get(0).getEmail()).isEqualTo("new1@x.cz");
-        assertThat(e.getEmails().get(0).isPrimary()).isTrue();
-        assertThat(e.getEmails().get(1).getEmail()).isEqualTo("new2@x.cz");
-        assertThat(e.getEmails().get(1).isPrimary()).isFalse();
-    }
-
-    @Test
     @DisplayName("normalizeEmail — trim + lowercase, null propaguje")
     void normalizeEmailBehavior() {
         assertThat(mapper.normalizeEmail("  Alice@Example.COM  ")).isEqualTo("alice@example.com");
@@ -171,16 +124,4 @@ class ContactMapperTest {
         assertThat(e.getEmails().get(0).getEmail()).isEqualTo("alice@example.com");
     }
 
-    @Test
-    @DisplayName("applyPatch — surname can be changed independently")
-    void applyPatchSurnameOnly() {
-        ContactEntity e = entityWithEmails("a@b.cz");
-        e.setName("Alice");
-        e.setSurname("Old");
-
-        mapper.applyPatch(e, new ContactPatchRequest(null, null, null, "Liddell", null), null);
-
-        assertThat(e.getName()).isEqualTo("Alice");
-        assertThat(e.getSurname()).isEqualTo("Liddell");
-    }
 }

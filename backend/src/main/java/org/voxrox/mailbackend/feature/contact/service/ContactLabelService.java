@@ -201,10 +201,10 @@ public class ContactLabelService {
     }
 
     /**
-     * Resolves the label IDs of a contact create/update/patch to entities. Returns
-     * an empty set for {@code null} or an empty list, so the caller can use
-     * "replace with nothing" and "no labels given" interchangeably where its own
-     * semantics say so.
+     * Resolves the label IDs of a contact create/update to entities. Returns an
+     * empty set for {@code null} or an empty list, so the caller can use "replace
+     * with nothing" and "no labels given" interchangeably where its own semantics
+     * say so.
      *
      * @throws ContactLabelNotFoundException
      *             if any ID is unknown

@@ -29,7 +29,6 @@ import type {
 	ContactLabelResponse,
 	ContactLabelUpdateRequest,
 	ContactMergeRequest,
-	ContactPatchRequest,
 	ContactResponse,
 	ContactUpdateRequest,
 	DraftRequest,
@@ -799,11 +798,6 @@ function contactRoutes(
 			return request
 				.json()
 				.then((body) => HttpResponse.json(upsertContact(body as ContactUpdateRequest, contactId)));
-		}
-		if (method === 'PATCH') {
-			return request
-				.json()
-				.then((body) => HttpResponse.json(upsertContact(body as ContactPatchRequest, contactId)));
 		}
 	}
 

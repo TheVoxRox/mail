@@ -77,9 +77,6 @@ type _ContactCreateRequestMatchesSchema = Assert<
 type _ContactUpdateRequestMatchesSchema = Assert<
 	LocalDtoMatchesSchema<Local.ContactUpdateRequest, Generated.ContactUpdateRequest>
 >;
-type _ContactPatchRequestMatchesSchema = Assert<
-	LocalDtoMatchesSchema<Local.ContactPatchRequest, Generated.ContactPatchRequest>
->;
 type _ContactResponseMatchesSchema = Assert<
 	LocalDtoMatchesSchema<Local.ContactResponse, Generated.ContactResponse>
 >;

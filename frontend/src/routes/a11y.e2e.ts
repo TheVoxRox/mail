@@ -670,7 +670,7 @@ test.describe('Přístupnost', () => {
 		await expect(page.getByRole('listbox')).toHaveCount(0);
 		await expect(applyFilter).toBeDisabled();
 
-		// The options are the account's own labels, so select by visible name.
+		// The options are the address book labels, so select by visible name.
 		await labelFilter.selectOption({ label: 'Klienti' });
 		await expect(labelFilter).toHaveValue('1');
 		expect(new URL(page.url()).searchParams.get('labelId')).toBeNull();

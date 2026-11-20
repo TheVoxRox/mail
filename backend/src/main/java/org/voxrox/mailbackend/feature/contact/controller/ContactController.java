@@ -29,7 +29,6 @@ import org.voxrox.mailbackend.feature.contact.dto.ContactAutocompleteResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactCountsResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactCreateRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactMergeRequest;
-import org.voxrox.mailbackend.feature.contact.dto.ContactPatchRequest;
 import org.voxrox.mailbackend.feature.contact.dto.ContactResponse;
 import org.voxrox.mailbackend.feature.contact.dto.ContactUpdateRequest;
 import org.voxrox.mailbackend.feature.contact.service.ContactAutocompleteService;
@@ -191,16 +190,6 @@ public class ContactController {
     public ContactResponse updateContact(@PathVariable @Positive(message = "{validation.positive}") Long contactId,
             @Valid @RequestBody ContactUpdateRequest request) {
         return contactService.updateContact(contactId, request);
-    }
-
-    @Operation(summary = "Partial contact update", description = "Updates only the non-null fields from the request.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "404", description = "A contact with the given ID does not exist (CONTACT_NOT_FOUND)."),
-            @ApiResponse(responseCode = "409", description = "The target e-mail is already used by another contact (CONTACT_DUPLICATE).")})
-    @PatchMapping("/{contactId}")
-    public ContactResponse patchContact(@PathVariable @Positive(message = "{validation.positive}") Long contactId,
-            @Valid @RequestBody ContactPatchRequest request) {
-        return contactService.patchContact(contactId, request);
     }
 
     @Operation(summary = "Delete contact", description = "Removes the contact from the address book.")

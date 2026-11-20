@@ -12,7 +12,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 /**
  * PUT semantics — the emails list replaces all existing addresses, and so does
  * {@code labelIds}: omitting it (or sending an empty list) clears the contact's
- * labels, it does not keep them. Use PATCH to leave them alone.
+ * labels, it does not keep them. The contact form always sends the labels the
+ * contact shows, so an edit that never opens the label group keeps them.
  */
 public record ContactUpdateRequest(
         @NotEmpty(message = "{validation.contact.emailRequired}") @Size(max = 10, message = "{validation.size.max}") @Valid List<ContactEmailRequest> emails,

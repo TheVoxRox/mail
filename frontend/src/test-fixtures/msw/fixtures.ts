@@ -5,7 +5,6 @@ import type {
 	AttachmentResponse,
 	ContactCreateRequest,
 	ContactEmailResponse,
-	ContactPatchRequest,
 	ContactLabelResponse,
 	ContactResponse,
 	ContactUpdateRequest,
@@ -1157,7 +1156,7 @@ export function upsertAccount(
 }
 
 export function upsertContact(
-	body: ContactCreateRequest | ContactUpdateRequest | ContactPatchRequest,
+	body: ContactCreateRequest | ContactUpdateRequest,
 	id = Math.max(0, ...fixtureState.contacts.map((contact) => contact.id)) + 1
 ): ContactResponse {
 	const contacts = fixtureState.contacts;

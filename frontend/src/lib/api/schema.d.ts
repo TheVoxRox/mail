@@ -461,11 +461,7 @@ export interface paths {
 		delete: operations['deleteContact'];
 		options?: never;
 		head?: never;
-		/**
-		 * Partial contact update
-		 * @description Updates only the non-null fields from the request.
-		 */
-		patch: operations['patchContact'];
+		patch?: never;
 		trace?: never;
 	};
 	'/api/v1/contacts/{targetId}/merge': {
@@ -1064,7 +1060,7 @@ export interface components {
 		};
 		ContactCreateRequest: {
 			emails: components['schemas']['ContactEmailRequest'][];
-			/** @description Contact labels to attach, by ID. Omit or send an empty list for no labels; every ID must belong to the same account. */
+			/** @description Contact labels to attach, by ID. Omit or send an empty list for no labels; an ID that names no contact label is a 404 (CONTACT_LABEL_NOT_FOUND). */
 			labelIds?: number[];
 			name?: string;
 			note?: string;
@@ -1151,14 +1147,6 @@ export interface components {
 		};
 		ContactMergeRequest: {
 			source: number[];
-		};
-		ContactPatchRequest: {
-			emails?: components['schemas']['ContactEmailRequest'][];
-			/** @description Contact labels after the patch, by ID. Replace semantics when present; omit to keep the current labels. */
-			labelIds?: number[];
-			name?: string;
-			note?: string;
-			surname?: string;
 		};
 		ContactResponse: {
 			/** Format: date-time */
@@ -3143,75 +3131,6 @@ export interface operations {
 					[name: string]: unknown;
 				};
 				content?: never;
-			};
-			/** @description Internal server error. */
-			500: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Service Unavailable */
-			503: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content?: never;
-			};
-		};
-	};
-	patchContact: {
-		parameters: {
-			query?: never;
-			header?: never;
-			path: {
-				contactId: number;
-			};
-			cookie?: never;
-		};
-		requestBody: {
-			content: {
-				'application/json': components['schemas']['ContactPatchRequest'];
-			};
-		};
-		responses: {
-			/** @description Invalid input (validation error). */
-			400: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description Missing or invalid X-API-KEY. */
-			401: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'application/problem+json': components['schemas']['ProblemDetail'];
-				};
-			};
-			/** @description A contact with the given ID does not exist (CONTACT_NOT_FOUND). */
-			404: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactResponse'];
-				};
-			};
-			/** @description The target e-mail is already used by another contact (CONTACT_DUPLICATE). */
-			409: {
-				headers: {
-					[name: string]: unknown;
-				};
-				content: {
-					'*/*': components['schemas']['ContactResponse'];
-				};
 			};
 			/** @description Internal server error. */
 			500: {

@@ -74,7 +74,7 @@
 	 * what the contact had, or it would silently lose its labels.
 	 */
 	let labelIds = $state<number[]>([]);
-	/** Every label of the account, from the store the sidebar badges already use. */
+	/** Every label of the address book, from the store the sidebar badges already use. */
 	const availableLabels = $derived($contactCounts?.labels ?? []);
 	let busy = $state(false);
 	let error = $state<string | null>(null);

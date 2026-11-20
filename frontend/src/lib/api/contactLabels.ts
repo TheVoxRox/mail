@@ -17,7 +17,7 @@ export function listContactLabels(): Promise<ContactLabelResponse[]> {
 	return api.get<ContactLabelResponse[]>(`/contact-labels`);
 }
 
-/** 409 when the account already has a label with this name (case-insensitively). */
+/** 409 when the address book already has a label with this name (case-insensitively). */
 export function createContactLabel(body: ContactLabelCreateRequest): Promise<ContactLabelResponse> {
 	return api.post<ContactLabelResponse>(`/contact-labels`, body);
 }
