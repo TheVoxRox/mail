@@ -1303,7 +1303,8 @@ the same and is left for the next change to the file.)
 
 ## 9. Change log
 
-- **1.32** (2026-11-20) — **one endpoint removed, one description corrected**,
+- **1.32** (2026-11-20) — **one endpoint removed, one description corrected**
+  (#978),
   by the session that wrote #974 to #977 and so **waiting for an independent
   pass**. Removed: `PATCH /api/v1/contacts/{contactId}`, which the client
   never called — the contact form sends the whole contact through
