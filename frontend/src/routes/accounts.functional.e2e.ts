@@ -767,6 +767,42 @@ test.describe('Accounts', () => {
 		expect(probeRequests).toHaveLength(0);
 	});
 
+	test('úprava účtu pošle textová pole bez okolních mezer, prázdné jako null', async ({ page }) => {
+		const putBodies: unknown[] = [];
+		const probeRequests: string[] = [];
+		page.on('request', (request) => {
+			if (request.method() === 'PUT' && /\/api\/v1\/accounts\/2$/.test(request.url())) {
+				putBodies.push(request.postDataJSON());
+			}
+			if (request.url().endsWith('/api/v1/accounts/test-connection')) {
+				probeRequests.push(request.url());
+			}
+		});
+
+		await openApp(page, '/settings/accounts/2');
+		await expect(page.locator('#acc-accountName')).toHaveValue('Osobní účet');
+
+		await page.locator('#acc-accountName').fill('  Osobní účet ');
+		// A pasted address with a trailing space: the form's check trims it, the
+		// server's used to refuse it.
+		await page.locator('#acc-email').fill('personal@another.test ');
+		await page.locator('#acc-displayName').fill('   ');
+		await page.locator('#acc-signature').fill('\nJan Novák\n\n');
+		await page.getByRole('button', { name: 'Uložit změny' }).click();
+
+		await page.waitForURL('**/settings/accounts');
+		expect(putBodies).toHaveLength(1);
+		expect(putBodies[0]).toMatchObject({
+			accountName: 'Osobní účet',
+			email: 'personal@another.test',
+			displayName: null,
+			signature: 'Jan Novák'
+		});
+		// Stripped, the address is the one already stored, so the save did not
+		// treat it as a changed login.
+		expect(probeRequests).toHaveLength(0);
+	});
+
 	test('změna hesla v editaci se neuloží, když ho server odmítne', async ({ page }) => {
 		await setMockFlags(page, { connectionTestAuthFailure: true });
 
