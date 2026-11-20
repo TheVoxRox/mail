@@ -10,6 +10,7 @@ import jakarta.persistence.*;
 
 import org.hibernate.annotations.BatchSize;
 import org.jspecify.annotations.Nullable;
+import org.voxrox.mailbackend.util.StoredText;
 import org.voxrox.mailbackend.util.TextFold;
 
 @Entity
@@ -129,18 +130,25 @@ public class ContactEntity {
         return name;
     }
 
+    /**
+     * Stores the name without surrounding whitespace, a blank one as null
+     * ({@link StoredText}), and derives its folded key. Here rather than in the
+     * callers so that no write path can store the whitespace; the rows stored
+     * before this rule were cleaned by {@code V3__Strip_contact_names}.
+     */
     public void setName(@Nullable String name) {
-        this.name = name;
-        this.nameFold = TextFold.key(name);
+        this.name = StoredText.stripToNull(name);
+        this.nameFold = TextFold.key(this.name);
     }
 
     public @Nullable String getSurname() {
         return surname;
     }
 
+    /** As {@link #setName}. */
     public void setSurname(@Nullable String surname) {
-        this.surname = surname;
-        this.surnameFold = TextFold.key(surname);
+        this.surname = StoredText.stripToNull(surname);
+        this.surnameFold = TextFold.key(this.surname);
     }
 
     public @Nullable String getNameFold() {
@@ -155,8 +163,11 @@ public class ContactEntity {
         return note;
     }
 
+    /**
+     * As {@link #setName}, without a folded key: the search does not read notes.
+     */
     public void setNote(@Nullable String note) {
-        this.note = note;
+        this.note = StoredText.stripToNull(note);
     }
 
     public LocalDateTime getCreatedAt() {

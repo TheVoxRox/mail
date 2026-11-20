@@ -50,7 +50,8 @@ class FoldKeysMigrationTest {
                     + ")");
         }
 
-        MigrateResult result = flyway(url).load().migrate();
+        // Up to V2 alone: V3 strips the names, and this test is about what V2 wrote.
+        MigrateResult result = flyway(url).target("2").load().migrate();
         assertThat(result.migrationsExecuted).isEqualTo(1);
 
         try (Connection connection = DriverManager.getConnection(url)) {
