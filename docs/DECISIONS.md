@@ -88,7 +88,7 @@ the address book.
 correspondence history of the compose suggestions are searched and ordered by
 a stored folded key: lower case, without diacritics
 ([TextFold.java](../backend/src/main/java/org/voxrox/mailbackend/util/TextFold.java)).
-`V2__Fold_keys_for_names` added the columns and filled them in; the entity
+`V2__Fold_keys_and_strip_text` added the columns and filled them in; the entity
 setters and the harvest keep them current. "cer" finds "Čermák", "novak" finds
 "Novák", and "Čermák" sorts among the C names instead of after Z.
 
@@ -111,6 +111,63 @@ SQLite does not serve that from an ascending index (`EXPLAIN QUERY PLAN`,
 **Revisit when:** a user asks for Czech dictionary order, or the order has to
 follow the language of the interface. Either needs a key per language, or a
 collation registered on every connection, and a migration that computes it.
+
+### Single-line text is stored without surrounding whitespace, the rest as written
+
+**Decided 2026-11-20** (#980, #981, #982). Text the user types into a
+single-line field is stored in its canonical form: without the whitespace
+around it, a blank optional value as `null`, and a blank required value
+refused. That covers a contact's name and surname, the account name, display
+name and username, the server hosts, a label name and the message subject. An
+identifier adds its own rule to the strip, as a contact address is also stored
+in lower case. A vCard import counts as typing: its names land in the same
+fields.
+
+Everything else is stored exactly as it arrives:
+
+- **Secrets**, a password or a token. A space in a password is part of it.
+- **Multi-line text**: the message body, a contact's note, the signature.
+  Its layout is content: the `text/plain` part goes out as written, and
+  stripping a block removes the indentation of its first line alone, which
+  puts it out of line with the rest. At most the blank lines at its two ends
+  go, and a value of whitespace alone is `null`.
+- **What another system sent**: messages, headers and attachment names synced
+  over IMAP. The database mirrors the server there. A search or a comparison
+  runs over a key derived into a column of its own, as the folded names above
+  do, never over a rewritten original.
+
+This is normalization, not sanitizing. Escaping for HTML, SQL or a header
+happens where the value is written out, for that context, and the stored value
+stays the one the user meant.
+
+How it is applied:
+
+- **One definition of whitespace** in both languages: what JavaScript's
+  `String.prototype.trim()` removes, which is every `Zs` space (the no-break
+  ones included), tab, vertical tab, form feed, U+FEFF and the line
+  terminators. Java's `String.strip()` is not that set: it keeps U+00A0,
+  U+2007, U+202F and U+FEFF.
+- **The backend is the authority** and normalizes at its boundary, in the
+  request record's compact constructor, so Bean Validation and every service
+  that compares the value with a stored one see the normalized value. The
+  entity setters
+  ([StoredText.java](../backend/src/main/java/org/voxrox/mailbackend/util/StoredText.java))
+  keep the rule as an idempotent guard for writes that come through no
+  request, such as a provider sign-in or a contact merge.
+- **The frontend strips the same way** before it validates and sends, and
+  shows the stripped value in the field, so the user sees what is stored. That
+  is for the user; correctness does not rest on it.
+- **Changing the rule** after a release is a migration over the stored rows,
+  since a row is rewritten only when it is saved again.
+
+The code did not follow it in full when this was recorded: the note and the
+signature are stripped like a single line, the backend applies `strip()` in
+the entity setters after validation, and the hosts and the subject are
+stripped by the frontend alone.
+
+**Revisit when:** a single-line field turns out to carry meaning in its
+surrounding whitespace, or a multi-line one has to be compared or searched,
+which then takes a derived key rather than a rewritten value.
 
 ### `accounts.signature` stays one plain `TEXT` column
 

@@ -132,6 +132,17 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The three migrations written since 0.2.1-beta.1 are one,
+  `V2__Fold_keys_and_strip_text`: the fold keys of #974 and the whitespace
+  strip of #981 and #982 run in one transaction and are tested by one class.
+  No release carried V2, V3 or V4, so no installation holds them; a
+  development database migrated past V1 since 2026-11-20 refuses to start on
+  this build and has to be reset (#983).
+- `docs/DECISIONS.md` records which stored text loses its surrounding
+  whitespace and which is kept as written: single-line text is stripped,
+  secrets, multi-line text and what IMAP synced are not. It names one
+  definition of whitespace for Java and TypeScript, the backend boundary as
+  the place to apply it, and where the code does not follow it yet (#983).
 - The API surface audit is re-verified against `a82a5954` as 1.33, the
   independent pass over the removal of 1.32, clearing its two
   acknowledgements from the drift ledger. The removal holds and the surface
@@ -144,7 +155,7 @@ Entries before 2026-09-17 predate that split and are left as written.
   (#978).
 - `check:docs-impact` treats a Java migration in
   `backend/src/main/java/db/migration` as a change to the stored data, like
-  a SQL one. The first, `V2__Fold_keys_for_names`, would otherwise have
+  a SQL one. The first, `V2__Fold_keys_and_strip_text`, would otherwise have
   passed it without the question being asked (#974).
 - Repackaging the sidecar no longer lets an old or broken image through
   unnoticed. The digest `tauri:dev` and `tauri:build` compare now covers

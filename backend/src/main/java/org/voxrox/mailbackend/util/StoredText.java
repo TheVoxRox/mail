@@ -17,9 +17,9 @@ import org.jspecify.annotations.Nullable;
  * <p>
  * Applied where the value enters the entity ({@code ContactEntity}'s setters),
  * not by each caller, so no write path can skip it; and by
- * {@code V3__Strip_contact_names}, which brought the rows stored before it to
- * the same form. Changing the rule means a migration of its own, for the same
- * reason.
+ * {@code V2__Fold_keys_and_strip_text}, which brings the rows stored before it
+ * to the same form. Once that has shipped, changing the rule means a migration
+ * of its own, for the same reason.
  *
  * <p>
  * {@link String#strip()} rather than {@link String#trim()}: it removes Unicode
