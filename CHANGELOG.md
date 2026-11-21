@@ -21,6 +21,13 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Backend
 
+- The answer to creating an account names the username and the sign-in type
+  it stored. It said "unknown" and nothing, though both were stored and the
+  next read of the account showed them: the new credentials pointed at the
+  account, but the account the service mapped its answer from was never
+  pointed back at them. The app reads only the new account's id from that
+  answer, so nothing on screen showed it (#987).
+
 - The text of every request the forms send is stripped where it arrives,
   before it is validated or compared with what is stored, by the rule the
   entities keep. An edit of an OAuth account whose username came with a
