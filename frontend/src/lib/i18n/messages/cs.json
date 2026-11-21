@@ -792,7 +792,6 @@
 			}
 		},
 		"accounts": {
-			"description": "Správa připojených schránek, přihlášení a synchronizace.",
 			"loading": "Účty se ještě nenačetly."
 		},
 		"about": {
