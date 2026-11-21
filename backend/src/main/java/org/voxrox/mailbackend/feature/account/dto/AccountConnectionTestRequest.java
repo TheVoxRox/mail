@@ -2,16 +2,16 @@ package org.voxrox.mailbackend.feature.account.dto;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
+import org.voxrox.mailbackend.core.validation.EmailAddress;
 import org.voxrox.mailbackend.util.StoredText;
 
 public record AccountConnectionTestRequest(@Positive(message = "{validation.positive}") Long accountId,
 
-        @NotBlank(message = "{validation.email.required}") @Email(message = "{validation.email.invalid}") @Size(max = 255, message = "{validation.size.max}") String email,
+        @NotBlank(message = "{validation.email.required}") @EmailAddress @Size(max = 255, message = "{validation.size.max}") String email,
 
         Long providerId,
 

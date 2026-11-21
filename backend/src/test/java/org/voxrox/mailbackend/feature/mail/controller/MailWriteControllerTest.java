@@ -141,6 +141,40 @@ class MailWriteControllerTest {
         verifyNoInteractions(smtpService);
     }
 
+    /*
+     * Before the request checked its recipients, this was accepted and the send
+     * failed in the background, after the SMTP connection was open, as an
+     * unexpected error recorded on the account.
+     */
+    @Test
+    @DisplayName("POST send \u2014 a mistyped recipient beside a good one is refused before the send starts -> 400")
+    void sendMistypedRecipient() throws Exception {
+        MailRequest bad = new MailRequest("ok@x.cz, jan.@seznam.cz", null, null, "Hi", "body", List.of(), null, null);
+
+        mockMvc.perform(post("/api/v1/messages/account/7/send").contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(bad))).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.violations[0].field").value("to"));
+
+        verifyNoInteractions(smtpService);
+    }
+
+    @Test
+    @DisplayName("POST send \u2014 Cc and Bcc are checked by the same rule -> 400")
+    void sendMistypedCopyRecipients() throws Exception {
+        MailRequest badCc = new MailRequest("ok@x.cz", "jan..novak@seznam.cz", null, "Hi", "body", List.of(), null,
+                null);
+        mockMvc.perform(post("/api/v1/messages/account/7/send").contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(badCc))).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.violations[0].field").value("cc"));
+
+        MailRequest badBcc = new MailRequest("ok@x.cz", null, "jan@moje_firma.cz", "Hi", "body", List.of(), null, null);
+        mockMvc.perform(post("/api/v1/messages/account/7/send").contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(badBcc))).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.violations[0].field").value("bcc"));
+
+        verifyNoInteractions(smtpService);
+    }
+
     @Test
     @DisplayName("POST send — subject over 500 characters -> 400")
     void sendSubjectTooLong() throws Exception {

@@ -169,6 +169,65 @@ How it is applied:
 surrounding whitespace, or a multi-line one has to be compared or searched,
 which then takes a derived key rather than a rewritten value.
 
+### An email address is judged by one rule, in the form and in the backend
+
+**Decided 2026-11-21** (#988). An email address the user types — a contact's
+address, the account address, a recipient — is an address when it is a bare
+`local@domain`: the local part dot-separated runs of letters of any script,
+combining marks, decimal digits and the RFC 5322 symbols, at most 64
+characters; the domain at least two dot-separated labels of letters and
+decimal digits, a hyphen allowed inside a label, each at most 63 characters.
+The backend holds it in
+[EmailAddresses.java](../backend/src/main/java/org/voxrox/mailbackend/util/EmailAddresses.java),
+the frontend in `isValidEmailAddress`
+([addresses.ts](../frontend/src/lib/compose/addresses.ts)).
+
+Why one rule: four checks answered the question, each differently — the
+compose form's regex, Hibernate's `@Email` on the request records, Jakarta
+Mail's strict parse on a send and its per-token `validate()` on a draft and
+the correspondent harvest. A typo such as `jan.@seznam.cz` or
+`jan..novak@seznam.cz` passed the form, failed the send in the background
+after the SMTP connection was open, as an unexpected error recorded on the
+account, and was left out of the draft the server kept. `jan@moje_firma.cz`
+could be saved as a contact, as `@Email` took it, and never be sent to.
+
+Why this rule: everything it accepts, the send path accepts too — the domain
+characters are exactly the ones Jakarta Mail takes, and the vector test sends
+every valid vector through it. It refuses what the form never took (a quoted
+local part, a comment, an IP literal, a domain without a dot) and the dot and
+hyphen mistakes that are almost always typing. Letters of any script stay, as
+all four checks took them; whether a server delivers to such an address is a
+separate question, since the client does not set `mail.mime.allowutf8`.
+
+How it is applied:
+
+- **The frontend judges before it saves or sends**; the backend is the
+  authority. `@EmailAddress` checks the request records where `@Email` did,
+  and `@EmailAddressList` a send's To, Cc and Bcc, so a recipient that is not
+  an address is a 400 before the send starts.
+- **The rest of the backend reads addresses by the same rule**: a send builds
+  its recipients through `HeaderAddresses.parseAllValid`, a draft keeps the
+  tokens `parseValidTokens` accepts, and the correspondent harvest and the
+  reply-all prefill read headers through it as well, so a suggestion or a
+  prefilled recipient is one the form takes.
+- **What another system sent is not judged**: a synced header is stored as
+  it came, and the sender on the remote image allowlist keeps `@Email`, as
+  its value comes from a received message, not from typing. The check that a
+  draft's server copy names no recipient the user did not
+  (`SmtpMessageService.recipientsDiffer`) reads the server's side unfiltered,
+  an address the rule refuses included.
+- **Nothing stored is rewritten.** A contact or account saved earlier with an
+  address the rule refuses keeps it, and the form marks it the next time it
+  is edited. Harvested correspondents are a cache the backfill rebuilds.
+- **One set of vectors** holds both implementations to it:
+  `backend/src/test/resources/text/email-address-vectors.json`, run by
+  `EmailAddressesTest` and by
+  [addresses.test.ts](../frontend/src/lib/compose/addresses.test.ts).
+
+**Revisit when:** a user needs an address the rule refuses (a quoted local
+part, an IP literal, a dotless intranet domain), or the client starts sending
+SMTPUTF8 and the non-ASCII half of the rule needs the server's answer.
+
 ### `accounts.signature` stays one plain `TEXT` column
 
 **Decided 2026-08-12**, before the first release, because after it a change

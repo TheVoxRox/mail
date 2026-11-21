@@ -375,6 +375,23 @@ class MailDraftServiceTest {
             assertThat(reply.cc()).contains("bob@example.com");
         }
 
+        /*
+         * The strict parse used here refused a whole field over one token, so a single
+         * malformed address cost every other recipient of that field.
+         */
+        @Test
+        @DisplayName("Reply-all keeps the addresses beside a malformed one, and only those the form takes")
+        void replyAllKeepsTheAddressesBesideAMalformedOne() {
+            MessageEntity orig = newMessage("Alice <alice@example.com>", "Hi");
+            orig.setRecipientsTo("carol@example.com, jan..novak@example.com");
+            orig.setRecipientsCc("\"Novak, Dan\" <dan@example.com>, eva@moje_firma.cz");
+
+            MailRequest reply = service.createReplyDraft(orig, "x", true);
+
+            assertThat(reply.to()).isEqualTo("alice@example.com, carol@example.com");
+            assertThat(reply.cc()).isEqualTo("dan@example.com");
+        }
+
         @Test
         void replyAllWithBlankRecipientsIsHandled() {
             MessageEntity orig = newMessage("Alice <alice@example.com>", "Hi");

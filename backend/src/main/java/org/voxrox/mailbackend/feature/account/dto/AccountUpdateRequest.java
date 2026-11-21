@@ -4,12 +4,13 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 
 import org.jspecify.annotations.Nullable;
+import org.voxrox.mailbackend.core.validation.EmailAddress;
 import org.voxrox.mailbackend.util.StoredText;
 
 public record AccountUpdateRequest(
         @NotBlank(message = "{validation.account.nameRequired}") @Size(max = 100, message = "{validation.account.nameTooLong}") String accountName,
 
-        @NotBlank(message = "{validation.email.required}") @Email(message = "{validation.email.invalid}") @Size(max = 255, message = "{validation.size.max}") String email,
+        @NotBlank(message = "{validation.email.required}") @EmailAddress @Size(max = 255, message = "{validation.size.max}") String email,
 
         @Size(max = 100, message = "{validation.size.max}") @Nullable String displayName,
 

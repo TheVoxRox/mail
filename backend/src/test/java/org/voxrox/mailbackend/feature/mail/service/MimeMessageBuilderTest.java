@@ -230,6 +230,23 @@ class MimeMessageBuilderTest {
 
             assertThat(msg.getRecipients(Message.RecipientType.TO)).isNull();
         }
+
+        /*
+         * Jakarta Mail takes a hyphen at the edge of a domain label; the compose form
+         * does not. Both policies follow the form, so a send cannot reach an address
+         * the form refused and a draft keeps exactly what the form shows as valid.
+         */
+        @Test
+        @DisplayName("Both policies refuse an address the form refuses, though Jakarta Mail would take it")
+        void bothPoliciesFollowTheFormsRule() throws Exception {
+            assertThatThrownBy(() -> buildSend(req("jan@-example.com", null, null, "s", "b", List.of(), null, null)))
+                    .isInstanceOf(MessagingException.class);
+
+            MimeMessage draft = buildDraft(
+                    req("bob@example.com, jan@-example.com", null, null, "s", "b", List.of(), null, null));
+            assertThat(draft.getRecipients(Message.RecipientType.TO)).extracting(Object::toString)
+                    .containsExactly("bob@example.com");
+        }
     }
 
     @Nested

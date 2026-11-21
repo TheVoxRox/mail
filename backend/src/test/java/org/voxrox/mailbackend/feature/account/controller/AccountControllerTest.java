@@ -161,6 +161,19 @@ class AccountControllerTest {
     }
 
     @Test
+    @DisplayName("POST / with an address mistyped with a dot before the @ -> 400, as the form refuses it")
+    void createAccountWithMistypedAddress() throws Exception {
+        AccountCreateRequest req = new AccountCreateRequest("My Acc", "Me", "jan.@seznam.cz", 1L, null, null, "user",
+                "secret");
+
+        mockMvc.perform(post("/api/v1/accounts").contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req))).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.violations[0].field").value("email"));
+
+        verify(accountService, never()).createAccount(any());
+    }
+
+    @Test
     @DisplayName("POST / with custom imap+smtp (no providerId) -> 201, providerName='Custom'")
     void createAccountWithCustomServers() throws Exception {
         AccountCreateRequest req = new AccountCreateRequest("Custom Acc", "Me", "x@y.cz", null,

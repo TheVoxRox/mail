@@ -66,14 +66,16 @@ public class MimeMessageBuilder {
      */
     public enum AddressPolicy {
         /**
-         * Send: every address must be a valid {@code addr-spec} or the build fails.
-         * Never degrade this to {@link #DRAFT} — silently dropping a token here would
-         * deliver the message to a subset of the recipients the user typed.
+         * Send: every token must be an address by {@code EmailAddresses}, the rule the
+         * compose form and the send request validate by, or the build fails. Never
+         * degrade this to {@link #DRAFT} — silently dropping a token here would deliver
+         * the message to a subset of the recipients the user typed.
          */
         STRICT,
         /**
          * Draft: the recipient field is work in progress, so a token that is not (yet)
-         * a valid address is dropped from the header instead of failing the save.
+         * an address by the same rule is dropped from the header instead of failing the
+         * save.
          *
          * <p>
          * Dropping rather than writing the raw token is deliberate:
@@ -84,9 +86,10 @@ public class MimeMessageBuilder {
          * user's mailbox ({@code MessageFetcher} skips a message whose envelope will
          * not load). Losing an incomplete address beats losing the whole draft. The
          * typed text is not lost meanwhile: the local row stores the raw
-         * {@code to/cc/bcc} strings ({@code SmtpMessageService.upsertLocalDraftRow}),
-         * so the composer still shows it; only a draft re-downloaded from the server
-         * (fresh device, reset DB) comes back without the incomplete token.
+         * {@code to/cc/bcc} strings
+         * ({@code DraftPersistenceService.upsertLocalDraftRow}), so the composer still
+         * shows it; only a draft re-downloaded from the server (fresh device, reset DB)
+         * comes back without the incomplete token.
          */
         DRAFT
     }
@@ -206,7 +209,7 @@ public class MimeMessageBuilder {
             return;
         }
         InternetAddress[] addresses = switch (policy) {
-            case STRICT -> InternetAddress.parse(raw);
+            case STRICT -> HeaderAddresses.parseAllValid(raw);
             case DRAFT -> parseValidTokens(raw);
         };
         if (addresses.length > 0) {

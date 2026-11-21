@@ -17,7 +17,8 @@ import org.jspecify.annotations.Nullable;
  * Shared by the two paths that read such fields — building an outgoing message
  * and harvesting correspondents from synced mail — because both need the same
  * rule and disagreeing about which addresses are valid would be a bug in either
- * direction.
+ * direction. Which tokens are addresses is {@link EmailAddresses}, the rule the
+ * compose form validates by.
  *
  * <p>
  * A stored sender label is not such a field, and has readers of its own
@@ -48,24 +49,27 @@ public final class HeaderAddresses {
 
     /**
      * The sender a label names — {@link #labelAddress}, with the text before it as
-     * the personal name — or {@code null} when that address does not validate.
-     * {@link #parseValidTokens} is the wrong reader for a label: with the name
-     * unquoted, a name holding a comma or an address of its own comes out as tokens
-     * of its own.
+     * the personal name — or {@code null} when that address is not one by
+     * {@link EmailAddresses}. {@link #parseValidTokens} is the wrong reader for a
+     * label: with the name unquoted, a name holding a comma or an address of its
+     * own comes out as tokens of its own.
      */
     public static @Nullable InternetAddress parseLabel(String label) {
         String trimmed = label.trim();
         int open = trimmed.lastIndexOf('<');
         String personal = open > 0 && trimmed.endsWith(">") ? trimmed.substring(0, open).trim() : "";
+        String address = labelAddress(trimmed);
+        if (!EmailAddresses.isValid(address)) {
+            return null;
+        }
         try {
             InternetAddress sender = new InternetAddress();
-            sender.setAddress(labelAddress(trimmed));
+            sender.setAddress(address);
             if (!personal.isEmpty()) {
                 sender.setPersonal(personal, StandardCharsets.UTF_8.name());
             }
-            sender.validate();
             return sender;
-        } catch (AddressException | UnsupportedEncodingException e) {
+        } catch (UnsupportedEncodingException e) {
             return null;
         }
     }
@@ -80,11 +84,13 @@ public final class HeaderAddresses {
      * used either — it rejects the whole field over one incomplete token, and its
      * lenient overload ({@code parse(s, false)}) rejects it just the same. Only
      * {@link InternetAddress#parseHeader} tokenizes without validating, which is
-     * why the per-token {@link InternetAddress#validate()} does the deciding.
+     * why a per-token check does the deciding: {@link EmailAddresses}, the rule the
+     * compose form validates by, so a draft keeps exactly the recipients the form
+     * shows as valid and the harvest suggests only addresses the form accepts.
      *
      * <p>
      * A field that will not even tokenize yields no addresses rather than an
-     * exception. Both callers need that: a draft save must not fail on what the
+     * exception. Every caller needs that: a draft save must not fail on what the
      * user has typed so far, and a sync must not fail on a malformed header.
      */
     public static InternetAddress[] parseValidTokens(String raw) {
@@ -96,14 +102,35 @@ public final class HeaderAddresses {
         }
         List<InternetAddress> complete = new ArrayList<>(tokens.length);
         for (InternetAddress token : tokens) {
-            try {
-                token.validate();
+            // A token left out is half-typed on the compose path (expected on almost
+            // every keystroke-triggered autosave), malformed on the sync path.
+            if (EmailAddresses.isValid(token.getAddress())) {
                 complete.add(token);
-            } catch (AddressException e) {
-                // Half-typed on the compose path (expected on almost every
-                // keystroke-triggered autosave), malformed on the sync path.
             }
         }
         return complete.toArray(new InternetAddress[0]);
+    }
+
+    /**
+     * Every address of a recipient field, tokenized as {@link #parseValidTokens}
+     * does, or an exception when the field holds no token or a token that is not an
+     * address by {@link EmailAddresses}. The send path, where a recipient must
+     * never be dropped in silence. The exception names no address, as it is logged.
+     *
+     * @throws AddressException
+     *             when the field does not tokenize, is empty, or holds a token that
+     *             is not an address
+     */
+    public static InternetAddress[] parseAllValid(String raw) throws AddressException {
+        InternetAddress[] tokens = InternetAddress.parseHeader(raw, false);
+        if (tokens.length == 0) {
+            throw new AddressException("The recipient field holds no address");
+        }
+        for (InternetAddress token : tokens) {
+            if (!EmailAddresses.isValid(token.getAddress())) {
+                throw new AddressException("A recipient is not an email address");
+            }
+        }
+        return tokens;
     }
 }

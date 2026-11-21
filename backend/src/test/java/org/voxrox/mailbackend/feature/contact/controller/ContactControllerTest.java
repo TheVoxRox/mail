@@ -225,6 +225,22 @@ class ContactControllerTest {
                 .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON));
     }
 
+    /*
+     * Hibernate's @Email took this address, and the send path refuses it, so a
+     * contact could be saved that no message could be sent to.
+     */
+    @Test
+    @DisplayName("POST / with an address the send path cannot take -> 400, as the form refuses it")
+    void createContactUnsendableEmail() throws Exception {
+        var bad = new ContactCreateRequest(List.of(new ContactEmailRequest("jan@moje_firma.cz", null)), null, null,
+                null, null);
+
+        mockMvc.perform(post("/api/v1/contacts").contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(bad))).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.violations[0].field").value("emails[0].email"));
+        verify(contactService, never()).createContact(any());
+    }
+
     @Test
     @DisplayName("POST / with an empty emails list -> 400 validation")
     void createContactEmptyEmails() throws Exception {

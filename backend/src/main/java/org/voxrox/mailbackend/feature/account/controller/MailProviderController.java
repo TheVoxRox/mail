@@ -2,7 +2,6 @@ package org.voxrox.mailbackend.feature.account.controller;
 
 import java.util.List;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -11,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.voxrox.mailbackend.core.validation.EmailAddress;
 import org.voxrox.mailbackend.feature.account.dto.MailProviderResponse;
 import org.voxrox.mailbackend.feature.account.service.AccountProviderService;
 import org.voxrox.mailbackend.util.LogCategory;
@@ -43,7 +43,7 @@ public class MailProviderController {
             + "Returns 404 if no template matches.")
     @GetMapping("/resolve")
     public ResponseEntity<MailProviderResponse> resolveProvider(
-            @RequestParam @NotBlank(message = "{validation.email.required}") @Email(message = "{validation.email.invalid}") @Size(max = 255, message = "{validation.size.max}") String email) {
+            @RequestParam @NotBlank(message = "{validation.email.required}") @EmailAddress @Size(max = 255, message = "{validation.size.max}") String email) {
         log.info("{} Auto-detection request for e-mail: {}", LogCategory.API, LogMasker.maskEmail(email));
         return providerService.findProviderByEmail(email).map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());

@@ -11,8 +11,29 @@ export function serializeAddressList(addresses: string[]): string {
 	return addresses.join(', ');
 }
 
+/**
+ * An email address by the rule docs/DECISIONS.md records under "An email
+ * address is judged by one rule, in the form and in the backend" — the
+ * backend's `EmailAddresses` written out again, and the two held together by
+ * the vectors both test suites run
+ * (backend/src/test/resources/text/email-address-vectors.json).
+ *
+ * A local part of dot-separated runs of letters of any script, combining marks,
+ * decimal digits and the RFC 5322 symbols, at most 64 characters; a domain of
+ * at least two dot-separated labels of letters and decimal digits, a hyphen
+ * inside a label, each label at most 63 characters. The `u` flag makes `\p{…}`
+ * and the counted repeats work on code points, as Java's regex does.
+ */
+const EMAIL_ADDRESS =
+	/^(?=[^@]{1,64}@)[\p{L}\p{M}\p{Nd}!#$%&'*+/=?^_`{|}~-]+(?:\.[\p{L}\p{M}\p{Nd}!#$%&'*+/=?^_`{|}~-]+)*@(?:[\p{L}\p{Nd}](?:[\p{L}\p{Nd}-]{0,61}[\p{L}\p{Nd}])?\.)+[\p{L}\p{Nd}](?:[\p{L}\p{Nd}-]{0,61}[\p{L}\p{Nd}])?$/u;
+
+/**
+ * Whether the value, without the whitespace around it, is an email address.
+ * A comma, semicolon, angle bracket or space is never part of one, so a
+ * separator cannot smuggle a second recipient into a single address.
+ */
 export function isValidEmailAddress(value: string): boolean {
-	return /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(value.trim());
+	return EMAIL_ADDRESS.test(value.trim());
 }
 
 export function invalidAddressList(value: string): string[] {
