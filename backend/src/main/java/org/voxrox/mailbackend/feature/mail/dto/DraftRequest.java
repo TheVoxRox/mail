@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Size;
 
 import org.jspecify.annotations.Nullable;
 import org.voxrox.mailbackend.feature.mail.dto.MailRequest.AttachmentRequest;
+import org.voxrox.mailbackend.util.StoredText;
 
 /**
  * Input DTO for saving a draft. Unlike {@link MailRequest}, all text fields are
@@ -19,7 +20,12 @@ public record DraftRequest(@Nullable String to, @Nullable String cc, @Nullable S
         @Size(max = 50, message = "{validation.mail.tooManyAttachments}") @Nullable List<@Valid AttachmentRequest> attachments,
         @Nullable String inReplyTo, @Nullable String references) {
 
+    /**
+     * The subject as {@link MailRequest} keeps it, a blank one as none
+     * ({@link StoredText#stripToNull}); the body is saved exactly as written.
+     */
     public DraftRequest {
+        subject = StoredText.stripToNull(subject);
         if (attachments == null) {
             attachments = List.of();
         }

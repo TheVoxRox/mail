@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 
 import org.jspecify.annotations.Nullable;
+import org.voxrox.mailbackend.util.StoredText;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -18,7 +19,14 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public record ContactUpdateRequest(
         @NotEmpty(message = "{validation.contact.emailRequired}") @Size(max = 10, message = "{validation.size.max}") @Valid List<ContactEmailRequest> emails,
         @Size(max = 50, message = "{validation.size.max}") @Schema(description = "Contact labels after the update, by ID. Replace semantics: omitting the field clears all labels.") @Nullable List<@NotNull(message = "{validation.notNull}") @Positive(message = "{validation.positive}") Long> labelIds,
-        @Size(max = 255, message = "{validation.size.max}") String name,
-        @Size(max = 255, message = "{validation.size.max}") String surname,
-        @Size(max = 1000, message = "{validation.size.max}") String note) {
+        @Size(max = 255, message = "{validation.size.max}") @Nullable String name,
+        @Size(max = 255, message = "{validation.size.max}") @Nullable String surname,
+        @Size(max = 1000, message = "{validation.size.max}") @Nullable String note) {
+
+    /** As {@link ContactCreateRequest}'s constructor. */
+    public ContactUpdateRequest {
+        name = StoredText.stripToNull(name);
+        surname = StoredText.stripToNull(surname);
+        note = StoredText.stripBlankLinesToNull(note);
+    }
 }

@@ -3,6 +3,8 @@ package org.voxrox.mailbackend.feature.contact.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+import org.voxrox.mailbackend.util.StoredText;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
@@ -12,4 +14,14 @@ import io.swagger.v3.oas.annotations.media.Schema;
  */
 public record ContactLabelCreateRequest(
         @NotBlank(message = "{validation.contactLabel.nameRequired}") @Size(max = 60, message = "{validation.size.max}") @Schema(example = "Rodina") String name) {
+
+    /**
+     * The name as it is stored ({@link StoredText#strip}), before Bean Validation
+     * runs: a name of no-break spaces alone is refused as blank.
+     */
+    public ContactLabelCreateRequest {
+        if (name != null) {
+            name = StoredText.strip(name);
+        }
+    }
 }

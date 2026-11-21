@@ -1,7 +1,9 @@
 package org.voxrox.mailbackend.feature.account.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -11,6 +13,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration;
 import org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2ClientAutoConfiguration;
@@ -123,6 +126,38 @@ class AccountControllerTest {
         mockMvc.perform(post("/api/v1/accounts").contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req))).andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(10)).andExpect(jsonPath("$.providerName").value("Gmail"));
+    }
+
+    /*
+     * Raw JSON rather than a serialized record: the request strips its text in its
+     * constructor, so a record built here would arrive already clean.
+     */
+    @Test
+    @DisplayName("POST / strips the account's text before validation and the service, the password as typed")
+    void createAccountStripsItsText() throws Exception {
+        when(accountService.createAccount(any())).thenReturn(sampleResponse(10L));
+
+        mockMvc.perform(post("/api/v1/accounts").contentType(MediaType.APPLICATION_JSON).content("""
+                {"accountName": " My Acc ", "displayName": "\u00A0", "email": "a@b.cz ", "providerId": 1,
+                 "username": "\u2003user", "password": " secret "}
+                """)).andExpect(status().isCreated());
+
+        ArgumentCaptor<AccountCreateRequest> sent = ArgumentCaptor.forClass(AccountCreateRequest.class);
+        verify(accountService).createAccount(sent.capture());
+        assertThat(sent.getValue())
+                .isEqualTo(new AccountCreateRequest("My Acc", null, "a@b.cz", 1L, null, null, "user", " secret "));
+    }
+
+    @Test
+    @DisplayName("POST / with an account name of no-break spaces alone -> 400, the service is never called")
+    void createAccountNamedWithNoBreakSpaces() throws Exception {
+        mockMvc.perform(post("/api/v1/accounts").contentType(MediaType.APPLICATION_JSON).content("""
+                {"accountName": "\u00A0", "email": "a@b.cz", "providerId": 1, "username": "user",
+                 "password": "secret"}
+                """)).andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON));
+
+        verify(accountService, never()).createAccount(any());
     }
 
     @Test

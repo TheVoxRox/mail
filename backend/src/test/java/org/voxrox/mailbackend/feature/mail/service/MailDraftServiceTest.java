@@ -83,8 +83,10 @@ class MailDraftServiceTest {
                     .isEqualTo("AW: Rechnung");
             assertThat(service.createReplyDraft(newMessage("a@example.com", "Re[2]: Hello"), "ans", false).subject())
                     .isEqualTo("Re[2]: Hello");
+            // The marker after a leading space still counts; the request then drops the
+            // space itself, as MailRequest strips every subject (StoredText).
             assertThat(service.createReplyDraft(newMessage("a@example.com", " Re: Hello"), "ans", false).subject())
-                    .isEqualTo(" Re: Hello");
+                    .isEqualTo("Re: Hello");
         }
 
         @Test

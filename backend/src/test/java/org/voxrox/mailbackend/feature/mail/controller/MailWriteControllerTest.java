@@ -1,5 +1,6 @@
 package org.voxrox.mailbackend.feature.mail.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -17,6 +18,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration;
 import org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2ClientAutoConfiguration;
@@ -108,6 +110,33 @@ class MailWriteControllerTest {
         mockMvc.perform(post("/api/v1/messages/account/7/send").contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(bad))).andExpect(status().isBadRequest())
                 .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON));
+
+        verifyNoInteractions(smtpService);
+    }
+
+    /*
+     * Raw JSON rather than a serialized record: MailRequest strips its subject in
+     * its constructor, so a record built here would arrive already clean.
+     */
+    @Test
+    @DisplayName("POST send — the subject goes on without the whitespace around it, the body as written")
+    void sendStripsTheSubject() throws Exception {
+        mockMvc.perform(post("/api/v1/messages/account/7/send").contentType(MediaType.APPLICATION_JSON).content("""
+                {"to": "to@x.cz", "subject": "  Hello\u00A0", "body": "  How are you?\\n"}
+                """)).andExpect(status().isAccepted());
+
+        ArgumentCaptor<MailRequest> sent = ArgumentCaptor.forClass(MailRequest.class);
+        verify(smtpService).sendEmailAsync(eq(7L), sent.capture(), anyString(), isNull());
+        assertThat(sent.getValue().subject()).isEqualTo("Hello");
+        assertThat(sent.getValue().body()).isEqualTo("  How are you?\n");
+    }
+
+    @Test
+    @DisplayName("POST send — a subject of no-break spaces alone is no subject -> 400")
+    void sendSubjectOfNoBreakSpaces() throws Exception {
+        mockMvc.perform(post("/api/v1/messages/account/7/send").contentType(MediaType.APPLICATION_JSON).content("""
+                {"to": "to@x.cz", "subject": "\u00A0\u00A0", "body": "body"}
+                """)).andExpect(status().isBadRequest());
 
         verifyNoInteractions(smtpService);
     }
