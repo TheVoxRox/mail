@@ -190,7 +190,7 @@ Entries before 2026-09-17 predate that split and are left as written.
 - `PRIVACY.md` closes its Czech quotations with “ instead of a straight
   ASCII quote, matching the opening „ and the voxrox.org copy, which
   TheVoxRox/TheVoxRox.github.io#13 fixes the same way. Typography only: the
-  wording and the policy version stay as they were.
+  wording and the policy version stay as they were (#990).
 
 - `docs/DECISIONS.md` records the one rule for an email address, held to
   both implementations by
