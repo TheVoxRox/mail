@@ -8,6 +8,8 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
+import org.voxrox.mailbackend.util.StoredText;
+
 @Embeddable
 public class MailServerConfig implements Serializable {
 
@@ -30,8 +32,13 @@ public class MailServerConfig implements Serializable {
     public MailServerConfig() {
     }
 
+    /**
+     * The host is stored without surrounding whitespace ({@link StoredText#strip}),
+     * here and in {@link #setHost}: a space pasted with it is no part of a name the
+     * resolver can look up.
+     */
     public MailServerConfig(String host, Integer port, boolean useSsl) {
-        this.host = host;
+        this.host = StoredText.strip(host);
         this.port = port;
         this.useSsl = useSsl;
     }
@@ -41,7 +48,7 @@ public class MailServerConfig implements Serializable {
     }
 
     public void setHost(String host) {
-        this.host = host;
+        this.host = StoredText.strip(host);
     }
 
     public Integer getPort() {

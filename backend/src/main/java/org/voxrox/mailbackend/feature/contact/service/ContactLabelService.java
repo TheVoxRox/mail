@@ -30,6 +30,7 @@ import org.voxrox.mailbackend.feature.contact.repository.ContactLabelRepository;
 import org.voxrox.mailbackend.feature.contact.repository.ContactRepository;
 import org.voxrox.mailbackend.util.AuditLog;
 import org.voxrox.mailbackend.util.LogCategory;
+import org.voxrox.mailbackend.util.StoredText;
 
 /**
  * Manages the user-defined contact labels of the address book and their
@@ -72,7 +73,7 @@ public class ContactLabelService {
      * classic way that goes wrong).
      */
     static String toNameKey(String name) {
-        return name.trim().toLowerCase(Locale.ROOT);
+        return StoredText.strip(name).toLowerCase(Locale.ROOT);
     }
 
     @Transactional(readOnly = true)
@@ -250,14 +251,15 @@ public class ContactLabelService {
     }
 
     private String requireNonBlankName(String raw) {
-        String trimmed = raw == null ? "" : raw.trim();
-        if (trimmed.isEmpty()) {
-            // @NotBlank already rejects an empty string, but a name of only spaces
-            // passes it and would land here as an empty name_key.
+        String stripped = raw == null ? "" : StoredText.strip(raw);
+        if (stripped.isEmpty()) {
+            // @NotBlank refuses a name of ASCII and most Unicode spaces, but not one of
+            // no-break spaces, which StoredText strips: such a name would land here as
+            // an empty name_key.
             throw new ValidationException("The contact label name must not be blank.",
                     "validation.contactLabel.nameRequired");
         }
-        return trimmed;
+        return stripped;
     }
 
     static ContactLabelResponse toResponse(ContactLabelEntity entity) {

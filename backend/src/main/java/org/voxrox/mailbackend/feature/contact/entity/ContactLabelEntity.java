@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 import jakarta.persistence.*;
 
+import org.voxrox.mailbackend.util.StoredText;
 import org.voxrox.mailbackend.util.TextFold;
 
 /**
@@ -92,9 +93,14 @@ public class ContactLabelEntity {
         return name;
     }
 
+    /**
+     * Stores the name without surrounding whitespace ({@link StoredText#strip}) and
+     * derives its folded form. {@link #nameKey} the service sets from the same
+     * stripped name.
+     */
     public void setName(String name) {
-        this.name = name;
-        this.nameFold = TextFold.fold(name);
+        this.name = StoredText.strip(name);
+        this.nameFold = TextFold.fold(this.name);
     }
 
     public String getNameFold() {

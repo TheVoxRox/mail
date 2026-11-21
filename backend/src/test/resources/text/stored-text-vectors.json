@@ -1,0 +1,110 @@
+{
+  "about": [
+    "What a value typed by the user becomes when it is stored, by the rule docs/DECISIONS.md records",
+    "under \"Single-line text is stored without surrounding whitespace, the rest as written\".",
+    "stripToNull is a single-line value (a name, an account field, a host, a subject),",
+    "stripBlankLinesToNull a multi-line one (a note, a signature); null means no value.",
+    "Both implementations run every vector: StoredText (StoredTextTest, backend) and",
+    "frontend/src/lib/storedText.ts, so a rule changed in one and not the other fails a build.",
+    "Invisible characters are written as \\u escapes on purpose: a reviewer cannot see them otherwise,",
+    "and an editor that turns one into a plain space would leave the vector passing and testing nothing."
+  ],
+  "vectors": [
+    {
+      "why": "ASCII spaces and a tab around a name go, the double space inside stays",
+      "input": "  Jan  Novak \t",
+      "stripToNull": "Jan  Novak",
+      "stripBlankLinesToNull": "  Jan  Novak"
+    },
+    {
+      "why": "A no-break space on both sides, as a word processor pastes it",
+      "input": "\u00a0Jan\u00a0",
+      "stripToNull": "Jan",
+      "stripBlankLinesToNull": "\u00a0Jan"
+    },
+    {
+      "why": "A narrow no-break space and a figure space",
+      "input": "\u202fJan\u2007",
+      "stripToNull": "Jan",
+      "stripBlankLinesToNull": "\u202fJan"
+    },
+    {
+      "why": "A byte order mark pasted from a file goes from a single line; before the first line of a block it stays, like any indentation",
+      "input": "\ufeffJan",
+      "stripToNull": "Jan",
+      "stripBlankLinesToNull": "\ufeffJan"
+    },
+    {
+      "why": "An em space and an ideographic space",
+      "input": "\u2003Jan\u3000",
+      "stripToNull": "Jan",
+      "stripBlankLinesToNull": "\u2003Jan"
+    },
+    {
+      "why": "A line separator at the end",
+      "input": "Jan\u2028",
+      "stripToNull": "Jan",
+      "stripBlankLinesToNull": "Jan"
+    },
+    {
+      "why": "NEL stays: JavaScript's trim() keeps it, though Java's \\p{IsWhite_Space} counts it",
+      "input": "Jan\u0085",
+      "stripToNull": "Jan\u0085",
+      "stripBlankLinesToNull": "Jan\u0085"
+    },
+    {
+      "why": "An information separator stays: String.strip() would remove it, JavaScript's trim() keeps it",
+      "input": "\u001cJan",
+      "stripToNull": "\u001cJan",
+      "stripBlankLinesToNull": "\u001cJan"
+    },
+    {
+      "why": "A zero-width space is whitespace to neither",
+      "input": "\u200bJan\u200b",
+      "stripToNull": "\u200bJan\u200b",
+      "stripBlankLinesToNull": "\u200bJan\u200b"
+    },
+    {
+      "why": "Whitespace inside a value stays, a no-break space included",
+      "input": "Jan \u00a0 Novak",
+      "stripToNull": "Jan \u00a0 Novak",
+      "stripBlankLinesToNull": "Jan \u00a0 Novak"
+    },
+    {
+      "why": "Whitespace alone is no value",
+      "input": " \t\u00a0\n\u3000",
+      "stripToNull": null,
+      "stripBlankLinesToNull": null
+    },
+    {
+      "why": "The empty string is no value",
+      "input": "",
+      "stripToNull": null,
+      "stripBlankLinesToNull": null
+    },
+    {
+      "why": "A signature: the blank lines around it go, the indentation of its lines stays",
+      "input": "\n\n   Jan Novak\n   CEO\n\n",
+      "stripToNull": "Jan Novak\n   CEO",
+      "stripBlankLinesToNull": "   Jan Novak\n   CEO"
+    },
+    {
+      "why": "Windows line ends, and lines of spaces alone before the text",
+      "input": " \r\n  \r\n  Indented\r\nNext  \r\n ",
+      "stripToNull": "Indented\r\nNext",
+      "stripBlankLinesToNull": "  Indented\r\nNext"
+    },
+    {
+      "why": "A one-line note keeps a space it starts with",
+      "input": " VIP\t",
+      "stripToNull": "VIP",
+      "stripBlankLinesToNull": " VIP"
+    },
+    {
+      "why": "A line of no-break spaces alone before the text is a blank line",
+      "input": "\u00a0\u00a0\nJan",
+      "stripToNull": "Jan",
+      "stripBlankLinesToNull": "Jan"
+    }
+  ]
+}

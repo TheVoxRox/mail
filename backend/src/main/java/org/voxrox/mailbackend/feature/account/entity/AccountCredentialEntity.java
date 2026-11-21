@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 
 import org.voxrox.mailbackend.feature.auth.dto.AuthType;
 import org.voxrox.mailbackend.util.LogMasker;
+import org.voxrox.mailbackend.util.StoredText;
 
 @Entity
 @Table(name = "account_credentials")
@@ -77,12 +78,12 @@ public class AccountCredentialEntity {
     }
 
     /**
-     * Stored without surrounding whitespace ({@code StoredText}'s rule): it is the
+     * Stored without surrounding whitespace ({@link StoredText#strip}): it is the
      * login the server sees, and a trailing space pasted with it made the sign-in
      * fail as wrong credentials. Required, so never blank here.
      */
     public void setUsername(String username) {
-        this.username = username.strip();
+        this.username = StoredText.strip(username);
     }
 
     public String getEncryptedPassword() {

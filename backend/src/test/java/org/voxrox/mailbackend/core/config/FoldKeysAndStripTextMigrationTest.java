@@ -67,15 +67,16 @@ class FoldKeysAndStripTextMigrationTest {
     }
 
     @Test
-    @DisplayName("V2 strips stored contact names and notes, nulls the blank ones and folds what is left")
+    @DisplayName("V2 strips stored contact names, keeps a note's layout, nulls the blank ones and folds what is left")
     void stripsTheContactsAlreadyThere(@TempDir Path tempDir) throws SQLException {
         String url = v1Database(tempDir);
 
         try (Connection connection = DriverManager.getConnection(url);
                 Statement statement = connection.createStatement()) {
             statement.execute("INSERT INTO contacts (id, name, surname, note, created_at, updated_at) VALUES "
-                    // Whitespace around every field, an em space and a tab among it.
-                    + "(1, '\u2003 Jan ', ' Novak', ' VIP\t', " + AT + ", " + AT + "), "
+                    // Whitespace around every field, an em space and a no-break space among
+                    // it; the note runs over two indented lines between blank ones.
+                    + "(1, '\u2003 Jan ', '\u00A0Novak', '\n  line one\n  line two\n\n', " + AT + ", " + AT + "), "
                     // A name of spaces alone, and a note of spaces alone.
                     + "(2, '   ', 'Dvorak', '  ', " + AT + ", " + AT + "), "
                     // Already clean.
@@ -87,14 +88,15 @@ class FoldKeysAndStripTextMigrationTest {
         try (Connection connection = DriverManager.getConnection(url)) {
             assertThat(
                     rows(connection, "SELECT name, surname, note, name_fold, surname_fold FROM contacts ORDER BY id"))
-                    .containsExactly(List.of("Jan", "Novak", "VIP", "jan", "novak"),
+                    .containsExactly(List.of("Jan", "Novak", "  line one\n  line two", "jan", "novak"),
                             Arrays.asList(null, "Dvorak", null, null, "dvorak"),
                             Arrays.asList("Eva", "Mala", null, "eva", "mala"));
         }
     }
 
     @Test
-    @DisplayName("V2 strips account names, display names, signatures and usernames, and leaves the address alone")
+    @DisplayName("V2 strips account names, display names, hosts and usernames, keeps a signature's layout, "
+            + "and leaves the address alone")
     void stripsTheAccountsAlreadyThere(@TempDir Path tempDir) throws SQLException {
         String url = v1Database(tempDir);
 
@@ -103,11 +105,11 @@ class FoldKeysAndStripTextMigrationTest {
             statement.execute("INSERT INTO accounts (id, account_name, email, display_name, signature, imap_host, "
                     + "imap_port, smtp_host, smtp_port) VALUES "
                     // Whitespace around every text field, a blank display name on the second.
-                    + "(1, ' Work ', 'jan@example.com', ' Jan Novak\t', '\nJan\n', 'imap.example.com', 993, "
-                    + "'smtp.example.com', 465), "
+                    + "(1, ' Work ', 'jan@example.com', ' Jan Novak\t', '\nJan\n', ' imap.example.com', 993, "
+                    + "'smtp.example.com\u00A0', 465), "
                     + "(2, 'Home', 'eva@example.com', '   ', '  ', 'imap.example.com', 993, 'smtp.example.com', 465), "
-                    // Already clean: nothing to write.
-                    + "(3, 'Other', 'petr@example.com', 'Petr', NULL, 'imap.example.com', 993, "
+                    // Already clean, an indented signature included: nothing to write.
+                    + "(3, 'Other', 'petr@example.com', 'Petr', '  Petr\n  CEO', 'imap.example.com', 993, "
                     + "'smtp.example.com', 465)");
             statement.execute("INSERT INTO account_credentials (account_id, auth_type, username, password) VALUES "
                     // An em space before the third.
@@ -118,11 +120,15 @@ class FoldKeysAndStripTextMigrationTest {
         migrateToV2(url);
 
         try (Connection connection = DriverManager.getConnection(url)) {
-            assertThat(
-                    rows(connection, "SELECT account_name, email, display_name, signature FROM accounts ORDER BY id"))
-                    .containsExactly(List.of("Work", "jan@example.com", "Jan Novak", "Jan"),
-                            Arrays.asList("Home", "eva@example.com", null, null),
-                            Arrays.asList("Other", "petr@example.com", "Petr", null));
+            assertThat(rows(connection,
+                    "SELECT account_name, email, display_name, signature, imap_host, smtp_host FROM accounts ORDER BY id"))
+                    .containsExactly(
+                            List.of("Work", "jan@example.com", "Jan Novak", "Jan", "imap.example.com",
+                                    "smtp.example.com"),
+                            Arrays.asList("Home", "eva@example.com", null, null, "imap.example.com",
+                                    "smtp.example.com"),
+                            List.of("Other", "petr@example.com", "Petr", "  Petr\n  CEO", "imap.example.com",
+                                    "smtp.example.com"));
             assertThat(rows(connection, "SELECT username FROM account_credentials ORDER BY account_id"))
                     .containsExactly(List.of("jan@example.com"), List.of("eva"), List.of("petr"));
         }
