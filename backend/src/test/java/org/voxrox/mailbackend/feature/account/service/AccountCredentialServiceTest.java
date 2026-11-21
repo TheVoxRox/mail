@@ -74,6 +74,8 @@ class AccountCredentialServiceTest {
 
             AccountCredentialEntity saved = captor.getValue();
             assertThat(saved.getAccount()).isSameAs(account);
+            // And back: the caller's account sees its credentials in the same transaction.
+            assertThat(account.getCredentials()).isSameAs(saved);
             assertThat(saved.getUsername()).isEqualTo("user@example.test");
             assertThat(saved.getAuthType()).isEqualTo(AuthType.PASSWORD);
             assertThat(saved.getEncryptedPassword()).isEqualTo("ENC:plaintext");

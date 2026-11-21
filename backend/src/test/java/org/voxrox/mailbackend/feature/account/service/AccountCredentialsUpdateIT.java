@@ -110,6 +110,23 @@ class AccountCredentialsUpdateIT {
                 mock(OAuth2TokenServiceRegistry.class), transactionTemplate, new FolderListCache());
     }
 
+    /*
+     * The create maps its answer from the account it holds in memory, in the same
+     * transaction that wrote the credentials row. The row only pointed at the
+     * account and the account was never pointed back at it, so the answer said
+     * "unknown" for the username and nothing for the sign-in type, though both were
+     * stored: the next read of the account showed them.
+     */
+    @Test
+    @DisplayName("The answer to a create names the username and the sign-in type it stored")
+    void createAnswersWithTheStoredCredentials() {
+        AccountResponse created = accountService
+                .createAccount(new AccountCreateRequest("Work", null, EMAIL, null, IMAP, SMTP, EMAIL, PASSWORD));
+
+        assertThat(created.username()).isEqualTo(EMAIL);
+        assertThat(created.authType()).isEqualTo(AuthType.PASSWORD);
+    }
+
     @Test
     @DisplayName("A username edited without a new password is stored, and the stored password still decrypts")
     void usernameEditedWithoutPasswordIsStored() {

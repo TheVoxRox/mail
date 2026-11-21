@@ -58,7 +58,14 @@ public class AccountCredentialService {
             secretCleared = !hasNewSecret && hadOldSecret;
         } else {
             credentials = new AccountCredentialEntity();
+            /*
+             * Both sides of the one-to-one. The credentials own the link, so this side is
+             * what the database stores; the account side is what a caller holding the
+             * account reads in the same transaction. createAccount maps its answer from it,
+             * and without it the answer named no username and no sign-in type.
+             */
             credentials.setAccount(account);
+            account.setCredentials(credentials);
         }
 
         credentials.setUsername(username);
