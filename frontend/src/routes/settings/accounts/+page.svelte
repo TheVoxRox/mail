@@ -96,11 +96,12 @@
 	<title>{$_('accounts.listPageTitle')}</title>
 </svelte:head>
 
-<PageShell
-	title={$_('accounts.heading')}
-	description={$_('settings.accounts.description')}
-	contentClass="max-w-4xl space-y-4"
->
+<!--
+	No page description, here or on the edit page. It promised "management of
+	synchronisation" where the page offers one checkbox that turns it on or off,
+	and the heading says what the page is for.
+-->
+<PageShell title={$_('accounts.heading')} contentClass="max-w-4xl space-y-4">
 	{#snippet actions()}
 		<Button size="sm" onclick={() => goto(resolve('settings/accounts/new'))}
 			><Icon name="plus" />{$_('accounts.addAccount')}</Button

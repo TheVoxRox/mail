@@ -109,6 +109,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- The account list and the account edit page no longer carry a description
+  under their heading. It promised management of synchronisation, where the
+  page offers one checkbox that turns an account's synchronisation on or off,
+  and the heading already says what the page is for, as on the add-account
+  page (#989).
+
 - The compose, contact and account forms judge an email address by the
   backend's rule, so a doubled dot, a dot before the @ or a hyphen at the edge
   of the domain is marked as soon as it is typed, instead of the send failing

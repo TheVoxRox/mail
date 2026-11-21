@@ -792,7 +792,6 @@
 			}
 		},
 		"accounts": {
-			"description": "Manage connected mailboxes, sign-in, and synchronisation.",
 			"loading": "Accounts are still loading."
 		},
 		"about": {

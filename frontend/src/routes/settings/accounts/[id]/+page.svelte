@@ -65,7 +65,6 @@
 	title={account
 		? $_('accounts.headingEditWithName', { values: { name: account.accountName } })
 		: $_('accounts.headingEdit')}
-	description={$_('settings.accounts.description')}
 	contentClass="max-w-4xl space-y-4"
 >
 	{#snippet actions()}
