@@ -21,6 +21,15 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Backend
 
+- An email address is judged by the rule the forms use, and a send refuses a
+  recipient that is not one before it starts. A typo such as `jan.@seznam.cz`
+  used to be accepted, fail in the background after the connection to the
+  server was open, and show as an unexpected error that marked the account
+  as failing; a contact could be saved with `jan@moje_firma.cz`, an address
+  no message could then be sent to. A reply-all keeps the addresses beside a
+  malformed one, where one such address used to cost the whole field, and the
+  compose suggestions harvest only addresses the form takes (#988).
+
 - The answer to creating an account names the username and the sign-in type
   it stored. It said "unknown" and nothing, though both were stored and the
   next read of the account showed them: the new credentials pointed at the
@@ -100,6 +109,12 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- The compose, contact and account forms judge an email address by the
+  backend's rule, so a doubled dot, a dot before the @ or a hyphen at the edge
+  of the domain is marked as soon as it is typed, instead of the send failing
+  after it started or the save being refused. An IP literal in place of a
+  domain, such as `jan@[127.0.0.1]`, is no longer taken (#988).
+
 - An account's signature and a contact's note keep the indentation of their
   first line when saved, in line with the lines below; only the blank lines
   they start with and the whitespace they end with go, as the backend stores
@@ -166,6 +181,11 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- `docs/DECISIONS.md` records the one rule for an email address, held to
+  both implementations by
+  `backend/src/test/resources/text/email-address-vectors.json`, which
+  `EmailAddressesTest` and `addresses.test.ts` run. The API surface and
+  IMAP/SMTP audits acknowledge the drift under their code paths (#988).
 - The three migrations written since 0.2.1-beta.1 are one,
   `V2__Fold_keys_and_strip_text`: the fold keys of #974 and the whitespace
   strip of #981 and #982 run in one transaction and are tested by one class.

@@ -8,13 +8,14 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import org.jspecify.annotations.Nullable;
+import org.voxrox.mailbackend.core.validation.EmailAddressList;
 import org.voxrox.mailbackend.util.StoredText;
 
-public record MailRequest(@NotBlank(message = "{validation.mail.recipientRequired}") String to,
+public record MailRequest(@NotBlank(message = "{validation.mail.recipientRequired}") @EmailAddressList String to,
 
-        @Nullable String cc,
+        @EmailAddressList @Nullable String cc,
 
-        @Nullable String bcc,
+        @EmailAddressList @Nullable String bcc,
 
         @NotBlank(message = "{validation.mail.subjectRequired}") @Size(max = 500, message = "{validation.mail.subjectTooLong}") String subject,
 

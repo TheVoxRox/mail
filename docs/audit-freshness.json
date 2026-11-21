@@ -50,9 +50,10 @@
   ],
   "docs/API_SURFACE_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/contact/dto": "be7e6d23b81e3a53d98eaa48a2a480943c760887",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/account/dto": "fe01b33d2348580c8e39ef2d0a6b45deae0b07df",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "8ff281bf6191be96e747fc027a255909636f217b"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/contact/dto": "1089a1e8d1f9c0a11858e92ffef1ca0752a2886a",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/account/dto": "c3424f22589ca8f9496ccb0df7c8a0017f76794a",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "9a63e7b30dc8989b5d6b4feed56ca1f66027a8a9",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/account/controller": "29de14b87711cd6b5d21df2817cb21b3460e68ee"
     },
     "acknowledgements": [
       {
@@ -62,13 +63,18 @@
       {
         "date": "2026-11-20",
         "note": "Compact constructors on the request records (AccountCreateRequest, AccountUpdateRequest, AccountConnectionTestRequest, MailServerSettings, ContactCreateRequest, ContactUpdateRequest, ContactEmailRequest, ContactLabelCreateRequest, ContactLabelUpdateRequest, MailRequest, DraftRequest) strip the text the user types with StoredText before Bean Validation runs; the optional components they null are typed @Nullable. Every changed line was read. Passwords, bodies, folder refs and attachment data are untouched. No route, field, constraint or error code changes and OpenApiSnapshotTest passes unchanged: the same constraints now read the stripped value, so a required field of no-break spaces alone is refused where it was accepted, @Size measures what is stored, and no input is accepted that was refused before. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-21",
+        "note": "#988: @Email replaced by @EmailAddress (EmailAddresses, the rule the frontend validates by) on AccountCreateRequest, AccountUpdateRequest, AccountConnectionTestRequest, ContactEmailRequest and the email parameter of MailProviderController.resolveProvider, with the same message key; MailRequest to, cc and bcc gain @EmailAddressList (validation.mail.recipientInvalid). Every changed line was read. No route, field or error code moves, and OpenApiSnapshotTest passes unchanged: OpenApiConfig writes format: email for the new annotation as springdoc did for @Email. The accepted set only narrows over the shared vectors: jan@moje_firma.cz, a dotless domain, an IP literal, a quoted local part and a no-break space are refused where @Email took them, and nothing @Email refused is accepted. A send with a recipient that is not an address is a 400 before the send starts instead of a background failure. Verdict unchanged."
       }
     ]
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "f1e0c7b7a96ce1c45ac25408d38f5f617ebf4c1e",
-      "backend/src/main/resources/tls": "2e932f9120b9559f77b727463ced362f4cc65a32"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "ffc8f492bc5e1218066413d2092a89f623eff962",
+      "backend/src/main/resources/tls": "2e932f9120b9559f77b727463ced362f4cc65a32",
+      "backend/src/main/java/org/voxrox/mailbackend/util/HeaderAddresses.java": "7b365556d5b17a312b182f5a32f6dec77b48e6b3"
     },
     "acknowledgements": [
       {
@@ -78,6 +84,10 @@
       {
         "date": "2026-11-18",
         "note": "#928, the trust path, written by the session that records it and waiting for its pass (IMAP_SMTP_AUDIT 1.92, section 1). Every IMAP and SMTP connection now takes its sockets from one shared MailTlsContext instead of the JDK's default SSLContext: anchors are what the default trust manager accepts (TrustManagerFactory.init(null), getAcceptedIssuers), so the trusted roots are unchanged and javax.net.ssl.trustStore is honoured; the Let's Encrypt intermediates and Generation Y cross-signs under backend/src/main/resources/tls (new in Code paths) are a Collection CertStore, path material only, never anchors; revocation stays off as in the JSSE default; mail.<protocol>.socketFactory.fallback=false so a refusal is not retried through the default factory. checkserveridentity, required STARTTLS and the OAuth2 plaintext guards are unchanged. LeafOnlyChainIT fails in five of eight cases with the factory property taken out and in the host-check case with only the fallback property taken out (run and seen). No new egress. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-21",
+        "note": "#988: which header tokens count as addresses is EmailAddresses, the rule the compose form validates by, instead of InternetAddress.validate(). HeaderAddresses.parseValidTokens and parseLabel use it, and the STRICT branch of MimeMessageBuilder parses through the new HeaderAddresses.parseAllValid (parseHeader, then the rule for every token) instead of InternetAddress.parse; MailDraftService.extractEmails reads the reply-all fields through parseValidTokens, so one malformed address no longer costs the field. Every changed line was read. A send still fails rather than drop a recipient. B1-5 is not weakened: recipientsDiffer reads the server copy through getRecipients() and keeps an address the rule refuses as its raw lower-cased form, so a recipient the server adds is still a difference; the stored side is filtered by the same rule the draft save writes with, as before with validate(). EmailAddressesTest checks that every accepted vector is one InternetAddress.parse and validate() take whole. The parenthesis in the B1-5 section saying a send parses with InternetAddress.parse is stale and goes at the next re-verification. Verdict unchanged."
       }
     ]
   },

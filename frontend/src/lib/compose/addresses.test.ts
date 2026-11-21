@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
 	parseAddressList,
@@ -13,6 +14,30 @@ import {
  * mistake here would let one recipient field smuggle two recipients past the
  * UI's validation and into the SMTP envelope.
  */
+
+interface EmailAddressVector {
+	why: string;
+	address: string;
+	valid: boolean;
+}
+
+// The vectors the backend's EmailAddressesTest runs too: the form takes an
+// address exactly when the request and the send do.
+const { vectors } = JSON.parse(
+	readFileSync(
+		new URL(
+			'../../../../backend/src/test/resources/text/email-address-vectors.json',
+			import.meta.url
+		),
+		'utf8'
+	)
+) as { vectors: EmailAddressVector[] };
+
+describe('the email address vectors shared with the backend', () => {
+	it.each(vectors)('$why', (vector) => {
+		expect(isValidEmailAddress(vector.address)).toBe(vector.valid);
+	});
+});
 
 describe('parseAddressList — split on , ; or newline', () => {
 	it('returns an empty array for an empty string', () => {

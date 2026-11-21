@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 
 import org.jspecify.annotations.Nullable;
+import org.voxrox.mailbackend.core.validation.EmailAddress;
 import org.voxrox.mailbackend.util.StoredText;
 
 public record AccountCreateRequest(
@@ -11,7 +12,7 @@ public record AccountCreateRequest(
 
         @Size(max = 100, message = "{validation.size.max}") @Nullable String displayName,
 
-        @NotBlank(message = "{validation.email.required}") @Email(message = "{validation.email.invalid}") @Size(max = 255, message = "{validation.size.max}") String email,
+        @NotBlank(message = "{validation.email.required}") @EmailAddress @Size(max = 255, message = "{validation.size.max}") String email,
 
         /*
          * providerId is optional — either the user picks one from the seeded catalog

@@ -1,11 +1,17 @@
 package org.voxrox.mailbackend.core.config;
 
+import java.lang.annotation.Annotation;
+import java.util.Arrays;
+
 import org.springdoc.core.customizers.OperationCustomizer;
+import org.springdoc.core.customizers.ParameterCustomizer;
+import org.springdoc.core.customizers.PropertyCustomizer;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.voxrox.mailbackend.core.init.HandshakeService;
+import org.voxrox.mailbackend.core.validation.EmailAddress;
 
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
@@ -132,6 +138,36 @@ public class OpenApiConfig {
             }
 
             return operation;
+        };
+    }
+
+    /**
+     * {@code format: email} on a property checked by {@link EmailAddress}, as
+     * springdoc writes it for Hibernate's {@code @Email}, which that annotation
+     * replaced. springdoc reads only the constraints it knows, so without this the
+     * contract would stop saying which fields carry an address.
+     */
+    @Bean
+    public PropertyCustomizer emailAddressPropertyFormat() {
+        return (property, type) -> {
+            Annotation[] annotations = type.getCtxAnnotations();
+            if (property != null && annotations != null
+                    && Arrays.stream(annotations).anyMatch(EmailAddress.class::isInstance)) {
+                property.setFormat("email");
+            }
+            return property;
+        };
+    }
+
+    /** The same for a request parameter checked by {@link EmailAddress}. */
+    @Bean
+    public ParameterCustomizer emailAddressParameterFormat() {
+        return (parameter, methodParameter) -> {
+            if (parameter != null && parameter.getSchema() != null
+                    && methodParameter.hasParameterAnnotation(EmailAddress.class)) {
+                parameter.getSchema().setFormat("email");
+            }
+            return parameter;
         };
     }
 

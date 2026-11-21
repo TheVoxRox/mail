@@ -1,26 +1,21 @@
 package org.voxrox.mailbackend.feature.mail.service;
 
-import jakarta.mail.internet.AddressException;
 import jakarta.mail.internet.InternetAddress;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Document.OutputSettings;
 import org.jspecify.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.voxrox.mailbackend.feature.mail.dto.MailRequest;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
-import org.voxrox.mailbackend.util.LogCategory;
+import org.voxrox.mailbackend.util.HeaderAddresses;
 import org.voxrox.mailbackend.util.SubjectNormalizer;
 
 import module java.base;
 
 @Service
 public class MailDraftService {
-
-    private static final Logger log = LoggerFactory.getLogger(MailDraftService.class);
 
     public MailRequest createReplyDraft(MessageEntity original, String content, boolean replyAll) {
         String myEmail = original.getAccount().getEmail();
@@ -103,20 +98,20 @@ public class MailDraftService {
         return org.jsoup.parser.Parser.unescapeEntities(text, false).replace("\\n", "\n").trim();
     }
 
+    /**
+     * The addresses of a header field the reply-all fills in: the ones the compose
+     * form accepts, read as a draft reads its own recipients
+     * ({@link HeaderAddresses#parseValidTokens}). One malformed address used to
+     * cost the whole field, since the strict parse refuses a field over one token.
+     */
     private Set<String> extractEmails(@Nullable String rawAddresses, String myEmail) {
         Set<String> emails = new LinkedHashSet<>();
         if (rawAddresses == null || rawAddresses.isBlank())
             return emails;
-        try {
-            InternetAddress[] parsed = InternetAddress.parse(rawAddresses);
-            for (InternetAddress address : parsed) {
-                String email = address.getAddress();
-                if (email != null && !email.equalsIgnoreCase(myEmail))
-                    emails.add(email);
-            }
-        } catch (AddressException e) {
-            log.warn("{} Failed to parse addresses ({} chars): {}", LogCategory.SYNC, rawAddresses.length(),
-                    e.getMessage());
+        for (InternetAddress address : HeaderAddresses.parseValidTokens(rawAddresses)) {
+            String email = address.getAddress();
+            if (!email.equalsIgnoreCase(myEmail))
+                emails.add(email);
         }
         return emails;
     }
