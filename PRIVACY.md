@@ -1,7 +1,7 @@
 # Zásady ochrany soukromí — VoxRox Mail
 
 _Verze: 2026-11-16. Tato verze je předběžná: ještě nebyla schválena právníkem —
-viz sekce „Otevřené body" na konci dokumentu._
+viz sekce „Otevřené body“ na konci dokumentu._
 
 _English version: [PRIVACY.en.md](PRIVACY.en.md)._
 
@@ -12,8 +12,8 @@ třetí strany — kromě těch, které si sami zvolíte přidáním e-mailovéh
 (váš poskytovatel e-mailu, případně Google nebo Microsoft pro OAuth přihlášení),
 kromě kontroly dostupných aktualizací na GitHubu a kromě vzdálených obrázků ve
 zprávě, jejichž načtení sami výslovně povolíte (obojí viz „Jaká data putují po
-síti"). Logy opustí váš počítač jen tehdy, když sami pošlete diagnostický
-balíček (viz „Diagnostický balíček").
+síti“). Logy opustí váš počítač jen tehdy, když sami pošlete diagnostický
+balíček (viz „Diagnostický balíček“).
 
 VoxRox neprovozuje pro tuto aplikaci žádný backendový server, neukládá vaše
 data v cloudu a neshromažďuje telemetrii, analytiku ani crash reporty na
@@ -115,7 +115,7 @@ Aplikace zahájí síťovou komunikaci jen v těchto případech:
    ptá i tehdy, když se spustit nepodaří, protože opravou takové chyby bývá
    právě nová verze.
    Tamtéž můžete kontrolu při spuštění vypnout (volba „Kontrolovat aktualizace
-   při spuštění aplikace"); aplikace se pak ke GitHubu připojí jen tehdy, když
+   při spuštění aplikace“); aplikace se pak ke GitHubu připojí jen tehdy, když
    kontrolu vyvoláte sami. Stejnou otázku položí už instalátor na stránce
    Soukromí; tichá instalace se neptá, ponechá dříve zvolenou odpověď, a když
    žádná není, nechá kontrolu zapnutou.
@@ -126,8 +126,8 @@ Aplikace zahájí síťovou komunikaci jen v těchto případech:
 4. **Načtení vzdálených obrázků ve zprávě — jen když to sami povolíte.**
    Obrázky odkazované z HTML zprávy se ve výchozím stavu **nestahují**;
    aplikace je zablokuje a nad zprávou to řekne v oblasti „Blokované obrázky z
-   internetu". Teprve když zvolíte **„Načíst obrázky"** (jednorázově pro danou
-   zprávu), nebo **„Vždy načítat obrázky od"** s adresou odesílatele (trvale,
+   internetu“. Teprve když zvolíte **„Načíst obrázky“** (jednorázově pro danou
+   zprávu), nebo **„Vždy načítat obrázky od“** s adresou odesílatele (trvale,
    seznam důvěryhodných odesílatelů se ukládá lokálně v databázi), stáhne
    aplikace obrázky přímo ze serverů, na které zpráva odkazuje. Ty **nejsou pod
    kontrolou VoxRoxu** — jsou to servery odesílatele nebo jeho rozesílací
@@ -135,7 +135,7 @@ Aplikace zahájí síťovou komunikaci jen v těchto případech:
    a čas načtení a může z toho odvodit, že jste zprávu otevřeli (tzv. sledovací
    pixel). Právě proto jsou vzdálené obrázky blokované, dokud je nepovolíte.
    Odesílatele ze seznamu kdykoli odeberete v Nastavení → Účty → úprava účtu, v
-   části „Obrázky z internetu"; jeho zprávy se pak znovu otevírají s
+   části „Obrázky z internetu“; jeho zprávy se pak znovu otevírají s
    blokovanými obrázky. Ve složce nevyžádané pošty (Spam) se obrázky samy
    nenačtou ani od odesílatele ze seznamu, protože adresu odesílatele lze
    podvrhnout, a trvalé povolení se tam nenabízí.
@@ -147,9 +147,9 @@ ani na žádnou analytickou platformu třetí strany.
 
 Ve výchozím nastavení zavření okna aplikaci ukončí a síťová komunikace končí
 spolu s ní. Přepnete-li **Nastavení → Vzhled → Zavření okna** na „nechat běžet
-v oznamovací oblasti", probíhají body 1 a 2 výše i po zavření okna: aplikace
+v oznamovací oblasti“, probíhají body 1 a 2 výše i po zavření okna: aplikace
 se jen skryje, aby dál stahovala poštu a hlásila nové zprávy (oznámením
-Windows, viz „Oznámení Windows o nové poště" výše) — pořád tedy běží
+Windows, viz „Oznámení Windows o nové poště“ výše) — pořád tedy běží
 a pořád se v pravidelných intervalech připojuje k vašemu e-mailovému serveru.
 **Kontrola aktualizací (bod 3) mezi ně nepatří** — ta proběhne nanejvýš jednou
 při spuštění (a vůbec ne, pokud ji máte vypnutou) a za běhu se neopakuje, ať je
@@ -216,11 +216,11 @@ Pokud přidáte účet, vstupují do hry tito poskytovatelé:
 - **Microsoft** — pokud používáte Outlook/Hotmail/Live s OAuth ([https://privacy.microsoft.com/](https://privacy.microsoft.com/)).
 - **GitHub** — aktualizace se distribuují přes GitHub Releases, takže aplikace
   při spuštění, pokud to nevypnete, kontroluje dostupnost nové verze proti GitHubu (viz „Jaká data
-  putují po síti" výše). GitHub při tom vidí vaši IP adresu a dotazovanou verzi
+  putují po síti“ výše). GitHub při tom vidí vaši IP adresu a dotazovanou verzi
   ([https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement)).
 - **Servery hostující vzdálené obrázky ve zprávách** — vstupují do hry jen
   tehdy, když u konkrétní zprávy nebo odesílatele načtení obrázků sami povolíte
-  (viz „Jaká data putují po síti" výše). Kdo takový server provozuje a jaké má
+  (viz „Jaká data putují po síti“ výše). Kdo takový server provozuje a jaké má
   zásady, určuje odesílatel zprávy; VoxRox nad tím nemá kontrolu.
 
 VoxRox nemá s těmito poskytovateli žádnou sdílecí dohodu o vašich datech.
@@ -234,13 +234,13 @@ Komunikace probíhá přímo mezi vaším počítačem a daným serverem.
   adresář je společný pro celou aplikaci, ne pro jeden účet, a odpojení
   schránky není důvod přijít o adresy, které jste do něj zadali ručně nebo
   naimportovali. Smazat je můžete jednotlivě nebo hromadně v Kontaktech;
-  kompletní odstranění všech dat popisuje bod „Kompletní odstranění dat" níže.
+  kompletní odstranění všech dat popisuje bod „Kompletní odstranění dat“ níže.
 - **Odvolat OAuth přístup** u poskytovatele:
   - Google: [https://myaccount.google.com/permissions](https://myaccount.google.com/permissions) → vyhledat „VoxRox
-    Mail" → Odebrat přístup.
+    Mail“ → Odebrat přístup.
   - Microsoft: [https://account.microsoft.com/privacy/app-access](https://account.microsoft.com/privacy/app-access) (osobní
     účty) nebo [https://myapps.microsoft.com](https://myapps.microsoft.com) (firemní účty) → najít aplikaci
-    podle Client ID → „Remove permission". Microsoft neimplementuje
+    podle Client ID → „Remove permission“. Microsoft neimplementuje
     standardní revoke endpoint (RFC 7009), takže odvolání musíte provést
     u nich.
 - **Kompletní odstranění dat** — odinstalujte aplikaci a poté **ručně
@@ -266,11 +266,11 @@ aplikaci nasadila):
   serveru vašeho poskytovatele, ale lokální koncepty, kontakty a nastavení tam
   být nemusí.
 - **Zabezpečení zařízení** — citlivost dat na disku řešte zámkem účtu Windows
-  a šifrováním celého disku (BitLocker), viz „Co šifrované není" výše.
+  a šifrováním celého disku (BitLocker), viz „Co šifrované není“ výše.
 - **`crypto.bin`** — bez tohoto souboru nelze obnovit přihlašovací údaje.
   Nezálohujte ho do nešifrovaného cloudu.
 
-Software je poskytován „tak jak je" (AS IS), bez jakékoli záruky, v rozsahu
+Software je poskytován „tak jak je“ (AS IS), bez jakékoli záruky, v rozsahu
 povoleném licencí MIT (viz [LICENSE](LICENSE)). VoxRox neodpovídá za ztrátu
 dat, výpadek e-mailové služby ani za škody vzniklé použitím aplikace.
 
@@ -302,8 +302,8 @@ Tyto položky budou doplněny předtím, než je tento dokument finalizován:
 - [x] Kontakt pro bezpečnostní hlášení (responsible disclosure) — **info@voxrox.org**.
 - [x] Konkrétní Tauri updater endpoint URL — `https://github.com/TheVoxRox/mail/releases/latest/download/latest.json` (stabilní kanál, [tauri.conf.json](frontend/src-tauri/tauri.conf.json)); beta kanál `https://github.com/TheVoxRox/mail/releases/download/beta/latest.json` ([lib.rs](frontend/src-tauri/src/lib.rs)).
 - [x] Anglická verze tohoto dokumentu — [PRIVACY.en.md](PRIVACY.en.md), 2026-06-01.
-- [ ] Právní review celého dokumentu (GDPR). Formulace „správce dat" pro
-      firemní nasazení i sekce „Vaše odpovědnost a zálohy" jsou předběžně
+- [ ] Právní review celého dokumentu (GDPR). Formulace „správce dat“ pro
+      firemní nasazení i sekce „Vaše odpovědnost a zálohy“ jsou předběžně
       doplněné, ale potřebují potvrdit právníkem.
 
 ---
