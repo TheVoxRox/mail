@@ -28,12 +28,19 @@ class EmailAddressesTest {
         return vectors().stream();
     }
 
+    /** The accepted vectors, as why and address alone. */
     static Stream<Arguments> validVectors() throws IOException {
-        return vectors().stream().filter(vector -> (boolean) vector.get()[2]);
+        return whyAndAddress(true);
     }
 
+    /** The refused vectors, as why and address alone. */
     static Stream<Arguments> invalidVectors() throws IOException {
-        return vectors().stream().filter(vector -> !(boolean) vector.get()[2]);
+        return whyAndAddress(false);
+    }
+
+    private static Stream<Arguments> whyAndAddress(boolean valid) throws IOException {
+        return vectors().stream().filter(vector -> (boolean) vector.get()[2] == valid)
+                .map(vector -> Arguments.of(vector.get()[0], vector.get()[1]));
     }
 
     private static List<Arguments> vectors() throws IOException {
@@ -59,7 +66,7 @@ class EmailAddressesTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("validVectors")
     @DisplayName("An address the rule accepts is one Jakarta Mail sends to, whole, and a draft keeps")
-    void acceptedAddressSurvivesTheSendAndTheDraft(String why, String address, boolean valid) throws Exception {
+    void acceptedAddressSurvivesTheSendAndTheDraft(String why, String address) throws Exception {
         InternetAddress[] parsed = InternetAddress.parse(address);
         assertThat(parsed).as(why).hasSize(1);
         assertThat(parsed[0].getAddress()).as(why).isEqualTo(address);
@@ -74,7 +81,7 @@ class EmailAddressesTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("invalidVectors")
     @DisplayName("A value the rule refuses is never kept as an address by a draft")
-    void refusedValueIsNotKeptByADraft(String why, String address, boolean valid) {
+    void refusedValueIsNotKeptByADraft(String why, String address) {
         assertThat(HeaderAddresses.parseValidTokens(address)).as(why).extracting(InternetAddress::getAddress)
                 .doesNotContain(address);
     }
