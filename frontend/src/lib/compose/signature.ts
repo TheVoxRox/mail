@@ -12,6 +12,8 @@
  * Kept free of Svelte/DOM so the ComposeForm wiring stays unit-testable.
  */
 
+import { stripBlankLinesToNull } from '#lib/storedText.js';
+
 export type ComposeKind = 'reply' | 'forward' | 'draft' | 'mailto' | 'new';
 
 /**
@@ -34,15 +36,17 @@ export function signatureManagedForKind(kind: ComposeKind): boolean {
 
 /**
  * The exact block appended for a given signature: a blank line, the RFC 3676
- * `"-- "` separator line, then the (right-trimmed) signature text. Empty / blank
- * signatures produce no block (`''`), which makes append / swap no-ops.
+ * `"-- "` separator line, then the signature text as a stored block
+ * (`stripBlankLinesToNull`: no blank lines at its ends, the indentation of its
+ * first line kept). Empty / blank signatures produce no block (`''`), which
+ * makes append / swap no-ops.
  *
  * The format is deterministic so {@link swapSignature} can detect and replace a
  * previously-appended block verbatim.
  */
 export function signatureBlock(signature: string | null | undefined): string {
-	const trimmed = (signature ?? '').replace(/[ \t\r\n]+$/u, '');
-	return trimmed.length === 0 ? '' : `\n\n-- \n${trimmed}`;
+	const text = stripBlankLinesToNull(signature);
+	return text === null ? '' : `\n\n-- \n${text}`;
 }
 
 /** Appends the signature block to `body`. No-op for an empty signature. */

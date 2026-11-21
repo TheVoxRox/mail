@@ -1,4 +1,5 @@
 import { splitDisplayName } from '#lib/contacts/displayName.js';
+import { strip, stripBlankLinesToNull, stripToNull } from '#lib/storedText.js';
 import type { ContactCreateRequest, EmailLabel } from '#lib/types.js';
 
 const KNOWN_LABELS: readonly EmailLabel[] = ['HOME', 'WORK', 'OTHER'];
@@ -181,7 +182,7 @@ function splitCategories(value: string): string[] {
 		}
 	}
 	out.push(current);
-	return out.map((item) => unescapeVCard(item).trim()).filter((item) => item.length > 0);
+	return out.map((item) => strip(unescapeVCard(item))).filter((item) => item.length > 0);
 }
 
 function finalizeCard(buf: CardBuffer): ParsedVCard | null {
@@ -192,8 +193,8 @@ function finalizeCard(buf: CardBuffer): ParsedVCard | null {
 
 	if (buf.nParts) {
 		const parts = buf.nParts;
-		surname = parts[0] ? unescapeVCard(parts[0]).trim() || null : null;
-		name = parts[1] ? unescapeVCard(parts[1]).trim() || null : null;
+		surname = parts[0] ? stripToNull(unescapeVCard(parts[0])) : null;
+		name = parts[1] ? stripToNull(unescapeVCard(parts[1])) : null;
 	} else if (buf.fnValue) {
 		// FN is one display string, the same shape a message's From line has, so
 		// the split is the shared one rather than a second rule.
@@ -269,7 +270,7 @@ export function parseVCard(text: string): ParsedVCardFile {
 		} else if (fieldUpper === 'FN') {
 			buf.fnValue = decode(value);
 		} else if (fieldUpper === 'EMAIL') {
-			const email = unescapeVCard(decode(value)).trim();
+			const email = strip(unescapeVCard(decode(value)));
 			/*
 			 * The backend stores an address lower-cased and refuses a contact that
 			 * lists one twice, which costs the whole card. A card naming the same
@@ -280,7 +281,8 @@ export function parseVCard(text: string): ParsedVCardFile {
 				buf.emails.push({ email, label: parseEmailLabel(params) });
 			}
 		} else if (fieldUpper === 'NOTE') {
-			buf.note = unescapeVCard(decode(value)).trim() || null;
+			// A note runs over several lines (\n in the card), so it is stored as a block.
+			buf.note = stripBlankLinesToNull(unescapeVCard(decode(value)));
 		} else if (fieldUpper === 'CATEGORIES') {
 			// A card may repeat the property; accumulate rather than overwrite.
 			buf.categories.push(...splitCategories(decode(value)));

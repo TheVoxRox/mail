@@ -6,6 +6,7 @@
 	} from '#lib/api/contactLabels.js';
 	import { toErrorMessage } from '#lib/api/errors.js';
 	import { _ } from '#lib/i18n/index.js';
+	import { strip } from '#lib/storedText.js';
 	import { contactCounts, refreshContactCounts } from '#lib/stores/contactCounts.js';
 	import { pushToast } from '#lib/stores/toasts.js';
 	import { Button } from '#lib/components/ui/button/index.js';
@@ -70,7 +71,7 @@
 
 	async function handleCreate(event: SubmitEvent): Promise<void> {
 		event.preventDefault();
-		const name = newName.trim();
+		const name = strip(newName);
 		if (creating) return;
 		// Said rather than prevented: a disabled Add is not a tab stop, and Enter
 		// in the empty field did nothing at all (WCAG 3.3.1).
@@ -117,7 +118,7 @@
 
 	async function submitRename(event: SubmitEvent, labelId: number): Promise<void> {
 		event.preventDefault();
-		const name = renameValue.trim();
+		const name = strip(renameValue);
 		if (renameBusy) return;
 		if (name.length === 0) {
 			renameError = $_('contacts.labelNameRequired');
