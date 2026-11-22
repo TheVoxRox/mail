@@ -109,6 +109,14 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- Search results, and the answer that no message matches, now say what was
+  searched: the mail downloaded to this computer, which may lack older
+  messages and folders not opened yet, and for a message not yet opened only
+  its subject, sender and recipients. The spoken count says it in short. A
+  bare "nothing" read as "the message does not exist" while it was on the
+  server, and with a screen reader there was no quick way to check otherwise.
+  Searching the server itself is still to come, in #972 (#991).
+
 - The account list and the account edit page no longer carry a description
   under their heading. It promised management of synchronisation, where the
   page offers one checkbox that turns an account's synchronisation on or off,

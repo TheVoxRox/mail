@@ -277,17 +277,31 @@
 				{$_('messages.errorPrefix', { values: { message: toErrorMessage($searchState.error) } })}
 			</div>
 		{:else if $searchState.status === 'ready' && $searchState.page.content.length === 0}
-			<!-- Focus target after the last result was removed by a row action. -->
+			<!--
+				Focus target after the last result was removed by a row action.
+				The scope sits inside it, so the "nothing" and what was searched are
+				read together: the search reads the local mirror only, and an answer
+				of "nothing" that does not say so reads as "it does not exist" (#972).
+			-->
 			<div
 				bind:this={emptyResultsElement}
 				tabindex="-1"
-				class="flex flex-1 items-center justify-center p-8 text-sm text-muted-foreground outline-hidden"
+				class="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center text-sm text-muted-foreground outline-hidden"
 				role="status"
 			>
-				{$_('search.noResults')}
+				<p>{$_('search.noResults')}</p>
+				<p class="max-w-prose">{$_('search.scope')}</p>
 			</div>
 		{:else if $searchState.status === 'ready'}
 			{@const pageData = $searchState.page}
+			<!--
+				Plain text above the grid, not its description: an aria-describedby
+				would repeat it every time focus enters the grid. The arrival
+				announcement carries the short form with the count.
+			-->
+			<p class="border-b border-border px-4 py-2 text-xs text-muted-foreground">
+				{$_('search.scope')}
+			</p>
 			<SearchResultsGrid
 				results={pageData}
 				hrefFor={(message) => searchHref({ message: message.stableId })}
