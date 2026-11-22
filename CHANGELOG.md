@@ -25,6 +25,8 @@ Entries before 2026-09-17 predate that split and are left as written.
   open blocker and the known issues of 0.2.1-beta.1, §3b taken from an
   installation of 0.2.1-beta.1 once the prerelease is published, and the
   release notes in `docs/release-notes/v0.2.1-beta.2.md` (#994).
+- §9 of the 2026-11-22 sheet is ticked: #994 wrote the decision on an
+  unticked line, so `release:status` still read §9 as open (#995).
 
 ## [0.2.1-beta.2] - 2026-11-22
 
