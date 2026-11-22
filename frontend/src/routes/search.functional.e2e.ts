@@ -167,7 +167,32 @@ test.describe('Search', () => {
 		// Focus stays in the search box while the results render below it,
 		// so the arrival of results must be announced explicitly.
 		await expect(searchResultsGrid(page)).toBeVisible();
-		await expect(page.locator('#live-region')).toContainText('Nalezeno 1 zpráva.');
+		await expect(page.locator('#live-region')).toContainText(
+			'Nalezeno 1 zpráva v poště stažené do tohoto počítače.'
+		);
+	});
+
+	test('výsledek i prázdný stav říkají, co se prohledalo', async ({ page }) => {
+		/*
+		 * The search reads the local mirror only. An answer that does not say so
+		 * reads as "the message does not exist" when it is merely not downloaded,
+		 * or its body not yet opened (#972). Both states name the scope, and the
+		 * empty one inside the focus target, so it is read with the "nothing".
+		 */
+		const scope =
+			'Hledá se jen v poště stažené do tohoto počítače, kde nemusí být starší zprávy ani složky, které jste ještě neotevřeli. U neotevřených zpráv se prohledává jen předmět, odesílatel a příjemci.';
+
+		await openApp(page, '/search/1?q=projekt');
+		await expect(searchResultsGrid(page)).toBeVisible();
+		await expect(page.getByText(scope)).toBeVisible();
+
+		await openApp(page, '/search/1?q=neexistujici-dotaz');
+		const empty = page.getByRole('status').filter({ hasText: 'Žádné zprávy neodpovídají dotazu' });
+		await expect(empty).toBeVisible();
+		await expect(empty).toContainText(scope);
+		await expect(page.locator('#live-region')).toContainText(
+			'Nalezeno 0 zpráv v poště stažené do tohoto počítače.'
+		);
 	});
 
 	test('stránkování výsledků ohlásí novou stranu do live regionu', async ({ page }) => {
@@ -177,7 +202,7 @@ test.describe('Search', () => {
 		await openApp(page, '/search/1?q=zpráva');
 
 		await expect(searchResultsGrid(page)).toBeVisible();
-		await expect(page.locator('#live-region')).toContainText('Nalezeno 25 zpráv.');
+		await expect(page.locator('#live-region')).toContainText('Nalezeno 25 zpráv');
 
 		const pagination = page.getByRole('navigation', { name: 'Stránkování výsledků' });
 		await pagination.getByRole('button', { name: 'Další →' }).click();

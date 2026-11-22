@@ -7,7 +7,10 @@ IMAP/SMTP servery a poskytuje API pro uživatelské rozhraní.
 ## Co aplikace umí
 
 - Správa více e-mailových účtů.
-- Čtení složek, vyhledávání zpráv a práce s detailem zprávy.
+- Čtení složek a práce s detailem zprávy.
+- Vyhledávání zpráv. Hledá se v poště stažené do počítače, kde nemusí být
+  starší zprávy ani složky, které jste ještě neotevřeli; u neotevřených zpráv
+  jen v předmětu, odesílateli a příjemcích. Výsledek hledání to vždy uvádí.
 - Zobrazení pošty po jednotlivých zprávách, nebo seskupené do konverzací
   (vlákno drží zprávy pohromadě i napříč složkami; Odeslané, Koš, Spam a
   Rozepsané zůstávají stranou a seskupují se samy pro sebe).
