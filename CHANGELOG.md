@@ -19,6 +19,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+## [0.2.1-beta.2] - 2026-11-22
+
 ### Backend
 
 - An email address is judged by the rule the forms use, and a send refuses a
@@ -29,14 +31,12 @@ Entries before 2026-09-17 predate that split and are left as written.
   no message could then be sent to. A reply-all keeps the addresses beside a
   malformed one, where one such address used to cost the whole field, and the
   compose suggestions harvest only addresses the form takes (#988).
-
 - The answer to creating an account names the username and the sign-in type
   it stored. It said "unknown" and nothing, though both were stored and the
   next read of the account showed them: the new credentials pointed at the
   account, but the account the service mapped its answer from was never
   pointed back at them. The app reads only the new account's id from that
   answer, so nothing on screen showed it (#987).
-
 - The text of every request the forms send is stripped where it arrives,
   before it is validated or compared with what is stored, by the rule the
   entities keep. An edit of an OAuth account whose username came with a
@@ -116,19 +116,16 @@ Entries before 2026-09-17 predate that split and are left as written.
   bare "nothing" read as "the message does not exist" while it was on the
   server, and with a screen reader there was no quick way to check otherwise.
   Searching the server itself is still to come, in #972 (#991).
-
 - The account list and the account edit page no longer carry a description
   under their heading. It promised management of synchronisation, where the
   page offers one checkbox that turns an account's synchronisation on or off,
   and the heading already says what the page is for, as on the add-account
   page (#989).
-
 - The compose, contact and account forms judge an email address by the
   backend's rule, so a doubled dot, a dot before the @ or a hyphen at the edge
   of the domain is marked as soon as it is typed, instead of the send failing
   after it started or the save being refused. An IP literal in place of a
   domain, such as `jan@[127.0.0.1]`, is no longer taken (#988).
-
 - An account's signature and a contact's note keep the indentation of their
   first line when saved, in line with the lines below; only the blank lines
   they start with and the whitespace they end with go, as the backend stores
@@ -156,42 +153,42 @@ Entries before 2026-09-17 predate that split and are left as written.
   in it, not below a window width of 1280px. On a 1366px screen with the
   sidebar at its default width the Czech labels did not fit, and the move
   button sat cut off at the edge behind a horizontal scroll; folding or
-  narrowing the sidebar now brings the labels back wherever they fit.
+  narrowing the sidebar now brings the labels back wherever they fit (#970).
 - The dark theme draws checkboxes, scrollbars and the other controls the
   webview paints itself dark too. They stayed light, so the message list's
-  column of checkboxes was the brightest thing on the dark screen.
+  column of checkboxes was the brightest thing on the dark screen (#970).
 - A message, search or contact list that fits on one page shows its count
   alone ("25 zpráv"). The pager under it said "Strana 1 z 1" beside four
   disabled buttons and a page box that could only hold 1, and its navigation
-  landmark was a stop for a screen reader with nothing to navigate.
+  landmark was a stop for a screen reader with nothing to navigate (#970).
 - Settings, Language now says only what the page is for and that the choice
   applies at once. Its opening sentence and the hint of the language list
   both said that the change also reaches screen readers ("v atributech pro
   odečítače obrazovky", "atribut lang v HTML"): a developer's words, which a
   screen reader user heard twice in a row, under the heading and again on the
   list. What a screen reader does with the language is not the user's concern
-  while it works.
+  while it works (#959).
 - With no account, Mail's start says "Zatím zde nemáte žádný e-mailový
   účet." instead of "Začněte přidáním e-mailového účtu.". The sentence is the
   description of the focused Add account button, so a screen reader read the
   same action twice, first as the button's name and then as its description,
   and never said why Mail had nothing to open. "Zde" keeps it from claiming
-  the user has no email account at all.
+  the user has no email account at all (#969).
 - Removing the last contacts on the last page of the address book (a delete,
   a merge, or a label taken off the list filtered by it) shows the page
   before it, with focus on its last row. The list used to stay on the page
   that no longer existed and say "Žádné kontakty." with no pager, so with 26
   contacts, deleting the one on page 2 told the user the address book was
-  empty and left no way back to the other 25.
+  empty and left no way back to the other 25 (#975).
 - A vCard import counts the contacts that are already in the address book on
   their own ("Už v adresáři: 5.") instead of among the failures, and only a
   real failure makes the report an error. Importing a file a second time
   used to end in an error read out at once, "Importováno: 0. Selhalo: 5.",
-  with no reason given, for an import that had lost nothing.
+  with no reason given, for an import that had lost nothing (#975).
 - A card that lists the same address twice, also in a different case
   (`Jan@X.cz` and `jan@x.cz`), imports with the address once. The address
   book stores addresses in lower case and refuses a contact that names one
-  twice, so the whole card used to fail.
+  twice, so the whole card used to fail (#975).
 
 ### Tauri / Release
 
@@ -203,13 +200,65 @@ Entries before 2026-09-17 predate that split and are left as written.
   bump clears `cargo audit`, a required check every pull request failed
   while the advisory stood (#992).
 
+### Migrations
+
+- `V2__Fold_keys_and_strip_text`, the first migration since `V1__init.sql`
+  and a Java one (`backend/src/main/java/db/migration`), runs once, on the
+  first start after the update. In one transaction it adds the folded columns
+  the address book and the compose suggestions search and sort by (#974), and
+  strips the whitespace around contact names and notes and around an
+  account's name, server hosts, display name, signature and username (#981,
+  #982). Before it runs, the backend writes
+  `db/mail.db.backup-pre-v0.2.1-beta.2`; a start that fails, or data that
+  looks wrong afterwards, is recovered from that backup as
+  [OPERATIONS.md](backend/OPERATIONS.md) "Update troubleshooting" describes.
+  The updater and the installer refuse a downgrade, so the way back from a
+  faulty build is a newer one, not 0.2.1-beta.1.
+
+### Known issues
+
+Provisional until §9 of the 2026-11-22 candidate sheet, per
+[RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) step 4. Unchanged from
+0.2.1-beta.1:
+
+- **A transient IMAP hiccup, `failed to create new store connection`, appears
+  in the log a couple of times a day.** A bounded retry with backoff recovers it
+  on the next attempt.
+- **Google sign-in works only for accounts on the test list.** The OAuth
+  consent screen stays in `Testing`.
+- **A hostile mail server can still run the mail service out of memory when
+  two such accounts sync at once.** What one account keeps is bounded by an
+  account budget, so a single hostile server costs only its own account. Three
+  restarts in a row still pause that account's sync.
+
+### Manual steps
+
+- **For the user:** an installation switched to the beta channel, on
+  0.2.1-beta.1, on 0.2.0 or on 0.2.0-beta.2 to 0.2.0-beta.4, takes this
+  release through the updater; the stable channel stays on 0.2.0. An
+  installation of 0.1.0 or 0.2.0-beta.1 trusts only the retired signing key
+  and installs this release by hand: run its installer over the existing
+  installation, which keeps mail, accounts and settings. The first start after
+  the update backs the database up and migrates it, which takes a moment
+  longer than an ordinary start.
+- **For the operator:** nothing the updater rests on moved since the
+  2026-11-19 sheet ticked §3b, but 0.2.1-beta.1 shipped a change to the update
+  code (#929, #950), and that code does its first update on this release
+  (RELEASE_CHECKLIST §3b, "The release after a change to the update code").
+  So take §3b from the installation of 0.2.1-beta.1 on the beta channel once
+  this release is published as a prerelease; the same update runs the V2
+  migration on a real database. Not yet seen or heard, from "Not verified"
+  notes no `Heard by the maintainer: …` or `Accepted by the maintainer: …`
+  note answers: the screen-reader passes #959, #969, #970, #974, #977, #980,
+  #982 and #991 left open, and a send in the running app against a real SMTP
+  server with the new address rule (#988).
+
 ### Repo
 
 - `PRIVACY.md` closes its Czech quotations with “ instead of a straight
   ASCII quote, matching the opening „ and the voxrox.org copy, which
   TheVoxRox/TheVoxRox.github.io#13 fixes the same way. Typography only: the
   wording and the policy version stay as they were (#990).
-
 - `docs/DECISIONS.md` records the one rule for an email address, held to
   both implementations by
   `backend/src/test/resources/text/email-address-vectors.json`, which
@@ -289,6 +338,8 @@ maintainer: …`, when the maintainer accepts what stands in for a check not
   the four items the 0.2.1-beta.1 sheet named as unseen had no way out before
   the promotion; all four are now accepted on their pull requests, and
   `docs/DECISIONS.md` records the rule (#960).
+- The `0.2.1-beta.2` cut: the version in the seven files `bump:version`
+  writes, and the 2026-11-22 candidate sheet with §0 to §2 ticked (#993).
 
 ## [0.2.1-beta.1] - 2026-11-19
 
