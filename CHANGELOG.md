@@ -115,7 +115,7 @@ Entries before 2026-09-17 predate that split and are left as written.
   its subject, sender and recipients. The spoken count says it in short. A
   bare "nothing" read as "the message does not exist" while it was on the
   server, and with a screen reader there was no quick way to check otherwise.
-  Searching the server itself is still to come (#972).
+  Searching the server itself is still to come, in #972 (#991).
 
 - The account list and the account edit page no longer carry a description
   under their heading. It promised management of synchronisation, where the
