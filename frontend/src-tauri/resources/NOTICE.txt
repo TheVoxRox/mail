@@ -13,7 +13,7 @@ Total third-party components: 512
   maven  106
   cargo  283
 
-Generated: 2026-11-16
+Generated: 2026-11-22
 
 Machine-readable CycloneDX SBOM files for each ecosystem are
 published alongside the installer on the GitHub Releases page.
@@ -770,7 +770,7 @@ Components and their copyright notices:
       Alex Crichton <alex@alexcrichton.com>, Josh Triplett <josh@joshtriplett.org>
       https://github.com/rust-lang/flate2-rs
 
-  * form_urlencoded 1.2.2  [cargo]
+  * form_urlencoded 1.2.3  [cargo]
       The rust-url developers
       https://github.com/servo/rust-url
 
@@ -1154,7 +1154,7 @@ Components and their copyright notices:
       kwantam <kwantam@gmail.com>, Manish Goregaokar <manishsmail@gmail.com>
       https://github.com/unicode-rs/unicode-segmentation
 
-  * url 2.5.8  [cargo]
+  * url 2.5.9  [cargo]
       The rust-url developers
       https://github.com/servo/rust-url
 

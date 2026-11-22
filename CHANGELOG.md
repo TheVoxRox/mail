@@ -193,6 +193,16 @@ Entries before 2026-09-17 predate that split and are left as written.
   book stores addresses in lower case and refuses a contact that names one
   twice, so the whole card used to fail.
 
+### Tauri / Release
+
+- The shell's `url` crate moves to 2.5.9, with `form_urlencoded` 1.2.3. It
+  fixes a stack overflow in `Url::origin()` on a URL nesting many `blob:`
+  prefixes, which aborts the process (RUSTSEC-2026-0592). The shell calls
+  it only through the HTTP plugin, on the webview's own address, which the
+  app sets and mail content cannot, so the crash was not reachable here. The
+  bump clears `cargo audit`, a required check every pull request failed
+  while the advisory stood (#992).
+
 ### Repo
 
 - `PRIVACY.md` closes its Czech quotations with “ instead of a straight
