@@ -428,6 +428,42 @@ every section.
 The skeleton of a new sheet is in [RELEASE_PROCESS.md](../docs/RELEASE_PROCESS.md)
 "Templates", next to the commands that fill its object id table.
 
+### Candidate 2026-11-22 — tag `v0.2.1-beta.2` (see the object ids below)
+
+```text
+Platform:  Windows 11 Pro x64, machine stolak (§0–§2)
+Tester:    machine half automated; §3–§9 are the maintainer's
+```
+
+| path                         | object id      |
+| ---------------------------- | -------------- |
+| `backend/src`                | `4690a146d425` |
+| `backend/pom.xml`            | `805000cd6fb2` |
+| `backend/scripts`            | `e54c61cab601` |
+| `frontend/src`               | `ba13d649e13a` |
+| `frontend/src-tauri`         | `2165eab659e8` |
+| `frontend/package.json`      | `f41542103188` |
+| `frontend/package-lock.json` | `42969138a404` |
+
+- [x] **§0 Version** — `npm run bump:version 0.2.1-beta.2` and `npm run check:versions` OK on all seven files.
+- [x] **§1 Backend build** — `clean verify` on the tree this cut tags, the version already bumped: 0 failures and 0 errors on surefire and failsafe; the one skip is `MailSyncQresyncDovecotIT` without Docker, which CI runs. SpotBugs reports no bug instance. `mail-backend-0.2.1-beta.2.jar` produced. Sidecar packaged by `npm run sidecar:rebuild:windows` with the OAuth values from `backend/.env`: the application jar and 107 libraries in `lib\`, "All 3 OAuth client values baked into the launcher; no placeholder", all 10 JVM options present in the launcher, "A copy of the image outside target\ started to ready and exited", and the packaged sidecar smoke passed. `regen:licenses:all` after `npm ci`, before this section, changed nothing. The run without a system JDK is taken on the installed candidate.
+- [x] **§2 Frontend automation** — on the same tree: `generate:api` (no drift in `schema.d.ts`), `check:i18n`, `build`, `test:unit`, and `test:e2e`, the functional project and then the a11y suite, all passed with no flake and no re-run.
+- [ ] **§3 Fresh install**
+- [ ] **§3a Installer behaviour**
+- [ ] **§3b Updater**
+- [ ] **§4 Account flows**
+- [ ] **§5 Mail workflows**
+- [ ] **§6 Sidecar lifecycle**
+- [ ] **§7 Diagnostics**
+- [ ] **§8 Long run**
+- [ ] **§9** — Blockers: … Known issues: … Approved: …
+
+Findings:
+
+- **`regen:licenses:all` after `npm ci` changed nothing**, not even the `Generated:` line of `NOTICE.txt`, which #992 had rendered the same day: the inventories and the notice match the tree.
+- **This cut takes everything merged since `v0.2.1-beta.1` (`f321d0f`):** #957 to #992. What ships: contacts found by their names however they are typed and by the full name, and sorted without regard to case or diacritics (#974, #976); one rule for an email address in the forms and in the backend (#988); stored text without the whitespace around it, with the first migration since `V1__init.sql`, `V2__Fold_keys_and_strip_text` (#980 to #986); a contact merge that would outgrow the note limit refused (#977); search that says what it searched (#991); the toolbar fitted to its width, dark native controls and no pager for one page (#970), Mail's empty start (#969), Settings, Language (#959), an emptied last contacts page and a re-imported vCard (#975), and the account pages without their description (#989); the answer to an account create (#987) and the unused `PATCH` contact endpoint removed (#978); the `url` crate for RUSTSEC-2026-0592 (#992). The rest is audits, gates, tests and documents.
+- **§3b is due on this beta although its inputs did not move.** 0.2.1-beta.1 shipped a change to the update code (#929, #950), which does its first update on this release (§3b, "The release after a change to the update code"); it is taken from the installation of 0.2.1-beta.1 on the beta channel once this prerelease is published.
+
 ### Candidate 2026-11-19 — tag `v0.2.1-beta.1` (see the object ids below)
 
 ```text
