@@ -13,7 +13,7 @@ Total third-party components: 512
   maven  106
   cargo  283
 
-Generated: 2026-11-22
+Generated: 2026-11-23
 
 Machine-readable CycloneDX SBOM files for each ecosystem are
 published alongside the installer on the GitHub Releases page.
@@ -58,7 +58,7 @@ Components and their copyright notices:
       (no author in package.json — see git+https://github.com/rolldown/rolldown.git#packages/rolldown)
       git+https://github.com/rolldown/rolldown.git#packages/rolldown
 
-  * bits-ui 2.20.6  [npm]
+  * bits-ui 2.21.0  [npm]
       Hunter Johnston
       git+https://github.com/huntabyte/bits-ui.git
 
@@ -486,7 +486,7 @@ Components and their copyright notices:
       Dany Castillo
       git+https://github.com/dcastil/tailwind-merge.git#packages/tailwind-merge
 
-  * tailwind-variants 4.0.1  [npm]
+  * tailwind-variants 4.0.2  [npm]
       Junior Garcia
       git+https://github.com/heroui-inc/tailwind-variants.git
 
@@ -918,7 +918,7 @@ Components and their copyright notices:
       (no author in package.json — see git+https://github.com/tauri-apps/plugins-workspace.git)
       git+https://github.com/tauri-apps/plugins-workspace.git
 
-  * plugin-http 2.8.3  [npm]
+  * plugin-http 2.9.0  [npm]
       (no author in package.json — see git+https://github.com/tauri-apps/plugins-workspace.git)
       git+https://github.com/tauri-apps/plugins-workspace.git
 
