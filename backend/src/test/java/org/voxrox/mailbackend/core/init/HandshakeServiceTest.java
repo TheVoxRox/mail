@@ -1,6 +1,8 @@
 package org.voxrox.mailbackend.core.init;
 
+import static org.assertj.core.api.Assertions.as;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.InstanceOfAssertFactories.STRING;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -24,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.core.env.Environment;
 import org.springframework.mock.env.MockEnvironment;
@@ -35,6 +38,9 @@ import org.voxrox.mailbackend.core.config.StorageProperties;
 import org.voxrox.mailbackend.core.security.secret.NoopSecretStore;
 import org.voxrox.mailbackend.core.service.FileSystemService;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import tools.jackson.databind.ObjectMapper;
 
 @ExtendWith(MockitoExtension.class)
@@ -49,6 +55,10 @@ class HandshakeServiceTest {
 
     HandshakeService service;
 
+    FileSystemService fileSystemService;
+
+    DatabaseBackupService backupService;
+
     @BeforeEach
     void setUp() throws Exception {
         Path baseDir = Path.of("target", "test-tmp", "HandshakeServiceTest").toAbsolutePath().normalize();
@@ -57,15 +67,19 @@ class HandshakeServiceTest {
         Files.createDirectories(tempDir.resolve("db"));
 
         StorageProperties storageProperties = new StorageProperties(tempDir.toString());
-        FileSystemService fileSystemService = new NoopPermissionsFileSystemService(storageProperties);
+        fileSystemService = new NoopPermissionsFileSystemService(storageProperties);
         // HandshakeService only calls backupService.previousAppVersion() (lists files),
         // so the DataSource is never dereferenced here — a bare instance is enough.
         SQLiteDataSource backupDataSource = new SQLiteDataSource();
         backupDataSource.setUrl("jdbc:sqlite:" + tempDir.resolve("db").resolve("mail.db"));
-        DatabaseBackupService backupService = new DatabaseBackupService(storageProperties, new BackupProperties(3),
-                TEST_VERSION, backupDataSource);
-        service = new HandshakeService(environment, fileSystemService, new ObjectMapper(), stubFlyway("1"),
-                backupService, new ApplicationVersion(TEST_VERSION), new StartupTimingService(), tempDir.toString());
+        backupService = new DatabaseBackupService(storageProperties, new BackupProperties(3), TEST_VERSION,
+                backupDataSource);
+        service = serviceOver(stubFlyway("1"));
+    }
+
+    private HandshakeService serviceOver(Flyway flyway) {
+        return new HandshakeService(environment, fileSystemService, new ObjectMapper(), flyway, backupService,
+                new ApplicationVersion(TEST_VERSION), new StartupTimingService(), tempDir.toString());
     }
 
     private static Flyway stubFlyway(String version) {
@@ -76,6 +90,7 @@ class HandshakeServiceTest {
         MigrationInfo currentInfo = mock(MigrationInfo.class);
         lenient().when(flyway.info()).thenReturn(infoService);
         lenient().when(infoService.current()).thenReturn(currentInfo);
+        lenient().when(infoService.applied()).thenReturn(new MigrationInfo[]{currentInfo});
         lenient().when(currentInfo.getVersion()).thenReturn(MigrationVersion.fromVersion(version));
         return flyway;
     }
@@ -118,6 +133,33 @@ class HandshakeServiceTest {
         assertThat(apiKey).isNotBlank();
         assertThat(sessionJson).contains("\"apiKey\" : \"" + apiKey + "\"");
         assertThat(Files.readString(readyFile)).isEqualTo("ready\n");
+    }
+
+    @Test
+    @DisplayName("app_started names the recorded checksum of every applied migration, <none> for a Java one")
+    void appStartedListsTheChecksumOfEveryAppliedMigration() {
+        when(environment.getProperty("local.server.port", "0")).thenReturn("61234");
+        // The real migrations: V1 is SQL, so Flyway records a checksum for it, and
+        // V2__Fold_keys_and_strip_text is Java without getChecksum(), so it records
+        // none. The newest one's checksum alone read <none> on every installation.
+        Flyway flyway = Flyway.configure()
+                .dataSource("jdbc:sqlite:" + tempDir.resolve("db").resolve("checksums.db"), null, null)
+                .locations("classpath:db/migration").load();
+        flyway.migrate();
+
+        ListAppender<ILoggingEvent> audit = new ListAppender<>();
+        audit.start();
+        Logger auditLogger = (Logger) LoggerFactory.getLogger("AUDIT");
+        auditLogger.addAppender(audit);
+        try {
+            serviceOver(flyway).onApplicationReady();
+        } finally {
+            auditLogger.detachAppender(audit);
+        }
+
+        assertThat(audit.list).map(ILoggingEvent::getFormattedMessage)
+                .filteredOn(message -> message.contains("action=app_started")).singleElement(as(STRING))
+                .containsPattern(" dbSchemaChecksums=V1:-?\\d+,V2:<none>[, ]");
     }
 
     @Test

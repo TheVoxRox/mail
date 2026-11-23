@@ -95,6 +95,20 @@ someone a rework at least once. For the human-facing versions see
     file whose text changed only in its top-level `version` value
     (`frontend/scripts/lib/version-only.mjs`), which is what `bump:version`
     writes into the updater audit's `tauri.conf.json`.
+  - `check:migrations` — a migration a release carries never changes again. A
+    file under `backend/src/main/resources/db/migration` or
+    `backend/src/main/java/db/migration` that a `v*` tag merged into `HEAD`
+    carries must be in `HEAD` with the same blob; an edit, a deletion or a
+    rename fails, and the fix is a new migration, `V<n+1>`. A migration no tag
+    carries yet stays free to change. Flyway guards a released SQL file by
+    itself, at startup with exit code 70, but it never compares a Java
+    migration recorded without a checksum, so for `V2__Fold_keys_and_strip_text`
+    this gate is the only guard (#997). Every `v*` tag counts, a draft's
+    included, and with none reachable, as in a shallow clone, the gate fails
+    rather than passes; a local tag a re-cut moved needs
+    `git fetch --tags --force`. Later Java migrations carry a source-tied
+    checksum and no application code (`JavaMigrationRulesTest`;
+    docs/DECISIONS.md, "A released migration is frozen by its tag").
   - `check:refs` — every repo path and `npm run` script named in prose or in a
     comment exists.
   - `check:npm-callers` — the other direction of that pair: an entry in

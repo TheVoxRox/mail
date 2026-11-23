@@ -10,8 +10,17 @@ import static org.mockito.Mockito.verify;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.Arrays;
 
 import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.MigrationInfo;
+import org.flywaydb.core.api.MigrationVersion;
+import org.flywaydb.core.api.migration.BaseJavaMigration;
+import org.flywaydb.core.api.migration.Context;
+import org.flywaydb.core.api.migration.JavaMigration;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -37,6 +46,20 @@ import org.voxrox.mailbackend.core.lifecycle.StartupFailure.Reason;
  * test pins the real classification: first start (empty schema, migration
  * pending) and plain restart (nothing to do) must both proceed, only the
  * altered file may fail startup.
+ *
+ * <p>
+ * A Java migration is compared only while it has a checksum on both sides. The
+ * class does not get one unless it overrides {@code getChecksum()}, and Flyway
+ * skips the comparison when either the recorded checksum or the build's is null
+ * ({@code MigrationInfo.isChecksumMatching()}).
+ * {@code changedJavaChecksumFailsStartup},
+ * {@code checksumAddedAfterApplyIsNeverCompared} and
+ * {@code checksumRemovedAfterApplyIsNotCompared} pin that for the Flyway this
+ * build ships, because two rules rest on it (#997, {@code docs/DECISIONS.md},
+ * "A released migration is frozen by its tag"):
+ * {@code V2__Fold_keys_and_strip_text}, recorded without a checksum, can be
+ * guarded only by {@code check:migrations}, and every later Java migration
+ * carries a checksum from its first release ({@link JavaMigrationRulesTest}).
  *
  * <p>
  * Uses its own throwaway migration directory rather than the real
@@ -109,6 +132,78 @@ class FlywayAlteredMigrationDetectionTest {
         verify(updateBackupService).createPreMigrationBackup();
     }
 
+    @Test
+    @DisplayName("a Java migration whose checksum changes after it was applied fails startup like an edited SQL file")
+    void changedJavaChecksumFailsStartup() {
+        strategy.migrate(flyway(new V2__Java_probe(42)));
+
+        FlywayMigrationStrategy updateStrategy = restartStrategy(mock(DatabaseBackupService.class));
+        Flyway updated = flyway(new V2__Java_probe(43));
+
+        assertThatThrownBy(() -> updateStrategy.migrate(updated))
+                .isInstanceOfSatisfying(StartupFailure.class,
+                        failure -> assertThat(failure.reason()).isEqualTo(Reason.SCHEMA_MISMATCH))
+                .hasMessageContaining("V2").hasMessageContaining("CHECKSUM_MISMATCH");
+    }
+
+    @Test
+    @DisplayName("a checksum given to a Java migration applied without one is neither compared nor recorded")
+    void checksumAddedAfterApplyIsNeverCompared() {
+        strategy.migrate(flyway(new V2__Java_probe(null)));
+
+        FlywayMigrationStrategy updateStrategy = restartStrategy(mock(DatabaseBackupService.class));
+        Flyway updated = flyway(new V2__Java_probe(42));
+
+        assertThatCode(() -> updateStrategy.migrate(updated)).doesNotThrowAnyException();
+        // The row keeps its null, so on this installation no later build is ever
+        // compared for V2, and the audit field reads <none> for it for good.
+        assertThat(applied(updated, "2").getChecksum()).isNull();
+    }
+
+    @Test
+    @DisplayName("a checksum taken away from an applied Java migration is not compared either")
+    void checksumRemovedAfterApplyIsNotCompared() {
+        strategy.migrate(flyway(new V2__Java_probe(42)));
+
+        FlywayMigrationStrategy updateStrategy = restartStrategy(mock(DatabaseBackupService.class));
+        Flyway updated = flyway(new V2__Java_probe(null));
+
+        assertThatCode(() -> updateStrategy.migrate(updated)).doesNotThrowAnyException();
+    }
+
+    private static MigrationInfo applied(Flyway flyway, String version) {
+        MigrationVersion wanted = MigrationVersion.fromVersion(version);
+        return Arrays.stream(flyway.info().applied()).filter(info -> wanted.equals(info.getVersion())).findFirst()
+                .orElseThrow(() -> new AssertionError("V" + version + " is not applied"));
+    }
+
+    /**
+     * A Java migration standing for {@code V2__Fold_keys_and_strip_text}, with the
+     * checksum it is given, null being what a class that does not override
+     * {@code getChecksum()} returns. Flyway takes version and description from the
+     * simple class name, as it does for the real one.
+     */
+    static final class V2__Java_probe extends BaseJavaMigration {
+
+        private final @Nullable Integer checksum;
+
+        V2__Java_probe(@Nullable Integer checksum) {
+            this.checksum = checksum;
+        }
+
+        @Override
+        public @Nullable Integer getChecksum() {
+            return checksum;
+        }
+
+        @Override
+        public void migrate(Context context) throws SQLException {
+            try (Statement statement = context.getConnection().createStatement()) {
+                statement.execute("CREATE TABLE java_probe (id INTEGER PRIMARY KEY)");
+            }
+        }
+    }
+
     private void writeBaseline(String ddl) throws Exception {
         Files.writeString(migrationDir.resolve("V1__probe.sql"), ddl + System.lineSeparator(), StandardCharsets.UTF_8);
     }
@@ -119,9 +214,9 @@ class FlywayAlteredMigrationDetectionTest {
      * default, so the test cannot pass by accident under a laxer configuration than
      * the app ships.
      */
-    private Flyway flyway() {
+    private Flyway flyway(JavaMigration... javaMigrations) {
         return Flyway.configure().dataSource(jdbcUrl, null, null)
-                .locations("filesystem:" + migrationDir.toAbsolutePath()).load();
+                .locations("filesystem:" + migrationDir.toAbsolutePath()).javaMigrations(javaMigrations).load();
     }
 
     private FlywayMigrationStrategy restartStrategy(DatabaseBackupService service) {
