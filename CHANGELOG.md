@@ -19,6 +19,13 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Repo
+
+- The `v0.2.1-beta.3` release decision: §9 of the 2026-11-23 sheet, with no
+  open blocker and the known issues of 0.2.1-beta.2, §3b carried from the
+  2026-11-22 sheet, and the release notes in
+  `docs/release-notes/v0.2.1-beta.3.md` (#1006).
+
 ## [0.2.1-beta.3] - 2026-11-23
 
 ### Backend
@@ -82,7 +89,7 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Known issues
 
-Provisional until §9 of the 2026-11-23 candidate sheet, per
+Reconciled with §9 of the 2026-11-23 candidate sheet, per
 [RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) step 4. Unchanged from
 0.2.1-beta.2:
 
