@@ -104,6 +104,13 @@ Entries before 2026-09-17 predate that split and are left as written.
   the output stays in the log and still fails the build. The signed-release
   workflow lies under the updater audit's code paths and its ledger
   acknowledges the change, at 1 of 8 (#1002).
+- The Maven wrapper moves to Maven 3.10.1, a bugfix release of 3.10.0, and
+  the swagger-ui webjar to 5.35.0, whose changes are to rendering JSON
+  Schema documents. Neither ships: the wrapper's Maven is what CodeQL's
+  autobuild builds the Java database with, and only Swagger UI in dev loads
+  the webjar, which the release sidecar does not carry. Dependabot committed
+  `backend/mvnw.cmd` with CRLF in the index; the PR renormalizes it to what
+  `.gitattributes` declares, so the file does not change (#1001).
 
 ## [0.2.1-beta.2] - 2026-11-22
 
