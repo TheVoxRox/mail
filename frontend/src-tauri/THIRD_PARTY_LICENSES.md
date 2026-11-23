@@ -16,7 +16,7 @@ Counts: 283 crates total. 136 MIT OR Apache-2.0, 56 MIT, 33 Apache-2.0 OR MIT, 1
 - **camino** 1.2.6 — [https://github.com/camino-rs/camino](https://github.com/camino-rs/camino)
 - **cargo-platform** 0.1.9 — [https://github.com/rust-lang/cargo](https://github.com/rust-lang/cargo)
 - **cfg-if** 1.0.5 — [https://github.com/rust-lang/cfg-if](https://github.com/rust-lang/cfg-if)
-- **cookie** 0.18.2 — [https://github.com/SergioBenitez/cookie-rs](https://github.com/SergioBenitez/cookie-rs)
+- **cookie** 0.18.3 — [https://github.com/SergioBenitez/cookie-rs](https://github.com/SergioBenitez/cookie-rs)
 - **cpufeatures** 0.2.17 — [https://github.com/RustCrypto/utils](https://github.com/RustCrypto/utils)
 - **cpufeatures** 0.3.1 — [https://github.com/RustCrypto/utils](https://github.com/RustCrypto/utils)
 - **crc32fast** 1.5.4 — [https://github.com/srijs/rust-crc32fast](https://github.com/srijs/rust-crc32fast)
