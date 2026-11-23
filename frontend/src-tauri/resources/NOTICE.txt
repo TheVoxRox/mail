@@ -694,7 +694,7 @@ Components and their copyright notices:
       Alex Crichton <alex@alexcrichton.com>
       https://github.com/rust-lang/cfg-if
 
-  * cookie 0.18.2  [cargo]
+  * cookie 0.18.3  [cargo]
       Sergio Benitez <sb@sergio.bz>, Alex Crichton <alex@alexcrichton.com>
       https://github.com/SergioBenitez/cookie-rs
 
