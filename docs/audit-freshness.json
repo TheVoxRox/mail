@@ -121,5 +121,16 @@
         "note": "Unused lambda parameters renamed to `_` (Java unnamed variables) so Eclipse JDT stops flagging them, and nothing else: every changed line was read, each swaps one parameter name for `_` in a lambda whose body never named it. Arity and parameter types are unchanged, so the same overloads resolve and the same code runs. Here: the computeIfAbsent key in OAuth2TokenService's per-account refresh lock (id); the lock itself and everything it guards are untouched. Verdict unchanged."
       }
     ]
+  },
+  "docs/UPDATER_AUDIT.md": {
+    "reviewedTrees": {
+      ".github/workflows/windows-signed-release.yml": "01ae5c54c1b9e9d9eec19b63c947be67df0b34c8"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-11-23",
+        "note": "#1002, a dependabot bump of the github-actions-minor-patch group. The one change in windows-signed-release.yml is the Setup Java step's actions/setup-java, v6.2.0 (77dd5b2c) to v6.3.0 (d1374f8a), still pinned to a 40-hex commit. That step runs in build-signed-windows, the job with contents: read and no updater key; publish-release, which holds the key, does not use setup-java, and none of its lines moved. Every other step, permission, environment, pin and run: block is byte-identical (U-1, U-2 and U-3 hold). v6.3.0 stops registering the Java problem matcher by default, so compiler output no longer becomes pull request annotations; it still fails the build, and nothing here reads those annotations. It also validates the architecture of a JDK file install and adds Microsoft OpenJDK and JetBrains Runtime fixes; the step installs Temurin 25 as before. Verdict unchanged."
+      }
+    ]
   }
 }

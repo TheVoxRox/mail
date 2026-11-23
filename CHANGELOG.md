@@ -70,6 +70,13 @@ Entries before 2026-09-17 predate that split and are left as written.
   archive, neither of which the shell does. `tauri-plugin-notification`
   2.8.1 fixes Android only. The shell's license list and the notice follow
   (#1000).
+- The shell's `cookie` crate, which Tauri pulls in, moves to 0.18.3 for
+  RUSTSEC-2026-0594: a private (encrypted) cookie sealed right after a
+  `fork()` could reuse a nonce. Windows has no `fork()`, and the shell builds
+  `cookie` without the `private` feature, so the encrypted cookie jar is not
+  even compiled in; the bump is about `cargo audit`, a required check that
+  failed on `main` and on every pull request once the advisory appeared
+  (#1004).
 
 ### Repo
 
@@ -92,6 +99,11 @@ Entries before 2026-09-17 predate that split and are left as written.
   code and to the checksum of its source, `FlywayAlteredMigrationDetectionTest`
   pins Flyway's handling of a null checksum, and the rules are in
   `docs/DECISIONS.md` (#997, #1003).
+- CI's `actions/setup-java` moves to 6.3.0, still pinned to a commit. It no
+  longer turns Java compiler output into pull request annotations by default;
+  the output stays in the log and still fails the build. The signed-release
+  workflow lies under the updater audit's code paths and its ledger
+  acknowledges the change, at 1 of 8 (#1002).
 - The Maven wrapper moves to Maven 3.10.1, a bugfix release of 3.10.0, and
   the swagger-ui webjar to 5.35.0, whose changes are to rendering JSON
   Schema documents. Neither ships: the wrapper's Maven is what CodeQL's
