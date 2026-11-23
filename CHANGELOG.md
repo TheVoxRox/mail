@@ -19,6 +19,19 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Frontend
+
+- The webview's HTTP client is `@tauri-apps/plugin-http` 2.9.0 instead of
+  2.8.3. It hands a request body to the shell as raw bytes instead of a JSON
+  array of numbers, which a message with large attachments used to swell to
+  several times their size, and it frees the shell's handle on a response
+  with no body, such as the sidecar's `204`, which nothing used to release.
+  Its calls only work against the shell's plugin at 2.9.0, which lands with
+  it in #1000. bits-ui 2.21.0 and tailwind-variants 4.0.2 change nothing the
+  app uses: bits-ui's fixes are to components it does not use and to menus
+  closing under a Svelte outro, which it has none of, and tailwind-variants'
+  fix is to type checking. The license list and the notice follow (#998).
+
 ### Repo
 
 - The `v0.2.1-beta.2` release decision: §9 of the 2026-11-22 sheet, with no
