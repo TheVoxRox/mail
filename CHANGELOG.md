@@ -92,6 +92,11 @@ Entries before 2026-09-17 predate that split and are left as written.
   code and to the checksum of its source, `FlywayAlteredMigrationDetectionTest`
   pins Flyway's handling of a null checksum, and the rules are in
   `docs/DECISIONS.md` (#997, #1003).
+- CI's `actions/setup-java` moves to 6.3.0, still pinned to a commit. It no
+  longer turns Java compiler output into pull request annotations by default;
+  the output stays in the log and still fails the build. The signed-release
+  workflow lies under the updater audit's code paths and its ledger
+  acknowledges the change, at 1 of 8 (#1002).
 
 ## [0.2.1-beta.2] - 2026-11-22
 
