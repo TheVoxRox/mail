@@ -19,6 +19,58 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Backend
+
+- The `app_started` audit event lists the checksum Flyway recorded for each
+  applied migration, as `dbSchemaChecksums=V1:<checksum>,V2:<none>`, instead
+  of the newest migration's alone. From `V2__Fold_keys_and_strip_text` on, a
+  Java migration recorded without a checksum, that field read `<none>` on
+  every installation, so the support step that reads it after a start refused
+  with exit code 70 found nothing; the list holds the recorded checksum of
+  whichever migration the failure names (#1003).
+
+### Frontend
+
+- The frontend is built with SvelteKit 3.2.0 instead of 3.1.1 and Vite 8.3.8
+  instead of 8.3.7. Kit's fixes that reach a static app with SSR off are to
+  what `afterNavigate` is told on the first load; the layout's handler,
+  which moves focus to the page heading, reads only whether a navigation was
+  shallow and how it came, so where focus lands does not change. The other
+  tooling moves (Playwright 1.65.1, eslint 10.15.0, jsdom 31.0.1, knip
+  6.45.1, msw 3.0.6, prettier 3.10.1) do not ship, and prettier reformats
+  nothing. knip 6.45 reports the `$app/tsconfig` that SvelteKit 3 writes
+  into `node_modules` as a package missing from `package.json`, so
+  `knip.json` exempts `tsconfig.json` from that one check, with the reason.
+  The license list and the notice follow (#999).
+- The webview's HTTP client is `@tauri-apps/plugin-http` 2.9.0 instead of
+  2.8.3. It hands a request body to the shell as raw bytes instead of a JSON
+  array of numbers, which a message with large attachments used to swell to
+  several times their size, and it frees the shell's handle on a response
+  with no body, such as the sidecar's `204`, which nothing used to release.
+  Its calls only work against the shell's plugin at 2.9.0, which lands with
+  it in #1000. bits-ui 2.21.0 and tailwind-variants 4.0.2 change nothing the
+  app uses: bits-ui's fixes are to components it does not use and to menus
+  closing under a Svelte outro, which it has none of, and tailwind-variants'
+  fix is to type checking. The license list and the notice follow (#998).
+
+### Tauri / Release
+
+- The shell's HTTP plugin is `tauri-plugin-http` 2.9.0 instead of 2.8.3,
+  the half that reads the request form of the webview's plugin from #998;
+  neither half answers the other's old form, so the two land together and
+  `tauri build` refuses a pair whose minor versions differ.
+  `tauri-plugin-log` 2.10.2 no longer overwrites a log file rotated in the
+  same second: `mail-frontend.log` rotates at 1 MB with two older files
+  kept, and a burst of sidecar output on a bad start used to rename the
+  earlier file to `.log.bak`, overwriting the previous one and never
+  deleting it. It now takes the next free `_<n>.log` name and counts old
+  `.log.bak` files against the two kept. Save logs packs every file of the
+  folder, whatever its name, and writes its archive with `zip` 9.6.0
+  instead of 9.5.0, whose fixes are to raw copies and to appending to an
+  archive, neither of which the shell does. `tauri-plugin-notification`
+  2.8.1 fixes Android only. The shell's license list and the notice follow
+  (#1000).
+
 ### Repo
 
 - The `v0.2.1-beta.2` release decision: §9 of the 2026-11-22 sheet, with no
@@ -32,7 +84,14 @@ Entries before 2026-09-17 predate that split and are left as written.
   prerelease through the updater, ran `V2__Fold_keys_and_strip_text` after its
   pre-migration backup and kept its mail. The sheet records that `app_started`
   now reads `dbSchemaChecksum=<none>`, since Flyway keeps no checksum for a
-  Java migration (#996).
+  Java migration that does not override `getChecksum()` (#996).
+- `npm run check:migrations` refuses a change to a migration that a `v*` tag
+  carries, SQL and Java alike: Flyway never compares a Java migration recorded
+  without a checksum, so an edited V2 would have run on new installations
+  only. `JavaMigrationRulesTest` holds every later Java migration to its own
+  code and to the checksum of its source, `FlywayAlteredMigrationDetectionTest`
+  pins Flyway's handling of a null checksum, and the rules are in
+  `docs/DECISIONS.md` (#997, #1003).
 
 ## [0.2.1-beta.2] - 2026-11-22
 

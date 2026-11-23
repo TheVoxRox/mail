@@ -37,6 +37,20 @@
 	],
 	"ignore": ["src/test-stubs/**"],
 	"ignoreDependencies": ["openapi-typescript"],
+	// `$app` is not a package: `svelte-kit sync` writes node_modules/$app itself,
+	// and tsconfig.json extends $app/tsconfig from it, as SvelteKit 3 has it.
+	// Since knip 6.45 a tsconfig `extends` that resolves into node_modules is
+	// credited to the package named by the file's path, and reported unlisted
+	// when package.json does not name it; 6.44 reported no config input as
+	// unlisted. ignoreDependencies cannot take it: knip names the package from
+	// the path, but its ignore filter skips any name that does not start like an
+	// npm package, and `$` does not. The SvelteKit plugin's `$app/` ignore covers
+	// imports from source (unresolved), not this. The cost: an unlisted package
+	// named in tsconfig's `types` or `plugins` would go unreported too; it names
+	// none. Drop this once knip credits `$app/tsconfig` itself. knip does not
+	// report an ignoreIssues pattern that matches nothing, so check by deleting
+	// the line and running `npm run knip`.
+	"ignoreIssues": { "tsconfig.json": ["unlisted"] },
 	"ignoreBinaries": ["pwsh", "icacls"],
 	"ignoreExportsUsedInFile": true
 }

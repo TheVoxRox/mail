@@ -33,8 +33,17 @@ import org.jspecify.annotations.Nullable;
  * Applied at the boundary of the API and again where the value enters the
  * entity, so no write path can skip it; and by
  * {@code V2__Fold_keys_and_strip_text}, which brings the rows stored before it
- * to the same form. Once that has shipped, changing the rule means a migration
- * of its own, for the same reason.
+ * to the same form.
+ *
+ * <p>
+ * So a change to what this class returns ships with a migration, {@code V<n>},
+ * that brings every stored value to the new form on every installation. V2
+ * strips with this class, so an installation that runs V2 after the change, one
+ * updating from a release before V2, would store the new form where the others
+ * keep the old one. The methods V2 calls, {@link #strip}, {@link #stripToNull}
+ * and {@link #stripBlankLinesToNull}, keep their signatures, as a released
+ * migration is never edited to follow a change ({@code docs/DECISIONS.md}, "A
+ * released migration is frozen by its tag").
  */
 public final class StoredText {
 

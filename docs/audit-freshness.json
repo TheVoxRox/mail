@@ -53,7 +53,8 @@
       "backend/src/main/java/org/voxrox/mailbackend/feature/contact/dto": "1089a1e8d1f9c0a11858e92ffef1ca0752a2886a",
       "backend/src/main/java/org/voxrox/mailbackend/feature/account/dto": "c3424f22589ca8f9496ccb0df7c8a0017f76794a",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "9a63e7b30dc8989b5d6b4feed56ca1f66027a8a9",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/account/controller": "29de14b87711cd6b5d21df2817cb21b3460e68ee"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/account/controller": "29de14b87711cd6b5d21df2817cb21b3460e68ee",
+      "backend/src/main/java/org/voxrox/mailbackend/core/init/HandshakeService.java": "b504284e5331e8a760d783a99d80f7a732600039"
     },
     "acknowledgements": [
       {
@@ -67,6 +68,21 @@
       {
         "date": "2026-11-21",
         "note": "#988: @Email replaced by @EmailAddress (EmailAddresses, the rule the frontend validates by) on AccountCreateRequest, AccountUpdateRequest, AccountConnectionTestRequest, ContactEmailRequest and the email parameter of MailProviderController.resolveProvider, with the same message key; MailRequest to, cc and bcc gain @EmailAddressList (validation.mail.recipientInvalid). Every changed line was read. No route, field or error code moves, and OpenApiSnapshotTest passes unchanged: OpenApiConfig writes format: email for the new annotation as springdoc did for @Email. The accepted set only narrows over the shared vectors: jan@moje_firma.cz, a dotless domain, an IP literal, a quoted local part and a no-break space are refused where @Email took them, and nothing @Email refused is accepted. A send with a recipient that is not an address is a 400 before the send starts instead of a background failure. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-23",
+        "note": "#997: the app_started audit event's dbSchemaChecksum, the newest applied migration's checksum, becomes dbSchemaChecksums, the version and recorded checksum of every applied migration read from Flyway's MigrationInfoService (V1:<n>,V2:<none>). Every changed line was read. The values are migration versions and the integers Flyway keeps in flyway_schema_history, no secret and nothing a request supplies. session.json, the handshake response, the API key and its generation, the port and the ready gate are untouched, and no route, field or error path moves. Verdict unchanged."
+      }
+    ]
+  },
+  "docs/CRYPTO_STORAGE_AUDIT.md": {
+    "reviewedTrees": {
+      "backend/src/main/java/org/voxrox/mailbackend/core/init": "3a662cc7b24259c517a45651cdedca497bf9b628"
+    },
+    "acknowledgements": [
+      {
+        "date": "2026-11-23",
+        "note": "#997: HandshakeService alone moved under core/init. The app_started audit event's dbSchemaChecksum, the newest applied migration's checksum, becomes dbSchemaChecksums, the version and recorded checksum of every applied migration (V1:<n>,V2:<none>), still non-secret integers from flyway_schema_history, the property 1.1 recorded for the field. Every changed line was read. No key material, KDF, salt, AAD, DPAPI call, crypto.bin handling or storage guard is touched; the API key generation and session.json are unchanged. Verdict unchanged."
       }
     ]
   },

@@ -17,6 +17,11 @@ import tools.jackson.databind.ObjectMapper;
  * {@link StoredText} over the vectors {@code frontend/src/lib/storedText.ts}
  * runs too: a value comes out of both the same, so what the form shows is what
  * the backend stores.
+ *
+ * <p>
+ * Changing an output pinned here changes what is stored, so the change ships
+ * with a migration that brings the stored values to the new form (the class
+ * javadoc of {@link StoredText} says why).
  */
 class StoredTextTest {
 

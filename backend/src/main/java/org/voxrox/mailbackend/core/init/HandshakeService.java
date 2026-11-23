@@ -4,8 +4,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.SecureRandom;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.MigrationInfo;
@@ -152,27 +154,42 @@ public class HandshakeService {
 
         String previousVersion = databaseBackupService != null ? databaseBackupService.previousAppVersion() : null;
         AuditLog.success("app_started", "system",
-                "appVersion=" + appVersion + " dbSchemaVersion=" + dbSchemaVersion + " dbSchemaChecksum="
-                        + resolveDbSchemaChecksum() + " previousAppVersion="
+                "appVersion=" + appVersion + " dbSchemaVersion=" + dbSchemaVersion + " dbSchemaChecksums="
+                        + resolveDbSchemaChecksums() + " previousAppVersion="
                         + (previousVersion != null ? previousVersion : "<none>"));
         startupTimingService.record("spring.application-ready", applicationReadyStarted);
     }
 
     /**
-     * Checksum of the newest applied migration, logged alongside the schema
-     * version. Two installations can report the same {@code dbSchemaVersion} and
-     * still carry different schemas if a migration file was edited after release —
-     * the version alone cannot tell them apart, the checksum can. Support reads it
-     * from {@code app_started} in the audit log when a startup failure is reported
-     * as {@code flyway_altered_migration}.
+     * The checksum Flyway recorded for each applied migration, oldest first, as
+     * {@code V1:<checksum>,V2:<none>}, logged beside the schema version. Two
+     * installations can report the same {@code dbSchemaVersion} and still carry
+     * different schemas if a migration was edited after release; the version alone
+     * cannot tell them apart, a checksum can. Support reads the list from the
+     * previous run's {@code app_started} when a start fails with
+     * {@code db_migration_altered_after_apply}, whose detail names the migration
+     * that differs, and finds that migration's recorded checksum in it whichever
+     * migration it is. The newest migration's checksum alone, which this field
+     * carried until #997, read {@code <none>} from the first Java migration on and
+     * named none.
+     *
+     * <p>
+     * A Java migration that does not override {@code getChecksum()}, which is
+     * {@code V2__Fold_keys_and_strip_text}, is recorded without a checksum and
+     * reads {@code <none>}: Flyway never compares it, and {@code check:migrations}
+     * is what keeps it as released.
      */
-    private String resolveDbSchemaChecksum() {
+    private String resolveDbSchemaChecksums() {
         if (flyway == null) {
             return "<unknown>";
         }
-        MigrationInfo current = flyway.info().current();
-        Integer checksum = current != null ? current.getChecksum() : null;
-        return checksum != null ? checksum.toString() : "<none>";
+        String checksums = Arrays.stream(flyway.info().applied()).filter(info -> info.getVersion() != null)
+                .map(info -> {
+                    Integer checksum = info.getChecksum();
+                    return "V" + info.getVersion().getVersion() + ":"
+                            + (checksum != null ? checksum.toString() : "<none>");
+                }).collect(Collectors.joining(","));
+        return checksums.isEmpty() ? "<none>" : checksums;
     }
 
     private String resolveDbSchemaVersion() {
