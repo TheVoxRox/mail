@@ -42,7 +42,7 @@ Counts: 120 packages total. 90 MIT, 14 ISC, 6 Apache-2.0, 3 MIT OR Apache-2.0, 2
 - **@types/node** 25.9.1 — [https://github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)
 - **@typescript-eslint/types** 8.72.2 — [https://github.com/typescript-eslint/typescript-eslint](https://github.com/typescript-eslint/typescript-eslint)
 - **acorn** 8.18.0 — [https://github.com/acornjs/acorn](https://github.com/acornjs/acorn)
-- **bits-ui** 2.20.6 — [https://github.com/huntabyte/bits-ui](https://github.com/huntabyte/bits-ui)
+- **bits-ui** 2.21.0 — [https://github.com/huntabyte/bits-ui](https://github.com/huntabyte/bits-ui)
 - **clsx** 2.1.1 — [https://github.com/lukeed/clsx](https://github.com/lukeed/clsx)
 - **cookie** 2.0.1 — [https://github.com/jshttp/cookie](https://github.com/jshttp/cookie)
 - **decimal.js** 10.6.0 — [https://github.com/MikeMcl/decimal.js](https://github.com/MikeMcl/decimal.js)
@@ -85,7 +85,7 @@ Counts: 120 packages total. 90 MIT, 14 ISC, 6 Apache-2.0, 3 MIT OR Apache-2.0, 2
 - **svelte-i18n** 4.0.1 — [https://github.com/kaisermann/svelte-i18n](https://github.com/kaisermann/svelte-i18n)
 - **tabbable** 6.5.1 — [https://github.com/focus-trap/tabbable](https://github.com/focus-trap/tabbable)
 - **tailwind-merge** 3.7.0 — [https://github.com/dcastil/tailwind-merge](https://github.com/dcastil/tailwind-merge)
-- **tailwind-variants** 4.0.1 — [https://github.com/heroui-inc/tailwind-variants](https://github.com/heroui-inc/tailwind-variants)
+- **tailwind-variants** 4.0.2 — [https://github.com/heroui-inc/tailwind-variants](https://github.com/heroui-inc/tailwind-variants)
 - **tailwindcss** 4.3.5 — [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
 - **tapable** 2.3.3 — [https://github.com/webpack/tapable](https://github.com/webpack/tapable)
 - **tiny-glob** 0.2.9 — [https://github.com/terkelg/tiny-glob](https://github.com/terkelg/tiny-glob)
@@ -126,7 +126,7 @@ Counts: 120 packages total. 90 MIT, 14 ISC, 6 Apache-2.0, 3 MIT OR Apache-2.0, 2
 ## MIT OR Apache-2.0 (3)
 
 - **@tauri-apps/plugin-fs** 2.7.1 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
-- **@tauri-apps/plugin-http** 2.8.3 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
+- **@tauri-apps/plugin-http** 2.9.0 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
 - **@tauri-apps/plugin-shell** 2.6.0 — [https://github.com/tauri-apps/plugins-workspace](https://github.com/tauri-apps/plugins-workspace)
 
 ## BSD-3-Clause (2)
