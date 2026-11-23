@@ -19,6 +19,8 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+## [0.2.1-beta.3] - 2026-11-23
+
 ### Backend
 
 - The `app_started` audit event lists the checksum Flyway recorded for each
@@ -77,6 +79,42 @@ Entries before 2026-09-17 predate that split and are left as written.
   even compiled in; the bump is about `cargo audit`, a required check that
   failed on `main` and on every pull request once the advisory appeared
   (#1004).
+
+### Known issues
+
+Provisional until §9 of the 2026-11-23 candidate sheet, per
+[RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) step 4. Unchanged from
+0.2.1-beta.2:
+
+- **A transient IMAP hiccup, `failed to create new store connection`, appears
+  in the log a couple of times a day.** A bounded retry with backoff recovers it
+  on the next attempt.
+- **Google sign-in works only for accounts on the test list.** The OAuth
+  consent screen stays in `Testing`.
+- **A hostile mail server can still run the mail service out of memory when
+  two such accounts sync at once.** What one account keeps is bounded by an
+  account budget, so a single hostile server costs only its own account. Three
+  restarts in a row still pause that account's sync.
+
+### Manual steps
+
+- **For the user:** an installation switched to the beta channel, on
+  0.2.1-beta.2, 0.2.1-beta.1, 0.2.0 or 0.2.0-beta.2 to 0.2.0-beta.4, takes
+  this release through the updater; the stable channel stays on 0.2.0. An
+  installation of 0.1.0 or 0.2.0-beta.1 trusts only the retired signing key
+  and installs this release by hand: run its installer over the existing
+  installation, which keeps mail, accounts and settings. This release brings
+  no new migration; an installation older than 0.2.1-beta.2 backs the
+  database up on the first start after the update and runs
+  `V2__Fold_keys_and_strip_text`, as described under 0.2.1-beta.2.
+- **For the operator:** nothing §3b rests on moved since the 2026-11-22 sheet
+  ticked it, and 0.2.1-beta.2 shipped no change to the update code, so §3b
+  carries. Not yet seen or heard, from "Not verified" notes no
+  `Heard by the maintainer: …` or `Accepted by the maintainer: …` note
+  answers: the screen-reader passes #959, #969, #970, #974, #977, #980, #982
+  and #991 left open since 0.2.1-beta.2, a send in the running app against a
+  real SMTP server with the address rule of #988, and a look at the mailbox in
+  the app after the update #996 recorded.
 
 ### Repo
 

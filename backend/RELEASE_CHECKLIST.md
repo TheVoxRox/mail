@@ -428,6 +428,43 @@ every section.
 The skeleton of a new sheet is in [RELEASE_PROCESS.md](../docs/RELEASE_PROCESS.md)
 "Templates", next to the commands that fill its object id table.
 
+### Candidate 2026-11-23 — tag `v0.2.1-beta.3` (see the object ids below)
+
+```text
+Platform:  Windows 11 Pro x64, machine lacina-hp-650 (§0–§2)
+Tester:    machine half automated; §3–§9 are the maintainer's
+```
+
+| path                         | object id      |
+| ---------------------------- | -------------- |
+| `backend/src`                | `623e9d449c78` |
+| `backend/pom.xml`            | `c0e23a6a2c1b` |
+| `backend/scripts`            | `e54c61cab601` |
+| `frontend/src`               | `b0dd55f80c2b` |
+| `frontend/src-tauri`         | `e48c0e1ff3f1` |
+| `frontend/package.json`      | `d4975a42bd7b` |
+| `frontend/package-lock.json` | `cc4c1c3a875e` |
+
+- [x] **§0 Version** — `npm run bump:version 0.2.1-beta.3` and `npm run check:versions` OK on all seven files.
+- [x] **§1 Backend build** — `clean verify` on the tree this cut tags, the version already bumped: 0 failures and 0 errors on surefire and failsafe; the one skip is `MailSyncQresyncDovecotIT` without Docker, which CI runs. SpotBugs reports no bug instance. `mail-backend-0.2.1-beta.3.jar` produced. Sidecar packaged by `npm run sidecar:rebuild:windows` with the OAuth values from `backend/.env`: the application jar and 107 libraries in `lib\`, "All 3 OAuth client values baked into the launcher; no placeholder", all 10 JVM options present in the launcher, "A copy of the image outside target\ started to ready and exited", and the packaged sidecar smoke passed. `regen:licenses:all` after `npm ci`, before this section, changed nothing. The run without a system JDK is taken on the installed candidate.
+- [x] **§2 Frontend automation** — on the same tree: `generate:api` (no drift in `schema.d.ts`), `check:i18n`, `build`, `test:unit`, and `test:e2e`, the functional project and then the a11y suite, all passed with no flake and no re-run. Playwright 1.65.1 ran on Chromium revision 1255, the one CI installs, downloaded for this cut.
+- [ ] **§3 Fresh install**
+- [ ] **§3a Installer behaviour**
+- [ ] **§3b Updater**
+- [ ] **§4 Account flows**
+- [ ] **§5 Mail workflows**
+- [ ] **§6 Sidecar lifecycle**
+- [ ] **§7 Diagnostics**
+- [ ] **§8 Long run**
+- [ ] **§9** — Blockers: … Known issues: … Approved: …
+
+Findings:
+
+- **`regen:licenses:all` after `npm ci` changed nothing**, not even the `Generated:` line of `NOTICE.txt`, which #1004 had rendered the same day: the inventories and the notice match the tree.
+- **This cut takes everything merged since `v0.2.1-beta.2` (`3b9aa31`):** #994 to #1004. What ships: the HTTP plugin pair at 2.9.0, which hands request bodies to the shell as bytes and frees the handle of a response with no body (#998, #1000); log rotation that no longer overwrites a file rotated in the same second, and `zip` 9.6.0 for Save logs (#1000); SvelteKit 3.2.0 and Vite 8.3.8 (#999); `app_started` naming the recorded checksum of every applied migration (#1003); `cookie` 0.18.3 for RUSTSEC-2026-0594 (#1004). The rest is release records, a gate, CI and build tooling (#994 to #997, #1001, #1002).
+- **§3b carries.** Nothing it rests on moved since the 2026-11-22 sheet ticked it (the version in `tauri.conf.json` only), and 0.2.1-beta.2 shipped no change to the update code, so "The release after a change to the update code" does not apply.
+- **The HTTP plugin pair is the change with the least run behind it.** Every call from the webview to the sidecar goes through it (`frontend/src/lib/api/http.ts`). The e2e suite runs in a plain browser, where that wrapper falls back to `window.fetch`, so it does not cross the plugin; Release Candidate Smoke crosses it as far as the webview booting to ready. The beta is where it meets real mailboxes and large attachments.
+
 ### Candidate 2026-11-22 — tag `v0.2.1-beta.2` (see the object ids below)
 
 ```text
