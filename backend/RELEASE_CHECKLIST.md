@@ -428,6 +428,42 @@ every section.
 The skeleton of a new sheet is in [RELEASE_PROCESS.md](../docs/RELEASE_PROCESS.md)
 "Templates", next to the commands that fill its object id table.
 
+### Candidate 2026-11-24 — tag `v0.2.1` (see the object ids below)
+
+```text
+Platform:  Windows 11 Pro x64, machine stolak (§0–§2)
+Tester:    machine half automated; §3–§9 are the maintainer's
+```
+
+| path                         | object id      |
+| ---------------------------- | -------------- |
+| `backend/src`                | `623e9d449c78` |
+| `backend/pom.xml`            | `13899fb89987` |
+| `backend/scripts`            | `e54c61cab601` |
+| `frontend/src`               | `c69885da51e2` |
+| `frontend/src-tauri`         | `d0a23b42b731` |
+| `frontend/package.json`      | `e2203ac01d5c` |
+| `frontend/package-lock.json` | `dab4e9a3fe79` |
+
+- [x] **§0 Version** — `npm run bump:version 0.2.1` and `npm run check:versions` OK on all seven files.
+- [x] **§1 Backend build** — `clean verify` on the tree this cut tags, the version already bumped: 0 failures and 0 errors on surefire and failsafe; the one skip is `MailSyncQresyncDovecotIT` without Docker, which CI runs. SpotBugs reports no bug instance. `mail-backend-0.2.1.jar` produced. Sidecar packaged by `npm run sidecar:rebuild:windows` with the OAuth values from `backend/.env`: the application jar and 107 libraries in `lib\`, "All 3 OAuth client values baked into the launcher; no placeholder", all 10 JVM options present in the launcher, "A copy of the image outside target\ started to ready and exited", and the packaged sidecar smoke passed. `regen:licenses:all` after `npm ci`, before this section, changed nothing. The run without a system JDK is taken on the installed candidate.
+- [x] **§2 Frontend automation** — on the same tree: `generate:api` (no drift in `schema.d.ts`), `check:i18n`, `build`, `test:unit`, and `test:e2e`, the functional project and then the a11y suite, all passed with no flake and no re-run. Playwright 1.65.1 ran on Chromium revision 1255, the one CI installs, downloaded on this machine for this cut.
+- [ ] **§3 Fresh install**
+- [ ] **§3a Installer behaviour**
+- [ ] **§3b Updater**
+- [ ] **§4 Account flows**
+- [ ] **§5 Mail workflows**
+- [ ] **§6 Sidecar lifecycle**
+- [ ] **§7 Diagnostics**
+- [ ] **§8 Long run**
+- [ ] **§9** — Blockers: … Known issues: … Approved: …
+
+Findings:
+
+- **`regen:licenses:all` after `npm ci` changed nothing**, not even the `Generated:` line of `NOTICE.txt`: the inventories and the notice match the tree.
+- **This cut takes everything merged since `v0.2.1-beta.3` (`fd6d448`):** #1006, the beta.3 release decision and notes. Documents only: `git diff --stat v0.2.1-beta.3 origin/main -- . ':(exclude)*.md' ':(exclude)frontend/scripts'` lists nothing, and against the beta tag the shipped paths moved only in the version (`backend/src` and `backend/scripts` keep their object ids). The installer this tag builds is the beta's code under a new version.
+- **One known issue more than the beta's three.** The maintainer's pass of #977 on the installed `v0.2.1-beta.3` found that the merge dialog's unavailable **Sloučit kontakty** button is natively disabled, so it never speaks the warning it is described by (#1007). The warning is readable as text and the merge is refused; the fix waits for after this release, by the maintainer's decision of 2026-11-23.
+
 ### Candidate 2026-11-23 — tag `v0.2.1-beta.3` (see the object ids below)
 
 ```text
