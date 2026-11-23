@@ -27,6 +27,12 @@ Entries before 2026-09-17 predate that split and are left as written.
   release notes in `docs/release-notes/v0.2.1-beta.2.md` (#994).
 - §9 of the 2026-11-22 sheet is ticked: #994 wrote the decision on an
   unticked line, so `release:status` still read §9 as open (#995).
+- RELEASE_CHECKLIST §3b for `v0.2.1-beta.2` is ticked: on 2026-11-23 an
+  installation of 0.2.1-beta.1 on the beta channel took the published
+  prerelease through the updater, ran `V2__Fold_keys_and_strip_text` after its
+  pre-migration backup and kept its mail. The sheet records that `app_started`
+  now reads `dbSchemaChecksum=<none>`, since Flyway keeps no checksum for a
+  Java migration (#996).
 
 ## [0.2.1-beta.2] - 2026-11-22
 
