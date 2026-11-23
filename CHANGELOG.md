@@ -21,6 +21,17 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Frontend
 
+- The frontend is built with SvelteKit 3.2.0 instead of 3.1.1 and Vite 8.3.8
+  instead of 8.3.7. Kit's fixes that reach a static app with SSR off are to
+  what `afterNavigate` is told on the first load; the layout's handler,
+  which moves focus to the page heading, reads only whether a navigation was
+  shallow and how it came, so where focus lands does not change. The other
+  tooling moves (Playwright 1.65.1, eslint 10.15.0, jsdom 31.0.1, knip
+  6.45.1, msw 3.0.6, prettier 3.10.1) do not ship, and prettier reformats
+  nothing. knip 6.45 reports the `$app/tsconfig` that SvelteKit 3 writes
+  into `node_modules` as a package missing from `package.json`, so
+  `knip.json` exempts `tsconfig.json` from that one check, with the reason.
+  The license list and the notice follow (#999).
 - The webview's HTTP client is `@tauri-apps/plugin-http` 2.9.0 instead of
   2.8.3. It hands a request body to the shell as raw bytes instead of a JSON
   array of numbers, which a message with large attachments used to swell to
