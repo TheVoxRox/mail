@@ -32,7 +32,7 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Known issues
 
-Provisional until §9 of the 2026-11-24 candidate sheet, per
+Reconciled with §9 of the 2026-11-24 candidate sheet, per
 [RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) step 4. The three of
 0.2.1-beta.3, and one found on it:
 
@@ -76,6 +76,10 @@ Provisional until §9 of the 2026-11-24 candidate sheet, per
   `docs/release-notes/v0.2.1-beta.3.md` (#1006).
 - The `0.2.1` cut: the version in the seven files `bump:version` writes, and
   the 2026-11-24 candidate sheet with §0 to §2 ticked (#1008).
+- The `v0.2.1` release decision: §9 of the 2026-11-24 sheet, with no open
+  blocker and the known issues of 0.2.1-beta.3 and #1007, §3 to §8 carried
+  from the 0.2.1-beta.3 sheet, and the release notes in
+  `docs/release-notes/v0.2.1.md` (#1009).
 
 ## [0.2.1-beta.3] - 2026-11-23
 
