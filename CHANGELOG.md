@@ -19,12 +19,63 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+## [0.2.1] - 2026-11-24
+
+### Tauri / Release
+
+- 0.2.1 is the stable release of 0.2.1-beta.3, promoted with no change to what
+  the installer carries: since that beta only the release documentation moved,
+  none of it bundled. What 0.2.1 brings over 0.2.0 is recorded in the three
+  beta sections below, 0.2.1-beta.1 to 0.2.1-beta.3. The stable channel, every
+  installation's default, serves it, and the beta channel moves onto it too,
+  since 0.2.1 is newer than every 0.2.1 beta.
+
+### Known issues
+
+Provisional until §9 of the 2026-11-24 candidate sheet, per
+[RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) step 4. The three of
+0.2.1-beta.3, and one found on it:
+
+- **A transient IMAP hiccup, `failed to create new store connection`, appears
+  in the log a couple of times a day.** A bounded retry with backoff recovers it
+  on the next attempt.
+- **Google sign-in works only for accounts on the test list.** The OAuth
+  consent screen stays in `Testing`.
+- **A hostile mail server can still run the mail service out of memory when
+  two such accounts sync at once.** What one account keeps is bounded by an
+  account budget, so a single hostile server costs only its own account. Three
+  restarts in a row still pause that account's sync.
+- **In the dialog that merges contacts, the unavailable "Sloučit kontakty"
+  button does not tell a screen reader why.** When the merged note or the
+  addresses would exceed their limit, the warning stands as text above
+  "Zrušit" and the merge is refused, but the button is natively disabled, so it
+  takes no focus and the warning it is described by is never spoken (#1007).
+
+### Manual steps
+
+- **For the user:** an installation of 0.2.0, of 0.2.0-beta.2 to
+  0.2.0-beta.4, or of 0.2.1-beta.1 to 0.2.1-beta.3 takes this release through
+  the updater, on either channel. An installation of 0.1.0 or 0.2.0-beta.1
+  trusts only the retired signing key and installs this release by hand: run
+  its installer over the existing installation, which keeps mail, accounts and
+  settings. An installation older than 0.2.1-beta.2, 0.2.0 among them, backs
+  the database up on the first start after the update and runs
+  `V2__Fold_keys_and_strip_text`, as described under 0.2.1-beta.2.
+- **For the operator:** none beyond publishing. §3 to §8 carry from the
+  2026-11-23 sheet of 0.2.1-beta.3, whose code this installer is (#892,
+  revised by #899). What that sheet's §9 named as not yet seen or heard was
+  heard or accepted by the maintainer on 2026-11-23, in notes on #959, #969,
+  #970, #974, #977, #980, #982, #988, #991 and #996; the one finding, #1007,
+  is left for after this release.
+
 ### Repo
 
 - The `v0.2.1-beta.3` release decision: §9 of the 2026-11-23 sheet, with no
   open blocker and the known issues of 0.2.1-beta.2, §3b carried from the
   2026-11-22 sheet, and the release notes in
   `docs/release-notes/v0.2.1-beta.3.md` (#1006).
+- The `0.2.1` cut: the version in the seven files `bump:version` writes, and
+  the 2026-11-24 candidate sheet with §0 to §2 ticked (#1008).
 
 ## [0.2.1-beta.3] - 2026-11-23
 
