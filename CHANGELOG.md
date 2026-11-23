@@ -70,6 +70,13 @@ Entries before 2026-09-17 predate that split and are left as written.
   archive, neither of which the shell does. `tauri-plugin-notification`
   2.8.1 fixes Android only. The shell's license list and the notice follow
   (#1000).
+- The shell's `cookie` crate, which Tauri pulls in, moves to 0.18.3 for
+  RUSTSEC-2026-0594: a private (encrypted) cookie sealed right after a
+  `fork()` could reuse a nonce. Windows has no `fork()`, and the shell builds
+  `cookie` without the `private` feature, so the encrypted cookie jar is not
+  even compiled in; the bump is about `cargo audit`, a required check that
+  failed on `main` and on every pull request once the advisory appeared
+  (#1004).
 
 ### Repo
 
