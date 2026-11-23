@@ -32,6 +32,24 @@ Entries before 2026-09-17 predate that split and are left as written.
   closing under a Svelte outro, which it has none of, and tailwind-variants'
   fix is to type checking. The license list and the notice follow (#998).
 
+### Tauri / Release
+
+- The shell's HTTP plugin is `tauri-plugin-http` 2.9.0 instead of 2.8.3,
+  the half that reads the request form of the webview's plugin from #998;
+  neither half answers the other's old form, so the two land together and
+  `tauri build` refuses a pair whose minor versions differ.
+  `tauri-plugin-log` 2.10.2 no longer overwrites a log file rotated in the
+  same second: `mail-frontend.log` rotates at 1 MB with two older files
+  kept, and a burst of sidecar output on a bad start used to rename the
+  earlier file to `.log.bak`, overwriting the previous one and never
+  deleting it. It now takes the next free `_<n>.log` name and counts old
+  `.log.bak` files against the two kept. Save logs packs every file of the
+  folder, whatever its name, and writes its archive with `zip` 9.6.0
+  instead of 9.5.0, whose fixes are to raw copies and to appending to an
+  archive, neither of which the shell does. `tauri-plugin-notification`
+  2.8.1 fixes Android only. The shell's license list and the notice follow
+  (#1000).
+
 ### Repo
 
 - The `v0.2.1-beta.2` release decision: §9 of the 2026-11-22 sheet, with no
