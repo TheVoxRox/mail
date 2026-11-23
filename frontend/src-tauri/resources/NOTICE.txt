@@ -646,7 +646,7 @@ Components and their copyright notices:
       (no author in package.json — see git+https://github.com/sveltejs/zimmerframe.git)
       git+https://github.com/sveltejs/zimmerframe.git
 
-  * zip 9.5.0  [cargo]
+  * zip 9.6.0  [cargo]
       Mathijs van de Nes <git@mathijs.vd-nes.nl>, Marli Frost <marli@frost.red>, Ryan Levick <ryan.levick@gmail.com>, Chris Hennick <hennickc@amazon.com>
       https://github.com/zip-rs/zip2
 
@@ -1860,15 +1860,15 @@ Components and their copyright notices:
       Tauri Programme within The Commons Conservancy
       https://github.com/tauri-apps/plugins-workspace
 
-  * tauri-plugin-http 2.8.3  [cargo]
+  * tauri-plugin-http 2.9.0  [cargo]
       Tauri Programme within The Commons Conservancy
       https://github.com/tauri-apps/plugins-workspace
 
-  * tauri-plugin-log 2.10.1  [cargo]
+  * tauri-plugin-log 2.10.2  [cargo]
       Tauri Programme within The Commons Conservancy
       https://github.com/tauri-apps/plugins-workspace
 
-  * tauri-plugin-notification 2.8.0  [cargo]
+  * tauri-plugin-notification 2.8.1  [cargo]
       Tauri Programme within The Commons Conservancy
       https://github.com/tauri-apps/plugins-workspace
 
