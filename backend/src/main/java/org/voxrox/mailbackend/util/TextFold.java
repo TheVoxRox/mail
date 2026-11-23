@@ -39,9 +39,17 @@ import org.jspecify.annotations.Nullable;
  * decomposes.
  *
  * <p>
- * A stored key is only as good as its agreement with the query side: changing
- * this rule means a migration that recomputes every stored key, or the rows
- * written before the change stop matching the queries written after it.
+ * A stored key is only as good as its agreement with the query side, so a
+ * change to what this class returns ships with a migration, {@code V<n>}, that
+ * recomputes every stored key on every installation. Without it the rows
+ * written before the change stop matching the queries written after it. The
+ * same migration keeps the installations alike:
+ * {@code V2__Fold_keys_and_strip_text} computes its keys with this class, so an
+ * installation that runs V2 after the change, one updating from a release
+ * before V2, would store the new keys where the others keep the old ones. The
+ * methods V2 calls, {@link #fold} and {@link #key}, keep their signatures, as a
+ * released migration is never edited to follow a change
+ * ({@code docs/DECISIONS.md}, "A released migration is frozen by its tag").
  */
 public final class TextFold {
 

@@ -7,6 +7,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+/**
+ * Changing an output pinned here changes the stored keys, so the change ships
+ * with a migration that recomputes them (the class javadoc of {@link TextFold}
+ * says why).
+ */
 class TextFoldTest {
 
     @ParameterizedTest(name = "{0} -> {1}")
