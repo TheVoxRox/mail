@@ -30,7 +30,7 @@ Counts: 120 packages total. 90 MIT, 14 ISC, 6 Apache-2.0, 3 MIT OR Apache-2.0, 2
 - **@rolldown/pluginutils** 1.0.1 — [https://github.com/rolldown/plugins](https://github.com/rolldown/plugins)
 - **@standard-schema/spec** 1.1.0 — [https://github.com/standard-schema/standard-schema](https://github.com/standard-schema/standard-schema)
 - **@sveltejs/acorn-typescript** 1.0.13 — [https://github.com/sveltejs/acorn-typescript](https://github.com/sveltejs/acorn-typescript)
-- **@sveltejs/kit** 3.1.1 — [https://github.com/sveltejs/kit](https://github.com/sveltejs/kit)
+- **@sveltejs/kit** 3.2.0 — [https://github.com/sveltejs/kit](https://github.com/sveltejs/kit)
 - **@sveltejs/vite-plugin-svelte** 7.3.1 — [https://github.com/sveltejs/vite-plugin-svelte](https://github.com/sveltejs/vite-plugin-svelte)
 - **@tailwindcss/node** 4.3.5 — [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
 - **@tailwindcss/oxide** 4.3.5 — [https://github.com/tailwindlabs/tailwindcss](https://github.com/tailwindlabs/tailwindcss)
@@ -93,7 +93,7 @@ Counts: 120 packages total. 90 MIT, 14 ISC, 6 Apache-2.0, 3 MIT OR Apache-2.0, 2
 - **totalist** 3.0.1 — [https://github.com/lukeed/totalist](https://github.com/lukeed/totalist)
 - **tw-animate-css** 1.4.0 — [https://github.com/Wombosvideo/tw-animate-css](https://github.com/Wombosvideo/tw-animate-css)
 - **undici-types** 7.24.6 — [https://github.com/nodejs/undici](https://github.com/nodejs/undici)
-- **vite** 8.3.7 — [https://github.com/vitejs/vite](https://github.com/vitejs/vite)
+- **vite** 8.3.8 — [https://github.com/vitejs/vite](https://github.com/vitejs/vite)
 - **vitefu** 1.1.3 — [https://github.com/svitejs/vitefu](https://github.com/svitejs/vitefu)
 - **zimmerframe** 1.1.4 — [https://github.com/sveltejs/zimmerframe](https://github.com/sveltejs/zimmerframe)
 
