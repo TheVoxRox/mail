@@ -282,6 +282,67 @@ real one.
 **Revisit when:** importing a database made by another tool becomes a feature.
 That needs its own path with a schema check, not baselining.
 
+### A released migration is frozen by its tag
+
+**Decided 2026-11-23** (#997). A file under
+`backend/src/main/resources/db/migration` or
+`backend/src/main/java/db/migration` that a `v*` tag merged into `HEAD`
+carries never changes again: no edit, no deletion, no rename. A correction is a
+new migration, `V<n+1>`. `npm run check:migrations` compares the file's blob in
+`HEAD` with every such tag. Every `v*` tag counts, a draft's included, so the
+gate needs no GitHub API and gives the same answer offline; a re-cut deletes
+its tag before tagging again. A migration no tag carries yet stays free to
+change, as `V2__Fold_keys_and_strip_text` did through #980 to #986.
+
+Why: an installation records each migration it has run and never runs it
+again, so an edited released migration leaves two schemas under one version.
+For a SQL migration Flyway notices: it recorded a checksum of the file and
+refuses to start with exit code 70 ([OPERATIONS.md](../backend/OPERATIONS.md),
+"Update troubleshooting"). For a Java migration it does not. A class that does
+not override `getChecksum()` is recorded without a checksum, and Flyway
+compares two checksums only when neither is null
+(`MigrationInfo.isChecksumMatching()`, pinned in
+`FlywayAlteredMigrationDetectionTest`). `V2__Fold_keys_and_strip_text` shipped
+that way in `v0.2.1-beta.2`. Flyway rewrites a recorded checksum only in
+`repair`, which OPERATIONS.md rules out, so those installations hold null for
+V2 for good, and a checksum added to V2 now would guard only installations
+made after it. A release tag is also a baseline nobody re-pins: a pinned
+constant in a test can be updated to make the test pass, and the tag of a
+published release cannot be moved. `FlywayBaselineChecksumTest` stays beside
+the gate, as it pins Flyway's own checksum of V1, which a comparison of files
+cannot see.
+
+Three rules go with it:
+
+- **V3 and later are SQL where SQL can do the job.** A Java migration only
+  where it cannot, as V2's folding could not: SQLite folds ASCII only.
+- **A Java migration after V2 is self-contained and checksummed.** It names
+  nothing in `org.voxrox` and carries its own copy of any logic it needs, so a
+  later change to the application cannot change what it does. It declares
+  `private static final int CHECKSUM = <n>;` on a line of its own, the CRC32 of
+  its source without that line, and returns it from `getChecksum()`. An edit
+  then fails the build, or ships a new checksum that Flyway refuses at startup
+  like an edited SQL file. Before the first release the value is updated with
+  each edit, and a dev database that ran the earlier one is reset.
+  `JavaMigrationRulesTest` checks both halves. V2 is the one exception, for the
+  reason above, and because it calls `TextFold` and `StoredText` on purpose (its
+  javadoc says why).
+- **A change to what `TextFold` or `StoredText` returns ships with a migration
+  that recomputes the stored values on every installation.** The fold keys and
+  the stripped text are derived data: without it, the rows stored before the
+  change stop matching the queries made after it. The same migration evens out
+  V2, which runs those classes. An installation that updates from a release
+  before `v0.2.1-beta.2` after the change gets the new form from V2, while the
+  others keep the old one. On a fresh installation V2 rewrites no rows, since
+  V1 seeds none. The methods V2 calls keep their signatures, as V2 cannot be
+  edited to follow them. The class javadoc of both says so.
+
+**Revisit when:** Flyway computes a checksum of a Java migration's content by
+itself, which makes the source checksum redundant; or a refactor needs to touch
+a released Java migration, for example to keep V2 compiling against a changed
+`TextFold`, which needs a mechanism for an acknowledged exception rather than a
+weaker gate.
+
 ### An incomplete Let's Encrypt chain is completed from bundled intermediates, not fetched
 
 **Decided 2026-11-18** (#928). The sidecar's JDK trusts ISRG Root X1 and X2

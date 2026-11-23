@@ -19,6 +19,16 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Backend
+
+- The `app_started` audit event lists the checksum Flyway recorded for each
+  applied migration, as `dbSchemaChecksums=V1:<checksum>,V2:<none>`, instead
+  of the newest migration's alone. From `V2__Fold_keys_and_strip_text` on, a
+  Java migration recorded without a checksum, that field read `<none>` on
+  every installation, so the support step that reads it after a start refused
+  with exit code 70 found nothing; the list holds the recorded checksum of
+  whichever migration the failure names (#1003).
+
 ### Frontend
 
 - The frontend is built with SvelteKit 3.2.0 instead of 3.1.1 and Vite 8.3.8
@@ -74,7 +84,14 @@ Entries before 2026-09-17 predate that split and are left as written.
   prerelease through the updater, ran `V2__Fold_keys_and_strip_text` after its
   pre-migration backup and kept its mail. The sheet records that `app_started`
   now reads `dbSchemaChecksum=<none>`, since Flyway keeps no checksum for a
-  Java migration (#996).
+  Java migration that does not override `getChecksum()` (#996).
+- `npm run check:migrations` refuses a change to a migration that a `v*` tag
+  carries, SQL and Java alike: Flyway never compares a Java migration recorded
+  without a checksum, so an edited V2 would have run on new installations
+  only. `JavaMigrationRulesTest` holds every later Java migration to its own
+  code and to the checksum of its source, `FlywayAlteredMigrationDetectionTest`
+  pins Flyway's handling of a null checksum, and the rules are in
+  `docs/DECISIONS.md` (#997, #1003).
 
 ## [0.2.1-beta.2] - 2026-11-22
 

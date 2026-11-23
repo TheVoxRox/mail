@@ -331,6 +331,18 @@ decide whether everything else is allowed to land.
   sidecar dies at startup under `spring.aot.enabled=true`. The `openapi`
   profile resets both filters and must reset **both** — resetting one is the
   same failure by another route.
+- `npm run check:migrations` — part of `npm run check`. A file under
+  `backend/src/main/resources/db/migration` or
+  `backend/src/main/java/db/migration` that a `v*` tag merged into `HEAD`
+  carries must be in `HEAD` with the same blob: an edit, a deletion or a
+  rename fails, and the fix is a new migration, `V<n+1>`. A migration no tag
+  carries yet stays free to change. Every `v*` tag counts, a draft's included,
+  and with none reachable the gate fails rather than passes, which is what a
+  shallow clone gets; CI checks out with `fetch-depth: 0`. A local tag a re-cut
+  moved is brought up to date by `git fetch --tags --force`. Flyway guards a
+  released SQL migration on its own, by its checksum; a Java migration
+  recorded without one, which is `V2__Fold_keys_and_strip_text`, has only this
+  gate (docs/DECISIONS.md, "A released migration is frozen by its tag").
 - `npm run check:rename-residue -- --base <ref>` — CI only, like the docs
   impact check: it needs something to diff against. Fails when a symbol the
   range stopped declaring is still named in a comment, a `@DisplayName` or a
