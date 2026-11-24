@@ -13,7 +13,7 @@ Total third-party components: 512
   maven  106
   cargo  283
 
-Generated: 2026-11-23
+Generated: 2026-11-24
 
 Machine-readable CycloneDX SBOM files for each ecosystem are
 published alongside the installer on the GitHub Releases page.
@@ -1419,7 +1419,7 @@ License text:
 
 Components and their copyright notices:
 
-  * accessors-smart 2.6.0  [maven]
+  * accessors-smart 2.6.1  [maven]
       Chemouni Uriel
       https://github.com/netplex/json-smart-v2
 
@@ -1431,19 +1431,19 @@ Components and their copyright notices:
       Jesse Beach
       git+https://github.com/A11yance/axobject-query.git
 
-  * byte-buddy 1.18.15  [maven]
+  * byte-buddy 1.18.17  [maven]
       (copyright not declared)
       https://github.com/raphw/byte-buddy/byte-buddy
 
-  * classmate 1.7.3  [maven]
+  * classmate 1.8.0  [maven]
       fasterxml.com
       https://github.com/FasterXML/java-classmate
 
-  * commons-lang3 3.20.0  [maven]
+  * commons-lang3 3.21.0  [maven]
       The Apache Software Foundation
       https://gitbox.apache.org/repos/asf/commons-lang.git
 
-  * commons-logging 1.3.6  [maven]
+  * commons-logging 1.4.0  [maven]
       The Apache Software Foundation
       https://gitbox.apache.org/repos/asf/commons-logging
 
@@ -1459,7 +1459,7 @@ Components and their copyright notices:
       Lovell Fuller
       git://github.com/lovell/detect-libc.git
 
-  * flyway-core 12.4.0  [maven]
+  * flyway-core 12.11.0  [maven]
       (copyright not declared)
       https://github.com/flyway/flyway/flyway-core
 
@@ -1467,11 +1467,11 @@ Components and their copyright notices:
       강동윤
       git+https://github.com/swc-project/swc.git#packages/helpers
 
-  * hibernate-community-dialects 7.4.13.Final  [maven]
+  * hibernate-community-dialects 7.4.15.Final  [maven]
       Hibernate.org
       https://github.com/hibernate/hibernate-orm
 
-  * hibernate-core 7.4.13.Final  [maven]
+  * hibernate-core 7.4.15.Final  [maven]
       Hibernate.org
       https://github.com/hibernate/hibernate-orm
 
@@ -1479,11 +1479,11 @@ Components and their copyright notices:
       Hibernate.org
       https://github.com/hibernate/hibernate-models
 
-  * hibernate-validator 9.1.5.Final  [maven]
+  * hibernate-validator 9.1.6.Final  [maven]
       (copyright not declared)
       http://github.com/hibernate/hibernate-validator
 
-  * HikariCP 7.0.2  [maven]
+  * HikariCP 7.1.0  [maven]
       Zaxxer.com
       https://github.com/brettwooldridge/HikariCP
 
@@ -1491,11 +1491,11 @@ Components and their copyright notices:
       FasterXML
       https://github.com/FasterXML/jackson-annotations
 
-  * jackson-core 3.1.7  [maven]
+  * jackson-core 3.1.8  [maven]
       FasterXML
       http://github.com/FasterXML/jackson-core
 
-  * jackson-databind 3.1.7  [maven]
+  * jackson-databind 3.1.8  [maven]
       FasterXML
       https://github.com/FasterXML/jackson-databind
 
@@ -1515,7 +1515,7 @@ Components and their copyright notices:
       (copyright not declared)
       http://github.com/stephenc/jcip-annotations/tree/master/
 
-  * json-smart 2.6.0  [maven]
+  * json-smart 2.6.1  [maven]
       Chemouni Uriel
       https://github.com/netplex/json-smart-v2
 
@@ -1527,24 +1527,24 @@ Components and their copyright notices:
       Connect2id Ltd.
       https://bitbucket.org/connect2id/nimbus-language-tags.git
 
-  * log4j-api 2.25.5  [maven]
+  * log4j-api 2.26.1  [maven]
       The Apache Software Foundation
       https://github.com/apache/logging-log4j2
 
-  * log4j-to-slf4j 2.25.5  [maven]
+  * log4j-to-slf4j 2.26.1  [maven]
       The Apache Software Foundation
       https://github.com/apache/logging-log4j2
 
-  * micrometer-commons 1.17.2  [maven]
+  * micrometer-commons 1.18.0  [maven]
       (copyright not declared)
 
-  * micrometer-core 1.17.2  [maven]
+  * micrometer-core 1.18.0  [maven]
       (copyright not declared)
 
-  * micrometer-jakarta9 1.17.2  [maven]
+  * micrometer-jakarta9 1.18.0  [maven]
       (copyright not declared)
 
-  * micrometer-observation 1.17.2  [maven]
+  * micrometer-observation 1.18.0  [maven]
       (copyright not declared)
 
   * nimbus-jose-jwt 10.9.1  [maven]
@@ -1555,159 +1555,159 @@ Components and their copyright notices:
       Connect2id Ltd.
       https://bitbucket.org/connect2id/oauth-2.0-sdk-with-openid-connect-extensions
 
-  * snakeyaml 2.6  [maven]
+  * snakeyaml 2.7  [maven]
       (copyright not declared)
-      https://bitbucket.org/snakeyaml/snakeyaml/src
+      https://codeberg.org/snakeyaml/snakeyaml/src
 
-  * spring-aop 7.0.10  [maven]
+  * spring-aop 7.1.0  [maven]
       Spring IO
       https://github.com/spring-projects/spring-framework
 
-  * spring-aspects 7.0.10  [maven]
+  * spring-aspects 7.1.0  [maven]
       Spring IO
       https://github.com/spring-projects/spring-framework
 
-  * spring-beans 7.0.10  [maven]
+  * spring-beans 7.1.0  [maven]
       Spring IO
       https://github.com/spring-projects/spring-framework
 
-  * spring-boot 4.1.2  [maven]
+  * spring-boot 4.2.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-actuator 4.1.2  [maven]
+  * spring-boot-actuator 4.2.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-actuator-autoconfigure 4.1.2  [maven]
+  * spring-boot-actuator-autoconfigure 4.2.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-autoconfigure 4.1.2  [maven]
+  * spring-boot-autoconfigure 4.2.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-data-commons 4.1.2  [maven]
+  * spring-boot-data-commons 4.2.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-data-jpa 4.1.2  [maven]
+  * spring-boot-data-jpa 4.2.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-flyway 4.1.2  [maven]
+  * spring-boot-flyway 4.2.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-health 4.1.2  [maven]
+  * spring-boot-health 4.2.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-hibernate 4.1.2  [maven]
+  * spring-boot-hibernate 4.2.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-http-converter 4.1.2  [maven]
+  * spring-boot-http-converter 4.2.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-jackson 4.1.2  [maven]
+  * spring-boot-jackson 4.2.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-jarmode-tools 4.1.2  [maven]
+  * spring-boot-jarmode-tools 4.2.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-jdbc 4.1.2  [maven]
+  * spring-boot-jdbc 4.2.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-jpa 4.1.2  [maven]
+  * spring-boot-jpa 4.2.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-mail 4.1.2  [maven]
+  * spring-boot-mail 4.2.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-micrometer-metrics 4.1.2  [maven]
+  * spring-boot-micrometer-metrics 4.2.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-micrometer-observation 4.1.2  [maven]
+  * spring-boot-micrometer-observation 4.2.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-persistence 4.1.2  [maven]
+  * spring-boot-persistence 4.2.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-security 4.1.2  [maven]
+  * spring-boot-security 4.2.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-security-oauth2-client 4.1.2  [maven]
+  * spring-boot-security-oauth2-client 4.2.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-servlet 4.1.2  [maven]
+  * spring-boot-servlet 4.2.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-sql 4.1.2  [maven]
+  * spring-boot-sql 4.2.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-tomcat 4.1.2  [maven]
+  * spring-boot-tomcat 4.2.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-transaction 4.1.2  [maven]
+  * spring-boot-transaction 4.2.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-validation 4.1.2  [maven]
+  * spring-boot-validation 4.2.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-web-server 4.1.2  [maven]
+  * spring-boot-web-server 4.2.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-boot-webmvc 4.1.2  [maven]
+  * spring-boot-webmvc 4.2.0  [maven]
       VMware, Inc.
       https://github.com/spring-projects/spring-boot
 
-  * spring-context 7.0.10  [maven]
+  * spring-context 7.1.0  [maven]
       Spring IO
       https://github.com/spring-projects/spring-framework
 
-  * spring-context-support 7.0.10  [maven]
+  * spring-context-support 7.1.0  [maven]
       Spring IO
       https://github.com/spring-projects/spring-framework
 
-  * spring-core 7.0.10  [maven]
+  * spring-core 7.1.0  [maven]
       Spring IO
       https://github.com/spring-projects/spring-framework
 
-  * spring-data-commons 4.1.2  [maven]
+  * spring-data-commons 4.2.0  [maven]
       Pivotal Software, Inc.
       https://github.com/spring-projects/spring-data-commons
 
-  * spring-data-jpa 4.1.2  [maven]
+  * spring-data-jpa 4.2.0  [maven]
       Pivotal Software, Inc.
       https://github.com/spring-projects/spring-data-jpa/spring-data-jpa
 
-  * spring-expression 7.0.10  [maven]
+  * spring-expression 7.1.0  [maven]
       Spring IO
       https://github.com/spring-projects/spring-framework
 
-  * spring-jdbc 7.0.10  [maven]
+  * spring-jdbc 7.1.0  [maven]
       Spring IO
       https://github.com/spring-projects/spring-framework
 
-  * spring-orm 7.0.10  [maven]
+  * spring-orm 7.1.0  [maven]
       Spring IO
       https://github.com/spring-projects/spring-framework
 
@@ -1715,43 +1715,43 @@ Components and their copyright notices:
       Spring IO
       https://github.com/spring-projects/spring-retry
 
-  * spring-security-config 7.1.2  [maven]
-      Pivotal Software, Inc.
+  * spring-security-config 7.2.0  [maven]
+      VMware, Inc.
       https://github.com/spring-projects/spring-security
 
-  * spring-security-core 7.1.2  [maven]
-      Pivotal Software, Inc.
+  * spring-security-core 7.2.0  [maven]
+      VMware, Inc.
       https://github.com/spring-projects/spring-security
 
-  * spring-security-crypto 7.1.2  [maven]
-      Pivotal Software, Inc.
+  * spring-security-crypto 7.2.0  [maven]
+      VMware, Inc.
       https://github.com/spring-projects/spring-security
 
-  * spring-security-oauth2-client 7.1.2  [maven]
-      Pivotal Software, Inc.
+  * spring-security-oauth2-client 7.2.0  [maven]
+      VMware, Inc.
       https://github.com/spring-projects/spring-security
 
-  * spring-security-oauth2-core 7.1.2  [maven]
-      Pivotal Software, Inc.
+  * spring-security-oauth2-core 7.2.0  [maven]
+      VMware, Inc.
       https://github.com/spring-projects/spring-security
 
-  * spring-security-oauth2-jose 7.1.2  [maven]
-      Pivotal Software, Inc.
+  * spring-security-oauth2-jose 7.2.0  [maven]
+      VMware, Inc.
       https://github.com/spring-projects/spring-security
 
-  * spring-security-web 7.1.2  [maven]
-      Pivotal Software, Inc.
+  * spring-security-web 7.2.0  [maven]
+      VMware, Inc.
       https://github.com/spring-projects/spring-security
 
-  * spring-tx 7.0.10  [maven]
+  * spring-tx 7.1.0  [maven]
       Spring IO
       https://github.com/spring-projects/spring-framework
 
-  * spring-web 7.0.10  [maven]
+  * spring-web 7.1.0  [maven]
       Spring IO
       https://github.com/spring-projects/spring-framework
 
-  * spring-webmvc 7.0.10  [maven]
+  * spring-webmvc 7.1.0  [maven]
       Spring IO
       https://github.com/spring-projects/spring-framework
 
@@ -2141,7 +2141,7 @@ Components and their copyright notices:
       ANTLR
       https://github.com/antlr/antlr4/tree/master/antlr4-runtime
 
-  * asm 9.7.1  [maven]
+  * asm 9.11.1  [maven]
       OW2
       https://gitlab.ow2.org/asm/asm/
 
@@ -2193,7 +2193,7 @@ Components and their copyright notices:
       Eclipse Foundation
       https://github.com/eclipse-ee4j/angus-mail/angus-mail
 
-  * aspectjweaver 1.9.25.1  [maven]
+  * aspectjweaver 1.9.27  [maven]
       (copyright not declared)
       https://github.com/eclipse/org.aspectj
 
@@ -2213,11 +2213,11 @@ Components and their copyright notices:
       EE4J Community
       https://github.com/eclipse-ee4j/jta-api
 
-  * logback-classic 1.5.38  [maven]
+  * logback-classic 1.6.6  [maven]
       QOS.ch
       https://github.com/qos-ch/logback/logback-classic
 
-  * logback-core 1.5.38  [maven]
+  * logback-core 1.6.6  [maven]
       QOS.ch
       https://github.com/qos-ch/logback/logback-core
 

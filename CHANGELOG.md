@@ -19,6 +19,19 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Backend
+
+- The backend runs on Spring Boot 4.2.0, with Spring Framework 7.1.0, Spring
+  Security 7.2.0, Hibernate ORM 7.4.15 and Flyway 12.11.0. An installation
+  updated from 0.2.1 opens its database as it was: the shipped sidecar on 4.2.0
+  started over a database the 4.1.2 one had written, found the schema up to
+  date and kept its rows. The one behaviour that moves is a redirect's
+  `Location`, which Tomcat now writes as a path, so the first step of a Google
+  or Microsoft sign-in sends the system browser to `/oauth2/authorization/…`
+  rather than to the full `http://127.0.0.1:<port>/…` address it resolves that
+  path to. `sqlite-jdbc` stays on its 3.54.1.0 override, as 4.2.0 still
+  manages 3.53.4.0 (#1011).
+
 ### Frontend
 
 - In the dialog that merges contacts, an unavailable **Sloučit kontakty**

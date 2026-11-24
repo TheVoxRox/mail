@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>4.1.2</version>
+		<version>4.2.0</version>
 		<relativePath/>
 	</parent>
 	<groupId>org.voxrox</groupId>
@@ -32,7 +32,7 @@
 		<archunit.version>1.5.1</archunit.version>
 		<greenmail.version>2.1.15</greenmail.version>
 		<!--
-			Overrides the sqlite-jdbc Spring Boot 4.1.2 manages, 3.53.4.0, which
+			Overrides the sqlite-jdbc Spring Boot 4.2.0 manages, 3.53.4.0, which
 			carries SQLite 3.53.4. SQLite 3.54.0 fixes ten CVEs the nightly OWASP
 			scan reports against it. Two are heap overflows at CVSS 8.5 in FTS5,
 			which the search index is (CVE-2026-119373, CVE-2026-119374); a third

@@ -2,7 +2,7 @@
 	"$comment": "Written by frontend/scripts/generate-bundled-notice.mjs beside NOTICE.txt; npm run check:notice compares it with the committed inventories. Do not edit it by hand: when the check fails, render the notice again (backend/RELEASE_CHECKLIST.md, 8a).",
 	"inventories": {
 		"frontend/THIRD_PARTY_LICENSES.md": "03fc1db1ed8ab7a54a6cd2056e5075528283960c49605010fe1d8df34be3c047",
-		"backend/THIRD_PARTY_LICENSES.md": "064cbaf52c7a60db08918731e6b70cbb82330e801728675e9933b08e335b2fad",
+		"backend/THIRD_PARTY_LICENSES.md": "23ee1ff32a2dda58890c47b4c840ac8c33f4e40d55fe9236b10a6f0cafd7e0c8",
 		"frontend/src-tauri/THIRD_PARTY_LICENSES.md": "ffb373b3d7c2efe609d842547de4120dca3bdc7f065e43be7b864ab846c54bb5"
 	}
 }
