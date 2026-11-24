@@ -97,7 +97,7 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "ffc8f492bc5e1218066413d2092a89f623eff962",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "4d869c930ca57f2fb233078e9974cff7a1c849a5",
       "backend/src/main/resources/tls": "2e932f9120b9559f77b727463ced362f4cc65a32",
       "backend/src/main/java/org/voxrox/mailbackend/util/HeaderAddresses.java": "7b365556d5b17a312b182f5a32f6dec77b48e6b3"
     },
@@ -113,6 +113,10 @@
       {
         "date": "2026-11-21",
         "note": "#988: which header tokens count as addresses is EmailAddresses, the rule the compose form validates by, instead of InternetAddress.validate(). HeaderAddresses.parseValidTokens and parseLabel use it, and the STRICT branch of MimeMessageBuilder parses through the new HeaderAddresses.parseAllValid (parseHeader, then the rule for every token) instead of InternetAddress.parse; MailDraftService.extractEmails reads the reply-all fields through parseValidTokens, so one malformed address no longer costs the field. Every changed line was read. A send still fails rather than drop a recipient. B1-5 is not weakened: recipientsDiffer reads the server copy through getRecipients() and keeps an address the rule refuses as its raw lower-cased form, so a recipient the server adds is still a difference; the stored side is filtered by the same rule the draft save writes with, as before with validate(). EmailAddressesTest checks that every accepted vector is one InternetAddress.parse and validate() take whole. The parenthesis in the B1-5 section saying a send parses with InternetAddress.parse is stale and goes at the next re-verification. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-24",
+        "note": "MailDraftService.buildQuotedBody writes the quoted original's header from the message bundles in the request's locale (mail.quote.*) instead of Czech literals, formats receivedAt with a localized medium date and short time instead of LocalDateTime.toString, and falls back to mail.message.unknownSender / noSubject where it printed null. MailDraftService gains a MessageSource constructor argument and nothing else changes: every changed line was read. The header is text in the prefilled body the user edits before sending, the same plain text as before; subject, In-Reply-To, References and the reply-all recipients are built exactly as they were, no IMAP or SMTP command, header or bound moves, and the sender and subject it quotes are the stored values the old header printed. The dash frame the attachment reminder stops at is unchanged. Verdict unchanged."
       }
     ]
   },

@@ -31,6 +31,13 @@ Entries before 2026-09-17 predate that split and are left as written.
   rather than to the full `http://127.0.0.1:<port>/…` address it resolves that
   path to. `sqlite-jdbc` stays on its 3.54.1.0 override, as 4.2.0 still
   manages 3.53.4.0 (#1011).
+- A reply or a forward quotes the original under a header in the interface
+  language. It used to be Czech whatever the language, so an English
+  interface sent its recipients "Původní zpráva", "Od:" and "Předmět:", with
+  the date as a raw timestamp (`2026-01-15T10:30`). The date is now written
+  for people ("Jan 15, 2026, 10:30 AM", "15. 1. 2026 10:30"), and an original
+  without a subject or a sender quotes "(No subject)" or "[Unknown sender]",
+  as the reading pane names it, where the header used to say "null" (#1016).
 
 ### Frontend
 
@@ -80,6 +87,10 @@ Entries before 2026-09-17 predate that split and are left as written.
   Validator deprecates and logged as `HV000271` whenever a contact was
   validated. Two controller tests now pin the cascade the move must keep, for
   an update and for a bulk create, which no test covered (#1012).
+- The e2e fixture that holds contact-merge answers queues each one as its
+  request arrives, not after reading the body, so a release that lands in
+  between no longer leaves the answer waiting forever. The test of the busy
+  merge dialog failed that way in CI (#1016).
 
 ## [0.2.1] - 2026-11-24
 

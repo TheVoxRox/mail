@@ -3,13 +3,17 @@ package org.voxrox.mailbackend.feature.mail.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDateTime;
+import java.util.Locale;
 
 import jakarta.mail.internet.InternetAddress;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.context.support.ResourceBundleMessageSource;
 import org.voxrox.mailbackend.feature.account.entity.AccountEntity;
 import org.voxrox.mailbackend.feature.mail.dto.MailRequest;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
@@ -17,8 +21,9 @@ import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
 /**
  * Unit tests for {@link MailDraftService}.
  *
- * Pure logic — no DB, no IMAP, no mocks. Just MessageEntity (POJO) and
- * verification of the MailRequest output.
+ * Pure logic — no DB, no IMAP, no mocks. Just MessageEntity (POJO), the real
+ * message bundles, and verification of the MailRequest output. The locale is
+ * pinned to Czech, the application's default, unless a test sets another.
  *
  * Covers: - Re:/Fwd: prefix idempotency (no "Re: Re: Re:") - Reply-all dedup
  * (sender must not appear in both To and Cc, self-exclusion) - Reply-to-self
@@ -36,9 +41,19 @@ class MailDraftServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new MailDraftService();
+        ResourceBundleMessageSource messageSource = new ResourceBundleMessageSource();
+        messageSource.setBasename("messages");
+        messageSource.setDefaultEncoding("UTF-8");
+        messageSource.setFallbackToSystemLocale(false);
+        LocaleContextHolder.setLocale(Locale.forLanguageTag("cs"));
+        service = new MailDraftService(messageSource);
         myAccount = new AccountEntity();
         myAccount.setEmail(MY_EMAIL);
+    }
+
+    @AfterEach
+    void resetLocale() {
+        LocaleContextHolder.resetLocaleContext();
     }
 
     private MessageEntity newMessage(String sender, String subject) {
@@ -300,6 +315,67 @@ class MailDraftServiceTest {
 
             assertThat(fwd.body()).contains("FYI all").contains("Přeposlaná zpráva")
                     .contains("Alice <alice@example.com>");
+        }
+    }
+
+    @Nested
+    @DisplayName("quote header — in the interface language")
+    class QuoteHeader {
+
+        @Test
+        @DisplayName("A reply quotes in English when the interface is English")
+        void englishReplyHeader() {
+            LocaleContextHolder.setLocale(Locale.ENGLISH);
+            MessageEntity orig = newMessage("Alice <alice@example.com>", "Hi");
+
+            String body = service.createReplyDraft(orig, "Thanks for the info!", false).body();
+
+            // The time separator before AM is whatever the JDK's CLDR data puts
+            // there (a narrow no-break space since JDK 20), so \h rather than a space.
+            assertThat(body).contains("---------- Original message ----------\nFrom: Alice <alice@example.com>\n")
+                    .containsPattern("\nDate: Jan 15, 2026, 10:30\\hAM\nSubject: Hi\n\nThanks for the info!");
+        }
+
+        @Test
+        @DisplayName("A forward quotes in English when the interface is English")
+        void englishForwardHeader() {
+            LocaleContextHolder.setLocale(Locale.ENGLISH);
+            MessageEntity orig = newMessage("Alice <alice@example.com>", "Hi");
+
+            String body = service.createForwardDraft(orig, "FYI all").body();
+
+            assertThat(body).contains("---------- Forwarded message ----------\nFrom: Alice <alice@example.com>\n");
+        }
+
+        @Test
+        @DisplayName("A Czech reply quotes in Czech, with a Czech date")
+        void czechReplyHeader() {
+            MessageEntity orig = newMessage("Alice <alice@example.com>", "Hi");
+
+            String body = service.createReplyDraft(orig, "Thanks", false).body();
+
+            assertThat(body).contains("---------- Původní zpráva ----------\nOd: Alice <alice@example.com>\n"
+                    + "Datum: 15. 1. 2026 10:30\nPředmět: Hi\n\nThanks");
+        }
+
+        @Test
+        @DisplayName("The date is formatted for people, not printed as an ISO timestamp")
+        void dateIsNotIso() {
+            MessageEntity orig = newMessage("Alice <alice@example.com>", "Hi");
+
+            assertThat(service.createReplyDraft(orig, "x", false).body()).doesNotContain("2026-01-15T10:30");
+        }
+
+        @Test
+        @DisplayName("A missing subject and sender read as the reading pane names them, not as null")
+        void missingSubjectAndSender() {
+            LocaleContextHolder.setLocale(Locale.ENGLISH);
+            MessageEntity orig = newMessage(null, null);
+
+            String body = service.createReplyDraft(orig, "x", false).body();
+
+            assertThat(body).contains("From: [Unknown sender]\n").contains("Subject: (No subject)\n")
+                    .doesNotContain("null");
         }
     }
 

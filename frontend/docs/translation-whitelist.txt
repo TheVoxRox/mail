@@ -87,5 +87,5 @@ frontend/src/lib/stores/manualSync.test.ts -- Asserts the sync-completion announ
 
 # --- Attachment reminder: Czech keyword heuristic ---
 
-frontend/src/lib/compose/attachmentReminder.ts -- Comments document the Czech phrasings each diacritic-stripped keyword stem covers (příloha/přiložil/přikládám vs. the "příklad" collision) and the backend's exact quote-header literal ("---------- Původní zpráva ----------"); the Czech words are the specification of the heuristic, not programmer prose.
+frontend/src/lib/compose/attachmentReminder.ts -- Comments document the Czech phrasings each diacritic-stripped keyword stem covers (příloha/přiložil/přikládám vs. the "příklad" collision) and the Czech form of the backend's quote header ("---------- Původní zpráva ----------"); the Czech words are the specification of the heuristic, not programmer prose.
 frontend/src/lib/compose/attachmentReminder.test.ts -- Czech bodies ("Posílám fakturu v příloze.", "Uvedu příklad z praxe.") are the load-bearing inputs of the detection heuristic; ASCII-only data would not exercise diacritic normalization or the příklad/přikládám disambiguation.

@@ -6,6 +6,8 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Document.OutputSettings;
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Service;
 import org.voxrox.mailbackend.feature.mail.dto.MailRequest;
 import org.voxrox.mailbackend.feature.mail.entity.MessageEntity;
@@ -16,6 +18,20 @@ import module java.base;
 
 @Service
 public class MailDraftService {
+
+    /**
+     * Medium date, short time: "15. 1. 2026 10:30" in Czech, "Jan 15, 2026, 10:30
+     * AM" in English. The stored time is already local, as {@code MessageFetcher}
+     * converts it to the system zone, so it is formatted as it stands.
+     */
+    private static final DateTimeFormatter QUOTE_DATE = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM,
+            FormatStyle.SHORT);
+
+    private final MessageSource messageSource;
+
+    public MailDraftService(MessageSource messageSource) {
+        this.messageSource = messageSource;
+    }
 
     public MailRequest createReplyDraft(MessageEntity original, String content, boolean replyAll) {
         String myEmail = original.getAccount().getEmail();
@@ -32,7 +48,7 @@ public class MailDraftService {
             subject = "Re: " + subject;
         }
 
-        String quotedBody = buildQuotedBody(original, content, "Původní zpráva");
+        String quotedBody = buildQuotedBody(original, content, "mail.quote.originalMessage");
 
         String currentRefs = original.getReferences() != null ? original.getReferences() : "";
         String newReferences = (original.getMessageId() == null)
@@ -70,14 +86,40 @@ public class MailDraftService {
             subject = "Fwd: " + subject;
         }
 
-        return new MailRequest("", "", null, subject, buildQuotedBody(original, content, "Přeposlaná zpráva"),
+        return new MailRequest("", "", null, subject, buildQuotedBody(original, content, "mail.quote.forwardedMessage"),
                 List.of(), null, original.getReferences());
     }
 
-    private String buildQuotedBody(MessageEntity entity, String content, String label) {
+    /**
+     * The original quoted under the user's text. Its labels and date follow the
+     * interface language of the request (Accept-Language), as Outlook and
+     * Thunderbird write theirs in their own interface language: the recipient's
+     * language is not known. They used to be Czech in every language. The dash
+     * frame stays in code, because the composer's attachment reminder
+     * (frontend/src/lib/compose/attachmentReminder.ts) finds the end of the user's
+     * own text by it.
+     */
+    private String buildQuotedBody(MessageEntity entity, String content, String headingKey) {
+        Locale locale = LocaleContextHolder.getLocale();
+        String sender = orFallback(entity.getSender(), "mail.message.unknownSender", locale);
+        String subject = orFallback(entity.getSubject(), "mail.message.noSubject", locale);
+        String date = QUOTE_DATE.withLocale(locale).format(entity.getReceivedAt());
         String plainContent = htmlToPlainText(content);
-        return "\n\n" + "---------- " + label + " ----------\n" + "Od: " + entity.getSender() + "\n" + "Datum: "
-                + entity.getReceivedAt() + "\n" + "Předmět: " + entity.getSubject() + "\n\n" + plainContent;
+        return "\n\n---------- " + message(headingKey, locale) + " ----------\n"
+                + message("mail.quote.from", locale, sender) + "\n" + message("mail.quote.date", locale, date) + "\n"
+                + message("mail.quote.subject", locale, subject) + "\n\n" + plainContent;
+    }
+
+    /**
+     * A missing sender or subject reads as the reading pane names it
+     * ({@code MessageMapper}), not as "null".
+     */
+    private String orFallback(@Nullable String value, String fallbackKey, Locale locale) {
+        return value == null || value.isBlank() ? message(fallbackKey, locale) : value;
+    }
+
+    private String message(String key, Locale locale, Object... args) {
+        return messageSource.getMessage(key, args, locale);
     }
 
     // The compose textarea is a plain-text editor — sanitized HTML from the
