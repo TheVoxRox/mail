@@ -19,6 +19,17 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ## Unreleased
 
+### Frontend
+
+- In the dialog that merges contacts, an unavailable **Sloučit kontakty**
+  stays reachable by Tab, so a screen reader landing on it says that it is
+  unavailable and why: the merged contact would go over ten addresses or over
+  a 1000-character note. It used to be skipped, and the warning it is
+  described by was never spoken (#1007). It also keeps the focus while the
+  merge runs, so a merge the server refuses leaves the focus on it, inside
+  the dialog and beside the error, where it used to drop to the page and Tab
+  did nothing (#1010).
+
 ## [0.2.1] - 2026-11-24
 
 ### Tauri / Release

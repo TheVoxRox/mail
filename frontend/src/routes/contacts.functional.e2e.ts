@@ -601,10 +601,14 @@ test.describe('Contacts', () => {
 				'Po sloučení by kontakt měl 11 e-mailů, maximum je 10. Před sloučením snižte počet adres v některém z kontaktů.'
 			)
 		).toBeVisible();
-		await expect(dialog.getByRole('button', { name: 'Sloučit kontakty' })).toBeDisabled();
-		await expect(dialog.getByRole('button', { name: 'Sloučit kontakty' })).toHaveAttribute(
-			'aria-describedby',
-			'contact-merge-limit-warning'
+		// Unavailable through aria-disabled, never disabled: a disabled button
+		// leaves the focus order, so the warning describing it is never spoken
+		// (#1007). toBeDisabled() passes on either, so the attributes are asserted.
+		const submit = dialog.getByRole('button', { name: 'Sloučit kontakty' });
+		await expect(submit).toHaveAttribute('aria-disabled', 'true');
+		await expect(submit).not.toHaveAttribute('disabled');
+		await expect(submit).toHaveAccessibleDescription(
+			'Po sloučení by kontakt měl 11 e-mailů, maximum je 10. Před sloučením snižte počet adres v některém z kontaktů.'
 		);
 	});
 
@@ -648,9 +652,102 @@ test.describe('Contacts', () => {
 			/^Po sloučení by poznámka měla 1\s?107 znaků, maximum je 1\s?000\. Před sloučením zkraťte poznámku v některém z kontaktů\.$/
 		);
 		const submit = dialog.getByRole('button', { name: 'Sloučit kontakty' });
-		await expect(submit).toBeDisabled();
-		await expect(submit).toHaveAttribute('aria-describedby', 'contact-merge-note-warning');
+		await expect(submit).toHaveAttribute('aria-disabled', 'true');
+		await expect(submit).not.toHaveAttribute('disabled');
+		await expect(submit).toHaveAccessibleDescription(
+			/^Po sloučení by poznámka měla 1\s?107 znaků, maximum je 1\s?000\./
+		);
+
+		// Tab from Zrušit reaches it, which is where a screen reader speaks the
+		// warning; a disabled button was skipped (#1007). Pressing it sends nothing.
+		await dialog.getByRole('button', { name: 'Zrušit' }).press('Tab');
+		await expect(submit).toBeFocused();
+		await submit.press('Enter');
+		await submit.press('Space');
+		await expect(dialog).toBeVisible();
 		expect(mergeRequests).toHaveLength(0);
+	});
+
+	test('merge dialog drží fokus na tlačítku, dokud slučuje, a druhý stisk nic neodešle', async ({
+		page
+	}) => {
+		const mergeRequests: string[] = [];
+		page.on('request', (request) => {
+			if (request.method() === 'POST' && /\/merge$/.test(request.url())) {
+				mergeRequests.push(request.url());
+			}
+		});
+
+		await openApp(page, '/contacts');
+		await page.evaluate(() => window.__MAIL_MSW__?.reset());
+		await bulkCreateContacts(page, [
+			{ name: 'Jan', surname: 'Novak', emails: [{ email: 'jan@example.com', label: 'WORK' }] }
+		]);
+		await page.locator('#contacts-sidebar-search').fill('example.com');
+		await page.keyboard.press('Enter');
+		await page.waitForURL('**/contacts?q=example.com');
+		await page.getByLabel('Vybrat kontakt Jana Novak').check();
+		await page.getByLabel('Vybrat kontakt Jan Novak').check();
+		await page.getByRole('button', { name: 'Sloučit' }).click();
+
+		const dialog = page.getByRole('dialog', { name: 'Sloučit kontakty' });
+		await page.evaluate(() => window.__MAIL_MSW__?.holdMergeResponses());
+		await dialog.getByRole('button', { name: 'Sloučit kontakty' }).press('Enter');
+
+		// The control that started the merge keeps the focus through it. Disabling
+		// it would drop the focus to <body>, outside the dialog (#1007).
+		const busy = dialog.getByRole('button', { name: 'Slučuji…' });
+		await expect(busy).toHaveAttribute('aria-disabled', 'true');
+		await expect(busy).toBeFocused();
+		await busy.press('Enter');
+
+		await page.evaluate(() => window.__MAIL_MSW__?.releaseMergeResponses());
+		await expect(
+			page.getByRole('region', { name: 'Oznámení' }).getByText('Kontakty sloučeny.')
+		).toBeVisible();
+		expect(mergeRequests).toHaveLength(1);
+	});
+
+	test('merge dialog po chybě serveru nechá fokus na tlačítku Sloučit kontakty', async ({
+		page
+	}) => {
+		await openApp(page, '/contacts');
+		await page.evaluate(() => window.__MAIL_MSW__?.reset());
+		await bulkCreateContacts(page, [
+			{ name: 'Jan', surname: 'Novak', emails: [{ email: 'jan@example.com', label: 'WORK' }] }
+		]);
+		await page.locator('#contacts-sidebar-search').fill('example.com');
+		await page.keyboard.press('Enter');
+		await page.waitForURL('**/contacts?q=example.com');
+		await page.getByLabel('Vybrat kontakt Jana Novak').check();
+		await page.getByLabel('Vybrat kontakt Jan Novak').check();
+		await page.getByRole('button', { name: 'Sloučit' }).click();
+		const dialog = page.getByRole('dialog', { name: 'Sloučit kontakty' });
+		await expect(dialog).toBeVisible();
+
+		// Both contacts go away behind the open dialog, so the merge fails on the
+		// server, as it would after a delete from another window.
+		const deleted = await page.evaluate(async () => {
+			const headers = { Accept: 'application/json', 'X-API-KEY': 'e2e-test-key' };
+			const res = await fetch('/api/v1/contacts?q=example.com', { headers });
+			const body = (await res.json()) as { content: Array<{ id: number }> };
+			const statuses: number[] = [];
+			for (const contact of body.content) {
+				const del = await fetch(`/api/v1/contacts/${contact.id}`, { method: 'DELETE', headers });
+				statuses.push(del.status);
+			}
+			return statuses;
+		});
+		expect(deleted).toHaveLength(2);
+
+		const submit = dialog.getByRole('button', { name: 'Sloučit kontakty' });
+		await submit.press('Enter');
+		await expect(dialog.getByRole('alert')).toHaveText('Kontakt nenalezen.');
+		// Still in the dialog with the focus where it was, and available again
+		// for another try. A disabled button had dropped it to <body>, where Tab
+		// did nothing (#1007).
+		await expect(submit).toBeFocused();
+		await expect(submit).not.toHaveAttribute('aria-disabled');
 	});
 
 	test('kontakt s poznámkou nad limit ukáže chybu u poznámky a neodešle PUT', async ({ page }) => {

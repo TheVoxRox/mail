@@ -62,6 +62,9 @@ declare global {
 			/** Holds every answer to a flag change, so a test can act inside that window. */
 			holdFlagResponses: () => void;
 			releaseFlagResponses: () => void;
+			/** Holds every answer to a contact merge, so a test can act while the dialog is busy. */
+			holdMergeResponses: () => void;
+			releaseMergeResponses: () => void;
 			pushSendCompleted: () => void;
 			pushSendFailed: (errorCode?: string) => void;
 			setReadinessDelayMs: (delayMs: number) => void;
