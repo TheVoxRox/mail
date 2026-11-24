@@ -118,8 +118,8 @@ Conventions established during the burn-down:
 | rename residue                    | `check:rename-residue` (CI only)     | a removed symbol still named in a comment or a test name        |
 | test claims                       | `check:test-claims` / pre-push       | duplicate test bodies in one file, tests switched off silently  |
 | a11y ignores                      | `check:a11y-ignores` / pre-push      | a silenced Svelte accessibility warning with no reason          |
-| i18n key checks                   | `check:i18n` (also pre-commit)       | locale parity **and** unused base-locale keys fail              |
-| backend i18n key parity           | `check:i18n:backend`                 | cs/en key + placeholder parity; `messages.properties` == cs     |
+| i18n key checks                   | `check:i18n` (also pre-commit)       | locale parity, unused keys, messages that won't render          |
+| backend i18n key parity           | `check:i18n:backend`                 | keys + placeholders; `messages.properties` == cs; UI locales    |
 | translations whitelist            | `check:translations:strict`          | Czech diacritics outside i18n need a justified whitelist entry  |
 
 Policy notes:
@@ -201,6 +201,18 @@ Policy notes:
   literal lookups and dynamic template prefixes (`` `folder.${role}` ``,
   `` `palette.group_${id}` ``); keys consumed via property access need a
   justified entry in its `USED_INDIRECTLY` list.
+- **A message has to render.** The same script parses every message with the
+  parser svelte-i18n formats with, so a syntax error fails the gate instead of
+  showing as raw text. A translation must keep the Czech message's arguments
+  and select options, and a plural that uses a category of its language (one,
+  few…) must carry every one a whole number selects there. A plural of exact
+  matches and `other` alone (`{failed, plural, =0 {} other {…}}`) is a
+  condition on the number and passes. Where two Czech forms read the same, as
+  in the genitive ("u 3 zpráv", "u 5 zpráv"), the branch is written twice.
+- **The backend speaks every interface language.** `check:i18n:backend` fails
+  when the `messages_*.properties` bundles and the frontend's message files
+  name different locales: the client sends its interface language as
+  Accept-Language, and one without a bundle gets the backend's errors in Czech.
 
 ### Complexity audit (2026-06-12)
 

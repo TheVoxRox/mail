@@ -10,7 +10,7 @@
  * but nothing stopped a key from being added to one locale and forgotten in
  * another, or the default bundle from drifting away from the Czech one.
  *
- * Three checks, against BASE_LOCALE = 'cs':
+ * Four checks, the first three against BASE_LOCALE = 'cs':
  *   1. Key parity — every `messages_<locale>.properties` has the exact same
  *      key set as `messages_<BASE_LOCALE>.properties`.
  *   2. Default-bundle identity — `messages.properties` (the suffix-less
@@ -21,6 +21,12 @@
  *   3. Placeholder parity — every key's MessageFormat arguments ({0}, {value}…)
  *      match across all locales, so a translation can't silently drop or rename
  *      an interpolated argument.
+ *   4. Locale parity with the frontend — the bundles cover exactly the locales
+ *      of `frontend/src/lib/i18n/messages/*.json`. The client sends its
+ *      interface language as Accept-Language, so an interface language with no
+ *      bundle here gets the backend's errors and quote headers from the Czech
+ *      default bundle, inside an otherwise translated screen; a bundle with no
+ *      interface language is never asked for.
  *
  * Uses only Node builtins (no npm deps), so CI can run it on the backend job's
  * preinstalled Node, the same way it runs check-translation-whitelist.mjs.
@@ -37,6 +43,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const RESOURCES_DIR = path.join(REPO_ROOT, 'backend', 'src', 'main', 'resources');
+const FRONTEND_MESSAGES_DIR = path.join(REPO_ROOT, 'frontend', 'src', 'lib', 'i18n', 'messages');
 const BASE_LOCALE = 'cs';
 const DEFAULT_BUNDLE = 'messages.properties';
 const LOCALE_FILE = /^messages_([a-z]{2})\.properties$/;
@@ -164,6 +171,28 @@ for (const { locale } of localeFiles) {
 	}
 }
 
+// 4. The same locales as the frontend's message files.
+const backendLocales = new Set(localeFiles.map((entry) => entry.locale));
+const frontendLocales = new Set(
+	(await readdir(FRONTEND_MESSAGES_DIR))
+		.filter((file) => file.endsWith('.json'))
+		.map((file) => path.basename(file, '.json'))
+);
+const onlyFrontend = [...frontendLocales].filter((locale) => !backendLocales.has(locale)).sort();
+const onlyBackend = [...backendLocales].filter((locale) => !frontendLocales.has(locale)).sort();
+if (onlyFrontend.length > 0 || onlyBackend.length > 0) {
+	failed = true;
+	console.error(
+		'[i18n:backend] The bundles must cover the locales of frontend/src/lib/i18n/messages:'
+	);
+	for (const locale of onlyFrontend) {
+		console.error(`  No messages_${locale}.properties for the interface language ${locale}`);
+	}
+	for (const locale of onlyBackend) {
+		console.error(`  messages_${locale}.properties has no interface language (${locale}.json)`);
+	}
+}
+
 if (failed) {
 	process.exit(1);
 }
@@ -171,5 +200,5 @@ if (failed) {
 const locales = localeFiles.map((entry) => entry.locale).join(', ');
 console.log(
 	`[i18n:backend] ${locales} bundles match (${baseKeys.size} keys); ` +
-		`${DEFAULT_BUNDLE} == messages_${BASE_LOCALE}.properties.`
+		`${DEFAULT_BUNDLE} == messages_${BASE_LOCALE}.properties; the frontend has the same locales.`
 );
