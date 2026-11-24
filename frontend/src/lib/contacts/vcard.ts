@@ -1,3 +1,4 @@
+import { isValidEmailAddress } from '#lib/compose/addresses.js';
 import { splitDisplayName } from '#lib/contacts/displayName.js';
 import { strip, stripBlankLinesToNull, stripToNull } from '#lib/storedText.js';
 import type { ContactCreateRequest, EmailLabel } from '#lib/types.js';
@@ -134,17 +135,20 @@ export interface ParsedVCard {
 
 /**
  * Everything one file yielded: the cards that can become contacts, plus how
- * many it held that carry no e-mail address at all.
+ * many it held that carry no valid e-mail address at all, and how many
+ * addresses the cards it kept had to leave out.
  *
- * The count is not bookkeeping for its own sake. A card without an address
+ * The counts are not bookkeeping for their own sake. A card without an address
  * cannot become a contact (the backend requires at least one), and dropping
  * those silently let an import that lost half a file still report a clean
  * success — the caller has to be able to say so.
  */
 export interface ParsedVCardFile {
 	cards: ParsedVCard[];
-	/** Cards that ended without a usable EMAIL property. */
+	/** Cards that ended without an EMAIL property holding a valid address. */
 	skippedWithoutEmail: number;
+	/** Addresses left out of the cards in `cards`, as not valid. */
+	invalidAddresses: number;
 }
 
 interface CardBuffer {
@@ -159,6 +163,8 @@ interface CardBuffer {
 	fnValue: string | null;
 	note: string | null;
 	emails: { email: string; label: EmailLabel | null }[];
+	/** EMAIL values left out as not valid addresses. */
+	invalidAddresses: number;
 	categories: string[];
 }
 
@@ -221,6 +227,7 @@ export function parseVCard(text: string): ParsedVCardFile {
 	const lines = unfoldLines(text);
 	const cards: ParsedVCard[] = [];
 	let skippedWithoutEmail = 0;
+	let invalidAddresses = 0;
 	let buf: CardBuffer | null = null;
 
 	for (let index = 0; index < lines.length; index++) {
@@ -229,14 +236,25 @@ export function parseVCard(text: string): ParsedVCardFile {
 		const upper = line.toUpperCase();
 
 		if (upper === 'BEGIN:VCARD') {
-			buf = { nParts: null, fnValue: null, note: null, emails: [], categories: [] };
+			buf = {
+				nParts: null,
+				fnValue: null,
+				note: null,
+				emails: [],
+				invalidAddresses: 0,
+				categories: []
+			};
 			continue;
 		}
 		if (upper === 'END:VCARD') {
 			if (buf) {
 				const card = finalizeCard(buf);
-				if (card) cards.push(card);
-				else skippedWithoutEmail++;
+				// A card that lost every address is reported once, as skipped, not
+				// also by the addresses it lost.
+				if (card) {
+					cards.push(card);
+					invalidAddresses += buf.invalidAddresses;
+				} else skippedWithoutEmail++;
 			}
 			buf = null;
 			continue;
@@ -272,12 +290,24 @@ export function parseVCard(text: string): ParsedVCardFile {
 		} else if (fieldUpper === 'EMAIL') {
 			const email = strip(unescapeVCard(decode(value)));
 			/*
+			 * An address the backend would refuse is left out here, by the rule it
+			 * validates with: the bulk endpoint refuses the whole request over one
+			 * invalid field, so a single `jan@moje_firma.cz` in a file cost every
+			 * contact of its batch. An empty EMAIL is no address at all and is not
+			 * counted.
+			 */
+			if (email === '') continue;
+			if (!isValidEmailAddress(email)) {
+				buf.invalidAddresses++;
+				continue;
+			}
+			/*
 			 * The backend stores an address lower-cased and refuses a contact that
 			 * lists one twice, which costs the whole card. A card naming the same
 			 * mailbox twice (repeated, or as Jan@X.cz and jan@x.cz) keeps the first.
 			 */
 			const key = email.toLowerCase();
-			if (email.includes('@') && !buf.emails.some((known) => known.email.toLowerCase() === key)) {
+			if (!buf.emails.some((known) => known.email.toLowerCase() === key)) {
 				buf.emails.push({ email, label: parseEmailLabel(params) });
 			}
 		} else if (fieldUpper === 'NOTE') {
@@ -289,5 +319,5 @@ export function parseVCard(text: string): ParsedVCardFile {
 		}
 	}
 
-	return { cards, skippedWithoutEmail };
+	return { cards, skippedWithoutEmail, invalidAddresses };
 }

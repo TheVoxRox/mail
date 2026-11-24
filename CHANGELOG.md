@@ -42,6 +42,19 @@ Entries before 2026-09-17 predate that split and are left as written.
   merge runs, so a merge the server refuses leaves the focus on it, inside
   the dialog and beside the error, where it used to drop to the page and Tab
   did nothing (#1010).
+- A vCard import no longer loses a hundred contacts over one address. The
+  import let through any address with an `@` in it, the backend refuses one
+  such as `jan@moje_firma.cz` or `petr@localhost`, and the bulk endpoint
+  refuses the whole request over one invalid field, so a Google or Outlook
+  export with a single odd address imported none of the contacts in its batch
+  of a hundred. The import now leaves such an address out by the rule the
+  contact form and the backend use, keeps the contact when it has another
+  one, and says how many it left out ("Vynecháno neplatných adres"); a card
+  left with no valid address counts with the skipped ones. A batch the
+  backend still refuses over one contact, such as a note past 1000
+  characters, goes again one contact at a time, so only that one fails. The
+  description of `POST /api/v1/contacts/bulk` now says that a field failing
+  validation refuses the whole request (#1013).
 
 ### Repo
 

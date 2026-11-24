@@ -264,15 +264,15 @@ describe('bulk outcome messages — the failure clause only when there is a fail
 		],
 		[
 			'contacts.vcardImportDone',
-			{ created: 7, duplicates: 0 },
+			{ created: 7, duplicates: 0, invalid: 0 },
 			'Importováno: 7.',
 			'Importováno: 7. Selhalo: 2.'
 		],
 		[
 			'contacts.vcardImportDoneSkipped',
-			{ created: 7, duplicates: 0, skipped: 1 },
-			'Importováno: 7. Přeskočeno bez e-mailu: 1.',
-			'Importováno: 7. Selhalo: 2. Přeskočeno bez e-mailu: 1.'
+			{ created: 7, duplicates: 0, invalid: 0, skipped: 1 },
+			'Importováno: 7. Přeskočeno bez platného e-mailu: 1.',
+			'Importováno: 7. Selhalo: 2. Přeskočeno bez platného e-mailu: 1.'
 		]
 	];
 
@@ -300,26 +300,60 @@ describe('vCard import outcome — cards already in the address book', () => {
 		[
 			'cs',
 			'contacts.vcardImportDone',
-			{ created: 0, duplicates: 5, failed: 0 },
+			{ created: 0, duplicates: 5, failed: 0, invalid: 0 },
 			'Importováno: 0. Už v adresáři: 5.'
 		],
 		[
 			'cs',
 			'contacts.vcardImportDone',
-			{ created: 3, duplicates: 5, failed: 2 },
+			{ created: 3, duplicates: 5, failed: 2, invalid: 0 },
 			'Importováno: 3. Už v adresáři: 5. Selhalo: 2.'
 		],
 		[
 			'cs',
 			'contacts.vcardImportDoneSkipped',
-			{ created: 3, duplicates: 5, failed: 0, skipped: 1 },
-			'Importováno: 3. Už v adresáři: 5. Přeskočeno bez e-mailu: 1.'
+			{ created: 3, duplicates: 5, failed: 0, invalid: 0, skipped: 1 },
+			'Importováno: 3. Už v adresáři: 5. Přeskočeno bez platného e-mailu: 1.'
 		],
 		[
 			'en',
 			'contacts.vcardImportDone',
-			{ created: 0, duplicates: 5, failed: 0 },
+			{ created: 0, duplicates: 5, failed: 0, invalid: 0 },
 			'Imported: 0. Already in the address book: 5.'
+		]
+	];
+
+	it.each(cases)('%s %s %j', async (locale, key, values, expected) => {
+		const mod = await freshModule();
+		mod.setLocale(locale);
+		expect(get(mod._)(key, { values })).toBe(expected);
+	});
+});
+
+describe('vCard import outcome — addresses left out as invalid', () => {
+	/*
+	 * A contact that kept a valid address is imported without the invalid ones
+	 * beside it, and the summary says how many it left out, after the failures,
+	 * so an address missing from a contact is never a silent loss.
+	 */
+	const cases: Array<[AppLocale, string, Record<string, string | number>, string]> = [
+		[
+			'cs',
+			'contacts.vcardImportDone',
+			{ created: 3, duplicates: 0, failed: 0, invalid: 2 },
+			'Importováno: 3. Vynecháno neplatných adres: 2.'
+		],
+		[
+			'cs',
+			'contacts.vcardImportDoneSkipped',
+			{ created: 3, duplicates: 0, failed: 1, invalid: 2, skipped: 1 },
+			'Importováno: 3. Selhalo: 1. Vynecháno neplatných adres: 2. Přeskočeno bez platného e-mailu: 1.'
+		],
+		[
+			'en',
+			'contacts.vcardImportDoneSkipped',
+			{ created: 3, duplicates: 0, failed: 0, invalid: 1, skipped: 1 },
+			'Imported: 3. Invalid addresses left out: 1. Skipped without a valid e-mail: 1.'
 		]
 	];
 

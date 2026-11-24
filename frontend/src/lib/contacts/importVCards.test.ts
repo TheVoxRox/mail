@@ -21,6 +21,7 @@ vi.mock('#lib/stores/contactCounts.js', () => ({
 }));
 vi.mock('#lib/stores/toasts.js', () => ({ pushToast: vi.fn() }));
 
+import { ApiError } from '#lib/api/client.js';
 import { bulkCreateContacts } from '#lib/api/contacts.js';
 import { pushToast } from '#lib/stores/toasts.js';
 import { importVCardFiles } from './importVCards.js';
@@ -64,7 +65,7 @@ describe('importVCardFiles — batching', () => {
 
 		expect(batchSizes()).toEqual([100]);
 		expect(t).toHaveBeenCalledWith('contacts.vcardImportDone', {
-			values: { created: 100, duplicates: 0, failed: 0 }
+			values: { created: 100, duplicates: 0, failed: 0, invalid: 0 }
 		});
 	});
 
@@ -73,7 +74,7 @@ describe('importVCardFiles — batching', () => {
 
 		expect(batchSizes()).toEqual([100, 100, 50]);
 		expect(t).toHaveBeenCalledWith('contacts.vcardImportDone', {
-			values: { created: 250, duplicates: 0, failed: 0 }
+			values: { created: 250, duplicates: 0, failed: 0, invalid: 0 }
 		});
 	});
 
@@ -93,7 +94,7 @@ describe('importVCardFiles — batching', () => {
 		// to reload its list.
 		expect(await importVCardFiles([vcardFile(250)], t)).toBe(true);
 		expect(t).toHaveBeenCalledWith('contacts.vcardImportDone', {
-			values: { created: 150, duplicates: 0, failed: 100 }
+			values: { created: 150, duplicates: 0, failed: 100, invalid: 0 }
 		});
 		// The counts alone would not say why 100 are missing.
 		expect(vi.mocked(pushToast)).toHaveBeenCalledWith('Error: offline', { tone: 'error' });
@@ -121,7 +122,7 @@ describe('importVCardFiles — cards without an address', () => {
 
 		expect(batchSizes()).toEqual([1]);
 		expect(t).toHaveBeenCalledWith('contacts.vcardImportDoneSkipped', {
-			values: { created: 1, duplicates: 0, failed: 0, skipped: 2 }
+			values: { created: 1, duplicates: 0, failed: 0, invalid: 0, skipped: 2 }
 		});
 	});
 
@@ -164,7 +165,7 @@ describe('importVCardFiles — cards already in the address book', () => {
 		expect(await importVCardFiles([vcardFile(3)], t)).toBe(true);
 
 		expect(t).toHaveBeenCalledWith('contacts.vcardImportDone', {
-			values: { created: 1, duplicates: 2, failed: 0 }
+			values: { created: 1, duplicates: 2, failed: 0, invalid: 0 }
 		});
 		expect(vi.mocked(pushToast)).toHaveBeenCalledWith(expect.any(String), { tone: 'info' });
 	});
@@ -177,7 +178,7 @@ describe('importVCardFiles — cards already in the address book', () => {
 		await importVCardFiles([vcardFile(2)], t);
 
 		expect(t).toHaveBeenCalledWith('contacts.vcardImportDone', {
-			values: { created: 0, duplicates: 2, failed: 0 }
+			values: { created: 0, duplicates: 2, failed: 0, invalid: 0 }
 		});
 		expect(vi.mocked(pushToast)).not.toHaveBeenCalledWith(expect.any(String), { tone: 'error' });
 	});
@@ -190,7 +191,7 @@ describe('importVCardFiles — cards already in the address book', () => {
 		await importVCardFiles([vcardFile(3)], t);
 
 		expect(t).toHaveBeenCalledWith('contacts.vcardImportDone', {
-			values: { created: 1, duplicates: 1, failed: 1 }
+			values: { created: 1, duplicates: 1, failed: 1, invalid: 0 }
 		});
 		expect(vi.mocked(pushToast)).toHaveBeenCalledWith(expect.any(String), { tone: 'error' });
 	});
@@ -203,7 +204,7 @@ describe('importVCardFiles — cards already in the address book', () => {
 		await importVCardFiles([vcardFile(102)], t);
 
 		expect(t).toHaveBeenCalledWith('contacts.vcardImportDone', {
-			values: { created: 1, duplicates: 101, failed: 0 }
+			values: { created: 1, duplicates: 101, failed: 0, invalid: 0 }
 		});
 	});
 
@@ -213,7 +214,101 @@ describe('importVCardFiles — cards already in the address book', () => {
 		await importVCardFiles([vcardFile(1, 1)], t);
 
 		expect(t).toHaveBeenCalledWith('contacts.vcardImportDoneSkipped', {
-			values: { created: 0, duplicates: 1, failed: 0, skipped: 1 }
+			values: { created: 0, duplicates: 1, failed: 0, invalid: 0, skipped: 1 }
 		});
+	});
+});
+
+/** A .vcf holding one card per body, in order. */
+function vcardOf(...bodies: string[]): File {
+	return new File([bodies.map(card).join('')], 'contacts.vcf', { type: 'text/vcard' });
+}
+
+/** The answer the bulk endpoint gives when a field of one contact fails validation. */
+function refusedAsInvalid(detail: string) {
+	return new ApiError(400, 'Bad Request', null, {
+		detail,
+		errorCode: 'VALIDATION_ERROR'
+	} as never);
+}
+
+describe('importVCardFiles — an address the backend would refuse', () => {
+	/*
+	 * One such address used to cost its whole batch: the bulk endpoint refuses
+	 * the request over a single invalid field, so a Google export with one odd
+	 * address imported none of the hundred contacts around it.
+	 */
+	beforeEach(() => {
+		vi.mocked(bulkCreateContacts).mockImplementation((body) =>
+			Promise.resolve(allCreated(body.contacts.length))
+		);
+	});
+
+	it('imports the contact without it, and says how many it left out', async () => {
+		expect(
+			await importVCardFiles(
+				[
+					vcardOf(
+						'FN:Jan\r\nEMAIL:jan@moje_firma.cz\r\nEMAIL:jan@x.cz',
+						'FN:Jana\r\nEMAIL:jana@x.cz'
+					)
+				],
+				t
+			)
+		).toBe(true);
+
+		const [[sent]] = vi.mocked(bulkCreateContacts).mock.calls;
+		expect(sent.contacts.map((contact) => contact.emails.map((email) => email.email))).toEqual([
+			['jan@x.cz'],
+			['jana@x.cz']
+		]);
+		expect(t).toHaveBeenCalledWith('contacts.vcardImportDone', {
+			values: { created: 2, duplicates: 0, failed: 0, invalid: 1 }
+		});
+		// Nothing went wrong that the user has to act on.
+		expect(vi.mocked(pushToast)).toHaveBeenCalledWith(expect.any(String), { tone: 'info' });
+	});
+});
+
+describe('importVCardFiles — a batch refused over one contact', () => {
+	/*
+	 * The parser cannot know every bound the backend validates (a note past 1000
+	 * characters, an eleventh address), and the bulk endpoint refuses the whole
+	 * request over one of them. Such a batch goes again one contact at a time,
+	 * so only the offending card fails.
+	 */
+	// clearMocks leaves queued once-answers in place; a test that fails before
+	// using them up must not hand them to the next one.
+	beforeEach(() => {
+		vi.mocked(bulkCreateContacts).mockReset();
+	});
+
+	it('sends the batch again one contact per request, and only the bad one fails', async () => {
+		vi.mocked(bulkCreateContacts)
+			.mockRejectedValueOnce(refusedAsInvalid('Note too long'))
+			.mockResolvedValueOnce(allCreated(1))
+			.mockRejectedValueOnce(refusedAsInvalid('Note too long'))
+			.mockResolvedValueOnce(allCreated(1));
+
+		expect(await importVCardFiles([vcardFile(3)], t)).toBe(true);
+
+		expect(batchSizes()).toEqual([3, 1, 1, 1]);
+		expect(t).toHaveBeenCalledWith('contacts.vcardImportDone', {
+			values: { created: 2, duplicates: 0, failed: 1, invalid: 0 }
+		});
+		// The reason the one card failed is said, not only counted.
+		expect(vi.mocked(pushToast)).toHaveBeenCalledWith('ApiError: Note too long', {
+			tone: 'error'
+		});
+	});
+
+	it('does not resend a batch refused for any other reason', async () => {
+		vi.mocked(bulkCreateContacts).mockRejectedValueOnce(
+			new ApiError(503, 'Service Unavailable', null)
+		);
+
+		expect(await importVCardFiles([vcardFile(3)], t)).toBe(false);
+
+		expect(batchSizes()).toEqual([3]);
 	});
 });

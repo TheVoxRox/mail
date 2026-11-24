@@ -383,7 +383,7 @@ export interface paths {
 		put?: never;
 		/**
 		 * Bulk create contacts (best-effort)
-		 * @description Creates up to 100 contacts in a single request. Each item has its own transaction — duplicates / validation errors do not affect the rest. The response is always 200 with per-item status (CREATED / FAILED).
+		 * @description Creates up to 100 contacts in a single request. Each item has its own transaction, so an item the service refuses (a duplicate address, a label that does not exist) fails alone; the response is then 200 with per-item status (CREATED / FAILED). A field that fails bean validation in any item (an invalid address, a value over its size limit) refuses the whole request with 400 before anything is written.
 		 */
 		post: operations['bulkCreateContacts'];
 		/**
