@@ -1,6 +1,6 @@
 # Zásady ochrany soukromí — VoxRox Mail
 
-_Verze: 2026-11-16. Tato verze je předběžná: ještě nebyla schválena právníkem —
+_Verze: 2026-11-24. Tato verze je předběžná: ještě nebyla schválena právníkem —
 viz sekce „Otevřené body“ na konci dokumentu._
 
 _English version: [PRIVACY.en.md](PRIVACY.en.md)._
@@ -206,6 +206,17 @@ stejnou pojistkou jako v diagnostickém balíčku: nezamaskované e-mailové adr
 se zamaskují a tokeny a interní API klíč se nahradí. Ani tento ZIP se nikam
 neodesílá sám.
 
+### Formulář Napište nám
+
+Formulář **Napište nám** (Nastavení → Napište nám) připraví zprávu pro
+vývojáře na adresu **info@voxrox.org** a otevře ji v okně nové zprávy. Sám nic
+neodesílá: zprávu odešlete vy, ze svého e-mailového účtu přes svého
+poskytovatele, a do té doby ji můžete upravit nebo zahodit. Na konci textu jsou
+technické údaje (verze aplikace, kanál aktualizací a jazyk rozhraní), které
+můžete smazat. Diagnostický balíček se přiloží, jen když to ve formuláři
+zaškrtnete. Připravená zpráva se jako každá jiná ukládá jako koncept do složky
+Koncepty vašeho účtu, i s přílohou, a odeslaná zůstane ve složce Odeslané.
+
 ## Třetí strany
 
 Pokud přidáte účet, vstupují do hry tito poskytovatelé:
@@ -302,6 +313,9 @@ Tyto položky budou doplněny předtím, než je tento dokument finalizován:
 - [x] Kontakt pro bezpečnostní hlášení (responsible disclosure) — **info@voxrox.org**.
 - [x] Konkrétní Tauri updater endpoint URL — `https://github.com/TheVoxRox/mail/releases/latest/download/latest.json` (stabilní kanál, [tauri.conf.json](frontend/src-tauri/tauri.conf.json)); beta kanál `https://github.com/TheVoxRox/mail/releases/download/beta/latest.json` ([lib.rs](frontend/src-tauri/src/lib.rs)).
 - [x] Anglická verze tohoto dokumentu — [PRIVACY.en.md](PRIVACY.en.md), 2026-06-01.
+- [ ] Korespondence s podporou: k čemu VoxRox používá zprávy a diagnostiku,
+      které mu pošlete (formulářem Napište nám nebo e-mailem), a jak dlouho je
+      uchovává.
 - [ ] Právní review celého dokumentu (GDPR). Formulace „správce dat“ pro
       firemní nasazení i sekce „Vaše odpovědnost a zálohy“ jsou předběžně
       doplněné, ale potřebují potvrdit právníkem.

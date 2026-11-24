@@ -89,7 +89,8 @@ describe('loadComposePrefill for ?draft=', () => {
 			...draft,
 			replacesDraftId: 'saved-later',
 			fromNewestSave: true,
-			accountId: 2
+			accountId: 2,
+			onlyCopy: false
 		});
 		expect(getMessageDetailMock).not.toHaveBeenCalled();
 		expect(getMessageContentMock).not.toHaveBeenCalled();

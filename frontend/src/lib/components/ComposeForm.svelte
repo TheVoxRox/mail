@@ -34,6 +34,7 @@
 	} from '#lib/compose/signature.js';
 	import {
 		buildMailRequest,
+		emptyComposeDraft,
 		type ComposeAttachment,
 		type ComposeDraft
 	} from '#lib/compose/request.js';
@@ -77,6 +78,10 @@
 	// the server, so it is never the as-is draft above.
 	let continuedDraftId: string | null = null;
 	let continuesNewestSave = false;
+	// The prefill is the only copy of its content (a report the "Contact us"
+	// form handed over): the session starts from an empty message instead, so
+	// the content counts as an edit — autosaved, and guarded until it is.
+	let prefillIsOnlyCopy = false;
 	// Unsaved work worth guarding = edits that differ from BOTH the regenerable
 	// prefill baseline and whatever was last persisted. An untouched reply
 	// (== baseline) or content already autosaved (== saved) is safe to leave.
@@ -160,6 +165,7 @@
 		references = values.references;
 		continuedDraftId = values.replacesDraftId;
 		continuesNewestSave = values.fromNewestSave;
+		prefillIsOnlyCopy = values.onlyCopy;
 		openedDraftId = values.fromNewestSave ? null : values.replacesDraftId;
 		// The newest save's account, unless it is gone; with accounts not loaded
 		// yet, the account list keeps it once it arrives (resolveComposeFromAccount).
@@ -195,7 +201,7 @@
 		} finally {
 			composeSession.begin({
 				accountId: fromAccountId,
-				draft: currentDraft(),
+				draft: prefillIsOnlyCopy ? emptyComposeDraft() : currentDraft(),
 				draftStableId: continuedDraftId,
 				isSuspended: () => busy,
 				continuesNewestSave

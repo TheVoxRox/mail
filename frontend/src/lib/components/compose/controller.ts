@@ -16,6 +16,7 @@ type ComposePrefillValues = {
 	attachments: ComposeAttachment[];
 	fromNewestSave: boolean;
 	accountId: number | null;
+	onlyCopy: boolean;
 };
 
 type ComposeShortcutHandlers = {
@@ -41,7 +42,8 @@ export function mapComposePrefill(prefill: ComposePrefill): ComposePrefillValues
 		replacesDraftId: prefill.replacesDraftId,
 		attachments: prefill.attachments,
 		fromNewestSave: prefill.fromNewestSave,
-		accountId: prefill.accountId
+		accountId: prefill.accountId,
+		onlyCopy: prefill.onlyCopy
 	};
 }
 

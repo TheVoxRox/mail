@@ -25,6 +25,20 @@ export interface ComposeDraft {
 	references: string | null;
 }
 
+/** A message with nothing in it: the safe-to-lose state of a compose whose prefill is its only copy. */
+export function emptyComposeDraft(): ComposeDraft {
+	return {
+		to: '',
+		cc: '',
+		bcc: '',
+		subject: '',
+		body: '',
+		attachments: [],
+		inReplyTo: null,
+		references: null
+	};
+}
+
 function toAttachmentRequest(list: ComposeAttachment[]): AttachmentRequest[] | undefined {
 	if (list.length === 0) return undefined;
 	return list.map(({ fileName, contentType, base64Data }) => ({

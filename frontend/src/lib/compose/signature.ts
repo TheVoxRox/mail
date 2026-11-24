@@ -1,8 +1,8 @@
 /**
  * Pure helpers for inserting a per-account signature into the compose body.
  *
- * Automatic insertion applies only to brand-new messages and `mailto:` links —
- * never to replies, forwards or edited drafts (a draft already carries its
+ * Automatic insertion applies only to brand-new messages, `mailto:` links and
+ * reports from the "Contact us" form — never to replies, forwards or edited drafts (a draft already carries its
  * signature). For replies and forwards the user places the signature themselves
  * via the toolbar "insert signature" action ({@link insertSignatureAt}), which
  * keeps quoting / `"-- "` placement under their control. The block uses the
@@ -14,11 +14,11 @@
 
 import { stripBlankLinesToNull } from '#lib/storedText.js';
 
-export type ComposeKind = 'reply' | 'forward' | 'draft' | 'mailto' | 'new';
+export type ComposeKind = 'reply' | 'forward' | 'draft' | 'mailto' | 'feedback' | 'new';
 
 /**
  * Classifies a compose route by its query params. Mirrors the branch priority in
- * {@link loadComposePrefill} (`reply` > `forward` > `to` > `draft`) so the kind
+ * {@link loadComposePrefill} (`reply` > `forward` > `to` > `draft` > `feedback`) so the kind
  * always matches the prefill that was actually loaded.
  */
 export function composeKind(params: Pick<URLSearchParams, 'has'>): ComposeKind {
@@ -26,12 +26,13 @@ export function composeKind(params: Pick<URLSearchParams, 'has'>): ComposeKind {
 	if (params.has('forward')) return 'forward';
 	if (params.has('to')) return 'mailto';
 	if (params.has('draft')) return 'draft';
+	if (params.has('feedback')) return 'feedback';
 	return 'new';
 }
 
 /** Whether the composer manages (inserts / swaps) the signature for this kind. */
 export function signatureManagedForKind(kind: ComposeKind): boolean {
-	return kind === 'new' || kind === 'mailto';
+	return kind === 'new' || kind === 'mailto' || kind === 'feedback';
 }
 
 /**

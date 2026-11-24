@@ -1,6 +1,6 @@
 # Privacy Policy — VoxRox Mail
 
-_Version: 2026-11-16. This version is preliminary: it has not yet been
+_Version: 2026-11-24. This version is preliminary: it has not yet been
 reviewed by a lawyer — see "Open items" at the bottom._
 
 _Česká verze: [PRIVACY.md](PRIVACY.md)._
@@ -216,6 +216,18 @@ The logs in it are as they are on disk, with the same safety net as in the
 diagnostic bundle: unmasked e-mail addresses are masked, and tokens and the
 internal API key are replaced. This ZIP is not sent anywhere by itself either.
 
+### The Contact us form
+
+The **Contact us** form (Settings → Contact us) prepares a message to the
+developers at **info@voxrox.org** and opens it in the new message window. It
+sends nothing itself: you send the message, from your own e-mail account
+through your provider, and until then you can edit or discard it. The end of
+the text holds technical details (the app's version, the update channel and
+the interface language), which you can delete. The diagnostic bundle is
+attached only if you tick it in the form. Like any other message, the prepared
+one is saved as a draft in your account's Drafts folder, attachment included,
+and once sent it stays in Sent.
+
 ## Third parties
 
 When you add an account, the following providers come into play:
@@ -318,6 +330,9 @@ These items will be filled in before this document is finalized:
 - [x] Security disclosure contact (responsible disclosure) — **info@voxrox.org**.
 - [x] Specific Tauri updater endpoint URL — `https://github.com/TheVoxRox/mail/releases/latest/download/latest.json` (stable channel, [tauri.conf.json](frontend/src-tauri/tauri.conf.json)); beta channel `https://github.com/TheVoxRox/mail/releases/download/beta/latest.json` ([lib.rs](frontend/src-tauri/src/lib.rs)).
 - [x] English translation of this document (this file).
+- [ ] Support correspondence: what VoxRox uses the messages and diagnostics
+      you send it for (through the Contact us form or by e-mail), and how long
+      it keeps them.
 - [ ] Legal review of the whole document (GDPR). The "data controller"
       phrasing for organizational deployment and the "Your responsibility and
       backups" section are drafted, but need confirmation by a lawyer.

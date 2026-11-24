@@ -616,7 +616,8 @@
 			"language": "Jazyk",
 			"shortcuts": "Klávesové zkratky",
 			"accounts": "Účty",
-			"about": "O aplikaci"
+			"about": "O aplikaci",
+			"feedback": "Napište nám"
 		},
 		"navGroups": {
 			"primary": "Předvolby",
@@ -849,7 +850,8 @@
 				"apiKey": "Klíč API:",
 				"downloadDump": "Stáhnout diagnostiku",
 				"downloadingDump": "Stahuji…",
-				"dumpHint": "ZIP s logy a stavem aplikace pro vývojáře. Bez hesel, tokenů a obsahu zpráv."
+				"dumpHint": "ZIP s logy a stavem aplikace pro vývojáře. Bez hesel, tokenů a obsahu zpráv.",
+				"reportProblem": "Nahlásit problém nebo navrhnout funkci"
 			},
 			"licenses": {
 				"heading": "Licence open-source",
@@ -859,6 +861,88 @@
 				"loading": "Načítám…",
 				"unsupported": "Licence open-source jsou dostupné v desktopové aplikaci.",
 				"loadFailed": "Licenční soubor se nepodařilo načíst."
+			}
+		},
+		"feedback": {
+			"pageTitle": "Pošta – Nastavení – Napište nám",
+			"intro": "Zpráva odejde z vašeho poštovního účtu na {address}. Před odesláním ji uvidíte v okně nové zprávy.",
+			"form": {
+				"heading": "Zpráva pro vývojáře",
+				"security": "Hlásíte bezpečnostní problém? Použijte tento formulář také, zpráva není veřejná.",
+				"continue": "Pokračovat k odeslání",
+				"preparing": "Připravuji zprávu…",
+				"noAccount": "Nemáte nastavený žádný poštovní účet, ze kterého by zpráva mohla odejít. Pošlete ji jinou cestou, jak je popsáno níže."
+			},
+			"category": {
+				"legend": "O co jde",
+				"options": {
+					"bug": "Něco nefunguje",
+					"idea": "Návrh nové funkce nebo vylepšení",
+					"question": "Dotaz nebo potřebuji pomoc",
+					"other": "Jiné"
+				}
+			},
+			"summary": {
+				"label": "Stručně",
+				"hint": "Stane se předmětem zprávy. Nejvýš {max} znaků."
+			},
+			"description": {
+				"label": "Popis",
+				"hints": {
+					"none": "Napište, o co jde.",
+					"bug": "Co jste dělali, co se stalo a co jste čekali. Pokud jde chybu zopakovat, popište postup krok za krokem.",
+					"idea": "Co byste chtěli dělat a proč. Jak to řešíte dnes?",
+					"question": "Na co se chcete zeptat.",
+					"other": "Napište, o co jde."
+				}
+			},
+			"diagnostics": {
+				"label": "Přiložit diagnostiku",
+				"hint": "ZIP s logy a stavem aplikace, stejný jako z O aplikaci. Bez hesel, tokenů a obsahu zpráv. E-mailové adresy jsou v něm zkrácené, názvy složek a účtů, servery a cesty k souborům s vaším jménem uživatele Windows ne. U chyby nám pomůže najít příčinu."
+			},
+			"errors": {
+				"categoryRequired": "Vyberte, o co jde.",
+				"summaryRequired": "Napište stručné shrnutí.",
+				"summaryTooLong": "Shrnutí má {length} znaků, může mít nejvýš {max}.",
+				"descriptionRequired": "Napište popis.",
+				"diagnosticsTooLarge": "Diagnostika má {size} a do přílohy se nevejde (nejvýš {limit}). Uložte ji do souboru tlačítkem níže a pošlete ji jinou cestou, nebo pokračujte bez ní."
+			},
+			"fallback": {
+				"heading": "Nemůžete odeslat z aplikace?",
+				"description": "Pokud nemáte nastavený účet nebo odesílání nefunguje, napište nám z webové pošty na {address}. Text zprávy si můžete zkopírovat a diagnostiku uložit do souboru a přiložit.",
+				"copy": "Zkopírovat zprávu",
+				"copied": "Zpráva je zkopírovaná do schránky.",
+				"copyFailed": "Zprávu se nepodařilo zkopírovat do schránky.",
+				"saveDiagnostics": "Uložit diagnostiku do souboru",
+				"savingDiagnostics": "Ukládám…"
+			},
+			"github": {
+				"heading": "GitHub",
+				"description": "Pokud máte účet na GitHubu, můžete chybu nahlásit nebo funkci navrhnout i tam. Všechno, co tam napíšete, je veřejné.",
+				"issues": "Nahlásit chybu na GitHubu",
+				"ideas": "Navrhnout funkci v diskusi na GitHubu"
+			},
+			"message": {
+				"category": {
+					"bug": "Chyba",
+					"idea": "Návrh",
+					"question": "Dotaz",
+					"other": "Jiné"
+				},
+				"technical": {
+					"heading": "Technické údaje:",
+					"clientVersion": "Verze frontendu: {version}",
+					"backendVersion": "Verze backendu: {version}",
+					"backendUnavailable": "nedostupná",
+					"channel": "Kanál aktualizací: {channel}",
+					"channels": {
+						"stable": "stabilní",
+						"beta": "beta"
+					},
+					"language": "Jazyk rozhraní: {language}"
+				},
+				"toLine": "Komu: {address}",
+				"subjectLine": "Předmět: {subject}"
 			}
 		}
 	},
@@ -899,6 +983,7 @@
 		"workspaceContacts": "Přepnout na Kontakty",
 		"workspaceSettings": "Přepnout na Nastavení",
 		"openAccounts": "Přejít na Účty",
+		"openFeedback": "Nahlásit problém nebo navrhnout funkci",
 		"openSearch": "Otevřít hledání",
 		"openCompose": "Nová zpráva",
 		"syncNow": "Synchronizovat teď",

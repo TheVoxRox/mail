@@ -39,6 +39,11 @@ export async function goToCompose(): Promise<void> {
 	await goto(resolve('compose'));
 }
 
+/** The "Contact us" form in Settings, for a bug report or an idea. */
+export async function goToFeedback(): Promise<void> {
+	await goto(resolve('settings/feedback'));
+}
+
 export async function goToFolder(accountId: number, folderName: string): Promise<void> {
 	setActiveAccount(accountId);
 	await goto(
