@@ -868,37 +868,36 @@
 			"intro": "Zpráva odejde z vašeho poštovního účtu na {address}. Před odesláním ji uvidíte v okně nové zprávy.",
 			"form": {
 				"heading": "Zpráva pro vývojáře",
-				"security": "Hlásíte bezpečnostní problém? Použijte tento formulář také, zpráva není veřejná.",
 				"continue": "Pokračovat k odeslání",
 				"preparing": "Připravuji zprávu…",
 				"noAccount": "Nemáte nastavený žádný poštovní účet, ze kterého by zpráva mohla odejít. Pošlete ji jinou cestou, jak je popsáno níže."
 			},
 			"category": {
-				"legend": "O co jde",
+				"legend": "Čeho se zpráva týká",
 				"options": {
-					"bug": "Něco nefunguje",
-					"idea": "Návrh nové funkce nebo vylepšení",
-					"question": "Dotaz nebo potřebuji pomoc",
+					"bug": "Chyba v aplikaci",
+					"idea": "Nápad na vylepšení",
+					"question": "Dotaz nebo prosba o pomoc",
 					"other": "Jiné"
 				}
 			},
 			"summary": {
-				"label": "Stručně",
-				"hint": "Stane se předmětem zprávy. Nejvýš {max} znaků."
+				"label": "Shrnutí jednou větou",
+				"hint": "Použije se jako předmět e-mailu. Nejvýš {max} znaků."
 			},
 			"description": {
 				"label": "Popis",
 				"hints": {
-					"none": "Napište, o co jde.",
-					"bug": "Co jste dělali, co se stalo a co jste čekali. Pokud jde chybu zopakovat, popište postup krok za krokem.",
-					"idea": "Co byste chtěli dělat a proč. Jak to řešíte dnes?",
-					"question": "Na co se chcete zeptat.",
-					"other": "Napište, o co jde."
+					"none": "Napište nám, co potřebujete.",
+					"bug": "Co jste dělali a co se pokazilo? Dá se to zopakovat?",
+					"idea": "Co by aplikace měla umět a proč?",
+					"question": "Na co se chcete zeptat?",
+					"other": "Napište nám, co potřebujete."
 				}
 			},
 			"diagnostics": {
 				"label": "Přiložit diagnostiku",
-				"hint": "ZIP s logy a stavem aplikace, stejný jako z O aplikaci. Bez hesel, tokenů a obsahu zpráv. E-mailové adresy jsou v něm zkrácené, názvy složek a účtů, servery a cesty k souborům s vaším jménem uživatele Windows ne. U chyby nám pomůže najít příčinu."
+				"hint": "Soubor, podle kterého snáz najdeme příčinu chyby. Nejsou v něm hesla, přihlašovací údaje ani obsah zpráv. E-mailové adresy jsou zkrácené. Zůstávají v něm názvy složek a účtů, adresy serverů a vaše uživatelské jméno ve Windows."
 			},
 			"errors": {
 				"categoryRequired": "Vyberte, o co jde.",

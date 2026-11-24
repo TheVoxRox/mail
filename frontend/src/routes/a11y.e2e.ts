@@ -87,7 +87,10 @@ const routes: ReadonlyArray<{
 	{
 		path: '/settings/feedback',
 		name: 'Napište nám',
-		ready: (page, locale) => page.getByRole('textbox', { name: say(locale, 'Stručně', 'In short') })
+		ready: (page, locale) =>
+			page.getByRole('textbox', {
+				name: say(locale, 'Shrnutí jednou větou', 'Summary in one sentence')
+			})
 	},
 	{
 		path: '/settings/feedback',

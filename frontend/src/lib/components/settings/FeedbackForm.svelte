@@ -183,7 +183,6 @@
 <div class="max-w-2xl space-y-4">
 	<Surface as="section" class="space-y-4">
 		<h2 class="text-sm font-semibold">{$_('settings.feedback.form.heading')}</h2>
-		<p class="text-sm text-muted-foreground">{$_('settings.feedback.form.security')}</p>
 
 		<form novalidate onsubmit={handleSubmit} class="space-y-4">
 			<fieldset class="space-y-1">

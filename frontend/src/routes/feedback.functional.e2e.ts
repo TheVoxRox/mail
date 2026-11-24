@@ -6,8 +6,8 @@ test.beforeEach(async ({ page }) => {
 });
 
 async function fillReport(page: Page): Promise<void> {
-	await page.getByRole('radio', { name: 'Něco nefunguje' }).check();
-	await page.getByRole('textbox', { name: 'Stručně' }).fill('Přesunutá zpráva zmizí');
+	await page.getByRole('radio', { name: 'Chyba v aplikaci' }).check();
+	await page.getByRole('textbox', { name: 'Shrnutí jednou větou' }).fill('Přesunutá zpráva zmizí');
 	await page
 		.getByRole('textbox', { name: 'Popis' })
 		.fill('Přesunu zprávu do Archivu a není ani tam, ani v Doručené.');
@@ -19,12 +19,12 @@ test.describe('Napište nám', () => {
 
 		await page.getByRole('button', { name: 'Pokračovat k odeslání' }).click();
 
-		const firstRadio = page.getByRole('radio', { name: 'Něco nefunguje' });
+		const firstRadio = page.getByRole('radio', { name: 'Chyba v aplikaci' });
 		await expect(firstRadio).toBeFocused();
 		await expect(firstRadio).toHaveAccessibleDescription('Vyberte, o co jde.');
-		await expect(page.getByRole('textbox', { name: 'Stručně' })).toHaveAccessibleDescription(
-			/Napište stručné shrnutí\./
-		);
+		await expect(
+			page.getByRole('textbox', { name: 'Shrnutí jednou větou' })
+		).toHaveAccessibleDescription(/Napište stručné shrnutí\./);
 		await expect(page.getByRole('textbox', { name: 'Popis' })).toHaveAccessibleDescription(
 			/Napište popis\./
 		);
@@ -37,11 +37,9 @@ test.describe('Napište nám', () => {
 		await openApp(page, '/settings/feedback');
 		const description = page.getByRole('textbox', { name: 'Popis' });
 
-		await expect(description).toHaveAccessibleDescription('Napište, o co jde.');
-		await page.getByRole('radio', { name: 'Návrh nové funkce nebo vylepšení' }).check();
-		await expect(description).toHaveAccessibleDescription(
-			'Co byste chtěli dělat a proč. Jak to řešíte dnes?'
-		);
+		await expect(description).toHaveAccessibleDescription('Napište nám, co potřebujete.');
+		await page.getByRole('radio', { name: 'Nápad na vylepšení' }).check();
+		await expect(description).toHaveAccessibleDescription('Co by aplikace měla umět a proč?');
 	});
 
 	test('hlášení přejde do nové zprávy i s diagnostikou a uloží se jako koncept', async ({
@@ -83,7 +81,7 @@ test.describe('Napište nám', () => {
 		// The form handed the report over and starts empty again.
 		await page.goBack();
 		await page.waitForURL(/\/settings\/feedback$/);
-		await expect(page.getByRole('textbox', { name: 'Stručně' })).toHaveValue('');
+		await expect(page.getByRole('textbox', { name: 'Shrnutí jednou větou' })).toHaveValue('');
 	});
 
 	test('zahození předaného hlášení se zeptá', async ({ page }) => {
@@ -100,7 +98,7 @@ test.describe('Napište nám', () => {
 
 	test('rozepsaný text vydrží odchod na jinou stránku Nastavení', async ({ page }) => {
 		await openApp(page, '/settings/feedback');
-		await page.getByRole('textbox', { name: 'Stručně' }).fill('Rozepsané shrnutí');
+		await page.getByRole('textbox', { name: 'Shrnutí jednou větou' }).fill('Rozepsané shrnutí');
 
 		const sidebar = page.getByRole('region', { name: 'Podokno nastavení' });
 		await sidebar.getByRole('link', { name: 'O aplikaci' }).click();
@@ -108,7 +106,9 @@ test.describe('Napište nám', () => {
 		await sidebar.getByRole('link', { name: 'Napište nám' }).click();
 		await page.waitForURL(/\/settings\/feedback$/);
 
-		await expect(page.getByRole('textbox', { name: 'Stručně' })).toHaveValue('Rozepsané shrnutí');
+		await expect(page.getByRole('textbox', { name: 'Shrnutí jednou větou' })).toHaveValue(
+			'Rozepsané shrnutí'
+		);
 	});
 
 	test('bez účtu nabídne jen náhradní cestu', async ({ page }) => {

@@ -66,7 +66,12 @@ Entries before 2026-09-17 predate that split and are left as written.
   ours. Since the page no longer holds the report, the message saves itself as
   a draft without an edit, and Discard asks first. Without an account, the
   page offers to copy the message and save the diagnostics, for webmail
-  (#1014).
+  (#1014). Its form reads less like a developer's: the report types and the
+  description hints are short plain questions, the summary field says it takes
+  one sentence ("Shrnutí jednou větou"), and the diagnostics hint says what the
+  file holds without words such as logs and tokens. The note sending security
+  reports to the form is gone; the GitHub section already says GitHub is
+  public (#1015).
 
 ### Repo
 
