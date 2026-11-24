@@ -615,6 +615,35 @@ the message and save the diagnostics to a file, for webmail.
 **Revisit when** reports show the no-account case is common enough to need a
 route of its own, or the project comes to run a server for another reason.
 
+### A system language without a translation starts the app in English
+
+_Decided 2026-11-24_ by the maintainer, as the first step before adding
+interface languages.
+
+On a first start the app follows the Windows display language, which WebView2
+reports as `navigator.language`, when it has a translation for it (Czech or
+English today). Any other language starts the app in English; until then it
+started in Czech ([index.ts](../frontend/src/lib/i18n/index.ts),
+`detectInitialLocale`). A language chosen in Settings is stored and wins over
+both.
+
+- English is the language a user without Czech is likeliest to read, and the
+  installer already shows it to every system that is not Czech: NSIS carries
+  English and Czech and picks the one matching the system, English otherwise.
+- Slovak goes to English as well, not to Czech. The rule stays one sentence,
+  with no table of related languages to keep, and a Slovak user who prefers
+  Czech switches once in Settings.
+
+Czech stays the base locale everywhere else: the source of the translations,
+the shell prerendered before the client starts, svelte-i18n's message
+fallback, and the backend's default bundle. The backend never sees the system
+language; it answers in the interface language the client sends as
+`Accept-Language`, so it follows this choice without a change of its own.
+
+**Revisit when** a third language ships, and with it the question of which
+languages fall back to which, or users of a language close to Czech or English
+ask for the other.
+
 ## Release process
 
 ### The release runbook holds steps; the reasons for them live here

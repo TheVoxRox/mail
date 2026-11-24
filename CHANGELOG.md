@@ -79,6 +79,10 @@ Entries before 2026-09-17 predate that split and are left as written.
   file holds without words such as logs and tokens. The note sending security
   reports to the form is gone; the GitHub section already says GitHub is
   public (#1015).
+- A first start on a Windows language the app has no translation for opens
+  it in English rather than in Czech, Slovak included, as the installer does
+  already. A Czech or English system starts in its own language as before, and
+  a language chosen in Settings still wins (#1018).
 
 ### Repo
 
