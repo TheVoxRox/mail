@@ -9,7 +9,8 @@
  *   reply in such a thread.
  * - Only the text the user authored: scanning stops at the RFC 3676 signature
  *   separator (`"-- "`, see signature.ts) and at the dash-framed quote header
- *   the backend builds for replies / forwards ("---------- Původní zpráva
+ *   the backend builds for replies / forwards in the interface language
+ *   ("---------- Původní zpráva ----------", "---------- Original message
  *   ----------"), so a quoted message or a corporate signature footer
  *   mentioning attachments does not trigger the reminder.
  * - Diacritic-insensitive: keywords match on a lowercased, diacritic-stripped
@@ -24,10 +25,12 @@
 const SIGNATURE_SEPARATOR = /^-- ?\r?$/m;
 
 /**
- * Dash-framed quote header line: the backend's "---------- Původní zpráva
- * ----------" / "---------- Přeposlaná zpráva ----------" as well as the
- * Outlook-style "-----Original Message-----". A bare dash rule ("---") does
- * not match — it needs framed content.
+ * Dash-framed quote header line: the backend's, whose label follows the
+ * interface language ("---------- Původní zpráva ----------", "----------
+ * Forwarded message ----------"), as well as the Outlook-style "-----Original
+ * Message-----". A bare dash rule ("---") does not match — it needs framed
+ * content. The label is never matched, only the frame, so a new language needs
+ * nothing here.
  */
 const QUOTE_HEADER = /^-{3,}.*\S.*-{3,}[ \t\r]*$/m;
 
