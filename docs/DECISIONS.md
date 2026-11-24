@@ -644,6 +644,38 @@ language; it answers in the interface language the client sends as
 languages fall back to which, or users of a language close to Czech or English
 ask for the other.
 
+### A language is its files, search words included
+
+_Decided 2026-11-24_ by the maintainer, so that adding an interface language
+is adding its files.
+
+A language is its message file in `frontend/src/lib/i18n/messages/` and its
+backend bundle, and nothing in the code names it
+([TRANSLATING.md](TRANSLATING.md)). Two features had language words in code
+until then: the palette's keywords, a Czech and an English list at each
+command, and the attachment reminder's Czech and English patterns. Both now
+read word lists from the message files, `commandKeywords.<name>` and
+`compose.attachmentWords`.
+
+- The words of every language apply at once, not only the interface
+  language's: a user types the word they think of, and a message is written in
+  its own language. The palette also searches each command's title in every
+  language, which covers most of the old keywords, since they were mostly the
+  other language's title.
+- The lists sit in the message file rather than a file of their own, so a
+  translator has one file per language and key parity tells them what is
+  missing. The cost is two kinds of entry that are lists among sentences;
+  `bundles.test.ts` checks that they are, and TRANSLATING.md says so.
+- The translation lint skips the message directory. A language that shares
+  letters with Czech needed a whitelist entry before it could be added.
+- `command.switchLanguageTo` keeps one title per language in every file, since
+  Czech declines the name of the language, and `check:i18n` requires one for
+  every language.
+
+**Revisit when** a language needs matching a word list cannot express (a
+script written without spaces between words, as Chinese or Japanese), or the
+message files come to hold more kinds of data than these two lists.
+
 ## Release process
 
 ### The release runbook holds steps; the reasons for them live here

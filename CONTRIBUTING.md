@@ -622,7 +622,9 @@ the second, and the run summary does not tell them apart; the job log does.
 All user-visible strings live in `frontend/src/lib/i18n/messages/cs.json`
 and `en.json`. The keys must match exactly, and every message must parse,
 keep the Czech message's arguments and carry the plural forms of its own
-language (checked by `npm run check:i18n`).
+language (checked by `npm run check:i18n`). The same files hold the command
+palette's synonyms and the attachment reminder's words, so adding a language
+is adding its files: [docs/TRANSLATING.md](docs/TRANSLATING.md).
 
 Backend error messages have their own bundle in
 `backend/src/main/resources/messages_{cs,en}.properties` — the frontend

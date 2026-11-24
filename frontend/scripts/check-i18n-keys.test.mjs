@@ -111,6 +111,29 @@ describe('check-i18n-keys', () => {
 		expect(result.status).toBe(1);
 		expect(result.stderr).toContain('Missing base locale cs');
 	});
+
+	/*
+	 * Key parity spreads what the base locale has; it cannot ask for a key no
+	 * file has. A new language whose "switch language to …" title nobody wrote
+	 * would show the raw key as a palette command with every other check green.
+	 */
+	it('fails when a language has no title in the switch-language family', () => {
+		const switchTo = (cs, en) => ({ command: { switchLanguageTo: { cs, en } } });
+		seedLocales(
+			switchTo('Přepnout na češtinu', 'Přepnout na angličtinu'),
+			switchTo('Switch to Czech', 'Switch to English')
+		);
+		repo.write(
+			'frontend/src/lib/i18n/messages/de.json',
+			messages(switchTo('Zu Tschechisch wechseln', 'Zu Englisch wechseln'))
+		);
+		seedSource('const key = `command.switchLanguageTo.${locale}`;\n');
+
+		const result = repo.run('check-i18n-keys.mjs');
+
+		expect(result.status).toBe(1);
+		expect(result.stderr).toContain('missing command.switchLanguageTo.de');
+	});
 });
 
 /*

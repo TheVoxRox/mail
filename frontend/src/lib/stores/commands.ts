@@ -9,7 +9,7 @@ import { createWorkspaceCommands } from '#lib/commands/workspaceCommands.js';
 import { activeAccountId, accountsState } from '#lib/stores/accounts.js';
 import { folders } from '#lib/stores/folders.js';
 import { selectedMessage } from '#lib/stores/selectedMessage.js';
-import { appLocale, _ } from '#lib/i18n/index.js';
+import { _ } from '#lib/i18n/index.js';
 import { folderLabel } from '#lib/mail/folderLabel.js';
 import { themePreference } from '#lib/stores/theme.js';
 
@@ -37,7 +37,6 @@ export const commandsFor: Readable<(pathname: string) => Command[]> = derived(
 		activeAccountId,
 		folders,
 		selectedMessage,
-		appLocale,
 		themePreference,
 		printableSelection,
 		remoteImageOffer,
@@ -49,7 +48,6 @@ export const commandsFor: Readable<(pathname: string) => Command[]> = derived(
 		$activeAccountId,
 		$folders,
 		$selectedMessage,
-		$appLocale,
 		$themePreference,
 		$printableSelection,
 		$remoteImageOffer,
@@ -70,20 +68,19 @@ export const commandsFor: Readable<(pathname: string) => Command[]> = derived(
 			}));
 
 			const items: Command[] = [
-				...createWorkspaceCommands($appLocale),
-				...createAccountCommands($accountsState, $appLocale),
-				...createFolderCommands($activeAccountId, localizedFolders, $appLocale),
+				...createWorkspaceCommands(),
+				...createAccountCommands($accountsState),
+				...createFolderCommands($activeAccountId, localizedFolders),
 				...createMailCommands({
 					activeAccountId: $activeAccountId,
 					folders: localizedFolders,
-					locale: $appLocale,
 					pathname,
 					selectedDetail,
 					stableId,
 					printableSelection: $printableSelection,
 					remoteImageOffer: $remoteImageOffer
 				}),
-				...createViewCommands($appLocale, $themePreference)
+				...createViewCommands($themePreference)
 			];
 
 			return items.filter((command) => command.available());

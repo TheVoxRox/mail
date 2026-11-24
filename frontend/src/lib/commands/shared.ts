@@ -1,4 +1,5 @@
 import type { IconName } from '#lib/components/Icon.svelte';
+import { wordsInEveryLocale } from '#lib/i18n/bundles.js';
 import type { AppLocale } from '#lib/i18n/index.js';
 import type { WorkspaceMode } from '#lib/stores/workspaceMode.js';
 
@@ -9,6 +10,7 @@ export interface Command {
 	titleKey: string;
 	groupKey: CommandGroup;
 	titleValues?: Record<string, string | number>;
+	/** Search words no translation carries; translated ones: {@link translatedKeywords}. */
 	keywords?: string[];
 	shortcut?: string;
 	icon?: IconName;
@@ -27,6 +29,18 @@ export interface Command {
 	run: () => void | Promise<unknown>;
 }
 
-export function localeKeywords(locale: AppLocale | null, cs: string[], en: string[]): string[] {
-	return locale === 'en' ? [...en, ...cs] : [...cs, ...en];
+const TITLE_PREFIX = 'command.';
+
+/**
+ * The synonyms a command is found by: the `commandKeywords` entry that shares
+ * its title's name (`command.openSearch` → `commandKeywords.openSearch`), in
+ * every language at once, the interface language first. What a user types is
+ * the word they think of, which need not be in the interface language, and a
+ * new language brings its synonyms in its own message file, with no change
+ * here. `Command.keywords` holds what no translation can: addresses, folder
+ * names, locale codes.
+ */
+export function translatedKeywords(titleKey: string, locale: AppLocale | null): string[] {
+	if (!titleKey.startsWith(TITLE_PREFIX)) return [];
+	return wordsInEveryLocale(`commandKeywords.${titleKey.slice(TITLE_PREFIX.length)}`, locale);
 }

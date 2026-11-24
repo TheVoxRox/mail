@@ -1,4 +1,3 @@
-import type { AppLocale } from '#lib/i18n/index.js';
 import {
 	forwardMessage,
 	goToCompose,
@@ -12,7 +11,7 @@ import {
 	toggleMessageFlag,
 	toggleMessageSeen
 } from '#lib/mail/mailbox.js';
-import { localeKeywords, type Command } from '#lib/commands/shared.js';
+import type { Command } from '#lib/commands/shared.js';
 import { printOpenMessage, type PrintableSelection } from '#lib/mail/printMessages.js';
 import type { RemoteImageOffer } from '#lib/mail/remoteImageOffer.js';
 import { SHORTCUT_LABELS } from '#lib/shortcuts/shortcutLabels.js';
@@ -26,7 +25,6 @@ type MessageCommandDetail = {
 interface MailCommandOptions {
 	activeAccountId: number | null;
 	folders: FolderResponse[];
-	locale: AppLocale | null;
 	pathname: string;
 	selectedDetail: MessageCommandDetail;
 	stableId: string | null;
@@ -48,7 +46,6 @@ export function createMailCommands(options: MailCommandOptions): Command[] {
 	const {
 		activeAccountId,
 		folders,
-		locale,
 		pathname,
 		selectedDetail,
 		stableId,
@@ -62,7 +59,6 @@ export function createMailCommands(options: MailCommandOptions): Command[] {
 			id: 'nav.search',
 			titleKey: 'command.openSearch',
 			groupKey: 'nav',
-			keywords: localeKeywords(locale, ['hledat', 'vyhledavani'], ['search', 'find']),
 			icon: 'folder',
 			contexts: ['mail'],
 			routePrefixes: ['/mail/', '/search/'],
@@ -74,7 +70,6 @@ export function createMailCommands(options: MailCommandOptions): Command[] {
 			id: 'other.compose',
 			titleKey: 'command.openCompose',
 			groupKey: 'mail',
-			keywords: localeKeywords(locale, ['nova zprava', 'psat'], ['compose', 'new message']),
 			icon: 'pencil-square',
 			contexts: ['mail', 'contacts', 'settings'],
 			routePrefixes: ['/'],
@@ -86,11 +81,6 @@ export function createMailCommands(options: MailCommandOptions): Command[] {
 			id: 'other.sync',
 			titleKey: 'command.syncNow',
 			groupKey: 'mail',
-			keywords: localeKeywords(
-				locale,
-				['synchronizovat', 'obnovit schranku'],
-				['sync', 'refresh mailbox']
-			),
 			icon: 'arrow-path',
 			contexts: ['mail'],
 			routePrefixes: ['/mail/', '/search/'],
@@ -113,11 +103,6 @@ export function createMailCommands(options: MailCommandOptions): Command[] {
 			titleKey: 'command.printSelection',
 			titleValues: { summary: printableSelection.summary },
 			groupKey: 'mail',
-			keywords: localeKeywords(
-				locale,
-				['tisk', 'vytisknout', 'vybrane'],
-				['print', 'selected', 'selection']
-			),
 			icon: 'printer',
 			contexts: ['mail'],
 			routePrefixes: ['/mail/'],
@@ -147,11 +132,6 @@ export function createMailCommands(options: MailCommandOptions): Command[] {
 						id: 'mail.loadRemoteImages',
 						titleKey: 'command.loadRemoteImages',
 						groupKey: 'mail',
-						keywords: localeKeywords(
-							locale,
-							['obrazky', 'nacist', 'zobrazit', 'blokovane'],
-							['images', 'pictures', 'load', 'download', 'blocked']
-						),
 						icon: 'arrow-down-tray',
 						contexts: ['mail'],
 						routePrefixes: ['/mail/'],
@@ -169,7 +149,6 @@ export function createMailCommands(options: MailCommandOptions): Command[] {
 			id: 'mail.reply',
 			titleKey: 'command.reply',
 			groupKey: 'mail',
-			keywords: localeKeywords(locale, ['odpovedet'], ['reply']),
 			shortcut: SHORTCUT_LABELS.reply,
 			icon: 'arrow-uturn-left',
 			contexts: ['mail'],
@@ -182,7 +161,6 @@ export function createMailCommands(options: MailCommandOptions): Command[] {
 			id: 'mail.replyAll',
 			titleKey: 'command.replyAll',
 			groupKey: 'mail',
-			keywords: localeKeywords(locale, ['odpovedet vsem'], ['reply all']),
 			shortcut: SHORTCUT_LABELS.replyAll,
 			icon: 'arrow-uturn-left-double',
 			contexts: ['mail'],
@@ -195,7 +173,6 @@ export function createMailCommands(options: MailCommandOptions): Command[] {
 			id: 'mail.print',
 			titleKey: 'command.print',
 			groupKey: 'mail',
-			keywords: localeKeywords(locale, ['tisk', 'vytisknout'], ['print']),
 			shortcut: SHORTCUT_LABELS.printMessage,
 			icon: 'printer',
 			contexts: ['mail'],
@@ -208,7 +185,6 @@ export function createMailCommands(options: MailCommandOptions): Command[] {
 			id: 'mail.forward',
 			titleKey: 'command.forward',
 			groupKey: 'mail',
-			keywords: localeKeywords(locale, ['preposlat'], ['forward']),
 			shortcut: SHORTCUT_LABELS.forward,
 			icon: 'arrow-uturn-right',
 			contexts: ['mail'],
@@ -221,7 +197,6 @@ export function createMailCommands(options: MailCommandOptions): Command[] {
 			id: 'mail.flag',
 			titleKey: selectedDetail?.flagged ? 'command.unflag' : 'command.flag',
 			groupKey: 'mail',
-			keywords: localeKeywords(locale, ['hvezdicka', 'oznacit'], ['star', 'flag']),
 			shortcut: SHORTCUT_LABELS.toggleFlag,
 			icon: selectedDetail?.flagged ? 'star' : 'star-outline',
 			contexts: ['mail'],
@@ -235,7 +210,6 @@ export function createMailCommands(options: MailCommandOptions): Command[] {
 			id: 'mail.seen',
 			titleKey: selectedDetail?.seen ? 'command.markUnread' : 'command.markRead',
 			groupKey: 'mail',
-			keywords: localeKeywords(locale, ['precteno', 'neprecteno'], ['read', 'unread']),
 			shortcut: selectedDetail?.seen ? SHORTCUT_LABELS.markUnread : SHORTCUT_LABELS.markRead,
 			icon: 'inbox',
 			contexts: ['mail'],
@@ -249,7 +223,6 @@ export function createMailCommands(options: MailCommandOptions): Command[] {
 			id: 'mail.delete',
 			titleKey: 'command.deleteMessage',
 			groupKey: 'mail',
-			keywords: localeKeywords(locale, ['smazat'], ['delete', 'remove']),
 			shortcut: SHORTCUT_LABELS.deleteMessage,
 			icon: 'trash',
 			contexts: ['mail'],
@@ -263,11 +236,7 @@ export function createMailCommands(options: MailCommandOptions): Command[] {
 			titleKey: 'command.moveMessageToFolder',
 			titleValues: { folder: folder.displayName },
 			groupKey: 'mail',
-			keywords: localeKeywords(
-				locale,
-				['presunout', 'slozka', folder.displayName],
-				['move', 'folder', folder.displayName]
-			),
+			keywords: [folder.displayName],
 			// Backspace runs archiveMessage, which moves to this same folder.
 			shortcut: folder.role === 'ARCHIVE' ? SHORTCUT_LABELS.archiveMessage : undefined,
 			icon: 'folder',

@@ -13,13 +13,21 @@
  *   ("---------- Původní zpráva ----------", "---------- Original message
  *   ----------"), so a quoted message or a corporate signature footer
  *   mentioning attachments does not trigger the reminder.
- * - Diacritic-insensitive: keywords match on a lowercased, diacritic-stripped
- *   copy, so Czech typed without diacritics ("v priloze") still counts. Stems
- *   that become ambiguous once stripped (přikládám vs. příklad) are matched as
- *   full words only.
+ * - The words come from every language's message file at once
+ *   (`compose.attachmentWords`): what decides is the language the message is
+ *   written in, not the interface's, and a new language brings its words with
+ *   its translation. A word ending in `*` is a stem and takes any ending
+ *   ("příloh*": příloha, v příloze, přílohy). A word without one matches whole
+ *   only, for a stem that would catch an unrelated word once diacritics are
+ *   gone: "přikládám" stays whole because "přiklád-" stripped is "priklad",
+ *   the start of "příklad" (example).
+ * - Diacritic-insensitive: the words and the body are both lowercased and
+ *   stripped of diacritics, so Czech typed without them ("v priloze") counts.
  *
  * Kept free of Svelte/DOM so the ComposeForm wiring stays unit-testable.
  */
+
+import { wordsInEveryLocale } from '#lib/i18n/bundles.js';
 
 /** RFC 3676 signature separator line ("-- "), tolerating a missing space. */
 const SIGNATURE_SEPARATOR = /^-- ?\r?$/m;
@@ -34,18 +42,28 @@ const SIGNATURE_SEPARATOR = /^-- ?\r?$/m;
  */
 const QUOTE_HEADER = /^-{3,}.*\S.*-{3,}[ \t\r]*$/m;
 
-/** Matched against the normalized (lowercased, diacritic-stripped) body. */
-const KEYWORD_PATTERNS: readonly RegExp[] = [
-	/\bpriloh\w*/, // příloha and its inflections (v příloze, přílohy, přílohou…)
-	/\bpriloz\w*/, // přiložit family (přiložil, přiloženo, přiložte…)
-	/\bprikladam(e)?\b/, // přikládám(e) — the stem would collide with "příklad"
-	/\battach\w*/, // attach, attached, attachment(s), attaching
-	/\benclos\w*/ // enclosed, enclosing, enclosure
-];
+/** A letter or digit in any script; what a word boundary is drawn against. */
+const WORD_CHARACTER = '[\\p{L}\\p{N}]';
 
 function normalized(text: string): string {
 	return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 }
+
+function escapeRegExp(text: string): string {
+	return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** "příloh*" → a stem matched at a word start; "přikládám" → a whole word. */
+function attachmentWordPattern(word: string): RegExp {
+	const stem = word.endsWith('*');
+	const text = escapeRegExp(normalized(stem ? word.slice(0, -1) : word));
+	const end = stem ? '' : `(?!${WORD_CHARACTER})`;
+	return new RegExp(`(?<!${WORD_CHARACTER})${text}${end}`, 'u');
+}
+
+/** Matched against the normalized (lowercased, diacritic-stripped) body. */
+const KEYWORD_PATTERNS: readonly RegExp[] =
+	wordsInEveryLocale('compose.attachmentWords').map(attachmentWordPattern);
 
 /** The part of the body the user authored: everything before the first
  * signature separator or quote header. */
@@ -56,7 +74,7 @@ function authoredRegion(body: string): string {
 	return boundaries.length === 0 ? body : body.slice(0, Math.min(...boundaries));
 }
 
-/** Whether the authored part of the body mentions an attachment (cs / en). */
+/** Whether the authored part of the body mentions an attachment, in any language the app has. */
 export function mentionsAttachment(body: string): boolean {
 	const text = normalized(authoredRegion(body));
 	return KEYWORD_PATTERNS.some((pattern) => pattern.test(text));

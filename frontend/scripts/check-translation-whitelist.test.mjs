@@ -49,6 +49,26 @@ describe('check-translation-whitelist', () => {
 	});
 
 	/*
+	 * The message files are where translations live. A new language that
+	 * shares letters with Czech (Slovak, Polish, French) used to need a
+	 * whitelist entry to be added at all; only that directory is exempt, not a
+	 * file elsewhere that happens to be JSON or to sit below it.
+	 */
+	it('leaves the interface languages’ message files alone, and only those', () => {
+		repo.write('frontend/src/lib/i18n/messages/sk.json', '{ "send": "Odoslať správu" }\n');
+		repo.write('frontend/src/lib/i18n/messages/cs.json', '{ "send": "Odeslat zprávu" }\n');
+
+		expect(repo.run('check-translation-whitelist.mjs', ['--mode=strict']).status).toBe(0);
+
+		repo.write('frontend/src/lib/i18n/fixtures/sample.json', '{ "send": "Odeslat zprávu" }\n');
+		const result = repo.run('check-translation-whitelist.mjs', ['--mode=strict']);
+
+		expect(result.status).toBe(1);
+		expect(result.output).toContain('src/lib/i18n/fixtures/sample.json');
+		expect(result.output).not.toContain('messages/sk.json');
+	});
+
+	/*
 	 * Report mode is what the maintainer runs while migrating; it must never be
 	 * the thing that fails a build, or the two modes collapse into one.
 	 */

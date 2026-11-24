@@ -92,6 +92,41 @@ if (failed) {
 }
 
 /*
+ * Entries keyed by locale, one child per interface language: the palette's
+ * "switch language to …" names the target language in the reader's own, and
+ * Czech declines it ("Přepnout jazyk na angličtinu"), so no single message
+ * with the language as an argument would do. Key parity carries every child of
+ * the base locale into the other files, so the base locale is the one checked:
+ * a new language that forgets its child here would show the raw key as the
+ * command that switches to it, with every other check green.
+ */
+const LOCALE_KEYED = ['command.switchLanguageTo'];
+for (const prefix of LOCALE_KEYED) {
+	const children = [...baseKeys]
+		.filter((key) => key.startsWith(`${prefix}.`))
+		.map((key) => key.slice(prefix.length + 1));
+	if (children.length === 0) {
+		continue; // the family is gone, so nothing is keyed by locale
+	}
+	const missing = LOCALES.filter((locale) => !children.includes(locale));
+	const extra = children.filter((child) => !LOCALES.includes(child)).sort();
+	if (missing.length > 0 || extra.length > 0) {
+		failed = true;
+		console.error(`[i18n] ${prefix} needs one entry per locale (${LOCALES.join(', ')}):`);
+		for (const locale of missing) {
+			console.error(`    - missing ${prefix}.${locale}`);
+		}
+		for (const child of extra) {
+			console.error(`    - ${prefix}.${child} names no locale`);
+		}
+	}
+}
+
+if (failed) {
+	process.exit(1);
+}
+
+/*
  * Message check: key parity says every locale has the key, this says the
  * message under it renders. Each message goes through the parser svelte-i18n
  * formats with (intl-messageformat's), with the option svelte-i18n passes
