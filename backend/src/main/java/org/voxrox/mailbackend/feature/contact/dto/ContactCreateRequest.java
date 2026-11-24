@@ -11,7 +11,7 @@ import org.voxrox.mailbackend.util.StoredText;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 public record ContactCreateRequest(
-        @NotEmpty(message = "{validation.contact.emailRequired}") @Size(max = 10, message = "{validation.size.max}") @Valid List<ContactEmailRequest> emails,
+        @NotEmpty(message = "{validation.contact.emailRequired}") @Size(max = 10, message = "{validation.size.max}") List<@Valid ContactEmailRequest> emails,
         @Size(max = 50, message = "{validation.size.max}") @Schema(description = "Contact labels to attach, by ID. Omit or send an empty list for no labels; an ID that names no contact label is a 404 (CONTACT_LABEL_NOT_FOUND).") @Nullable List<@NotNull(message = "{validation.notNull}") @Positive(message = "{validation.positive}") Long> labelIds,
         @Size(max = 255, message = "{validation.size.max}") @Nullable String name,
         @Size(max = 255, message = "{validation.size.max}") @Nullable String surname,

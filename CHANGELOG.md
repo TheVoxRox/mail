@@ -43,6 +43,14 @@ Entries before 2026-09-17 predate that split and are left as written.
   the dialog and beside the error, where it used to drop to the page and Tab
   did nothing (#1010).
 
+### Repo
+
+- The contact DTOs put `@Valid` on the list's element type
+  (`List<@Valid ContactEmailRequest>`) instead of on the list, which Hibernate
+  Validator deprecates and logged as `HV000271` whenever a contact was
+  validated. Two controller tests now pin the cascade the move must keep, for
+  an update and for a bulk create, which no test covered (#1012).
+
 ## [0.2.1] - 2026-11-24
 
 ### Tauri / Release

@@ -27,5 +27,5 @@ import jakarta.validation.constraints.Size;
  * move the file size at which it starts to matter.
  */
 public record BulkContactCreateRequest(
-        @NotEmpty(message = "{validation.contacts.listRequired}") @Size(max = 100, message = "{validation.contacts.max100}") @Valid List<ContactCreateRequest> contacts) {
+        @NotEmpty(message = "{validation.contacts.listRequired}") @Size(max = 100, message = "{validation.contacts.max100}") List<@Valid ContactCreateRequest> contacts) {
 }

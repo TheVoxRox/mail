@@ -50,7 +50,7 @@
   ],
   "docs/API_SURFACE_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/contact/dto": "1089a1e8d1f9c0a11858e92ffef1ca0752a2886a",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/contact/dto": "c7251c9b9088a959ca5653e0d3bf735505ffdd7c",
       "backend/src/main/java/org/voxrox/mailbackend/feature/account/dto": "c3424f22589ca8f9496ccb0df7c8a0017f76794a",
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "9a63e7b30dc8989b5d6b4feed56ca1f66027a8a9",
       "backend/src/main/java/org/voxrox/mailbackend/feature/account/controller": "29de14b87711cd6b5d21df2817cb21b3460e68ee",
@@ -72,6 +72,10 @@
       {
         "date": "2026-11-23",
         "note": "#997: the app_started audit event's dbSchemaChecksum, the newest applied migration's checksum, becomes dbSchemaChecksums, the version and recorded checksum of every applied migration read from Flyway's MigrationInfoService (V1:<n>,V2:<none>). Every changed line was read. The values are migration versions and the integers Flyway keeps in flyway_schema_history, no secret and nothing a request supplies. session.json, the handshake response, the API key and its generation, the port and the ready gate are untouched, and no route, field or error path moves. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-24",
+        "note": "#1012: @Valid moves from the list to its element type on ContactCreateRequest.emails, ContactUpdateRequest.emails and BulkContactCreateRequest.contacts (List<@Valid ...>), the form Hibernate Validator asks for instead of the deprecated one it logged as HV000271. Every changed line was read. The cascade is the same: an invalid address inside the list is a 400 with the violation on emails[0].email or contacts[0].emails[0].email and the service is not called, now pinned for create, update and bulk create; both new tests fail with the annotation removed. Constraints, routes, fields and error codes are unchanged and OpenApiSnapshotTest passes unchanged. Verdict unchanged."
       }
     ]
   },
