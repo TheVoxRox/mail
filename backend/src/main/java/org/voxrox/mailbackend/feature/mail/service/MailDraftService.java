@@ -27,6 +27,14 @@ public class MailDraftService {
     private static final DateTimeFormatter QUOTE_DATE = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM,
             FormatStyle.SHORT);
 
+    /**
+     * Any horizontal space the formatter writes. CLDR puts a narrow no-break space
+     * before "AM" since JDK 20 and no-break spaces in other locales; the header is
+     * plain text for the recipient's client, and a font without the narrow one
+     * shows a box there.
+     */
+    private static final Pattern FORMATTER_SPACE = Pattern.compile("\\h");
+
     private final MessageSource messageSource;
 
     public MailDraftService(MessageSource messageSource) {
@@ -98,12 +106,20 @@ public class MailDraftService {
      * frame stays in code, because the composer's attachment reminder
      * (frontend/src/lib/compose/attachmentReminder.ts) finds the end of the user's
      * own text by it.
+     *
+     * <p>
+     * The date is formatted in the language of the bundle that answered
+     * ({@code app.locale}), not in the request's: a request with no
+     * Accept-Language, or with a language no bundle has, gets the default bundle's
+     * labels, and a date in the system's language under them would mix two.
      */
     private String buildQuotedBody(MessageEntity entity, String content, String headingKey) {
         Locale locale = LocaleContextHolder.getLocale();
+        Locale textLocale = Locale.forLanguageTag(message("app.locale", locale));
         String sender = orFallback(entity.getSender(), "mail.message.unknownSender", locale);
         String subject = orFallback(entity.getSubject(), "mail.message.noSubject", locale);
-        String date = QUOTE_DATE.withLocale(locale).format(entity.getReceivedAt());
+        String date = FORMATTER_SPACE.matcher(QUOTE_DATE.withLocale(textLocale).format(entity.getReceivedAt()))
+                .replaceAll(" ");
         String plainContent = htmlToPlainText(content);
         return "\n\n---------- " + message(headingKey, locale) + " ----------\n"
                 + message("mail.quote.from", locale, sender) + "\n" + message("mail.quote.date", locale, date) + "\n"

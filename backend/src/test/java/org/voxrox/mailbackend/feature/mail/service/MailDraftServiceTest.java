@@ -330,10 +330,10 @@ class MailDraftServiceTest {
 
             String body = service.createReplyDraft(orig, "Thanks for the info!", false).body();
 
-            // The time separator before AM is whatever the JDK's CLDR data puts
-            // there (a narrow no-break space since JDK 20), so \h rather than a space.
-            assertThat(body).contains("---------- Original message ----------\nFrom: Alice <alice@example.com>\n")
-                    .containsPattern("\nDate: Jan 15, 2026, 10:30\\hAM\nSubject: Hi\n\nThanks for the info!");
+            // A plain space before AM: CLDR writes a narrow no-break space there,
+            // which a recipient's font may not have.
+            assertThat(body).contains("---------- Original message ----------\nFrom: Alice <alice@example.com>\n"
+                    + "Date: Jan 15, 2026, 10:30 AM\nSubject: Hi\n\nThanks for the info!");
         }
 
         @Test
@@ -364,6 +364,18 @@ class MailDraftServiceTest {
             MessageEntity orig = newMessage("Alice <alice@example.com>", "Hi");
 
             assertThat(service.createReplyDraft(orig, "x", false).body()).doesNotContain("2026-01-15T10:30");
+        }
+
+        @Test
+        @DisplayName("A language no bundle has gets the default bundle's labels and a date to match them")
+        void unbundledLanguageKeepsDateWithLabels() {
+            LocaleContextHolder.setLocale(Locale.GERMAN);
+            MessageEntity orig = newMessage("Alice <alice@example.com>", "Hi");
+
+            String body = service.createReplyDraft(orig, "x", false).body();
+
+            // German would format "15.01.2026, 10:30" under the Czech labels.
+            assertThat(body).contains("\nDatum: 15. 1. 2026 10:30\n");
         }
 
         @Test

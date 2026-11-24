@@ -94,6 +94,21 @@ describe('matchesAllTokens', () => {
 	it('empty token list matches everything', () => {
 		expect(matchesAllTokens(e, [])).toBe(true);
 	});
+
+	/*
+	 * Titles in the languages not on screen are searchable, but a match inside
+	 * one of their words is invisible in the results: in Czech, "ne" found every
+	 * command whose English title had "message" in it.
+	 */
+	it('matches the titles of other languages at word starts only', () => {
+		const forward = {
+			...entry({ id: 'f', title: 'Preposlat', group: 'mail' }),
+			otherTitlesText: normalizeText('Forward message')
+		};
+		expect(matchesAllTokens(forward, tokenizeQuery('mess'))).toBe(true);
+		expect(matchesAllTokens(forward, tokenizeQuery('forward mess'))).toBe(true);
+		expect(matchesAllTokens(forward, tokenizeQuery('ssage'))).toBe(false);
+	});
 });
 
 describe('routeMatches', () => {

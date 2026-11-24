@@ -21,13 +21,15 @@
  *   only, for a stem that would catch an unrelated word once diacritics are
  *   gone: "přikládám" stays whole because "přiklád-" stripped is "priklad",
  *   the start of "příklad" (example).
- * - Diacritic-insensitive: the words and the body are both lowercased and
- *   stripped of diacritics, so Czech typed without them ("v priloze") counts.
+ * - Diacritic-insensitive: the words and the body both go through foldText,
+ *   so Czech typed without diacritics ("v priloze") counts, and so does a
+ *   Polish "l" typed for "ł".
  *
  * Kept free of Svelte/DOM so the ComposeForm wiring stays unit-testable.
  */
 
 import { wordsInEveryLocale } from '#lib/i18n/bundles.js';
+import { foldText } from '#lib/i18n/foldText.js';
 
 /** RFC 3676 signature separator line ("-- "), tolerating a missing space. */
 const SIGNATURE_SEPARATOR = /^-- ?\r?$/m;
@@ -45,10 +47,6 @@ const QUOTE_HEADER = /^-{3,}.*\S.*-{3,}[ \t\r]*$/m;
 /** A letter or digit in any script; what a word boundary is drawn against. */
 const WORD_CHARACTER = '[\\p{L}\\p{N}]';
 
-function normalized(text: string): string {
-	return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-}
-
 function escapeRegExp(text: string): string {
 	return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -56,7 +54,7 @@ function escapeRegExp(text: string): string {
 /** "příloh*" → a stem matched at a word start; "přikládám" → a whole word. */
 function attachmentWordPattern(word: string): RegExp {
 	const stem = word.endsWith('*');
-	const text = escapeRegExp(normalized(stem ? word.slice(0, -1) : word));
+	const text = escapeRegExp(foldText(stem ? word.slice(0, -1) : word));
 	const end = stem ? '' : `(?!${WORD_CHARACTER})`;
 	return new RegExp(`(?<!${WORD_CHARACTER})${text}${end}`, 'u');
 }
@@ -76,6 +74,6 @@ function authoredRegion(body: string): string {
 
 /** Whether the authored part of the body mentions an attachment, in any language the app has. */
 export function mentionsAttachment(body: string): boolean {
-	const text = normalized(authoredRegion(body));
+	const text = foldText(authoredRegion(body));
 	return KEYWORD_PATTERNS.some((pattern) => pattern.test(text));
 }

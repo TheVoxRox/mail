@@ -2,6 +2,7 @@
  * Pure ranking logic for the Command Palette — extracted from
  * `CommandPalette.svelte` so the scoring algorithm can be unit-tested.
  */
+import { foldText } from '#lib/i18n/foldText.js';
 import { detectWorkspaceMode } from '#lib/stores/workspaceMode.js';
 import type { Command } from '#lib/stores/commands.js';
 import type { CommandGroup } from './shared.js';
@@ -11,15 +12,21 @@ export interface VisibleCommand {
 	title: string;
 	groupLabel: string;
 	searchText: string;
+	/**
+	 * The command's titles in the interface languages not on screen, normalized.
+	 * A query word matches them only at the start of a word: inside a word of a
+	 * language the user is not reading, a match cannot be seen in the results,
+	 * and short queries found it everywhere ("ne" in "message").
+	 */
+	otherTitlesText?: string;
 	baseIndex: number;
 }
 
 export const GROUP_ORDER: CommandGroup[] = ['mail', 'nav', 'account', 'view', 'other'];
 
-const COMBINING_DIACRITICS = /[̀-ͯ]/g;
-
+/** Lowercased and stripped of diacritics, as {@link foldText} folds it. */
 export function normalizeText(value: string): string {
-	return value.normalize('NFD').replace(COMBINING_DIACRITICS, '').toLowerCase();
+	return foldText(value);
 }
 
 export function tokenizeQuery(normalizedQuery: string): string[] {
@@ -32,7 +39,10 @@ export function tokenizeQuery(normalizedQuery: string): string[] {
  * `textMatchScore` scores the query as a whole string.
  */
 export function matchesAllTokens(entry: VisibleCommand, tokens: string[]): boolean {
-	return tokens.every((token) => entry.searchText.includes(token));
+	return tokens.every(
+		(token) =>
+			entry.searchText.includes(token) || includesAtWordStart(entry.otherTitlesText ?? '', token)
+	);
 }
 
 export function routeMatches(pathname: string, prefix: string): boolean {
