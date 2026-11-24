@@ -66,7 +66,7 @@ Entries before 2026-09-17 predate that split and are left as written.
   ours. Since the page no longer holds the report, the message saves itself as
   a draft without an edit, and Discard asks first. Without an account, the
   page offers to copy the message and save the diagnostics, for webmail
-  (#PR_NUMBER).
+  (#1014).
 
 ### Repo
 
