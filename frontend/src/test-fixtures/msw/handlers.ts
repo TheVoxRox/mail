@@ -820,7 +820,12 @@ function contactRoutes(
 	}
 
 	if (segments[1] === 'merge' && method === 'POST') {
-		const held = mergeResponsesHeld;
+		// The gate joins the queue as the request arrives, before its body is
+		// read: a release that lands while request.json() is still pending would
+		// otherwise empty the queue first, and the answer would wait forever.
+		const gate = mergeResponsesHeld
+			? new Promise<void>((resolve) => heldMergeResponses.push(resolve))
+			: undefined;
 		const answer = request.json().then((body) => {
 			const requestBody = body as ContactMergeRequest;
 			const sourceIds = requestBody.source ?? [];
@@ -882,13 +887,7 @@ function contactRoutes(
 				.map((item) => (item.id === contactId ? mergedContact : item));
 			return HttpResponse.json(mergedContact);
 		});
-		if (!held) return answer;
-		return answer.then(
-			(response) =>
-				new Promise<MockResponse>((resolve) => {
-					heldMergeResponses.push(() => resolve(response));
-				})
-		);
+		return gate ? Promise.all([answer, gate]).then(([response]) => response) : answer;
 	}
 
 	if (segments[1] === 'emails') {

@@ -87,6 +87,10 @@ Entries before 2026-09-17 predate that split and are left as written.
   Validator deprecates and logged as `HV000271` whenever a contact was
   validated. Two controller tests now pin the cascade the move must keep, for
   an update and for a bulk create, which no test covered (#1012).
+- The e2e fixture that holds contact-merge answers queues each one as its
+  request arrives, not after reading the body, so a release that lands in
+  between no longer leaves the answer waiting forever. The test of the busy
+  merge dialog failed that way in CI (#1016).
 
 ## [0.2.1] - 2026-11-24
 
