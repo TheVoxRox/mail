@@ -51,17 +51,29 @@
 	const exceedsLimit = $derived(exceedsEmailLimit(mergedEmails.length));
 	const noteLength = $derived(mergedNoteLength(target, sources));
 	const noteTooLong = $derived(exceedsNoteLimit(noteLength));
-	// The submit control is described by whichever warnings stand, so a screen
-	// reader says why it is unavailable when it lands on it.
+	const hasEnoughContacts = $derived(contacts.length >= 2 && target !== null);
+	// The submit control is described by whichever message stands in its way, so
+	// a screen reader says why it is unavailable when it lands on it.
 	const blockingWarningIds = $derived(
 		[
+			hasEnoughContacts ? null : 'contact-merge-needs-two',
 			exceedsLimit ? 'contact-merge-limit-warning' : null,
 			noteTooLong ? 'contact-merge-note-warning' : null
 		]
 			.filter((id): id is string => id !== null)
 			.join(' ')
 	);
-	const hasEnoughContacts = $derived(contacts.length >= 2 && target !== null);
+	/*
+	 * Unavailable is aria-disabled on the submit control, never disabled (#1007).
+	 * A disabled button leaves the focus order, so the description above was
+	 * never reached: Tab went from the radio group to Cancel and back. And the
+	 * control disables itself on activation, which drops the focus it holds to
+	 * <body>, outside the dialog, where a failed merge left the user with Tab
+	 * doing nothing (the reasoning of the Sync button in MailSidebar).
+	 * `submit()` refuses a press while unavailable, so the attribute is the only
+	 * guard needed; `buttonVariants` styles aria-disabled like disabled.
+	 */
+	const unavailable = $derived(!hasEnoughContacts || exceedsLimit || noteTooLong || busy);
 
 	function contactLabel(c: ContactResponse): string {
 		const name = [c.name, c.surname].filter(Boolean).join(' ').trim();
@@ -75,7 +87,7 @@
 	}
 
 	async function submit(): Promise<void> {
-		if (!target || sources.length === 0 || exceedsLimit || noteTooLong) return;
+		if (unavailable || !target) return;
 		busy = true;
 		serverError = null;
 		try {
@@ -100,7 +112,13 @@
 	</DialogDescription>
 
 	{#if !hasEnoughContacts}
-		<StateMessage variant="error" padding="none" role="alert" class="mt-4">
+		<StateMessage
+			variant="error"
+			padding="none"
+			role="alert"
+			class="mt-4"
+			id="contact-merge-needs-two"
+		>
 			{$_('contacts.mergeNeedsTwo')}
 		</StateMessage>
 	{:else}
@@ -216,7 +234,7 @@
 		</Button>
 		<Button
 			onclick={submit}
-			disabled={!hasEnoughContacts || exceedsLimit || noteTooLong || busy}
+			aria-disabled={unavailable ? 'true' : undefined}
 			aria-describedby={blockingWarningIds || undefined}
 		>
 			{busy ? $_('contacts.mergeBusy') : $_('contacts.mergeSubmit')}

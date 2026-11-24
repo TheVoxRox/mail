@@ -157,6 +157,8 @@ let failNextHistoryForget = false;
 let readinessDelayMs = 0;
 let flagResponsesHeld = false;
 const heldFlagResponses: (() => void)[] = [];
+let mergeResponsesHeld = false;
+const heldMergeResponses: (() => void)[] = [];
 let readinessFailures = 0;
 let folderAuthFailure = false;
 let reauthRequired = false;
@@ -201,6 +203,22 @@ export function holdFlagResponses(): void {
 export function releaseFlagResponses(): void {
 	flagResponsesHeld = false;
 	for (const release of heldFlagResponses.splice(0)) release();
+}
+
+/**
+ * Holds every answer to a contact merge until {@link releaseMergeResponses},
+ * on the terms of {@link holdFlagResponses}: the merge is applied when the
+ * request arrives and only the answer waits, so a test can press keys while
+ * the merge dialog is busy.
+ */
+export function holdMergeResponses(): void {
+	mergeResponsesHeld = true;
+}
+
+/** Lets every held merge answer through, and stops holding new ones. */
+export function releaseMergeResponses(): void {
+	mergeResponsesHeld = false;
+	for (const release of heldMergeResponses.splice(0)) release();
 }
 
 export function setReadinessFailures(count: number): void {
@@ -802,7 +820,8 @@ function contactRoutes(
 	}
 
 	if (segments[1] === 'merge' && method === 'POST') {
-		return request.json().then((body) => {
+		const held = mergeResponsesHeld;
+		const answer = request.json().then((body) => {
 			const requestBody = body as ContactMergeRequest;
 			const sourceIds = requestBody.source ?? [];
 			const uniqueSourceIds = [...new Set(sourceIds)];
@@ -863,6 +882,13 @@ function contactRoutes(
 				.map((item) => (item.id === contactId ? mergedContact : item));
 			return HttpResponse.json(mergedContact);
 		});
+		if (!held) return answer;
+		return answer.then(
+			(response) =>
+				new Promise<MockResponse>((resolve) => {
+					heldMergeResponses.push(() => resolve(response));
+				})
+		);
 	}
 
 	if (segments[1] === 'emails') {
