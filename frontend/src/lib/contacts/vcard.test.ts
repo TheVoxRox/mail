@@ -86,6 +86,52 @@ describe('parseVCard — an address listed twice', () => {
 	});
 });
 
+describe('parseVCard — an address the backend would refuse', () => {
+	/*
+	 * The bulk endpoint refuses the whole request over one invalid field, so an
+	 * address that only contained an @ cost every contact of its batch. The
+	 * parser applies the rule the backend validates with and leaves such an
+	 * address out; the shared vectors pin that rule itself.
+	 */
+	it('leaves out an invalid address and keeps the valid one beside it', () => {
+		const file = parseVCard(card('FN:Jan\r\nEMAIL:jan@moje_firma.cz\r\nEMAIL;TYPE=work:jan@x.cz'));
+
+		expect(file.cards.map((parsed) => parsed.contact.emails)).toEqual([
+			[{ email: 'jan@x.cz', label: 'WORK' }]
+		]);
+		expect(file.invalidAddresses).toBe(1);
+		expect(file.skippedWithoutEmail).toBe(0);
+	});
+
+	it('skips a card whose every address is invalid, counted once as skipped', () => {
+		const file = parseVCard(
+			card('FN:Jan\r\nEMAIL:jan@localhost\r\nEMAIL:jan@[192.168.0.1]') +
+				card('FN:Jana\r\nEMAIL:jana@x.cz')
+		);
+
+		expect(file.cards.map((parsed) => parsed.contact.name)).toEqual(['Jana']);
+		expect(file.skippedWithoutEmail).toBe(1);
+		expect(file.invalidAddresses).toBe(0);
+	});
+
+	it('does not count an empty EMAIL as an invalid address', () => {
+		const file = parseVCard(card('FN:Jan\r\nEMAIL:\r\nEMAIL:jan@x.cz'));
+
+		expect(file.cards).toHaveLength(1);
+		expect(file.invalidAddresses).toBe(0);
+	});
+
+	it('sums the left-out addresses over the cards of a file', () => {
+		const file = parseVCard(
+			card('FN:Jan\r\nEMAIL:jan@x.cz\r\nEMAIL:no-at-sign') +
+				card('FN:Jana\r\nEMAIL:jana@x.cz\r\nEMAIL:"jana"@x.cz')
+		);
+
+		expect(file.cards).toHaveLength(2);
+		expect(file.invalidAddresses).toBe(2);
+	});
+});
+
 describe('parseVCard — CATEGORIES', () => {
 	it('is an empty list when the property is absent', () => {
 		const [parsed] = parse(card('FN:Jan\r\nEMAIL:jan@x.cz'));
