@@ -868,37 +868,36 @@
 			"intro": "The message goes from your own mail account to {address}. You will see it in a new message window before it is sent.",
 			"form": {
 				"heading": "Message to the developers",
-				"security": "Reporting a security issue? Use this form too: the message is not public.",
 				"continue": "Continue to sending",
 				"preparing": "Preparing the message…",
 				"noAccount": "You have no mail account the message could go from. Send it another way, as described below."
 			},
 			"category": {
-				"legend": "What is it about",
+				"legend": "What the message is about",
 				"options": {
-					"bug": "Something does not work",
-					"idea": "An idea for a new feature or an improvement",
-					"question": "A question, or I need help",
+					"bug": "A bug in the app",
+					"idea": "An idea for an improvement",
+					"question": "A question or a request for help",
 					"other": "Something else"
 				}
 			},
 			"summary": {
-				"label": "In short",
-				"hint": "Becomes the subject of the message. At most {max} characters."
+				"label": "Summary in one sentence",
+				"hint": "Used as the subject of the email. At most {max} characters."
 			},
 			"description": {
 				"label": "Description",
 				"hints": {
-					"none": "Tell us what it is about.",
-					"bug": "What you did, what happened and what you expected. If the problem can be repeated, describe the steps one by one.",
-					"idea": "What you would like to do and why. How do you manage today?",
-					"question": "What you would like to ask.",
-					"other": "Tell us what it is about."
+					"none": "Tell us what you need.",
+					"bug": "What did you do and what went wrong? Can it be repeated?",
+					"idea": "What should the app be able to do, and why?",
+					"question": "What would you like to ask?",
+					"other": "Tell us what you need."
 				}
 			},
 			"diagnostics": {
 				"label": "Attach diagnostics",
-				"hint": "A ZIP with the app's logs and state, the same as from About. No passwords, tokens or message contents. E-mail addresses in it are shortened; folder and account names, servers and file paths with your Windows user name are not. For a bug it helps us find the cause."
+				"hint": "A file that makes it easier for us to find the cause of a bug. It holds no passwords, sign-in details or message contents. Email addresses are shortened. Folder and account names, server addresses and your Windows user name stay in it."
 			},
 			"errors": {
 				"categoryRequired": "Choose what it is about.",
