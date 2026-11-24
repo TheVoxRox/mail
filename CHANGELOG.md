@@ -55,6 +55,18 @@ Entries before 2026-09-17 predate that split and are left as written.
   characters, goes again one contact at a time, so only that one fails. The
   description of `POST /api/v1/contacts/bulk` now says that a field failing
   validation refuses the whole request (#1013).
+- Settings has a **Napište nám** page for reporting a problem or suggesting a
+  feature; the command palette ("Nahlásit problém nebo navrhnout funkci") and
+  About lead there too. Until now the way to the developers was an address on
+  the website. The page asks what the report is about, for a summary and a
+  description, and prepares a message to info@voxrox.org in the new message
+  window, ending with the app's versions, update channel and interface
+  language and, when asked for, with the diagnostics attached. The user reads
+  it there and sends it from their own account, so nothing goes to a server of
+  ours. Since the page no longer holds the report, the message saves itself as
+  a draft without an edit, and Discard asks first. Without an account, the
+  page offers to copy the message and save the diagnostics, for webmail
+  (#1014).
 
 ### Repo
 

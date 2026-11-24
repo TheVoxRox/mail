@@ -616,7 +616,8 @@
 			"language": "Language",
 			"shortcuts": "Keyboard shortcuts",
 			"accounts": "Accounts",
-			"about": "About"
+			"about": "About",
+			"feedback": "Contact us"
 		},
 		"navGroups": {
 			"primary": "Preferences",
@@ -849,7 +850,8 @@
 				"apiKey": "API key:",
 				"downloadDump": "Download diagnostics",
 				"downloadingDump": "Downloading…",
-				"dumpHint": "ZIP with the app's logs and state, for the developers. No passwords, tokens or message contents."
+				"dumpHint": "ZIP with the app's logs and state, for the developers. No passwords, tokens or message contents.",
+				"reportProblem": "Report a problem or suggest a feature"
 			},
 			"licenses": {
 				"heading": "Open-source licenses",
@@ -859,6 +861,88 @@
 				"loading": "Loading…",
 				"unsupported": "Open-source licenses are available in the desktop app.",
 				"loadFailed": "The license file could not be loaded."
+			}
+		},
+		"feedback": {
+			"pageTitle": "Mail – Settings – Contact us",
+			"intro": "The message goes from your own mail account to {address}. You will see it in a new message window before it is sent.",
+			"form": {
+				"heading": "Message to the developers",
+				"security": "Reporting a security issue? Use this form too: the message is not public.",
+				"continue": "Continue to sending",
+				"preparing": "Preparing the message…",
+				"noAccount": "You have no mail account the message could go from. Send it another way, as described below."
+			},
+			"category": {
+				"legend": "What is it about",
+				"options": {
+					"bug": "Something does not work",
+					"idea": "An idea for a new feature or an improvement",
+					"question": "A question, or I need help",
+					"other": "Something else"
+				}
+			},
+			"summary": {
+				"label": "In short",
+				"hint": "Becomes the subject of the message. At most {max} characters."
+			},
+			"description": {
+				"label": "Description",
+				"hints": {
+					"none": "Tell us what it is about.",
+					"bug": "What you did, what happened and what you expected. If the problem can be repeated, describe the steps one by one.",
+					"idea": "What you would like to do and why. How do you manage today?",
+					"question": "What you would like to ask.",
+					"other": "Tell us what it is about."
+				}
+			},
+			"diagnostics": {
+				"label": "Attach diagnostics",
+				"hint": "A ZIP with the app's logs and state, the same as from About. No passwords, tokens or message contents. E-mail addresses in it are shortened; folder and account names, servers and file paths with your Windows user name are not. For a bug it helps us find the cause."
+			},
+			"errors": {
+				"categoryRequired": "Choose what it is about.",
+				"summaryRequired": "Write a short summary.",
+				"summaryTooLong": "The summary has {length} characters; it can have at most {max}.",
+				"descriptionRequired": "Write a description.",
+				"diagnosticsTooLarge": "The diagnostics are {size}, too large to attach (at most {limit}). Save them to a file with the button below and send them another way, or continue without them."
+			},
+			"fallback": {
+				"heading": "Cannot send from the app?",
+				"description": "If you have no account set up or sending does not work, write to us at {address} from your webmail. You can copy the message text, and save the diagnostics to a file to attach.",
+				"copy": "Copy the message",
+				"copied": "The message is copied to the clipboard.",
+				"copyFailed": "The message could not be copied to the clipboard.",
+				"saveDiagnostics": "Save diagnostics to a file",
+				"savingDiagnostics": "Saving…"
+			},
+			"github": {
+				"heading": "GitHub",
+				"description": "If you have a GitHub account, you can report a bug or suggest a feature there as well. Everything you write there is public.",
+				"issues": "Report a bug on GitHub",
+				"ideas": "Suggest a feature in GitHub Discussions"
+			},
+			"message": {
+				"category": {
+					"bug": "Bug",
+					"idea": "Idea",
+					"question": "Question",
+					"other": "Other"
+				},
+				"technical": {
+					"heading": "Technical details:",
+					"clientVersion": "Frontend version: {version}",
+					"backendVersion": "Backend version: {version}",
+					"backendUnavailable": "unavailable",
+					"channel": "Update channel: {channel}",
+					"channels": {
+						"stable": "stable",
+						"beta": "beta"
+					},
+					"language": "Interface language: {language}"
+				},
+				"toLine": "To: {address}",
+				"subjectLine": "Subject: {subject}"
 			}
 		}
 	},
@@ -899,6 +983,7 @@
 		"workspaceContacts": "Switch to Contacts",
 		"workspaceSettings": "Switch to Settings",
 		"openAccounts": "Open Accounts",
+		"openFeedback": "Report a problem or suggest a feature",
 		"openSearch": "Open search",
 		"openCompose": "New message",
 		"syncNow": "Synchronise now",

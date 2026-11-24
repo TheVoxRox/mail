@@ -3,6 +3,8 @@ import type { AttachmentResponse, MailRequest } from '#lib/types.js';
 import type { ComposeAttachment } from '#lib/compose/request.js';
 import { composeSession, type ComposeSession } from '#lib/compose/session.js';
 import { isMailHtml, mailHtmlToPlainText } from '#lib/mail/content-sanitizer.js';
+import { takeStagedFeedback } from '#lib/feedback/handoff.js';
+import { FEEDBACK_ADDRESS } from '#lib/feedback/message.js';
 
 export interface ComposePrefill extends Omit<MailRequest, 'attachments'> {
 	replacesDraftId: string | null;
@@ -18,6 +20,12 @@ export interface ComposePrefill extends Omit<MailRequest, 'attachments'> {
 	 * the newest save went to. Null leaves the From account as it is.
 	 */
 	accountId: number | null;
+	/**
+	 * The content exists nowhere else, so it is not safe to lose: a report the
+	 * "Contact us" form handed over (`?feedback=`). Every other prefill can be
+	 * made again (a reply's quote, a `to` address) or is already a saved draft.
+	 */
+	onlyCopy: boolean;
 }
 
 function fromMailRequest(
@@ -36,6 +44,7 @@ function fromMailRequest(
 		attachments: [],
 		fromNewestSave: false,
 		accountId: null,
+		onlyCopy: false,
 		...overrides
 	};
 }
@@ -125,7 +134,8 @@ export async function loadComposePrefill(
 				...newest.draft,
 				replacesDraftId: newest.draftStableId,
 				fromNewestSave: true,
-				accountId: newest.accountId
+				accountId: newest.accountId,
+				onlyCopy: false
 			};
 		}
 
@@ -156,8 +166,33 @@ export async function loadComposePrefill(
 			replacesDraftId: draftId,
 			attachments,
 			fromNewestSave: false,
-			accountId: null
+			accountId: null,
+			onlyCopy: false
 		};
+	}
+
+	const feedbackId = params.get('feedback');
+	if (feedbackId) {
+		const handoff = takeStagedFeedback(feedbackId);
+		// Taken already (a history entry, a reload): a message to the same
+		// address, which is what the user came back to write.
+		if (!handoff) return fromMailRequest({ to: FEEDBACK_ADDRESS, subject: '', body: '' });
+		const { diagnostics } = handoff;
+		const attachments: ComposeAttachment[] = diagnostics
+			? [
+					{
+						localId: crypto.randomUUID(),
+						fileName: diagnostics.fileName,
+						contentType: diagnostics.blob.type || 'application/zip',
+						base64Data: await blobToBase64(diagnostics.blob),
+						size: diagnostics.blob.size
+					}
+				]
+			: [];
+		return fromMailRequest(
+			{ to: FEEDBACK_ADDRESS, subject: handoff.subject, body: handoff.body },
+			{ attachments, onlyCopy: true }
+		);
 	}
 
 	return null;

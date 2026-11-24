@@ -133,12 +133,17 @@
   },
   "docs/UPDATER_AUDIT.md": {
     "reviewedTrees": {
-      ".github/workflows/windows-signed-release.yml": "01ae5c54c1b9e9d9eec19b63c947be67df0b34c8"
+      ".github/workflows/windows-signed-release.yml": "01ae5c54c1b9e9d9eec19b63c947be67df0b34c8",
+      "frontend/src/lib/components/settings/AboutSettings.svelte": "dd7b7be73e5b10f2f45b2bc0a2e37ab08a64bc06"
     },
     "acknowledgements": [
       {
         "date": "2026-11-23",
         "note": "#1002, a dependabot bump of the github-actions-minor-patch group. The one change in windows-signed-release.yml is the Setup Java step's actions/setup-java, v6.2.0 (77dd5b2c) to v6.3.0 (d1374f8a), still pinned to a 40-hex commit. That step runs in build-signed-windows, the job with contents: read and no updater key; publish-release, which holds the key, does not use setup-java, and none of its lines moved. Every other step, permission, environment, pin and run: block is byte-identical (U-1, U-2 and U-3 hold). v6.3.0 stops registering the Java problem matcher by default, so compiler output no longer becomes pull request annotations; it still fails the build, and nothing here reads those annotations. It also validates the architecture of a JDK file install and adds Microsoft OpenJDK and JetBrains Runtime fixes; the step installs Temurin 25 as before. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-24",
+        "note": "The Contact us page. The one change in AboutSettings.svelte is a link to settings/feedback under the diagnostics button, plus the resolve import it needs. The update channel select, the startup-check toggle, checkForUpdateManually and its status line are byte-identical; nothing reaches the updater, its endpoints or its key. Verdict unchanged."
       }
     ]
   }

@@ -194,6 +194,12 @@ ukládá ve vašem počítači, tedy i s názvy složek a účtů; hesla, tokeny
 zpráv v něm nejsou a e-mailové adresy jsou zamaskované. Co přesně obsahuje,
 popisuje [PRIVACY.md](../PRIVACY.md) v části „Diagnostický balíček“.
 
+Chybu, problém nebo nápad nám nejsnáz pošlete z **Nastavení → Napište nám**.
+Formulář připraví zprávu na **info@voxrox.org**, na přání i s diagnostikou, a
+otevře ji v okně nové zprávy; odešlete ji vy, ze svého účtu. Když účet nemáte
+nebo odesílání nefunguje, formulář nabídne zprávu zkopírovat a diagnostiku
+uložit do souboru, abyste je poslali z webové pošty.
+
 Pokud se aplikace nespustí a ukáže chybu, stiskněte na té obrazovce **Uložit
 logy**. Do složky Stažené soubory se uloží ZIP s logy aplikace a aplikace
 oznámí, jak se soubor jmenuje. Ten přiložte k hlášení chyby.

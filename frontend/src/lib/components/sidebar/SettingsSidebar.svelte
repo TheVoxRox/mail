@@ -8,10 +8,10 @@
 	import { _ } from '#lib/i18n/index.js';
 
 	type SettingsItem = {
-		id: 'appearance' | 'language' | 'shortcuts' | 'accounts' | 'about';
+		id: 'appearance' | 'language' | 'shortcuts' | 'accounts' | 'about' | 'feedback';
 		href: string;
 		labelKey: string;
-		icon: 'swatch' | 'language' | 'keyboard' | 'user-circle' | 'information-circle';
+		icon: 'swatch' | 'language' | 'keyboard' | 'user-circle' | 'information-circle' | 'envelope';
 	};
 
 	type SettingsGroup = {
@@ -53,6 +53,12 @@
 			href: resolve('settings/about'),
 			labelKey: 'settings.nav.about',
 			icon: 'information-circle'
+		},
+		{
+			id: 'feedback',
+			href: resolve('settings/feedback'),
+			labelKey: 'settings.nav.feedback',
+			icon: 'envelope'
 		}
 	];
 

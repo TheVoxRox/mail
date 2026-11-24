@@ -581,6 +581,40 @@ run the best-practice rules too, all but `region`").
 which would be a place for the toggle that stays put whether the pane is
 shown or not, or the foot of the rail is wanted for something else.
 
+### Feedback goes out by the user's own mail, not to an endpoint of ours
+
+_Decided 2026-11-24._
+
+The **Napište nám** page in Settings prepares a message to info@voxrox.org and
+opens it in the composer, where the user reads it and sends it from their own
+account. The page itself never sends anything.
+
+- VoxRox runs no server for the app, and the privacy policy says so. An
+  endpoint that took reports would be the first, with spam protection, a
+  processor of personal data and a policy rewrite behind it.
+- The user sees what leaves, the diagnostics included as an ordinary
+  attachment, and sends it themselves: the promise the diagnostic bundle has
+  always made.
+- The composer already does the rest (the From account, the send outcome, the
+  copy in Sent). A second way of sending would have to do all of it again.
+- A prefilled GitHub issue was turned down as the main route: it needs a
+  GitHub account, it is public, and a URL cannot carry the diagnostics. The
+  page links to Issues and Discussions for those who have an account.
+
+The report reaches the composer through an in-memory handoff
+([handoff.ts](../frontend/src/lib/feedback/handoff.ts)), since neither the
+body nor the ZIP fits a URL. Nothing else holds it once the composer has taken
+it, so the composer starts its draft session from an empty message rather than
+from the report (`ComposePrefill.onlyCopy`): the report autosaves to Drafts
+without an edit, and the leave guard and Discard ask until then.
+
+The weak spot is the report that matters most: an account that cannot be
+added, or cannot send, has nothing to send from. The page then offers to copy
+the message and save the diagnostics to a file, for webmail.
+
+**Revisit when** reports show the no-account case is common enough to need a
+route of its own, or the project comes to run a server for another reason.
+
 ## Release process
 
 ### The release runbook holds steps; the reasons for them live here

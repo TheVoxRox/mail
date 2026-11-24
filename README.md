@@ -31,7 +31,9 @@ Project website: [voxrox.org](https://voxrox.org) (Czech/English) — includes t
 Have an idea for the app? Start a discussion in
 [Ideas](https://github.com/TheVoxRox/mail/discussions/categories/ideas) rather
 than opening an issue — upvotes there help us prioritise. Bug reports go
-through [Issues](https://github.com/TheVoxRox/mail/issues/new/choose).
+through [Issues](https://github.com/TheVoxRox/mail/issues/new/choose). Without
+a GitHub account, **Settings → Napište nám** (Contact us) in the app prepares a
+report to info@voxrox.org that you send from your own mail account.
 
 ## How it is built
 

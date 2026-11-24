@@ -18,23 +18,29 @@ import {
 describe('composeKind', () => {
 	const kind = (qs: string) => composeKind(new URLSearchParams(qs));
 
-	it('maps each param to its kind with reply > forward > to > draft priority', () => {
+	it('maps each param to its kind with reply > forward > to > draft > feedback priority', () => {
 		expect(kind('reply=1')).toBe('reply');
 		expect(kind('forward=1')).toBe('forward');
 		expect(kind('to=a@b.cz')).toBe('mailto');
 		expect(kind('draft=1')).toBe('draft');
+		expect(kind('feedback=abc')).toBe('feedback');
 		expect(kind('')).toBe('new');
 	});
 
 	it('prefers mailto over draft when both are present (matches prefill priority)', () => {
 		expect(kind('draft=1&to=a@b.cz')).toBe('mailto');
 	});
+
+	it('prefers a draft over a report when both are present (matches prefill priority)', () => {
+		expect(kind('feedback=abc&draft=1')).toBe('draft');
+	});
 });
 
 describe('signatureManagedForKind', () => {
-	it('manages only new messages and mailto', () => {
+	it('manages only new messages, mailto and reports', () => {
 		expect(signatureManagedForKind('new')).toBe(true);
 		expect(signatureManagedForKind('mailto')).toBe(true);
+		expect(signatureManagedForKind('feedback')).toBe(true);
 		expect(signatureManagedForKind('reply')).toBe(false);
 		expect(signatureManagedForKind('forward')).toBe(false);
 		expect(signatureManagedForKind('draft')).toBe(false);

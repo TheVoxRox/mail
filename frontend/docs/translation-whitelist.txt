@@ -37,6 +37,7 @@ frontend/src/routes/boot.functional.e2e.ts -- Boot/loading state assertions agai
 frontend/src/routes/compose.functional.e2e.ts -- Compose form assertions against Czech UI (recipients, subject placeholder, attachments).
 frontend/src/routes/contacts.functional.e2e.ts -- Contact list / merge dialog assertions against Czech UI.
 frontend/src/routes/current-page-link.functional.e2e.ts -- Focus assertions on the pane links of the open page, located by their Czech accessible names ("Podokno pošty", "Doručené", "Všechny kontakty") under mail.locale = 'cs'.
+frontend/src/routes/feedback.functional.e2e.ts -- "Contact us" form and its handoff to the composer, asserted against Czech UI ("Napište nám", "Pokračovat k odeslání", the report subject and body) under mail.locale = 'cs'.
 frontend/src/routes/e2e-helpers.ts -- Shared Playwright helpers; holds the suite's grid locators, which name the lists by their Czech accessible names under mail.locale = 'cs' (English on request), and the Czech letters `czechLosses` looks for on an English screen.
 frontend/src/routes/mail/detail-focus.functional.e2e.ts -- Message-body focus and landmark assertions against Czech UI ("Text zprávy", "Obsah zprávy") under mail.locale = 'cs'.
 frontend/src/routes/mail/folder-hierarchy.functional.e2e.ts -- Folder hierarchy assertions locate the sidebar and the Move to menu by their Czech accessible names ("Podokno pošty", "Složky", "Přesunout") under mail.locale = 'cs'; Czech test titles match the sibling mail specs.

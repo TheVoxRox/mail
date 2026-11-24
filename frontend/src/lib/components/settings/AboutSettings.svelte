@@ -29,6 +29,7 @@
 	} from '#lib/stores/updateChannel.js';
 	import { CLIENT_VERSION } from '#lib/version.js';
 	import { dev } from '$app/env';
+	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 
 	function maskKey(key: string): string {
@@ -316,6 +317,10 @@
 			</Button>
 			<span class="text-xs text-muted-foreground">{$_('settings.about.session.dumpHint')}</span>
 		</div>
+		<!-- The dump is what a report needs, so the way to send one is next to it. -->
+		<Button variant="link" size="sm" class="px-0" href={resolve('settings/feedback')}>
+			{$_('settings.about.session.reportProblem')}
+		</Button>
 		{#if reloadError}
 			<Surface variant="danger" padding="sm">
 				<p class="text-sm" role="alert">{reloadError}</p>

@@ -1,4 +1,4 @@
-import { goToWorkspaceMode } from '#lib/mail/actions.js';
+import { goToFeedback, goToWorkspaceMode } from '#lib/mail/actions.js';
 import type { AppLocale } from '#lib/i18n/index.js';
 import { localeKeywords, type Command } from '#lib/commands/shared.js';
 import { SHORTCUT_LABELS } from '#lib/shortcuts/shortcutLabels.js';
@@ -45,6 +45,32 @@ export function createWorkspaceCommands(locale: AppLocale | null): Command[] {
 			priority: 90,
 			available: () => true,
 			run: () => goToWorkspaceMode('settings')
+		},
+		/*
+		 * Its own group, not Navigation: the palette orders whole groups by their
+		 * best match, so a keyword-only match here rode up with a folder the query
+		 * named and sat above the commands whose titles matched.
+		 */
+		{
+			id: 'other.feedback',
+			titleKey: 'command.openFeedback',
+			groupKey: 'other',
+			keywords: localeKeywords(
+				locale,
+				[
+					'napiste nam',
+					'nahlasit chybu',
+					'nahlasit problem',
+					'navrh funkce',
+					'podpora',
+					'zpetna vazba'
+				],
+				['contact us', 'report a bug', 'report a problem', 'feature request', 'support', 'feedback']
+			),
+			icon: 'envelope',
+			priority: 20,
+			available: () => true,
+			run: () => goToFeedback()
 		}
 	];
 }

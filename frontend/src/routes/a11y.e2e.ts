@@ -85,6 +85,18 @@ const routes: ReadonlyArray<{
 			)
 	},
 	{
+		path: '/settings/feedback',
+		name: 'Napište nám',
+		ready: (page, locale) => page.getByRole('textbox', { name: say(locale, 'Stručně', 'In short') })
+	},
+	{
+		path: '/settings/feedback',
+		name: 'Napište nám bez účtu',
+		ready: (page, locale) =>
+			page.getByRole('button', { name: say(locale, 'Zkopírovat zprávu', 'Copy the message') }),
+		flags: { noAccounts: true }
+	},
+	{
 		path: '/settings/accounts',
 		name: 'Seznam účtů',
 		ready: (page) => page.getByText('tester@example.com')
