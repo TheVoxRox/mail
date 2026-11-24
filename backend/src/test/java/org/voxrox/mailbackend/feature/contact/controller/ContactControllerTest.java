@@ -277,6 +277,18 @@ class ContactControllerTest {
     }
 
     @Test
+    @DisplayName("PUT /{id} with an invalid email in the list -> 400 on emails[0].email, service not called")
+    void updateContactInvalidEmail() throws Exception {
+        var bad = new ContactUpdateRequest(List.of(new ContactEmailRequest("not-an-email", null)), null, null, null,
+                null);
+
+        mockMvc.perform(put("/api/v1/contacts/{cid}", CONTACT_ID).contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(bad))).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.violations[0].field").value("emails[0].email"));
+        verify(contactService, never()).updateContact(any(), any());
+    }
+
+    @Test
     @DisplayName("DELETE /{id} -> 204, service is invoked")
     void deleteContact() throws Exception {
         mockMvc.perform(delete("/api/v1/contacts/{cid}", CONTACT_ID)).andExpect(status().isNoContent());
@@ -323,6 +335,19 @@ class ContactControllerTest {
 
         mockMvc.perform(post("/api/v1/contacts/bulk").contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req))).andExpect(status().isBadRequest());
+
+        verify(contactBulkService, never()).bulkCreate(any());
+    }
+
+    @Test
+    @DisplayName("POST /bulk with an invalid email inside an item -> 400 on contacts[0].emails[0].email")
+    void bulkCreateInvalidNestedEmailRejected() throws Exception {
+        BulkContactCreateRequest req = new BulkContactCreateRequest(List.of(new ContactCreateRequest(
+                List.of(new ContactEmailRequest("not-an-email", null)), null, "A", null, null)));
+
+        mockMvc.perform(post("/api/v1/contacts/bulk").contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req))).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.violations[0].field").value("contacts[0].emails[0].email"));
 
         verify(contactBulkService, never()).bulkCreate(any());
     }
