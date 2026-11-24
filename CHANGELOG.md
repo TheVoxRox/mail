@@ -91,6 +91,12 @@ Entries before 2026-09-17 predate that split and are left as written.
   request arrives, not after reading the body, so a release that lands in
   between no longer leaves the answer waiting forever. The test of the busy
   merge dialog failed that way in CI (#1016).
+- `check:i18n` parses every message with the parser svelte-i18n uses and fails
+  on a syntax error, on a translation whose arguments or select options differ
+  from Czech, and on a plural missing a form its language needs;
+  `check:i18n:backend` fails when the backend bundles and the frontend cover
+  different languages. Three Czech plurals write their genitive `few` form out
+  rather than leave it to `other`; nothing on screen changes (#1017).
 
 ## [0.2.1] - 2026-11-24
 

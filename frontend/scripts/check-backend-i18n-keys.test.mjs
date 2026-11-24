@@ -17,11 +17,15 @@ const props = (entries) =>
 		.map(([k, v]) => `${k}=${v}`)
 		.join('\n') + '\n';
 
-function seed({ cs, en, base }) {
+/** The bundles, and the frontend's message files, of which the gate reads only the names. */
+function seed({ cs, en, base, frontendLocales = ['cs', 'en'] }) {
 	const dir = 'backend/src/main/resources';
 	repo.write(`${dir}/messages_cs.properties`, props(cs));
 	repo.write(`${dir}/messages_en.properties`, props(en));
 	repo.write(`${dir}/messages.properties`, props(base ?? cs));
+	for (const locale of frontendLocales) {
+		repo.write(`frontend/src/lib/i18n/messages/${locale}.json`, '{}\n');
+	}
 }
 
 beforeEach(() => {
@@ -82,6 +86,38 @@ describe('check-backend-i18n-keys', () => {
 		});
 
 		expect(repo.run('check-backend-i18n-keys.mjs').status).toBe(1);
+	});
+
+	/*
+	 * The client sends its interface language as Accept-Language. An interface
+	 * language the backend has no bundle for gets the Czech default bundle's
+	 * errors inside an otherwise translated screen, and every bundle check above
+	 * passes, because they compare the bundles that exist.
+	 */
+	it('fails when an interface language has no bundle', () => {
+		seed({
+			cs: { 'ok.sent': 'Odeslano' },
+			en: { 'ok.sent': 'Sent' },
+			frontendLocales: ['cs', 'de', 'en']
+		});
+
+		const result = repo.run('check-backend-i18n-keys.mjs');
+
+		expect(result.status).toBe(1);
+		expect(result.output).toContain('No messages_de.properties');
+	});
+
+	it('fails when a bundle has no interface language', () => {
+		seed({
+			cs: { 'ok.sent': 'Odeslano' },
+			en: { 'ok.sent': 'Sent' },
+			frontendLocales: ['cs']
+		});
+
+		const result = repo.run('check-backend-i18n-keys.mjs');
+
+		expect(result.status).toBe(1);
+		expect(result.output).toContain('messages_en.properties has no interface language');
 	});
 
 	it('fails when there are no locale bundles at all', () => {

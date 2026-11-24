@@ -121,8 +121,9 @@ jobs:
       - name: Translation whitelist lint
         run: node ../frontend/scripts/check-translation-whitelist.mjs --target=backend --mode=strict
 
-      # Same — no npm deps. Guards cs/en key + placeholder parity and that
-      # messages.properties stays identical to the Czech base bundle.
+      # Same — no npm deps. Guards cs/en key + placeholder parity, that
+      # messages.properties stays identical to the Czech base bundle, and that
+      # the bundles cover the frontend's locales (it reads only file names).
       - name: Backend i18n key parity
         run: node ../frontend/scripts/check-backend-i18n-keys.mjs
 

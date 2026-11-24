@@ -89,6 +89,7 @@
 		"@axe-core/playwright": "^4.14.0",
 		"@eslint/compat": "^2.1.1",
 		"@eslint/js": "^10.0.1",
+		"@formatjs/icu-messageformat-parser": "^2.11.4",
 		"@playwright/test": "^1.65.1",
 		"@sveltejs/adapter-static": "^4.0.1",
 		"@sveltejs/kit": "^3.2.0",

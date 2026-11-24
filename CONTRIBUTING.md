@@ -154,15 +154,17 @@ coverage, add a per-file threshold rather than lowering a global floor.
 - Translation whitelist lint (`node ../frontend/scripts/check-translation-whitelist.mjs
 --target=backend --mode=strict`) — keeps the Java codebase in English.
 - Backend i18n key parity (`node ../frontend/scripts/check-backend-i18n-keys.mjs`) —
-  cs/en key + MessageFormat placeholder parity, and `messages.properties` stays
-  identical to the Czech base bundle.
+  cs/en key + MessageFormat placeholder parity, `messages.properties` stays
+  identical to the Czech base bundle, and the bundles cover the locales of the
+  frontend's message files.
 
 **Frontend (`cd frontend && npm run lint && npm run check && npm test ...`)**
 
 - `npm run lint` — Prettier check (`frontend/`) + `check:md` (every tracked
   `*.md` in the repo, since prettier's config lives under `frontend/` and would
   otherwise never see the root, `docs/` or `backend/docs/` files) + ESLint +
-  i18n key parity (cs.json vs en.json). Fix formatting with `npm run format`
+  i18n checks (cs.json vs en.json keys, and every message's ICU syntax,
+  arguments and plural forms). Fix formatting with `npm run format`
   and `npm run format:md`.
 - `npm run check` — CSP parity (`app.security.csp` vs `devCsp`), typography
   lint (no arbitrary font-size utilities), design lint (see below), version
@@ -618,8 +620,9 @@ the second, and the run summary does not tell them apart; the job log does.
 ## Localisation
 
 All user-visible strings live in `frontend/src/lib/i18n/messages/cs.json`
-and `en.json`. The keys must match exactly (checked by
-`npm run check:i18n`).
+and `en.json`. The keys must match exactly, and every message must parse,
+keep the Czech message's arguments and carry the plural forms of its own
+language (checked by `npm run check:i18n`).
 
 Backend error messages have their own bundle in
 `backend/src/main/resources/messages_{cs,en}.properties` — the frontend

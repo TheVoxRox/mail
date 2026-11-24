@@ -20,8 +20,8 @@ Closes #
 I have run the relevant gates locally and they are **all green**:
 
 - [ ] `mvn clean verify` (backend) — Spotless, SpotBugs, unit + IT, Jacoco threshold
-- [ ] `npm run lint` (frontend) — Prettier, Markdown, ESLint, i18n parity
-- [ ] `npm run check:i18n:backend` (frontend) — backend `messages.properties` cs/en parity
+- [ ] `npm run lint` (frontend) — Prettier, Markdown, ESLint, i18n keys and messages
+- [ ] `npm run check:i18n:backend` (frontend) — backend `messages.properties` cs/en parity and the frontend's locales
 - [ ] `npm run knip` (frontend) — dead-code analysis
 - [ ] `npm run knip:production` (frontend) — dead-code analysis without the test graph
 - [ ] `npm run check:rename-residue -- --base <ref>` (frontend) — leftovers of a rename

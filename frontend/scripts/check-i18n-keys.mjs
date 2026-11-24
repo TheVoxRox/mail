@@ -1,6 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
+import { parse, TYPE } from '@formatjs/icu-messageformat-parser';
 
 const BASE_LOCALE = 'cs';
 const MESSAGES_DIR = path.join(process.cwd(), 'src', 'lib', 'i18n', 'messages');
@@ -31,24 +32,26 @@ async function readMessages(locale) {
 	}
 }
 
-function flattenKeys(value, prefix = '') {
+/** Dotted key -> message, for every leaf of a locale file. */
+function flattenEntries(value, prefix = '', entries = new Map()) {
 	if (value && typeof value === 'object' && !Array.isArray(value)) {
-		return Object.entries(value).flatMap(([key, child]) =>
-			flattenKeys(child, prefix ? `${prefix}.${key}` : key)
-		);
+		for (const [key, child] of Object.entries(value)) {
+			flattenEntries(child, prefix ? `${prefix}.${key}` : key, entries);
+		}
+	} else {
+		entries.set(prefix, value);
 	}
-
-	return [prefix];
+	return entries;
 }
 
 const messages = new Map();
 
 for (const locale of LOCALES) {
-	messages.set(locale, await readMessages(locale));
+	messages.set(locale, flattenEntries(await readMessages(locale)));
 }
 
 const keySets = new Map(
-	[...messages].map(([locale, value]) => [locale, new Set(flattenKeys(value))])
+	[...messages].map(([locale, entries]) => [locale, new Set(entries.keys())])
 );
 const baseKeys = keySets.get(BASE_LOCALE);
 let failed = false;
@@ -85,6 +88,180 @@ for (const locale of LOCALES) {
 }
 
 if (failed) {
+	process.exit(1);
+}
+
+/*
+ * Message check: key parity says every locale has the key, this says the
+ * message under it renders. Each message goes through the parser svelte-i18n
+ * formats with (intl-messageformat's), with the option svelte-i18n passes
+ * (`ignoreTag`, its default), so a syntax error fails here instead of showing
+ * as raw text on its screen. Then, against the base locale:
+ *
+ *  - The same arguments. A translation that drops or misspells {count} renders
+ *    without the value, and one that quotes it ('{name}') renders the braces.
+ *  - The same select options. They are values the code passes, not words, so
+ *    one missing in a translation falls silently to `other`.
+ *
+ * And per locale, the plural categories of its own rules. A plural that uses a
+ * category of the language (one, few…) needs every one a whole number selects
+ * there, or a count lands in `other` with the wrong form: Czech one/few/other,
+ * English one/other, Polish one/few/many. Where two forms read the same (the
+ * Czech genitive: "u 3 zpráv", "u 5 zpráv") the branch is written twice, so
+ * that a gap means a mistake. A plural of exact matches and `other` alone
+ * ({failed, plural, =0 {} other {…}}) is a condition on the number, not a word
+ * that inflects, and passes. A category the locale never selects is dead text
+ * and fails too.
+ */
+const ARGUMENT_TYPES = new Set([
+	TYPE.argument,
+	TYPE.number,
+	TYPE.date,
+	TYPE.time,
+	TYPE.select,
+	TYPE.plural
+]);
+
+/*
+ * The whole numbers a count can take, as far as plural rules tell them apart:
+ * 0-1000 reaches every rule keyed on the last digits, and the powers of ten the
+ * rules keyed on millions (French and Spanish `many`).
+ */
+const WHOLE_NUMBERS = [...Array.from({ length: 1001 }, (_, n) => n), 1e4, 1e5, 1e6, 1e7, 1e8, 1e9];
+
+const pluralRules = new Map();
+
+/** Categories a locale's rules can select, and those a whole number reaches. */
+function pluralCategories(locale, type) {
+	const cacheKey = `${locale}:${type}`;
+	if (!pluralRules.has(cacheKey)) {
+		const rules = new Intl.PluralRules(locale, { type });
+		pluralRules.set(cacheKey, {
+			all: new Set(rules.resolvedOptions().pluralCategories),
+			whole: new Set(WHOLE_NUMBERS.map((n) => rules.select(n)))
+		});
+	}
+	return pluralRules.get(cacheKey);
+}
+
+/** Calls `visit` for every element, inside select and plural branches too. */
+function walk(elements, visit) {
+	for (const element of elements) {
+		visit(element);
+		if (element.type === TYPE.select || element.type === TYPE.plural) {
+			for (const option of Object.values(element.options)) {
+				walk(option.value, visit);
+			}
+		}
+	}
+}
+
+const ordered = (values) => [...values].sort((a, b) => a.localeCompare(b));
+const CATEGORY_ORDER = ['zero', 'one', 'two', 'few', 'many', 'other'];
+const categoryOrdered = (values) =>
+	[...values].sort((a, b) => CATEGORY_ORDER.indexOf(a) - CATEGORY_ORDER.indexOf(b));
+const listed = (values) => (values.length === 0 ? '(none)' : values.join(', '));
+
+/**
+ * The arguments and select options of one message, plus the problems it has on
+ * its own. A message that does not parse has nothing else to report.
+ */
+function inspectMessage(locale, key, message) {
+	if (typeof message !== 'string') {
+		return { problems: [`${locale} ${key}: not a string message`] };
+	}
+	let elements;
+	try {
+		elements = parse(message, { ignoreTag: true });
+	} catch (error) {
+		const offset = error.location?.start?.offset;
+		const at = offset === undefined ? '' : ` at offset ${offset}`;
+		return { problems: [`${locale} ${key}: ${error.message}${at}`] };
+	}
+
+	const problems = [];
+	const args = new Set();
+	const selects = new Map();
+	walk(elements, (element) => {
+		if (ARGUMENT_TYPES.has(element.type)) {
+			args.add(element.value);
+		}
+		if (element.type === TYPE.select) {
+			const options = selects.get(element.value) ?? new Set();
+			for (const option of Object.keys(element.options)) options.add(option);
+			selects.set(element.value, options);
+		}
+		if (element.type !== TYPE.plural) {
+			return;
+		}
+		const { all, whole } = pluralCategories(locale, element.pluralType);
+		const categories = Object.keys(element.options).filter((option) => !option.startsWith('='));
+		const unknown = categories.filter((category) => !all.has(category));
+		if (unknown.length > 0) {
+			problems.push(
+				`${locale} ${key}: {${element.value}, plural} has ${listed(unknown)}, which ` +
+					`${locale} never selects (it has ${listed(categoryOrdered(all))})`
+			);
+		}
+		const inflects = categories.some((category) => category !== 'other');
+		const missing = categoryOrdered(whole).filter((category) => !categories.includes(category));
+		if (inflects && missing.length > 0) {
+			problems.push(
+				`${locale} ${key}: {${element.value}, plural} lacks ${listed(missing)} ` +
+					`(${locale} needs ${listed(categoryOrdered(whole))} for whole numbers)`
+			);
+		}
+	});
+	return { problems, args: ordered(args), selects };
+}
+
+const messageProblems = [];
+for (const locale of LOCALES) {
+	if (Intl.PluralRules.supportedLocalesOf([locale]).length === 0) {
+		messageProblems.push(`${locale}: Node's ICU has no plural rules for this locale code`);
+	}
+}
+
+const inspected = new Map(
+	LOCALES.map((locale) => [
+		locale,
+		new Map(
+			[...messages.get(locale)].map(([key, message]) => [key, inspectMessage(locale, key, message)])
+		)
+	])
+);
+
+const baseInspected = inspected.get(BASE_LOCALE);
+for (const locale of LOCALES) {
+	for (const [key, result] of inspected.get(locale)) {
+		messageProblems.push(...result.problems);
+		const base = baseInspected.get(key);
+		if (locale === BASE_LOCALE || !result.args || !base.args) {
+			continue;
+		}
+		if (result.args.join() !== base.args.join()) {
+			messageProblems.push(
+				`${locale} ${key}: arguments ${listed(result.args)}, ` +
+					`${BASE_LOCALE} has ${listed(base.args)}`
+			);
+		}
+		for (const [name, baseOptions] of base.selects) {
+			const options = ordered(result.selects.get(name) ?? []);
+			if (options.join() !== ordered(baseOptions).join()) {
+				messageProblems.push(
+					`${locale} ${key}: {${name}, select} options ${listed(options)}, ` +
+						`${BASE_LOCALE} has ${listed(ordered(baseOptions))}`
+				);
+			}
+		}
+	}
+}
+
+if (messageProblems.length > 0) {
+	console.error(`[i18n] Message problems (${messageProblems.length}):`);
+	for (const problem of messageProblems) {
+		console.error(`    - ${problem}`);
+	}
 	process.exit(1);
 }
 
@@ -154,4 +331,7 @@ if (unused.length > 0) {
 	process.exit(1);
 }
 
-console.log(`[i18n] ${LOCALES.join(', ')} keys match (${baseKeys.size} keys, none unused).`);
+console.log(
+	`[i18n] ${LOCALES.join(', ')} keys match (${baseKeys.size} keys, none unused); ` +
+		'every message parses, with the base arguments and its own plural forms.'
+);

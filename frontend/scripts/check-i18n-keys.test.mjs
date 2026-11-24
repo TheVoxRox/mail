@@ -112,3 +112,120 @@ describe('check-i18n-keys', () => {
 		expect(result.stderr).toContain('Missing base locale cs');
 	});
 });
+
+/*
+ * Key parity says the key exists; these say the message renders. Each failure
+ * below is one svelte-i18n shows without an error of its own: the raw text of
+ * a message that does not parse, a sentence without its value, a count in the
+ * wrong form. Nothing else in the repo reads a translation's syntax.
+ */
+describe('check-i18n-keys messages', () => {
+	it('passes plurals that carry each locale its own categories', () => {
+		seedLocales(
+			{ mail: { count: '{n, plural, one {# zpráva} few {# zprávy} other {# zpráv}}' } },
+			{ mail: { count: '{n, plural, one {# message} other {# messages}}' } }
+		);
+		seedSource("t('mail.count');\n");
+
+		const result = repo.run('check-i18n-keys.mjs');
+
+		expect(result.status).toBe(0);
+		expect(result.stdout).toContain('every message parses');
+	});
+
+	it('fails on a message that does not parse', () => {
+		seedLocales({ toast: { sent: 'Odesláno: {count}' } }, { toast: { sent: 'Sent: {count' } });
+		seedSource("t('toast.sent');\n");
+
+		const result = repo.run('check-i18n-keys.mjs');
+
+		expect(result.status).toBe(1);
+		expect(result.stderr).toContain('en toast.sent: EXPECT_ARGUMENT_CLOSING_BRACE');
+	});
+
+	/*
+	 * An apostrophe quotes in ICU, so '{name}' is the literal text "{name}": the
+	 * message parses, renders the braces, and never shows the name.
+	 */
+	it('fails on a translation that loses an argument to quoting', () => {
+		seedLocales(
+			{ folder: { gone: 'Složka {name} byla smazána.' } },
+			{ folder: { gone: "Folder '{name}' was deleted." } }
+		);
+		seedSource("t('folder.gone');\n");
+
+		const result = repo.run('check-i18n-keys.mjs');
+
+		expect(result.status).toBe(1);
+		expect(result.stderr).toContain('en folder.gone: arguments (none), cs has name');
+	});
+
+	it('fails on a translation whose select options differ', () => {
+		seedLocales(
+			{ folder: { role: '{role, select, inbox {Doručené} sent {Odeslané} other {Složka}}' } },
+			{ folder: { role: '{role, select, inbox {Inbox} other {Folder}}' } }
+		);
+		seedSource("t('folder.role');\n");
+
+		const result = repo.run('check-i18n-keys.mjs');
+
+		expect(result.status).toBe(1);
+		expect(result.stderr).toContain(
+			'en folder.role: {role, select} options inbox, other, cs has inbox, other, sent'
+		);
+	});
+
+	it('fails on a plural that lacks a category the locale needs', () => {
+		seedLocales(
+			{ mail: { count: '{n, plural, one {# zpráva} other {# zpráv}}' } },
+			{ mail: { count: '{n, plural, one {# message} other {# messages}}' } }
+		);
+		seedSource("t('mail.count');\n");
+
+		const result = repo.run('check-i18n-keys.mjs');
+
+		expect(result.status).toBe(1);
+		expect(result.stderr).toContain(
+			'cs mail.count: {n, plural} lacks few (cs needs one, few, other for whole numbers)'
+		);
+	});
+
+	/*
+	 * The bulk-outcome messages use a plural as a condition on the number:
+	 * "Selhalo: 3." reads the same for any count, so they carry no category of
+	 * the language and must not be held to its rules.
+	 */
+	it('passes a plural of exact matches and other alone', () => {
+		seedLocales(
+			{ bulk: { failed: '{failed, plural, =0 {} other { Selhalo: {failed}.}}' } },
+			{ bulk: { failed: '{failed, plural, =0 {} other { Failed: {failed}.}}' } }
+		);
+		seedSource("t('bulk.failed');\n");
+
+		expect(repo.run('check-i18n-keys.mjs').status).toBe(0);
+	});
+
+	it('fails on a category the locale never selects', () => {
+		seedLocales(
+			{ mail: { count: '{n, plural, one {# zpráva} few {# zprávy} other {# zpráv}}' } },
+			{ mail: { count: '{n, plural, one {# message} few {# messages} other {# messages}}' } }
+		);
+		seedSource("t('mail.count');\n");
+
+		const result = repo.run('check-i18n-keys.mjs');
+
+		expect(result.status).toBe(1);
+		expect(result.stderr).toContain('en mail.count: {n, plural} has few, which en never selects');
+	});
+
+	it('fails on a locale code without plural rules', () => {
+		seedLocales({ toast: { sent: 'Odesláno' } }, { toast: { sent: 'Sent' } });
+		repo.write('frontend/src/lib/i18n/messages/cz.json', messages({ toast: { sent: 'Odesláno' } }));
+		seedSource("t('toast.sent');\n");
+
+		const result = repo.run('check-i18n-keys.mjs');
+
+		expect(result.status).toBe(1);
+		expect(result.stderr).toContain("cz: Node's ICU has no plural rules");
+	});
+});
