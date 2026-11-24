@@ -40,7 +40,8 @@ Nothing in the code names a language. Once both files are in place:
    `cs.json`. Czech declines the name, so it cannot be an argument.
 3. Copy `messages_en.properties` to `messages_<xx>.properties` in
    `backend/src/main/resources/` and translate it. The file is UTF-8, as Spring
-   Boot reads it.
+   Boot reads it. Set its `app.locale` to the new code: the date in a quoted
+   message's header is formatted in that language.
 4. From `frontend/`, run `npm run check:i18n` and `npm run check:i18n:backend`
    and fix what they report, then `npm run test:unit`.
 5. Add a bullet to `CHANGELOG.md`.
@@ -94,6 +95,7 @@ categories of the language.
 |                                              | arguments or select options that differ from Czech; a plural form the language needs           |
 |                                              | a locale code without plural rules (`cz`); a language with no `command.switchLanguageTo` title |
 | `check:i18n:backend`                         | a key or placeholder missing; frontend and backend covering different languages                |
+|                                              | an `app.locale` that is not the file's own code; a regional file (`pt-BR.json`)                |
 | `src/lib/i18n/bundles.test.ts` (`test:unit`) | a word list that holds a sentence; palette synonyms for a command that does not exist          |
 
 None of them can tell whether a translation is right, reads naturally, fits

@@ -120,6 +120,47 @@ describe('check-backend-i18n-keys', () => {
 		expect(result.output).toContain('messages_en.properties has no interface language');
 	});
 
+	/*
+	 * A bundle made by copying another keeps the source's app.locale, and the
+	 * quoted message's date would come out in the source's language. Key and
+	 * placeholder parity both pass such a copy.
+	 */
+	it("fails when a bundle's app.locale names another language", () => {
+		seed({
+			cs: { 'app.locale': 'cs', 'ok.sent': 'Odeslano' },
+			en: { 'app.locale': 'cs', 'ok.sent': 'Sent' }
+		});
+
+		const result = repo.run('check-backend-i18n-keys.mjs');
+
+		expect(result.status).toBe(1);
+		expect(result.output).toContain('messages_en.properties says app.locale=cs');
+	});
+
+	/*
+	 * The two sides spell a region differently, so a regional pair could never
+	 * satisfy the locale comparison; it is named for what it is instead.
+	 */
+	it('names a regional locale as unsupported rather than as missing', () => {
+		seed({
+			cs: { 'ok.sent': 'Odeslano' },
+			en: { 'ok.sent': 'Sent' },
+			frontendLocales: ['cs', 'en', 'pt-BR']
+		});
+		repo.write(
+			'backend/src/main/resources/messages_pt_BR.properties',
+			props({ 'ok.sent': 'Enviado' })
+		);
+
+		const result = repo.run('check-backend-i18n-keys.mjs');
+
+		expect(result.status).toBe(1);
+		expect(result.output).toContain('regional variants are not supported');
+		expect(result.output).toContain('frontend/src/lib/i18n/messages/pt-BR.json');
+		expect(result.output).toContain('backend/src/main/resources/messages_pt_BR.properties');
+		expect(result.output).not.toContain('No messages_pt-BR.properties');
+	});
+
 	it('fails when there are no locale bundles at all', () => {
 		repo.write('backend/src/main/resources/application.properties', 'x=1\n');
 

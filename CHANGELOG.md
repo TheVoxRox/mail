@@ -38,6 +38,8 @@ Entries before 2026-09-17 predate that split and are left as written.
   for people ("Jan 15, 2026, 10:30 AM", "15. 1. 2026 10:30"), and an original
   without a subject or a sender quotes "(No subject)" or "[Unknown sender]",
   as the reading pane names it, where the header used to say "null" (#1016).
+  The date is spaced with plain spaces, and always written in the language
+  of the labels above it (#1020).
 
 ### Frontend
 
@@ -88,7 +90,10 @@ Entries before 2026-09-17 predate that split and are left as written.
   **Přepnout jazyk na angličtinu**, where it used to find nothing. Its
   synonyms and the attachment reminder's words now come from the language
   files, so a new language brings its own without a change to the code
-  (#1019).
+  (#1019). A name in a language not on screen matches from the start of a
+  word only, so a short query no longer finds commands through letters
+  inside words that are not shown; and letters such as ł, ø and ß match
+  their plain forms, as accented ones always did (#1020).
 
 ### Repo
 
@@ -112,6 +117,9 @@ Entries before 2026-09-17 predate that split and are left as written.
   `docs/DECISIONS.md` records why the search words live in those files. The
   translation lint skips the message files, and `check:i18n` requires a
   "switch language to …" title for every language in every file (#1019).
+  `check:i18n:backend` also holds each bundle's new `app.locale` to its file
+  name and names a regional file as unsupported instead of failing it as a
+  missing language (#1020).
 
 ## [0.2.1] - 2026-11-24
 

@@ -55,8 +55,9 @@
 	 * A command is found by its title in every interface language, not only the
 	 * one on screen, and by the synonyms each language's message file gives it:
 	 * a user types the word they think of, and a Czech user who thinks
-	 * "settings" should not need a Czech word to get there. The title on screen
-	 * comes first, so a query it starts still ranks as a title match.
+	 * "settings" should not need a Czech word to get there. The other languages'
+	 * titles match at word starts only (`otherTitlesText`), so a short query does
+	 * not find commands through letters inside words the user cannot see.
 	 */
 	const visibleCommands = $derived.by<VisibleCommand[]>(() =>
 		$commandsFor(pathname).map((command, baseIndex) => {
@@ -70,8 +71,9 @@
 				...translatedKeywords(command.titleKey, $appLocale),
 				...(command.keywords ?? [])
 			];
-			const searchText = normalizeText([title, groupLabel, ...otherTitles, ...keywords].join(' '));
-			return { command, title, groupLabel, searchText, baseIndex };
+			const searchText = normalizeText([title, groupLabel, ...keywords].join(' '));
+			const otherTitlesText = normalizeText(otherTitles.join(' '));
+			return { command, title, groupLabel, searchText, otherTitlesText, baseIndex };
 		})
 	);
 

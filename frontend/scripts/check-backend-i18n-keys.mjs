@@ -21,12 +21,14 @@
  *   3. Placeholder parity — every key's MessageFormat arguments ({0}, {value}…)
  *      match across all locales, so a translation can't silently drop or rename
  *      an interpolated argument.
+ *      Beside it, `app.locale` in each bundle names the bundle's own language.
  *   4. Locale parity with the frontend — the bundles cover exactly the locales
  *      of `frontend/src/lib/i18n/messages/*.json`. The client sends its
  *      interface language as Accept-Language, so an interface language with no
  *      bundle here gets the backend's errors and quote headers from the Czech
  *      default bundle, inside an otherwise translated screen; a bundle with no
- *      interface language is never asked for.
+ *      interface language is never asked for. Locales are bare language codes
+ *      on both sides, and a regional file is reported as such.
  *
  * Uses only Node builtins (no npm deps), so CI can run it on the backend job's
  * preinstalled Node, the same way it runs check-translation-whitelist.mjs.
@@ -171,6 +173,22 @@ for (const { locale } of localeFiles) {
 	}
 }
 
+// 3b. app.locale names the bundle's own language: what the backend formats
+// rather than translates (a quoted message's date) is formatted in it, so a
+// copied bundle that kept the source's tag would write its dates in the wrong
+// language. Checked once the base bundle carries the key.
+if (baseBundle.has('app.locale')) {
+	for (const { locale } of localeFiles) {
+		const tag = bundles.get(locale).get('app.locale');
+		if (tag !== undefined && tag !== locale) {
+			failed = true;
+			console.error(
+				`[i18n:backend] messages_${locale}.properties says app.locale=${tag}; it must name its own language, ${locale}`
+			);
+		}
+	}
+}
+
 // 4. The same locales as the frontend's message files.
 const backendLocales = new Set(localeFiles.map((entry) => entry.locale));
 const frontendLocales = new Set(
@@ -178,7 +196,34 @@ const frontendLocales = new Set(
 		.filter((file) => file.endsWith('.json'))
 		.map((file) => path.basename(file, '.json'))
 );
-const onlyFrontend = [...frontendLocales].filter((locale) => !backendLocales.has(locale)).sort();
+/*
+ * A locale is a bare language code on both sides. The first start reads only
+ * the language part of the Windows language, and the two sides spell a region
+ * differently (pt-BR.json, messages_pt_BR.properties), so a regional file would
+ * fail the comparison below with no name that could satisfy it; it is named for
+ * what it is instead (docs/TRANSLATING.md).
+ */
+const regional = [
+	...[...frontendLocales]
+		.filter((locale) => !/^[a-z]{2}$/.test(locale))
+		.map((locale) => `frontend/src/lib/i18n/messages/${locale}.json`),
+	...files
+		.filter((file) => /^messages_.+\.properties$/.test(file) && !LOCALE_FILE.test(file))
+		.map((file) => `backend/src/main/resources/${file}`)
+].sort();
+if (regional.length > 0) {
+	failed = true;
+	console.error(
+		'[i18n:backend] A locale is a two-letter language code; regional variants are not supported (docs/TRANSLATING.md):'
+	);
+	for (const file of regional) {
+		console.error(`  ${file}`);
+	}
+}
+const isLanguage = (locale) => /^[a-z]{2}$/.test(locale);
+const onlyFrontend = [...frontendLocales]
+	.filter((locale) => isLanguage(locale) && !backendLocales.has(locale))
+	.sort();
 const onlyBackend = [...backendLocales].filter((locale) => !frontendLocales.has(locale)).sort();
 if (onlyFrontend.length > 0 || onlyBackend.length > 0) {
 	failed = true;

@@ -97,7 +97,7 @@
   },
   "docs/IMAP_SMTP_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "4d869c930ca57f2fb233078e9974cff7a1c849a5",
+      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/service": "334c44494e5d4b61321640aed6f58b1e5f086700",
       "backend/src/main/resources/tls": "2e932f9120b9559f77b727463ced362f4cc65a32",
       "backend/src/main/java/org/voxrox/mailbackend/util/HeaderAddresses.java": "7b365556d5b17a312b182f5a32f6dec77b48e6b3"
     },
@@ -117,6 +117,10 @@
       {
         "date": "2026-11-24",
         "note": "MailDraftService.buildQuotedBody writes the quoted original's header from the message bundles in the request's locale (mail.quote.*) instead of Czech literals, formats receivedAt with a localized medium date and short time instead of LocalDateTime.toString, and falls back to mail.message.unknownSender / noSubject where it printed null. MailDraftService gains a MessageSource constructor argument and nothing else changes: every changed line was read. The header is text in the prefilled body the user edits before sending, the same plain text as before; subject, In-Reply-To, References and the reply-all recipients are built exactly as they were, no IMAP or SMTP command, header or bound moves, and the sender and subject it quotes are the stored values the old header printed. The dash frame the attachment reminder stops at is unchanged. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-24",
+        "note": "Review follow-up to #1016, in MailDraftService.buildQuotedBody alone: the quoted header's date replaces every horizontal space the formatter writes with a plain space (CLDR's narrow no-break space before AM), and it is formatted in the language of the bundle that answered (its app.locale key) rather than the request's, so a request with no bundle for its language gets the default bundle's labels with a date to match. Every changed line was read. Only text in the prefilled body moves; no IMAP or SMTP command, header, recipient or bound changes. Verdict unchanged."
       }
     ]
   },
