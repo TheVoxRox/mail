@@ -50,6 +50,17 @@ const STORAGE_KEY = 'mail.locale';
 const DEFAULT_LOCALE = (
 	SUPPORTED_LOCALES.includes('cs') ? 'cs' : SUPPORTED_LOCALES[0]
 ) as AppLocale;
+/*
+ * A first start follows the Windows display language (WebView2 reports it as
+ * navigator.language) when the app has a translation for it. Any other
+ * language, Slovak included, starts in English, as the installer does:
+ * docs/DECISIONS.md, "A system language without a translation starts the app
+ * in English". Czech stays DEFAULT_LOCALE, the base the prerendered shell and
+ * the message fallback use.
+ */
+const UNSUPPORTED_SYSTEM_LOCALE = (
+	SUPPORTED_LOCALES.includes('en') ? 'en' : DEFAULT_LOCALE
+) as AppLocale;
 const APP_TITLES = Object.fromEntries(
 	messages.map(([value, message]) => [value, message.app.title])
 ) as Record<AppLocale, string>;
@@ -68,7 +79,7 @@ function detectInitialLocale(): AppLocale {
 	}
 	const navLang = window.navigator?.language?.split('-')[0]?.toLowerCase();
 	if (isSupported(navLang)) return navLang;
-	return DEFAULT_LOCALE;
+	return UNSUPPORTED_SYSTEM_LOCALE;
 }
 
 let initialized = false;

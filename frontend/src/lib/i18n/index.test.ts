@@ -125,10 +125,24 @@ describe('detectInitialLocale — fallback chain', () => {
 		expect(get(mod.appLocale)).toBe('cs');
 	});
 
-	it('falls back to DEFAULT_LOCALE when neither store nor navigator yield a supported value', async () => {
+	// docs/DECISIONS.md, "A system language without a translation starts the app
+	// in English".
+	it('starts in English when neither store nor navigator yield a supported value', async () => {
 		setNavigatorLanguage('fr-FR');
 		const mod = await freshModule();
-		expect(get(mod.appLocale)).toBe('cs');
+		expect(get(mod.appLocale)).toBe('en');
+	});
+
+	it('starts a Slovak system in English too, not in Czech', async () => {
+		setNavigatorLanguage('sk-SK');
+		const mod = await freshModule();
+		expect(get(mod.appLocale)).toBe('en');
+	});
+
+	it('starts in English when the webview reports no language at all', async () => {
+		setNavigatorLanguage(undefined);
+		const mod = await freshModule();
+		expect(get(mod.appLocale)).toBe('en');
 	});
 
 	it('survives a localStorage throw (private-mode browser) and continues the fallback chain', async () => {
