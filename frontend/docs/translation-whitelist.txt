@@ -14,8 +14,9 @@
 #  - Programmer text (comments, log messages, pre-i18n error strings) in
 #    frontend/src/lib/ and frontend/src/routes/**/*.{ts,svelte} MUST be
 #    English.
-#  - User-facing translated UI text lives in lib/i18n/messages/{cs,en}.json
-#    only; cs.json is the SOURCE of Czech translations, not a lint target.
+#  - User-facing translated UI text lives in lib/i18n/messages/<locale>.json
+#    only. Those files are where translations live, so the lint skips the
+#    directory: no language needs an entry here.
 #  - E2E tests assert against real Czech UI text under mail.locale=cs;
 #    refactor to locale-agnostic selectors is a separate task.
 #  - MSW test fixtures simulate backend ProblemDetail responses with the
@@ -24,10 +25,6 @@
 #
 # When adding an entry: include reason on the same line after '--'. When the
 # Czech content is removed, delete the entry.
-
-# --- i18n source bundle ---
-
-frontend/src/lib/i18n/messages/cs.json -- Source of truth for Czech translations. Counterpart en.json carries the English copy.
 
 # --- E2E tests: assert against Czech UI (mail.locale = 'cs') ---
 
@@ -73,10 +70,6 @@ frontend/src/lib/api/client.test.ts -- Inline mock RFC 9457 ProblemDetail respon
 frontend/src/lib/api/errors.test.ts -- Inline mock ProblemDetail with Czech `detail` ("Poskytovatel pošty…"); asserts toErrorMessage() prefers the localized backend payload over the i18n fallback. Load-bearing test fixture.
 frontend/src/lib/i18n/index.test.ts -- Asserts the rendered cs bundle for the bulk-outcome messages ("Smazáno: 4." with no failure clause). The exact Czech wording is what the test is about -- it is what a screen reader reads out -- so it cannot be moved to en without testing something else.
 
-# --- Command palette: transliterated aliases ---
-
-frontend/src/lib/commands/workspaceCommands.ts -- Diacritic-stripped Czech aliases ('nastaveni', 'prepnout do nastaveni') let users type without diacritics. Load-bearing for command palette fuzzy matching.
-
 # --- Test fixtures that must contain diacritics ---
 
 frontend/src/lib/commands/paletteRanking.test.ts -- Two assertions verify normalizeText() strips combining diacritics from 'Příště Žluťoučký kůň' and 'Café'. Load-bearing test payloads — replacing the diacritics would defeat the test.
@@ -87,5 +80,5 @@ frontend/src/lib/stores/manualSync.test.ts -- Asserts the sync-completion announ
 
 # --- Attachment reminder: Czech keyword heuristic ---
 
-frontend/src/lib/compose/attachmentReminder.ts -- Comments document the Czech phrasings each diacritic-stripped keyword stem covers (příloha/přiložil/přikládám vs. the "příklad" collision) and the Czech form of the backend's quote header ("---------- Původní zpráva ----------"); the Czech words are the specification of the heuristic, not programmer prose.
+frontend/src/lib/compose/attachmentReminder.ts -- Comments explain the word-list syntax the message files use for the heuristic with the Czech words it was made for (a stem "příloh*", a whole word "přikládám" against the "příklad" collision) and quote the Czech form of the backend's quote header ("---------- Původní zpráva ----------"); the Czech words are the specification, not programmer prose.
 frontend/src/lib/compose/attachmentReminder.test.ts -- Czech bodies ("Posílám fakturu v příloze.", "Uvedu příklad z praxe.") are the load-bearing inputs of the detection heuristic; ASCII-only data would not exercise diacritic normalization or the příklad/přikládám disambiguation.

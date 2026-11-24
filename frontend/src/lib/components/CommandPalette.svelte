@@ -8,7 +8,7 @@
 	import { closePalette, paletteCloseAutoFocus, paletteOpen } from '#lib/stores/palette.js';
 	import { pushToast } from '#lib/stores/toasts.js';
 	import { toErrorMessage } from '#lib/api/errors.js';
-	import { _ } from '#lib/i18n/index.js';
+	import { _, appLocale, SUPPORTED_LOCALES } from '#lib/i18n/index.js';
 	import {
 		matchesAllTokens,
 		normalizeText,
@@ -16,7 +16,7 @@
 		tokenizeQuery,
 		type VisibleCommand
 	} from '#lib/commands/paletteRanking.js';
-	import type { CommandGroup } from '#lib/commands/shared.js';
+	import { translatedKeywords, type CommandGroup } from '#lib/commands/shared.js';
 	import {
 		focusRingActiveOption,
 		focusRingScrollArea
@@ -51,15 +51,26 @@
 
 	const pathname = $derived(page.url.pathname);
 
+	/*
+	 * A command is found by its title in every interface language, not only the
+	 * one on screen, and by the synonyms each language's message file gives it:
+	 * a user types the word they think of, and a Czech user who thinks
+	 * "settings" should not need a Czech word to get there. The title on screen
+	 * comes first, so a query it starts still ranks as a title match.
+	 */
 	const visibleCommands = $derived.by<VisibleCommand[]>(() =>
 		$commandsFor(pathname).map((command, baseIndex) => {
-			const title = $_(
-				command.titleKey,
-				command.titleValues ? { values: command.titleValues } : undefined
+			const values = command.titleValues ? { values: command.titleValues } : undefined;
+			const title = $_(command.titleKey, values);
+			const otherTitles = SUPPORTED_LOCALES.filter((locale) => locale !== $appLocale).map(
+				(locale) => $_(command.titleKey, { ...values, locale })
 			);
 			const groupLabel = $_(`palette.group_${command.groupKey}`);
-			const keywords = command.keywords ?? [];
-			const searchText = normalizeText([title, groupLabel, ...keywords].join(' '));
+			const keywords = [
+				...translatedKeywords(command.titleKey, $appLocale),
+				...(command.keywords ?? [])
+			];
+			const searchText = normalizeText([title, groupLabel, ...otherTitles, ...keywords].join(' '));
 			return { command, title, groupLabel, searchText, baseIndex };
 		})
 	);

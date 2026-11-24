@@ -8,7 +8,11 @@
  * variant check-translation-whitelist.sh):
  *
  *   --target=frontend  (default) scan frontend/src against
- *                      frontend/docs/translation-whitelist.txt
+ *                      frontend/docs/translation-whitelist.txt, except the
+ *                      interface languages' message files
+ *                      (src/lib/i18n/messages): they are where translations
+ *                      live, so a language that shares a letter with Czech
+ *                      (Slovak, Polish, French) needs no entry to be added
  *   --target=backend   scan backend/src/{main,test}/java against
  *                      backend/docs/translation-whitelist.txt
  *
@@ -48,7 +52,8 @@ const TARGETS = {
 	frontend: {
 		whitelistFile: path.join(REPO_ROOT, 'frontend', 'docs', 'translation-whitelist.txt'),
 		extensions: new Set(['.ts', '.svelte', '.tsx', '.js', '.mjs', '.json']),
-		roots: [{ dir: path.join(REPO_ROOT, 'frontend', 'src'), label: 'frontend/src' }]
+		roots: [{ dir: path.join(REPO_ROOT, 'frontend', 'src'), label: 'frontend/src' }],
+		translationDirs: [path.join(REPO_ROOT, 'frontend', 'src', 'lib', 'i18n', 'messages')]
 	},
 	backend: {
 		whitelistFile: path.join(REPO_ROOT, 'backend', 'docs', 'translation-whitelist.txt'),
@@ -135,13 +140,14 @@ function countDiacriticLines(content) {
 	return count;
 }
 
-async function scan(dir, extensions) {
+async function scan(dir, extensions, translationDirs = []) {
 	const offenders = [];
 	let totalFiles = 0;
 	let totalLines = 0;
 	for await (const file of walk(dir)) {
 		const ext = path.extname(file);
 		if (!extensions.has(ext)) continue;
+		if (translationDirs.some((translations) => path.dirname(file) === translations)) continue;
 		const content = await readFile(file, 'utf8');
 		const count = countDiacriticLines(content);
 		if (count === 0) continue;
@@ -181,7 +187,11 @@ async function main() {
 	let offendingFiles = 0;
 	for (const root of roots) {
 		process.stdout.write(`== ${root.label} ==\n`);
-		const { offenders, totalFiles, totalLines } = await scan(root.dir, config.extensions);
+		const { offenders, totalFiles, totalLines } = await scan(
+			root.dir,
+			config.extensions,
+			config.translationDirs
+		);
 		let rootOffendingFiles = 0;
 		let rootOffendingLines = 0;
 		for (const { count, rel } of offenders) {

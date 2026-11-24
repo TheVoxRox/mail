@@ -24,7 +24,6 @@ function commands(
 	return createMailCommands({
 		activeAccountId: 1,
 		folders: [],
-		locale: 'cs',
 		pathname: '/mail/1/INBOX',
 		selectedDetail: null,
 		stableId: null,

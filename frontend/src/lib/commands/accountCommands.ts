@@ -1,7 +1,6 @@
-import type { AppLocale } from '#lib/i18n/index.js';
 import { goToAccounts, goToFolder, switchToAccount } from '#lib/mail/actions.js';
 import type { AccountsState } from '#lib/stores/accounts.js';
-import { localeKeywords, type Command } from '#lib/commands/shared.js';
+import type { Command } from '#lib/commands/shared.js';
 import { SHORTCUT_LABELS } from '#lib/shortcuts/shortcutLabels.js';
 
 type FolderCommandSource = {
@@ -10,13 +9,12 @@ type FolderCommandSource = {
 	role?: string | null;
 };
 
-export function createAccountCommands(state: AccountsState, locale: AppLocale | null): Command[] {
+export function createAccountCommands(state: AccountsState): Command[] {
 	const commands: Command[] = [
 		{
 			id: 'nav.accounts',
 			titleKey: 'command.openAccounts',
 			groupKey: 'nav',
-			keywords: localeKeywords(locale, ['ucty'], ['accounts']),
 			icon: 'user-circle',
 			contexts: ['settings'],
 			routePrefixes: ['/settings/accounts'],
@@ -37,8 +35,7 @@ export function createAccountCommands(state: AccountsState, locale: AppLocale | 
 			keywords: [
 				account.accountName,
 				account.email,
-				...(account.displayName ? [account.displayName] : []),
-				...localeKeywords(locale, ['ucet', 'prepnout ucet'], ['account', 'switch account'])
+				...(account.displayName ? [account.displayName] : [])
 			],
 			icon: 'user-circle',
 			contexts: ['mail', 'contacts'],
@@ -54,8 +51,7 @@ export function createAccountCommands(state: AccountsState, locale: AppLocale | 
 
 export function createFolderCommands(
 	currentAccountId: number | null,
-	currentFolders: FolderCommandSource[],
-	locale: AppLocale | null
+	currentFolders: FolderCommandSource[]
 ): Command[] {
 	if (currentAccountId == null) return [];
 
@@ -64,11 +60,7 @@ export function createFolderCommands(
 		titleKey: 'command.goToFolder',
 		titleValues: { folder: folder.displayName },
 		groupKey: 'nav',
-		keywords: [
-			folder.displayName,
-			folder.folderRef,
-			...localeKeywords(locale, ['slozka', 'prejit na slozku'], ['folder', 'go to folder'])
-		],
+		keywords: [folder.displayName, folder.folderRef],
 		// Ctrl+Shift+I goes to the active account's Inbox, which is this list's.
 		shortcut: folder.role === 'INBOX' ? SHORTCUT_LABELS.goToInbox : undefined,
 		icon: 'folder',

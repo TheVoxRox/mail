@@ -83,6 +83,12 @@ Entries before 2026-09-17 predate that split and are left as written.
   it in English rather than in Czech, Slovak included, as the installer does
   already. A Czech or English system starts in its own language as before, and
   a language chosen in Settings still wins (#1018).
+- The command palette finds a command by its name in every interface
+  language, not only the one on screen: in Czech, "switch language" finds
+  **Přepnout jazyk na angličtinu**, where it used to find nothing. Its
+  synonyms and the attachment reminder's words now come from the language
+  files, so a new language brings its own without a change to the code
+  (#1019).
 
 ### Repo
 
@@ -101,6 +107,11 @@ Entries before 2026-09-17 predate that split and are left as written.
   `check:i18n:backend` fails when the backend bundles and the frontend cover
   different languages. Three Czech plurals write their genitive `few` form out
   rather than leave it to `other`; nothing on screen changes (#1017).
+- No code names an interface language any more: a language is its message
+  file and its backend bundle, `docs/TRANSLATING.md` says how to add one, and
+  `docs/DECISIONS.md` records why the search words live in those files. The
+  translation lint skips the message files, and `check:i18n` requires a
+  "switch language to …" title for every language in every file (#1019).
 
 ## [0.2.1] - 2026-11-24
 

@@ -13,7 +13,9 @@ someone a rework at least once. For the human-facing versions see
   bundles and whitelisted fixtures.
 - User-visible strings live in `frontend/src/lib/i18n/messages/{cs,en}.json`
   (keys must match) and `backend/src/main/resources/messages_{cs,en}.properties`.
-  Unused base-locale keys fail the gate too.
+  Unused base-locale keys fail the gate too. No code names a language: search
+  words live in the message files too, and adding a language is adding files
+  ([docs/TRANSLATING.md](docs/TRANSLATING.md)). Keep it that way.
 - **Docs are English too, with two product exceptions.** No gate covers them —
   `check:translations` scans `frontend/src` and the Java tree only, so this is
   discipline, not a check. Czech survives in exactly two places, and both are

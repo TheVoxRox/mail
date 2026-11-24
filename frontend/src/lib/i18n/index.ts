@@ -11,33 +11,7 @@
 import { browser } from '$app/env';
 import { derived, type Readable } from 'svelte/store';
 import { addMessages, init, locale } from 'svelte-i18n';
-
-type I18nValue = string | I18nDictionary | Array<string | I18nDictionary> | null;
-
-type I18nDictionary = { [key: string]: I18nValue };
-type AppMessages = I18nDictionary & {
-	app: { title: string; localeLabel: string; [key: string]: I18nValue };
-};
-
-const messageModules = import.meta.glob('./messages/*.json', {
-	eager: true,
-	import: 'default'
-}) as Record<string, AppMessages>;
-
-const messages = Object.entries(messageModules)
-	.map(([path, value]) => {
-		const match = /\/([^/]+)\.json$/.exec(path);
-
-		if (!match) {
-			throw new Error(`Cannot infer locale from ${path}`);
-		}
-		return [match[1], value] as const;
-	})
-	.sort(([a], [b]) => a.localeCompare(b));
-
-if (messages.length === 0) {
-	throw new Error('No i18n message files found.');
-}
+import { BUNDLES as messages } from './bundles.js';
 
 export const SUPPORTED_LOCALES = messages.map(([value]) => value);
 export type AppLocale = (typeof SUPPORTED_LOCALES)[number];

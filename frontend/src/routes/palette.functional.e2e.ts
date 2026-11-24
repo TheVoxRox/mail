@@ -86,6 +86,21 @@ test.describe('Command palette', () => {
 		await expect(page.locator('main h1')).toHaveText('Vzhled');
 	});
 
+	/*
+	 * A command is found by its title in every interface language. In the Czech
+	 * interface "switch language" are words of the English titles alone: no
+	 * synonym in either message file carries them.
+	 */
+	test('najde příkaz podle jeho názvu v jiném jazyce rozhraní', async ({ page }) => {
+		await openApp(page, '/settings/language');
+
+		await openPalette(page);
+		await page.locator('#command-palette-input').fill('switch language');
+
+		await expect(page.getByRole('option', { name: /^Přepnout jazyk na angličtinu/ })).toBeVisible();
+		await expect(page.getByRole('option', { name: /^Přepnout jazyk na češtinu/ })).toBeVisible();
+	});
+
 	test('zobrazuje aktuální Ctrl zkratky pro přepínání pracovních sekcí', async ({ page }) => {
 		await openApp(page, '/');
 
@@ -105,7 +120,7 @@ test.describe('Command palette', () => {
 		const sentOption = page.getByRole('option', { name: /Přejít do složky Odeslané/ });
 
 		// Keywords are aliases for matching: the folder name again, its IMAP path,
-		// 'slozka' without diacritics. Rendered under the title, a screen reader
+		// the synonyms from the message files. Rendered under the title, a screen reader
 		// read "Odeslané Odeslané, …, slozka" as the option's name.
 		await expect(sentOption).toHaveAccessibleName('Přejít do složky Odeslané');
 		await expect(sentOption).toHaveText('Přejít do složky Odeslané');
