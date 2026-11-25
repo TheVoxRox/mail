@@ -143,7 +143,8 @@
     "reviewedTrees": {
       ".github/workflows/windows-signed-release.yml": "01ae5c54c1b9e9d9eec19b63c947be67df0b34c8",
       "frontend/src/lib/components/settings/AboutSettings.svelte": "dd7b7be73e5b10f2f45b2bc0a2e37ab08a64bc06",
-      "frontend/src-tauri/src": "3f35e8fb18eff9b8d8497dd16cbcf6e20b55b936"
+      "frontend/src-tauri/src": "3f35e8fb18eff9b8d8497dd16cbcf6e20b55b936",
+      "frontend/src/lib/components/boot/BootErrorView.svelte": "7fae485cff0d5e3a57e3d21799e44b89d5dd3ab3"
     },
     "acknowledgements": [
       {
@@ -157,6 +158,10 @@
       {
         "date": "2026-11-25",
         "note": "#1021: the one change under frontend/src-tauri/src is in lib.rs, where the main window's builder takes the title \"VoxRox Mail\" instead of a Czech loading title, with the comment above it rewritten. Every changed line was read. The window label, URL, size, data directory, browser arguments and every other builder call are byte-identical, as are the updater commands (check_for_update, download_pending_update, install_pending_update), the pending-update state, the endpoints, the public key and the capabilities. A window title reaches nothing on the update path. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-25",
+        "note": "#1023: BootErrorView.svelte takes errorDetail in place of errorLang. The message under the heading is now always in the interface language (bootFailureText.ts), and the error's own English text moves into a bits-ui Collapsible after the diagnostic actions, closed by default and marked lang=en when shown. Every changed line was read. The manual update check (handleCheckForUpdates, checkForUpdateManually, the aria-disabled button and its status region), the retry and restart handlers and the diagnostic actions are byte-identical; the prompt and failure dialogs stay mounted outside the boot-gated block. Display only; nothing reaches the updater, its endpoints or its key. Verdict unchanged."
       }
     ]
   }

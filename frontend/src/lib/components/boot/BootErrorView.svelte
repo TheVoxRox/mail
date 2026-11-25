@@ -1,13 +1,18 @@
 <script lang="ts">
+	import { Collapsible } from 'bits-ui';
 	import BootDiagnosticActions from '#lib/components/boot/BootDiagnosticActions.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { _ } from '#lib/i18n/index.js';
 	import { checkForUpdateManually } from '#lib/updates.js';
 
 	interface Props {
+		/** What went wrong, in the interface language (bootFailureText.ts). */
 		errorMessage: string;
-		/** `en` when the message is the raw English text of the error (3.1.2). */
-		errorLang?: 'en';
+		/**
+		 * The error's own English text, for support. Shown only on request,
+		 * behind a disclosure, and marked as English (3.1.2).
+		 */
+		errorDetail: string | null;
 		onRetry: () => void;
 		onRestart: () => void;
 		/**
@@ -26,7 +31,7 @@
 
 	let {
 		errorMessage,
-		errorLang,
+		errorDetail,
 		onRetry,
 		onRestart,
 		onDownloadDiagnostic,
@@ -62,7 +67,7 @@
 <main id="main-content" tabindex="-1" class="flex flex-1 items-center justify-center p-8">
 	<div class="max-w-md text-center">
 		<h1 class="text-lg font-semibold text-destructive-foreground">{$_('app.bootFailed')}</h1>
-		<p class="mt-2 text-sm text-muted-foreground" lang={errorLang}>{errorMessage}</p>
+		<p class="mt-2 text-sm text-muted-foreground">{errorMessage}</p>
 		<Button class="mt-4" onclick={onRetry}>{$_('app.retry')}</Button>
 		<BootDiagnosticActions
 			{onRestart}
@@ -73,6 +78,28 @@
 			{diagnosticUnavailable}
 			rowClass="mt-2"
 		/>
+		<!--
+			After the actions, so the way out comes first in the Tab order and the
+			developer's text is one more stop, not one in front. bits-ui's
+			Collapsible, as the third-party notices in Settings → About: a button
+			with aria-expanded that controls the text, closed by default, and the
+			closed text `hidden`, out of the view and the accessibility tree until
+			someone asks for it.
+		-->
+		{#if errorDetail}
+			<Collapsible.Root class="mt-4 flex flex-col items-center gap-2">
+				<Collapsible.Trigger>
+					{#snippet child({ props })}
+						<Button {...props} variant="outline" size="xs">
+							{$_('app.bootFailure.technicalDetails')}
+						</Button>
+					{/snippet}
+				</Collapsible.Trigger>
+				<Collapsible.Content>
+					<p class="text-xs break-words text-muted-foreground" lang="en">{errorDetail}</p>
+				</Collapsible.Content>
+			</Collapsible.Root>
+		{/if}
 		<div class="mt-4 flex flex-col items-center gap-1 border-t border-border pt-4">
 			<!-- aria-disabled, not disabled: a disabled button drops the focus it holds, and the
 			     person who pressed it would land on the document while the check runs. -->

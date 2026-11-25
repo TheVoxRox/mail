@@ -322,7 +322,9 @@ test.describe('MSW bootstrap', () => {
 		await openApp(page, '/');
 		await page.waitForURL('**/mail/1/INBOX');
 		await expect(page.getByRole('heading', { name: 'Doručené' })).toBeVisible();
-		await expect(page.getByRole('heading', { name: 'Nelze nastartovat aplikaci' })).toHaveCount(0);
+		await expect(page.getByRole('heading', { name: 'Aplikaci se nepodařilo spustit' })).toHaveCount(
+			0
+		);
 	});
 
 	test('velmi pomalý start nabídne retry, restart služby a diagnostiku', async ({ page }) => {
@@ -351,10 +353,18 @@ test.describe('MSW bootstrap', () => {
 
 		await page.goto('/');
 
-		await expect(page.getByRole('heading', { name: 'Nelze nastartovat aplikaci' })).toBeVisible();
+		await expect(
+			page.getByRole('heading', { name: 'Aplikaci se nepodařilo spustit' })
+		).toBeVisible();
+		await expect(
+			page.getByText('Služba pošty se nespustila nebo neodpovídá.', { exact: false })
+		).toBeVisible();
+		// The error's own English text is for support: hidden until asked for,
+		// and then marked as the English it is on a Czech screen (3.1.2).
 		const detail = page.getByText('E2E sidecar failed to start');
+		await expect(detail).toBeHidden();
+		await page.getByRole('button', { name: 'Technické podrobnosti' }).click();
 		await expect(detail).toBeVisible();
-		// The error's own English text on a Czech screen says it is English (3.1.2).
 		await expect(detail).toHaveAttribute('lang', 'en');
 
 		await page.getByRole('button', { name: 'Zkusit znovu' }).click();
@@ -370,7 +380,9 @@ test.describe('MSW bootstrap', () => {
 
 		await page.goto('/');
 
-		await expect(page.getByRole('heading', { name: 'Nelze nastartovat aplikaci' })).toBeVisible();
+		await expect(
+			page.getByRole('heading', { name: 'Aplikaci se nepodařilo spustit' })
+		).toBeVisible();
 		const check = page.getByRole('button', { name: 'Zkontrolovat aktualizace' });
 		await check.click();
 
@@ -388,7 +400,9 @@ test.describe('MSW bootstrap', () => {
 
 		await page.goto('/');
 
-		await expect(page.getByRole('heading', { name: 'Nelze nastartovat aplikaci' })).toBeVisible();
+		await expect(
+			page.getByRole('heading', { name: 'Aplikaci se nepodařilo spustit' })
+		).toBeVisible();
 		await expect(
 			page.getByText('Databáze pošty v tomto počítači je poškozená', { exact: false })
 		).toBeVisible();

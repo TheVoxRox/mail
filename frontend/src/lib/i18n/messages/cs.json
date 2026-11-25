@@ -8,7 +8,13 @@
 		"loadingApp": "Načítání aplikace VoxRox Mail…",
 		"startingBackendHint": "Při prvním spuštění to může chvíli trvat.",
 		"startingBackendVerySlow": "Spouštění trvá déle než obvykle. Můžete to zkusit znovu nebo restartovat službu pošty.",
-		"bootFailed": "Nelze nastartovat aplikaci",
+		"bootFailed": "Aplikaci se nepodařilo spustit",
+		"bootFailure": {
+			"timeout": "Spouštění trvalo déle než minutu, a tak ho aplikace přerušila. Zkuste to znovu, případně restartujte službu pošty.",
+			"serviceUnavailable": "Služba pošty se nespustila nebo neodpovídá. Zkuste to znovu, případně restartujte službu pošty.",
+			"versionMismatch": "Aplikace a služba pošty jsou z různých verzí. Nainstalujte nejnovější verzi z voxrox.org.",
+			"technicalDetails": "Technické podrobnosti"
+		},
 		"sidebarLoadFailed": "Navigační panel se nepodařilo načíst. Přepněte pracovní prostor nebo restartujte aplikaci.",
 		"bootPhase": {
 			"startingService": "Spouštím službu pošty…",
