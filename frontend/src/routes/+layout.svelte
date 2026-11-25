@@ -229,14 +229,18 @@
 		return () => observer.disconnect();
 	});
 
+	/*
+	 * Starting the sidecar, waiting for its session and checking its readiness
+	 * are one step to the user, so they share one line. Named apart, they read
+	 * the plumbing aloud ("backend", "session", "readiness") and cost a screen
+	 * reader two more status changes on every start; which of them a slow start
+	 * hangs in is still in the boot timings the diagnostics report carries. Idle
+	 * is the same line, so the status region holds still when boot begins: the
+	 * text it starts with and the text boot sets are one, which leaves
+	 * bootstrap's own `app.loadingApp` the only thing pushed at that moment.
+	 */
 	const bootPhaseTextKey = $derived.by(() => {
 		switch ($bootState.phase) {
-			case 'starting-sidecar':
-				return 'app.bootPhase.startingSidecar';
-			case 'waiting-for-session':
-				return 'app.bootPhase.waitingForSession';
-			case 'checking-readiness':
-				return 'app.bootPhase.checkingReadiness';
 			case 'loading-client-config':
 				return 'app.bootPhase.loadingClientConfig';
 			case 'loading-accounts':
@@ -246,8 +250,11 @@
 			case 'ready':
 				return 'settings.about.connection.ready';
 			case 'idle':
+			case 'starting-sidecar':
+			case 'waiting-for-session':
+			case 'checking-readiness':
 			default:
-				return 'app.waitingForBackend';
+				return 'app.bootPhase.startingService';
 		}
 	});
 

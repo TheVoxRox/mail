@@ -42,7 +42,7 @@ const mailFixture = {
  *
  * `ready` is what the scan waits for, and it has to be the page's own content.
  * `openApp` returns once `<main>` exists, which is already true of the boot
- * screen ("Čekám na bezpečné připojení k backendu…"), and that is what every
+ * screen ("Spouštím službu pošty…"), and that is what every
  * scan here used to measure: the same eight elements on all fourteen routes,
  * while the data and most of the controls arrived after axe had finished. The
  * scans stayed green through a badge that failed 1.4.3 for that reason (#675).

@@ -94,6 +94,15 @@ Entries before 2026-09-17 predate that split and are left as written.
   word only, so a short query no longer finds commands through letters
   inside words that are not shown; and letters such as ł, ø and ß match
   their plain forms, as accented ones always did (#1020).
+- The start screen speaks the user's language rather than the app's
+  plumbing. It called one thing by four names ("backend", "lokální služba",
+  "služba aplikace", "služba pošty") and read out "Čekám na bezpečné připojení
+  k backendu…"; it now says **služba pošty** throughout, the name Settings →
+  About already used. Starting that service, waiting for its connection and
+  checking it is ready are one line, "Spouštím službu pošty…", where they were
+  three, so every start hands a screen reader two fewer status changes. A
+  slow start says "Spouštění trvá déle než obvykle" and offers **Restartovat
+  službu pošty** (#1022).
 
 ### Tauri / Release
 

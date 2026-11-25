@@ -290,23 +290,27 @@ test.describe('MSW bootstrap', () => {
 		expect(browserErrors).toEqual([]);
 	});
 
-	test('při pomalé readiness ukazuje konkrétní fázi a potom dokončí start', async ({ page }) => {
+	test('při pomalé readiness ukazuje spouštění služby pošty a potom dokončí start', async ({
+		page
+	}) => {
 		await setMockFlags(page, { readinessDelayMs: 1200 });
 
 		await page.goto('/');
 
-		await expect(page.getByText('Ověřuji připravenost služby…')).toBeVisible();
+		await expect(page.getByText('Spouštím službu pošty…')).toBeVisible();
 		await waitForShell(page);
 		await page.waitForURL('**/mail/1/INBOX');
 		await expect(page.getByRole('heading', { name: 'Doručené' })).toBeVisible();
 	});
 
-	test('při pomalé session ukazuje čekání na bezpečné připojení', async ({ page }) => {
+	test('při pomalé session ukazuje spouštění služby pošty a potom dokončí start', async ({
+		page
+	}) => {
 		await setMockFlags(page, { sessionDelayMs: 900 });
 
 		await page.goto('/');
 
-		await expect(page.getByText('Čekám na bezpečné připojení k backendu…')).toBeVisible();
+		await expect(page.getByText('Spouštím službu pošty…')).toBeVisible();
 		await waitForShell(page);
 		await page.waitForURL('**/mail/1/INBOX');
 		await expect(page.getByRole('heading', { name: 'Doručené' })).toBeVisible();
@@ -331,12 +335,12 @@ test.describe('MSW bootstrap', () => {
 
 		await page.goto('/');
 
-		await expect(page.getByText('Stále se spouští.')).toBeVisible();
+		await expect(page.getByText('Spouštění trvá déle než obvykle.')).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Zkusit znovu' })).toBeVisible();
-		await expect(page.getByRole('button', { name: 'Restartovat službu' })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Restartovat službu pošty' })).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Stáhnout diagnostiku' })).toBeEnabled();
 
-		await page.getByRole('button', { name: 'Restartovat službu' }).click();
+		await page.getByRole('button', { name: 'Restartovat službu pošty' }).click();
 		await waitForShell(page);
 		await page.waitForURL('**/mail/1/INBOX');
 		await expect(page.getByRole('heading', { name: 'Doručené' })).toBeVisible();
@@ -393,10 +397,10 @@ test.describe('MSW bootstrap', () => {
 		// The row Save logs sits in: the mocked build has no shell, so the button
 		// itself is BootErrorView.svelte.test.ts's to see. The dump needs the
 		// backend this screen is about, so it says it cannot be had yet.
-		await expect(page.getByRole('button', { name: 'Restartovat službu' })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Restartovat službu pošty' })).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Stáhnout diagnostiku' })).toBeDisabled();
 		await expect(
-			page.getByText('Diagnostika bude dostupná, jakmile se načte bezpečné připojení k backendu.')
+			page.getByText('Diagnostiku půjde stáhnout, až se aplikace připojí ke službě pošty.')
 		).toBeVisible();
 	});
 
