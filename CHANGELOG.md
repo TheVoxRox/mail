@@ -181,6 +181,14 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The API surface audit is re-verified against `7446e171` (1.34) by an
+  independent pass over the seven changes acknowledged since `a82a5954`,
+  clearing its ledger one short of the cap. Two sentences of §3 that #1028 made
+  false are rewritten, §2 states the address rule, the element-type `@Valid`
+  and the input stripping, and the pass found A8 (Low, accepted): an address
+  of thousands of domain labels overflows the address rule's stack. The threat
+  model and the verdict index follow, and their headers catch up with #1029
+  (#1030).
 - The contact DTOs put `@Valid` on the list's element type
   (`List<@Valid ContactEmailRequest>`) instead of on the list, which Hibernate
   Validator deprecates and logged as `HV000271` whenever a contact was
