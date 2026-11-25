@@ -27,11 +27,11 @@
 			"schemaMismatch": "This version of the application cannot open your data, although the data is intact. Install the latest version from voxrox.org; an older installer cannot be used.",
 			"storageUnavailable": "The application cannot open its data folder. Check that the disk is not full and that no other copy of the application is running, then try again.",
 			"alreadyRunning": "The application is already running in the background. Check the taskbar or Task Manager (process “voxrox-mail-backend”), or wait about 30 seconds and try again.",
-			"outOfMemory": "The mail service ran out of memory and stopped itself (code 3). Start the application again. If it keeps happening, it is usually one oversized message in the mailbox — contact support.",
+			"outOfMemory": "The mail service ran out of memory and stopped itself. Start the application again. If it keeps happening, it is usually one oversized message in the mailbox — contact support.",
 			"terminated": "The system stopped the mail service (code {code}). Try starting the application again.",
 			"signal": "The mail service was stopped by signal {signal}. Try starting the application again.",
 			"failed": "The mail service failed to start (code {code}). Try starting the application again, and if that does not help, contact support.",
-			"spawnFailed": "The mail service could not be started: {detail}"
+			"spawnFailed": "The app lost track of the mail service. Restart the mail service, or start the app again."
 		},
 		"downloadDiagnostic": "Download diagnostics",
 		"downloadingDiagnostic": "Downloading diagnostics…",
@@ -39,7 +39,7 @@
 		"saveLogs": "Save logs",
 		"savingLogs": "Saving logs…",
 		"logsSaved": "The logs are saved in {path}.",
-		"logsSaveFailed": "The logs could not be saved. The reason is in the app's log.",
+		"logsSaveFailed": "The logs could not be saved. Please try again.",
 		"sessionLabel": "Backend:",
 		"sessionLoading": "loading session.json…",
 		"sessionNotInitialized": "not initialised",
@@ -56,7 +56,7 @@
 		"opensInNewWindow": "(opens in a new window)",
 		"technicalDetails": "Technical details",
 		"close": "Close",
-		"errorHttpStatus": "The mail service answered with error {status}.",
+		"errorHttpStatus": "The action could not be completed (error code {status}). Try again.",
 		"errorUnexpected": "An unexpected error occurred."
 	},
 	"nav": {
@@ -278,7 +278,7 @@
 		"fieldBcc": "Bcc:",
 		"fieldSubject": "Subject:",
 		"bodyLabel": "Message body",
-		"markdownHint": "Supports Markdown: **bold**, # heading, - bullet.",
+		"markdownHint": "You can format the text: **bold**, # heading, - bullet.",
 		"addAttachment": "Add attachment",
 		"attachmentDropZone": "Message attachments",
 		"dropAttachmentsHint": "Drop files here or paste an attachment from the clipboard.",
@@ -328,7 +328,7 @@
 		"addFirstAccount": "Add first account",
 		"none": "You have no email account here yet.",
 		"emptyHeading": "Add your first mail account",
-		"emptyDescription": "Start with an email address. Known providers are prefilled automatically, and other accounts can use custom IMAP/SMTP settings.",
+		"emptyDescription": "Start with an email address. Known providers are prefilled automatically; for the others you enter the server settings yourself.",
 		"noProvider": "no provider",
 		"oauthProviderMissing": "OAuth sign-in is not configured for this provider.",
 		"statusActive": "Active",
@@ -381,8 +381,8 @@
 			"serverModeLabel": "Server configuration",
 			"serverModeProvider": "Pick a provider",
 			"serverModeCustom": "Custom settings",
-			"serverModeSwitchToProviderWarning": "Picking a provider template will overwrite your current IMAP/SMTP settings with the template values.",
-			"serverModeSwitchToCustomWarning": "Switching to custom settings clears the link to the provider template.",
+			"serverModeSwitchToProviderWarning": "Choosing a provider replaces your own server settings with the provider's.",
+			"serverModeSwitchToCustomWarning": "The server addresses are prefilled from the provider, and from then on you manage them yourself.",
 			"customServerLegend": "Mail servers",
 			"customServerHint": "Enter the host and ports for both your incoming (IMAP) and outgoing (SMTP) servers. You'll find these in your e-mail provider's documentation.",
 			"imapHeading": "IMAP (incoming)",
@@ -419,7 +419,7 @@
 			"testConnection": "Test connection",
 			"testingConnection": "Testing connection…",
 			"verifyingCredentials": "Verifying sign-in…",
-			"testConnectionSuccess": "IMAP and SMTP connection were verified successfully.",
+			"testConnectionSuccess": "The connection to the incoming and outgoing mail servers is verified.",
 			"submitCreate": "Create",
 			"submitSave": "Save"
 		},
@@ -429,12 +429,12 @@
 			"continue": "Continue",
 			"detecting": "Looking up provider…",
 			"manualSetup": "Set up manually",
-			"useImapInstead": "Use IMAP and an app password",
+			"useImapInstead": "Sign in with an app password",
 			"backToEmail": "Enter a different e-mail",
 			"oauthConfirmHeading": "Sign in to {email}",
 			"oauthWaitingHeading": "Waiting for the browser to finish…",
 			"oauthWaitingHint": "Once you sign in to {email}, we'll add it automatically.",
-			"oauthWaitingTimeout": "OAuth sign-in is taking longer than expected. If you finished it in your browser, the account may already have been added — check the account list, or try again.",
+			"oauthWaitingTimeout": "Signing in through the browser is taking longer than usual. If you finished it, the account may already have been added — check the account list, or try again.",
 			"oauthAddedAsOther": "You signed in as {email} in your browser, so the account was added under that address.",
 			"oauthAccountExists": "{email} is already in the app. If it needs you to sign in again, use Re-sign in next to it in the account list.",
 			"cancel": "Cancel",
@@ -532,7 +532,7 @@
 		"loading": "Loading…",
 		"empty": "No contacts.",
 		"emptyLabeled": "No contacts with the {label} label.",
-		"renderError": "The contact list could not be displayed — the data from the mail service has an unexpected shape.",
+		"renderError": "The contact list could not be displayed because of an error in the app.",
 		"renderErrorRetry": "Reload contacts",
 		"sortLabel": "Sort by",
 		"sortOptions": {
@@ -682,9 +682,9 @@
 			},
 			"messageBody": {
 				"heading": "Default rendering of message body",
-				"hint": "Choose how message bodies are rendered. The choice applies to all messages until you change it again.",
+				"hint": "Choose how message text is displayed. The choice applies to all messages until you change it again.",
 				"options": {
-					"html": "HTML",
+					"html": "Formatted text (HTML)",
 					"plain": "Plain text"
 				}
 			},
@@ -854,7 +854,7 @@
 				"apiKey": "API key:",
 				"downloadDump": "Download diagnostics",
 				"downloadingDump": "Downloading…",
-				"dumpHint": "ZIP with the app's logs and state, for the developers. No passwords, tokens or message contents.",
+				"dumpHint": "A file that makes it easier for the developers to find the cause of a bug. It holds no passwords, sign-in details or message contents.",
 				"reportProblem": "Report a problem or suggest a feature"
 			},
 			"licenses": {
@@ -1095,7 +1095,7 @@
 		"sendFailedRecoveryDraft": "Couldn’t send the message to {recipient}. The content is saved in Drafts.",
 		"sendUnverified": "Couldn’t verify the send outcome for {recipient} — check the Sent folder.",
 		"syncFailed": "Syncing {account} failed. New mail is not arriving.",
-		"syncFailedDetail": "Syncing {account} failed: {detail}",
+		"syncFailedDetail": "Account {account}: {detail}",
 		"syncRecovered": "Syncing {account} works again."
 	},
 	"tray": {

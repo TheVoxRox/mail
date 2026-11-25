@@ -115,13 +115,13 @@ test.describe('Compose', () => {
 	 * to reach a screen reader, hence the accessible-description assertion rather
 	 * than a check that the text is merely on screen.
 	 */
-	test('tělo zprávy má Markdown nápovědu ve své přístupné popisce', async ({ page }) => {
+	test('tělo zprávy má nápovědu k formátování ve své přístupné popisce', async ({ page }) => {
 		await openApp(page, '/compose');
 
 		const body = page.locator('#compose-body');
-		await expect(body).toHaveAccessibleDescription(/Markdown/);
+		await expect(body).toHaveAccessibleDescription(/formátovat/);
 		await expect(page.locator('#compose-body-hint')).toHaveText(
-			'Podporuje Markdown: **tučně**, # nadpis, - odrážka.'
+			'Text můžete formátovat: **tučně**, # nadpis, - odrážka.'
 		);
 	});
 

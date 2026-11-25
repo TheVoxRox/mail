@@ -270,7 +270,7 @@ class AccountControllerTest {
                 .content(objectMapper.writeValueAsString(req))).andExpect(status().isBadRequest())
                 .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("OAuth2")));
+                .andExpect(jsonPath("$.messageKey").value("validation.account.oauth2CredentialsReadOnly"));
     }
 
 }

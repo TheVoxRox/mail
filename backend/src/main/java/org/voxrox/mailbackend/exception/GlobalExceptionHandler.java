@@ -91,7 +91,7 @@ public class GlobalExceptionHandler {
 
         log.warn("{} Invalid input at {}: {}", LogCategory.ERROR, request.getRequestURI(), details);
 
-        return validationProblem(request, "error.validation", new Object[]{details},
+        return validationProblem(request, "error.validation", new Object[]{userDetails(violations)},
                 "Input validation failed: " + details, violations);
     }
 
@@ -115,7 +115,7 @@ public class GlobalExceptionHandler {
 
         log.warn("{} Invalid parameter at {}: {}", LogCategory.ERROR, request.getRequestURI(), details);
 
-        return validationProblem(request, "error.validation", new Object[]{details},
+        return validationProblem(request, "error.validation", new Object[]{userDetails(violations)},
                 "Input validation failed: " + details, violations);
     }
 
@@ -135,7 +135,7 @@ public class GlobalExceptionHandler {
 
         log.warn("{} Invalid parameter at {}: {}", LogCategory.ERROR, request.getRequestURI(), details);
 
-        return validationProblem(request, "error.validation", new Object[]{details},
+        return validationProblem(request, "error.validation", new Object[]{userDetails(violations)},
                 "Input validation failed: " + details, violations);
     }
 
@@ -366,8 +366,32 @@ public class GlobalExceptionHandler {
         return new ValidationViolation(field, message, messageKey, code);
     }
 
+    /**
+     * The log line's view of the violations: each field by its Java name, then its
+     * message.
+     */
     private static String validationDetails(List<ValidationViolation> violations) {
         return violations.stream().map(v -> v.field() + ": " + v.message()).collect(Collectors.joining(", "));
+    }
+
+    /**
+     * What the user reads after "Some of the entered values are not valid:" — the
+     * messages alone, each as a sentence. The field names are the DTO's Java names
+     * ({@code subject}, {@code imap.host}), which say nothing to a user and read as
+     * English inside a Czech sentence; they stay in the log line and in
+     * {@code violations}.
+     */
+    private static String userDetails(List<ValidationViolation> violations) {
+        return violations.stream().map(v -> asSentence(v.message())).filter(sentence -> !sentence.isEmpty()).distinct()
+                .collect(Collectors.joining(" "));
+    }
+
+    private static String asSentence(@Nullable String message) {
+        String text = message == null ? "" : message.strip();
+        if (text.isEmpty() || text.endsWith(".") || text.endsWith("!") || text.endsWith("?")) {
+            return text;
+        }
+        return text + ".";
     }
 
     private static String safeDefaultMessage(@Nullable String message) {

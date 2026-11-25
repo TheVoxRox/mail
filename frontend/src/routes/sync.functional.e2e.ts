@@ -327,9 +327,7 @@ test.describe('Sync notifications', () => {
 		await page.evaluate(() => window.__MAIL_MSW__?.pushSyncFailed());
 
 		const notifications = page.getByRole('region', { name: 'Oznámení' });
-		await expect(
-			notifications.getByText(/Synchronizace účtu tester@example.com selhala/)
-		).toBeVisible();
+		await expect(notifications.getByText(/Účet tester@example.com: /)).toBeVisible();
 
 		/*
 		 * The standing indicator is the part a toast cannot cover — the toast is

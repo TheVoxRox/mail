@@ -48,25 +48,28 @@
     <main class="card">
         <section>
             <h1>Přihlášení se nezdařilo</h1>
-            <p>OAuth2 flow nedošel do konce – typicky proto, že okno bylo otevřené příliš dlouho (vypršela platnost autorizačního kódu), nebo byla restartována aplikace VoxRox Mail mezi zahájením a dokončením.</p>
-            <p>Zavřete prosím toto okno a v aplikaci VoxRox Mail klikněte znovu na <strong>Přidat účet</strong>.</p>
+            <p>Přihlášení se nepodařilo dokončit. Mohlo se stát, že jste přístup v prohlížeči nepovolili, že přihlašovací okno zůstalo otevřené příliš dlouho, nebo že se mezitím aplikace VoxRox Mail restartovala.</p>
+            <p>Zavřete toto okno a v aplikaci VoxRox Mail se přihlaste znovu.</p>
             <p><code id="reason"></code></p>
         </section>
 
         <section class="en" lang="en">
             <h1>Login Failed</h1>
-            <p>The OAuth2 flow could not complete — usually because this window stayed open for too long (the authorization code expired), or VoxRox Mail was restarted in the middle of the flow.</p>
-            <p>Please close this window and click <strong>Add account</strong> again in VoxRox Mail.</p>
+            <p>The sign-in could not be completed. You may have declined access in the browser, the sign-in window may have stayed open too long, or VoxRox Mail may have restarted in the meantime.</p>
+            <p>Close this window and sign in again in VoxRox Mail.</p>
+            <p><code id="reason-en"></code></p>
         </section>
     </main>
     <script>
         // The reason code arrives in the ?reason=... query parameter — show it
-        // as diagnostics the user can pass on to a developer. The server logs
-        // it in parallel to mail.log at WARN level.
+        // as diagnostics the user can pass on to a developer, under each
+        // language's own label. The server logs it in parallel to mail.log at
+        // WARN level.
         const params = new URLSearchParams(window.location.search);
         const reason = params.get('reason');
         if (reason) {
-            document.getElementById('reason').textContent = 'Důvod: ' + reason;
+            document.getElementById('reason').textContent = 'Kód chyby: ' + reason;
+            document.getElementById('reason-en').textContent = 'Error code: ' + reason;
         }
     </script>
 </body>

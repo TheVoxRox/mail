@@ -286,7 +286,7 @@ describe('sync status notifications', () => {
 
 		const [toast] = get(toasts);
 		expect(toast.message).toBe(
-			'Synchronizace účtu jana@example.com selhala: Nepodařilo se spojit s poštovním serverem. Zkontrolujte připojení k internetu.'
+			'Účet jana@example.com: Nepodařilo se spojit s poštovním serverem. Zkontrolujte připojení k internetu.'
 		);
 		// Persistent: "mail stopped arriving" must not scroll away unnoticed.
 		expect(toast.tone).toBe('error');

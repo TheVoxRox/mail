@@ -970,8 +970,11 @@ test.describe('Přístupnost', () => {
 			name: 'Výchozí zobrazení obsahu zprávy'
 		});
 		await expect(messageBodySelect).toHaveCount(1);
-		await expect(messageBodySelect).toHaveAccessibleDescription(/tělo zprávy/);
-		await expect(messageBodySelect.locator('option')).toHaveText(['HTML', 'Prostý text']);
+		await expect(messageBodySelect).toHaveAccessibleDescription(/text zprávy/);
+		await expect(messageBodySelect.locator('option')).toHaveText([
+			'Formátovaný text (HTML)',
+			'Prostý text'
+		]);
 	});
 
 	test('velikost seznamu jde nastavit jedním kliknutím, bez tažení děliče (2.5.7)', async ({
@@ -1085,7 +1088,7 @@ test.describe('Přístupnost', () => {
 		await openApp(page, '/settings/accounts/new');
 		await page.locator('#wizard-email').fill('jana@gmail.com');
 		await page.getByRole('button', { name: 'Pokračovat' }).click();
-		const useImap = page.getByRole('button', { name: 'Použít IMAP a heslo aplikace' });
+		const useImap = page.getByRole('button', { name: 'Přihlásit se heslem aplikace' });
 		await expect(useImap).toBeVisible();
 		await expectNoFindings(page, await wcagScan(page).analyze());
 
@@ -1113,7 +1116,7 @@ test.describe('Přístupnost', () => {
 		}) => {
 			// The per-screen reflow scan sees the wizard's first step only. The
 			// text buttons of the later ones became link-style Buttons (#688), which
-			// did not wrap: "Použít IMAP a heslo aplikace" ran 25px out of its card,
+			// did not wrap: the app-password button ran 25px out of its card,
 			// and at the large text size 41px out of the window. Inside the page's
 			// scroll area and a pixel short of the edge, reflowLosses let the first
 			// pass, hence the check on the cards themselves.
@@ -1132,7 +1135,7 @@ test.describe('Přístupnost', () => {
 			await openApp(page, '/settings/accounts/new');
 			await page.locator('#wizard-email').fill('jana@gmail.com');
 			await page.getByRole('button', { name: 'Pokračovat' }).click();
-			const useImap = page.getByRole('button', { name: 'Použít IMAP a heslo aplikace' });
+			const useImap = page.getByRole('button', { name: 'Přihlásit se heslem aplikace' });
 			await expect(useImap).toBeVisible();
 			expect(await outsideTheirCard()).toEqual([]);
 			expect(await reflowLosses(page)).toEqual([]);
@@ -2106,10 +2109,10 @@ test.describe('Nápověda k ovládacímu prvku se čte jednou', () => {
 			hint: 'Beta dostává nové verze dříve, na otestování před stabilním vydáním. Volba se projeví při příští kontrole aktualizací.'
 		},
 		{
-			name: 'nápověda k Markdownu pod textem zprávy',
+			name: 'nápověda k formátování pod textem zprávy',
 			path: '/compose',
 			control: (page: Page) => page.getByRole('textbox', { name: 'Text zprávy' }),
-			hint: 'Podporuje Markdown: **tučně**, # nadpis, - odrážka.'
+			hint: 'Text můžete formátovat: **tučně**, # nadpis, - odrážka.'
 		}
 	];
 

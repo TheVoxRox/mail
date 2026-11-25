@@ -71,10 +71,10 @@ describe('toErrorMessage', () => {
 		// BE localizes problem.detail via Accept-Language for all error codes,
 		// so the FE just surfaces err.message — no client-side override map.
 		const err = new ApiError(403, 'Forbidden', null, {
-			detail: 'Poskytovatel pošty (OAuth2) odmítl IMAP přístup.',
+			detail: 'Poskytovatel pošty odmítl aplikaci přístup ke schránce.',
 			errorCode: 'MAIL_OAUTH2_IMAP_ACCESS_DENIED'
 		} as never);
-		expect(toErrorMessage(err)).toBe('Poskytovatel pošty (OAuth2) odmítl IMAP přístup.');
+		expect(toErrorMessage(err)).toBe('Poskytovatel pošty odmítl aplikaci přístup ke schránce.');
 		expect(report).not.toHaveBeenCalled();
 	});
 
