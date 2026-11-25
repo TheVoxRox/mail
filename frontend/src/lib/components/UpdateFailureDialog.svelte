@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Collapsible } from 'bits-ui';
 	import { _ } from '#lib/i18n/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { DialogDescription, DialogShell, DialogTitle } from '#lib/components/ui/dialog/index.js';
@@ -29,14 +30,12 @@
 	<DialogTitle>
 		{$_('update.failure.title')}
 	</DialogTitle>
-	<DialogDescription class="space-y-2">
-		<span class="block">{$_('update.failure.description')}</span>
-		{#if message}
-			<span class="block break-words text-xs text-muted-foreground" lang={messageLang}>
-				{message}
-			</span>
-		{/if}
-	</DialogDescription>
+	<!--
+		The description is what a screen reader reads as the dialog opens, so it
+		holds the sentence alone. The updater's own words used to sit in it too,
+		English read out in an English voice before the user knew what happened.
+	-->
+	<DialogDescription>{$_('update.failure.description')}</DialogDescription>
 
 	<div class="mt-5 flex flex-wrap justify-end gap-2">
 		{#if releasesUrl}
@@ -47,4 +46,24 @@
 		{/if}
 		<Button onclick={dismissUpdateFailure}>{$_('common.ok')}</Button>
 	</div>
+
+	<!--
+		The updater's words stay for whoever the user passes them to, behind a
+		disclosure as on the boot failure screen: bits-ui's Collapsible, closed,
+		its closed text `hidden`, marked with its language once shown (3.1.2).
+		After the buttons, because the dialog focuses its first control on open,
+		and that has to stay the way out, not the developer's text.
+	-->
+	{#if message}
+		<Collapsible.Root class="mt-4 flex flex-col items-start gap-2">
+			<Collapsible.Trigger>
+				{#snippet child({ props })}
+					<Button {...props} variant="outline" size="xs">{$_('common.technicalDetails')}</Button>
+				{/snippet}
+			</Collapsible.Trigger>
+			<Collapsible.Content>
+				<p class="text-xs break-words text-muted-foreground" lang={messageLang}>{message}</p>
+			</Collapsible.Content>
+		</Collapsible.Root>
+	{/if}
 </DialogShell>

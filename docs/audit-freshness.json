@@ -144,7 +144,8 @@
       ".github/workflows/windows-signed-release.yml": "01ae5c54c1b9e9d9eec19b63c947be67df0b34c8",
       "frontend/src/lib/components/settings/AboutSettings.svelte": "dd7b7be73e5b10f2f45b2bc0a2e37ab08a64bc06",
       "frontend/src-tauri/src": "3f35e8fb18eff9b8d8497dd16cbcf6e20b55b936",
-      "frontend/src/lib/components/boot/BootErrorView.svelte": "7fae485cff0d5e3a57e3d21799e44b89d5dd3ab3"
+      "frontend/src/lib/components/boot/BootErrorView.svelte": "9f2b14166a26ce7fc4999c185f801eab23a35dfe",
+      "frontend/src/lib/components/UpdateFailureDialog.svelte": "d73f5b6bf2db919049bce1e3b211c9162a5a01ce"
     },
     "acknowledgements": [
       {
@@ -162,6 +163,10 @@
       {
         "date": "2026-11-25",
         "note": "#1023: BootErrorView.svelte takes errorDetail in place of errorLang. The message under the heading is now always in the interface language (bootFailureText.ts), and the error's own English text moves into a bits-ui Collapsible after the diagnostic actions, closed by default and marked lang=en when shown. Every changed line was read. The manual update check (handleCheckForUpdates, checkForUpdateManually, the aria-disabled button and its status region), the retry and restart handlers and the diagnostic actions are byte-identical; the prompt and failure dialogs stay mounted outside the boot-gated block. Display only; nothing reaches the updater, its endpoints or its key. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-25",
+        "note": "#1025: UpdateFailureDialog.svelte keeps update.failure.description alone in the DialogDescription and moves the updater's own message, with its lang, into a bits-ui Collapsible after the button row, closed by default; the releases link keeps RELEASES_URL, target and rel under a new label (update.failure.openReleases, \"Otevřít stránku ke stažení\"). BootErrorView.svelte only takes its disclosure label from common.technicalDetails instead of app.bootFailure.technicalDetails. Every changed line was read. updateFailureState, showUpdateFailure and dismissUpdateFailure are untouched (updates.ts changed in a comment only), and the dialog still opens with focus on its first control, now pinned on the releases link by the boot e2e test. Display only; nothing reaches the updater, its endpoints or its key. Verdict unchanged."
       }
     ]
   }

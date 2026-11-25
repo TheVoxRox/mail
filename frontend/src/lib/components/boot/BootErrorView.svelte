@@ -91,7 +91,7 @@
 				<Collapsible.Trigger>
 					{#snippet child({ props })}
 						<Button {...props} variant="outline" size="xs">
-							{$_('app.bootFailure.technicalDetails')}
+							{$_('common.technicalDetails')}
 						</Button>
 					{/snippet}
 				</Collapsible.Trigger>

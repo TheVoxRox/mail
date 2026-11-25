@@ -632,10 +632,14 @@ test.describe('MSW bootstrap', () => {
 
 		const failure = page.getByRole('dialog', { name: 'Aktualizace se nezdařila' });
 		await expect(failure).toBeVisible();
-		await expect(failure).toContainText('Mock update install failed');
-		// The updater's English words in the Czech dialog are marked as English (3.1.2).
-		await expect(failure.getByText('Mock update install failed')).toHaveAttribute('lang', 'en');
-		await expect(failure.getByRole('link', { name: 'Otevřít GitHub Releases' })).toHaveAttribute(
+		// The description, what a screen reader reads as the dialog opens, is the
+		// Czech sentence alone; the updater's English waits behind a disclosure.
+		await expect(failure).toHaveAccessibleDescription(
+			'Aplikaci se nepodařilo ověřit nebo nainstalovat aktualizaci. Zkuste to znovu později.'
+		);
+		const detail = failure.getByText('Mock update install failed');
+		await expect(detail).toBeHidden();
+		await expect(failure.getByRole('link', { name: 'Otevřít stránku ke stažení' })).toHaveAttribute(
 			'href',
 			'https://github.com/TheVoxRox/mail/releases/latest'
 		);
@@ -647,8 +651,14 @@ test.describe('MSW bootstrap', () => {
 		await expect(
 			page.getByRole('alert').filter({ hasText: 'Aktualizace se nezdařila' })
 		).toHaveCount(0);
-		// Being the only surface only helps if it is the one that has focus.
-		await expect(failure.locator(':focus')).toHaveCount(1);
+		// Being the only surface only helps if it is the one that has focus, and
+		// on the way out, not on the developer's text: the disclosure comes last.
+		await expect(failure.getByRole('link', { name: 'Otevřít stránku ke stažení' })).toBeFocused();
+
+		// Opened, the updater's English words are marked as English (3.1.2).
+		await failure.getByRole('button', { name: 'Technické podrobnosti' }).click();
+		await expect(detail).toBeVisible();
+		await expect(detail).toHaveAttribute('lang', 'en');
 	});
 
 	test('ignoruje stale activeAccountId a použije existující účet', async ({ page }) => {
