@@ -635,7 +635,7 @@ test.describe('MSW bootstrap', () => {
 		// The description, what a screen reader reads as the dialog opens, is the
 		// Czech sentence alone; the updater's English waits behind a disclosure.
 		await expect(failure).toHaveAccessibleDescription(
-			'Aplikaci se nepodařilo ověřit nebo nainstalovat aktualizaci. Zkuste to znovu později.'
+			'Aplikaci se nepodařilo ověřit, nebo nainstalovat aktualizaci. Zkuste to znovu později.'
 		);
 		const detail = failure.getByText('Mock update install failed');
 		await expect(detail).toBeHidden();

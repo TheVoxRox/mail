@@ -1081,7 +1081,7 @@
 		},
 		"failure": {
 			"title": "Aktualizace se nezdařila",
-			"description": "Aplikaci se nepodařilo ověřit nebo nainstalovat aktualizaci. Zkuste to znovu později.",
+			"description": "Aplikaci se nepodařilo ověřit, nebo nainstalovat aktualizaci. Zkuste to znovu později.",
 			"openReleases": "Otevřít stránku ke stažení"
 		}
 	},
