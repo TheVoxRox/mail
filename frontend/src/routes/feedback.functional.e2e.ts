@@ -65,7 +65,7 @@ test.describe('Napište nám', () => {
 		);
 		const body = page.locator('#compose-body');
 		await expect(body).toHaveValue(
-			/^Přesunu zprávu do Archivu a není ani tam, ani v Doručené\.\n\nTechnické údaje:\n- Verze frontendu: /
+			/^Přesunu zprávu do Archivu a není ani tam, ani v Doručené\.\n\nTechnické údaje:\n- Verze aplikace: .+\n- Verze služby pošty: /
 		);
 		await expect(body).toHaveValue(/\n- Jazyk rozhraní: Čeština/);
 		await expect(page.getByText('mail-diagnostic.zip')).toBeVisible();
