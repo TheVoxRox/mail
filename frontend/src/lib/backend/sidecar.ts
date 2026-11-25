@@ -386,10 +386,11 @@ async function spawnBackendSidecar(): Promise<void> {
 		}
 		void handleUnexpectedExit(
 			generation,
+			// The plugin's message is English and says nothing a user can act on, so
+			// the sentence goes without it; it is in the shell log above.
 			new SidecarExitError(
 				`The shell lost track of the backend sidecar: ${message}`,
-				'app.backendExit.spawnFailed',
-				{ detail: message }
+				'app.backendExit.spawnFailed'
 			),
 			// The process ends by the kill above, which the shell asked for.
 			null

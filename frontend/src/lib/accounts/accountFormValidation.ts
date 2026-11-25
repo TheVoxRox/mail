@@ -5,8 +5,8 @@
  *
  * Every field the user can get wrong is checked here, before anything goes to
  * the backend. The backend checks the same fields, but its answer is one line
- * naming them by their Java names ("Chyba ve vstupech: accountName: …"), with
- * no field marked invalid and focus left on the button (WCAG 3.3.1).
+ * of messages that name no field, with no field marked invalid and focus left
+ * on the button (WCAG 3.3.1).
  */
 import { isValidEmailAddress } from '#lib/compose/addresses.js';
 

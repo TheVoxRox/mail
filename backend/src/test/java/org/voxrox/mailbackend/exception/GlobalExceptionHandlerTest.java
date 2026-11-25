@@ -83,7 +83,10 @@ class GlobalExceptionHandlerTest {
             ProblemDetail problem = handler.handleAppException(ex, request);
 
             assertCommonFields(problem, HttpStatus.NOT_FOUND, ErrorCode.ACCOUNT_NOT_FOUND.name());
-            assertThat(problem.getDetail()).contains("42");
+            // The id is the client's to use, not the user's to read: it stays out of the
+            // sentence.
+            assertThat(problem.getDetail()).isEqualTo("E-mailový účet nebyl nalezen. Mohl být mezitím smazán.");
+            assertThat((Object[]) problem.getProperties().get("messageArgs")).containsExactly(42L);
             assertThat(problem.getProperties().get("messageKey")).isEqualTo("error.account.notFound");
             assertThat(problem.getType()).isEqualTo(ERROR_TYPE_BASE.resolve("account_not_found"));
         }
@@ -97,8 +100,25 @@ class GlobalExceptionHandlerTest {
             ProblemDetail problem = handler.handleAppException(ex, request);
 
             assertCommonFields(problem, HttpStatus.NOT_FOUND, ErrorCode.ACCOUNT_NOT_FOUND.name());
-            assertThat(problem.getDetail()).isEqualTo("E-mail account with ID 42 was not found.");
+            assertThat(problem.getDetail())
+                    .isEqualTo("The e-mail account was not found. It may have been deleted in the meantime.");
             assertThat(problem.getProperties().get("messageKey")).isEqualTo("error.account.notFound");
+        }
+
+        @Test
+        @DisplayName("An English message with arguments keeps its apostrophe and its numbers")
+        void apostropheInFormattedMessage_keepsArguments() {
+            // An argument sends the template through MessageFormat, where a lone
+            // apostrophe opens a quote: "contact's" swallowed the rest, numbers included.
+            when(request.getLocale()).thenReturn(Locale.ENGLISH);
+            var ex = new ValidationException("The merged note is too long.", "validation.contactMerge.noteTooLong",
+                    1200, 1000);
+
+            ProblemDetail problem = handler.handleAppException(ex, request);
+
+            assertThat(problem.getDetail())
+                    .isEqualTo("After merging, the contact's note would be 1,200 characters long;"
+                            + " the maximum is 1,000. Shorten a note before merging.");
         }
 
         @Test
@@ -183,7 +203,7 @@ class GlobalExceptionHandlerTest {
     class HandleValidationTests {
 
         @Test
-        @DisplayName("MethodArgumentNotValidException -> 400, detail contains field errors")
+        @DisplayName("MethodArgumentNotValidException -> 400, detail says each error without its field name")
         void validationErrors_returns400WithFieldDetails() {
             // given -- mock BindingResult with two field errors
             FieldError emailError = new FieldError("dto", "email", "must not be blank");
@@ -197,8 +217,10 @@ class GlobalExceptionHandlerTest {
             ProblemDetail problem = handler.handleValidation(ex, request);
 
             assertCommonFields(problem, HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_ERROR.name());
-            assertThat(problem.getDetail()).contains("email").contains("name").contains("must not be blank")
-                    .contains("is too short");
+            // The Java field names stay in the log and in `violations`; the user reads the
+            // messages.
+            assertThat(problem.getDetail())
+                    .isEqualTo("Některé údaje nejsou v pořádku: must not be blank. is too short.");
             assertThat((List<?>) problem.getProperties().get("violations")).hasSize(2);
             assertThat(problem.getType()).isEqualTo(ERROR_TYPE_BASE.resolve("validation_error"));
         }
@@ -215,7 +237,7 @@ class GlobalExceptionHandlerTest {
             ProblemDetail problem = handler.handleValidation(ex, request);
 
             assertCommonFields(problem, HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_ERROR.name());
-            assertThat(problem.getDetail()).contains("password: is required");
+            assertThat(problem.getDetail()).isEqualTo("Některé údaje nejsou v pořádku: is required.");
             assertThat((List<?>) problem.getProperties().get("violations")).hasSize(1);
         }
     }
@@ -235,7 +257,7 @@ class GlobalExceptionHandlerTest {
         }
 
         @Test
-        @DisplayName("ConstraintViolationException -> 400, detail contains path and message")
+        @DisplayName("ConstraintViolationException -> 400, detail contains the messages but not the paths")
         void violation_returns400WithPathAndMessage() {
             var v1 = mockViolation("getAccountById.id", "must be greater than 0");
             var v2 = mockViolation("resolveProvider.email", "must not be blank");
@@ -244,8 +266,9 @@ class GlobalExceptionHandlerTest {
             ProblemDetail problem = handler.handleConstraintViolation(ex, request);
 
             assertCommonFields(problem, HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_ERROR.name());
-            assertThat(problem.getDetail()).contains("getAccountById.id").contains("must be greater than 0")
-                    .contains("resolveProvider.email").contains("must not be blank");
+            assertThat(problem.getDetail()).startsWith("Některé údaje nejsou v pořádku: ")
+                    .contains("must be greater than 0.").contains("must not be blank.")
+                    .doesNotContain("getAccountById.id").doesNotContain("resolveProvider.email");
             assertThat((List<?>) problem.getProperties().get("violations")).hasSize(2);
             assertThat(problem.getType()).isEqualTo(ERROR_TYPE_BASE.resolve("validation_error"));
         }
@@ -298,7 +321,7 @@ class GlobalExceptionHandlerTest {
             ProblemDetail problem = handler.handleGeneric(ex, request);
 
             assertCommonFields(problem, HttpStatus.INTERNAL_SERVER_ERROR, ErrorCode.INTERNAL_ERROR.name());
-            assertThat(problem.getDetail()).contains("vnitřní chybě serveru");
+            assertThat(problem.getDetail()).isEqualTo("Ve službě pošty nastala neočekávaná chyba. Zkuste to znovu.");
             assertThat(problem.getType()).isEqualTo(ERROR_TYPE_BASE.resolve("internal_error"));
         }
 

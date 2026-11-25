@@ -55,7 +55,8 @@
       "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "9a63e7b30dc8989b5d6b4feed56ca1f66027a8a9",
       "backend/src/main/java/org/voxrox/mailbackend/feature/account/controller": "29de14b87711cd6b5d21df2817cb21b3460e68ee",
       "backend/src/main/java/org/voxrox/mailbackend/core/init/HandshakeService.java": "b504284e5331e8a760d783a99d80f7a732600039",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/contact/controller": "a5d3a9cb1ecb3600ade17dd9ed24206985ca0909"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/contact/controller": "a5d3a9cb1ecb3600ade17dd9ed24206985ca0909",
+      "backend/src/main/java/org/voxrox/mailbackend/exception": "4faf538d443a00fc7b31afabc5707e19055de851"
     },
     "acknowledgements": [
       {
@@ -81,6 +82,10 @@
       {
         "date": "2026-11-24",
         "note": "#1013: the @Operation description of POST /api/v1/contacts/bulk only, in ContactController. Every changed line was read. It claimed validation errors do not affect the rest; it now says what the code does, measured on the sidecar: a field failing bean validation in any item refuses the whole request with 400 before anything is written, and what the service refuses (a duplicate, a missing label) fails per item. No route, parameter, constraint, status or error code moves; the OpenAPI snapshot and schema.d.ts change in that description alone. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-25",
+        "note": "#1028: GlobalExceptionHandler only. The three validation handlers now render error.validation with userDetails(violations), the constraint messages alone, each made a sentence and de-duplicated, where they passed validationDetails, which prefixed each with its Java field name; the log line and the `violations` property still carry the field names. Every changed line was read. The messages are the same bundle and annotation texts as before, so §3's verdict holds: no exception text reaches detail or messageArgs. Two sentences of §3 now describe the previous text and need rewording at the re-verification: validation errors no longer \"list each field\", and the catch-all's bundle text is \"The mail service ran into an unexpected error. Try again.\" rather than the quoted \"An internal server error occurred.\" (messages_*.properties, which the audit does not list)."
       }
     ]
   },
@@ -127,7 +132,7 @@
   "docs/OAUTH_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/feature/auth": "5185cc3d651925bb8565dced4c8f991ad60280dd",
-      "backend/src/main/resources/static": "039826a37490cccf14027d56f1bad97ac7216361"
+      "backend/src/main/resources/static": "0f10d0257af1ec5236075cde67b2bdc2ea3200d1"
     },
     "acknowledgements": [
       {
@@ -137,6 +142,10 @@
       {
         "date": "2026-11-17",
         "note": "Unused lambda parameters renamed to `_` (Java unnamed variables) so Eclipse JDT stops flagging them, and nothing else: every changed line was read, each swaps one parameter name for `_` in a lambda whose body never named it. Arity and parameter types are unchanged, so the same overloads resolve and the same code runs. Here: the computeIfAbsent key in OAuth2TokenService's per-account refresh lock (id); the lock itself and everything it guards are untouched. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-25",
+        "note": "#1028: auth-failed.html only, its words: both language halves explain the failure without \"OAuth2 flow\" and \"authorization code\" and no longer send a re-sign-in to Add account, and the reason now shows under a label in each language, in #reason and a new #reason-en. Every changed line was read. The script still writes the ?reason= value with textContent only, so the Failure hygiene claim holds; auth-finished.html is unchanged."
       },
       {
         "date": "2026-11-25",

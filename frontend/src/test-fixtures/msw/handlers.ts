@@ -123,7 +123,7 @@ function validateAccountPayload(
 	if (hasProvider && (hasImap || hasSmtp)) {
 		return problem(
 			400,
-			'Použijte buď providerId, nebo vlastní IMAP/SMTP konfiguraci.',
+			'Vyberte buď poskytovatele, nebo vyplňte celé vlastní nastavení serverů, ne obojí.',
 			'ACCOUNT_XOR'
 		);
 	}
@@ -131,7 +131,7 @@ function validateAccountPayload(
 	if (!hasProvider && !hasImap && !hasSmtp) {
 		return problem(
 			400,
-			'Chybí providerId nebo vlastní IMAP/SMTP konfigurace.',
+			'Vyberte buď poskytovatele, nebo vyplňte celé vlastní nastavení serverů, ne obojí.',
 			'ACCOUNT_CONFIG_REQUIRED'
 		);
 	}
@@ -408,7 +408,7 @@ function accountRoutes(
 				HttpResponse.json({
 					imapOk: true,
 					smtpOk: true,
-					message: 'IMAP i SMTP připojení bylo úspěšně ověřeno.'
+					message: 'Připojení k serverům pro příjem i odesílání pošty je ověřené.'
 				})
 			);
 		});
@@ -831,7 +831,7 @@ function contactRoutes(
 			const sourceIds = requestBody.source ?? [];
 			const uniqueSourceIds = [...new Set(sourceIds)];
 			if (uniqueSourceIds.length !== sourceIds.length) {
-				return problem(400, 'Seznam source obsahuje duplicitní ID.', 'VALIDATION_ERROR');
+				return problem(400, 'Některý kontakt je mezi slučovanými vícekrát.', 'VALIDATION_ERROR');
 			}
 			if (uniqueSourceIds.includes(contactId)) {
 				return problem(

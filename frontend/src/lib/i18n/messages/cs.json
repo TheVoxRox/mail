@@ -27,19 +27,19 @@
 			"schemaMismatch": "Tato verze aplikace neumí otevřít vaše data, přestože jsou v pořádku. Nainstalujte nejnovější verzi z voxrox.org, starší instalátor použít nejde.",
 			"storageUnavailable": "Aplikace nemůže otevřít svou datovou složku. Zkontrolujte, že disk není plný a že neběží jiná kopie aplikace, a zkuste to znovu.",
 			"alreadyRunning": "Aplikace už běží na pozadí. Podívejte se na hlavní panel nebo do Správce úloh (proces „voxrox-mail-backend“), nebo zhruba 30 sekund počkejte a zkuste to znovu.",
-			"outOfMemory": "Službě pošty došla paměť a sama se ukončila (kód 3). Spusťte aplikaci znovu. Pokud se to opakuje, bývá na vině jedna nadměrně velká zpráva ve schránce – kontaktujte podporu.",
+			"outOfMemory": "Službě pošty došla paměť a sama se ukončila. Spusťte aplikaci znovu. Pokud se to opakuje, bývá na vině jedna nadměrně velká zpráva ve schránce – kontaktujte podporu.",
 			"terminated": "Službu pošty ukončil systém (kód {code}). Zkuste aplikaci spustit znovu.",
 			"signal": "Službu pošty ukončil signál {signal}. Zkuste aplikaci spustit znovu.",
 			"failed": "Službu pošty se nepodařilo spustit (kód {code}). Zkuste aplikaci spustit znovu, a pokud to nepomůže, kontaktujte podporu.",
-			"spawnFailed": "Službu pošty se nepodařilo spustit: {detail}"
+			"spawnFailed": "Aplikace ztratila spojení se službou pošty. Restartujte službu pošty, případně aplikaci spusťte znovu."
 		},
 		"downloadDiagnostic": "Stáhnout diagnostiku",
 		"downloadingDiagnostic": "Stahuji diagnostiku…",
 		"diagnosticUnavailable": "Diagnostiku půjde stáhnout, až se aplikace připojí ke službě pošty.",
-		"saveLogs": "Uložit logy",
-		"savingLogs": "Ukládám logy…",
-		"logsSaved": "Logy jsou uložené v souboru {path}.",
-		"logsSaveFailed": "Logy se nepodařilo uložit. Důvod je zapsaný v logu aplikace.",
+		"saveLogs": "Uložit protokoly",
+		"savingLogs": "Ukládám protokoly…",
+		"logsSaved": "Protokoly jsou uložené v souboru {path}.",
+		"logsSaveFailed": "Protokoly se nepodařilo uložit. Zkuste to prosím znovu.",
 		"sessionLabel": "Backend:",
 		"sessionLoading": "načítám session.json…",
 		"sessionNotInitialized": "neinicializováno",
@@ -56,7 +56,7 @@
 		"opensInNewWindow": "(otevírá se v novém okně)",
 		"technicalDetails": "Technické podrobnosti",
 		"close": "Zavřít",
-		"errorHttpStatus": "Služba pošty odpověděla chybou {status}.",
+		"errorHttpStatus": "Akci se nepodařilo dokončit (kód chyby {status}). Zkuste to znovu.",
 		"errorUnexpected": "Nastala neočekávaná chyba."
 	},
 	"nav": {
@@ -278,7 +278,7 @@
 		"fieldBcc": "Skrytá kopie:",
 		"fieldSubject": "Předmět:",
 		"bodyLabel": "Text zprávy",
-		"markdownHint": "Podporuje Markdown: **tučně**, # nadpis, - odrážka.",
+		"markdownHint": "Text můžete formátovat: **tučně**, # nadpis, - odrážka.",
 		"addAttachment": "Přidat přílohu",
 		"attachmentDropZone": "Přílohy zprávy",
 		"dropAttachmentsHint": "Přetáhněte sem soubory nebo vložte přílohu ze schránky.",
@@ -328,7 +328,7 @@
 		"addFirstAccount": "Přidat první účet",
 		"none": "Zatím zde nemáte žádný e-mailový účet.",
 		"emptyHeading": "Přidejte první poštovní účet",
-		"emptyDescription": "Začněte e-mailovou adresou. Známé poskytovatele předvyplníme automaticky, u ostatních můžete zadat vlastní IMAP/SMTP.",
+		"emptyDescription": "Začněte e-mailovou adresou. Známé poskytovatele předvyplníme automaticky, u ostatních zadáte nastavení serverů ručně.",
 		"noProvider": "bez poskytovatele",
 		"oauthProviderMissing": "Pro tohoto poskytovatele není nastavené OAuth přihlášení.",
 		"statusActive": "Aktivní",
@@ -381,8 +381,8 @@
 			"serverModeLabel": "Konfigurace serveru",
 			"serverModeProvider": "Vybrat poskytovatele",
 			"serverModeCustom": "Vlastní nastavení",
-			"serverModeSwitchToProviderWarning": "Po výběru šablony se vlastní IMAP/SMTP nastavení přepíšou hodnotami šablony.",
-			"serverModeSwitchToCustomWarning": "Po přepnutí na vlastní nastavení se reference na šablonu zruší.",
+			"serverModeSwitchToProviderWarning": "Po výběru poskytovatele se vaše vlastní nastavení serverů nahradí nastavením poskytovatele.",
+			"serverModeSwitchToCustomWarning": "Adresy serverů se předvyplní podle poskytovatele a dál je spravujete sami.",
 			"customServerLegend": "Poštovní servery",
 			"customServerHint": "Zadejte hostitele a porty pro příchozí (IMAP) i odchozí (SMTP) server. Údaje najdete v dokumentaci poskytovatele e-mailu.",
 			"imapHeading": "IMAP (příchozí pošta)",
@@ -419,7 +419,7 @@
 			"testConnection": "Otestovat připojení",
 			"testingConnection": "Testuji připojení…",
 			"verifyingCredentials": "Ověřuji přihlášení…",
-			"testConnectionSuccess": "IMAP i SMTP připojení bylo úspěšně ověřeno.",
+			"testConnectionSuccess": "Připojení k serverům pro příjem i odesílání pošty je ověřené.",
 			"submitCreate": "Vytvořit",
 			"submitSave": "Uložit"
 		},
@@ -429,12 +429,12 @@
 			"continue": "Pokračovat",
 			"detecting": "Hledám poskytovatele…",
 			"manualSetup": "Nastavit ručně",
-			"useImapInstead": "Použít IMAP a heslo aplikace",
+			"useImapInstead": "Přihlásit se heslem aplikace",
 			"backToEmail": "Zadat jiný e-mail",
 			"oauthConfirmHeading": "Přihlášení k účtu {email}",
 			"oauthWaitingHeading": "Čekám na dokončení v prohlížeči…",
 			"oauthWaitingHint": "Až se přihlásíte k účtu {email}, automaticky ho přidáme.",
-			"oauthWaitingTimeout": "Přihlášení přes OAuth trvá déle, než je obvyklé. Pokud jste ho v prohlížeči dokončili, účet už mohl být přidán – zkontrolujte seznam účtů, nebo to zkuste znovu.",
+			"oauthWaitingTimeout": "Přihlášení v prohlížeči trvá déle, než je obvyklé. Pokud jste ho dokončili, účet už mohl být přidán – zkontrolujte seznam účtů, nebo to zkuste znovu.",
 			"oauthAddedAsOther": "V prohlížeči jste se přihlásili jako {email}, a tak byl přidán účet s touto adresou.",
 			"oauthAccountExists": "Účet {email} už v aplikaci je. Pokud vyžaduje nové přihlášení, použijte u něj v seznamu účtů tlačítko Znovu přihlásit.",
 			"cancel": "Zrušit",
@@ -532,7 +532,7 @@
 		"loading": "Načítám…",
 		"empty": "Žádné kontakty.",
 		"emptyLabeled": "Žádný kontakt se štítkem {label}.",
-		"renderError": "Seznam kontaktů se nepodařilo zobrazit – data ze služby pošty mají neočekávanou podobu.",
+		"renderError": "Seznam kontaktů se kvůli chybě v aplikaci nepodařilo zobrazit.",
 		"renderErrorRetry": "Načíst kontakty znovu",
 		"sortLabel": "Řadit podle",
 		"sortOptions": {
@@ -682,9 +682,9 @@
 			},
 			"messageBody": {
 				"heading": "Výchozí zobrazení obsahu zprávy",
-				"hint": "Zvolte, jak se vykreslí tělo zprávy. Volba platí pro všechny zprávy, dokud ji znovu nezměníte.",
+				"hint": "Zvolte, jak se zobrazí text zprávy. Volba platí pro všechny zprávy, dokud ji znovu nezměníte.",
 				"options": {
-					"html": "HTML",
+					"html": "Formátovaný text (HTML)",
 					"plain": "Prostý text"
 				}
 			},
@@ -854,7 +854,7 @@
 				"apiKey": "Klíč API:",
 				"downloadDump": "Stáhnout diagnostiku",
 				"downloadingDump": "Stahuji…",
-				"dumpHint": "ZIP s logy a stavem aplikace pro vývojáře. Bez hesel, tokenů a obsahu zpráv.",
+				"dumpHint": "Soubor, podle kterého vývojáři snáz najdou příčinu chyby. Nejsou v něm hesla, přihlašovací údaje ani obsah zpráv.",
 				"reportProblem": "Nahlásit problém nebo navrhnout funkci"
 			},
 			"licenses": {
@@ -1095,7 +1095,7 @@
 		"sendFailedRecoveryDraft": "Zprávu se nepodařilo odeslat příjemci {recipient}. Obsah je uložen ve složce Rozepsané.",
 		"sendUnverified": "Výsledek odeslání příjemci {recipient} se nepodařilo ověřit – zkontrolujte složku Odeslané.",
 		"syncFailed": "Synchronizace účtu {account} selhala. Nová pošta zatím nechodí.",
-		"syncFailedDetail": "Synchronizace účtu {account} selhala: {detail}",
+		"syncFailedDetail": "Účet {account}: {detail}",
 		"syncRecovered": "Synchronizace účtu {account} znovu funguje."
 	},
 	"tray": {
