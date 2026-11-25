@@ -37,6 +37,10 @@ describe('the email address vectors shared with the backend', () => {
 	it.each(vectors)('$why', (vector) => {
 		expect(isValidEmailAddress(vector.address)).toBe(vector.valid);
 	});
+
+	it('refuses an address of thousands of domain labels, as the backend does (A8)', () => {
+		expect(isValidEmailAddress(`jan@${'a.'.repeat(20_000)}cz`)).toBe(false);
+	});
 });
 
 describe('parseAddressList — split on , ; or newline', () => {

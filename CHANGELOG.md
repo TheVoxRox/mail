@@ -66,6 +66,13 @@ Entries before 2026-09-17 predate that split and are left as written.
   languages. The English note-too-long message on a contact merge shows its
   numbers again: the apostrophe in "contact's" had swallowed them as
   "{0}" (#1028).
+- A received message whose sender's address has thousands of domain labels no
+  longer stops its folder's sync. The address rule matched the domain with a
+  regex that recursed once per label, so such an address overflowed the stack
+  while the sync collected correspondents: the whole batch rolled back on every
+  pass, and nothing on the account said why. A request carrying one answered 500. The rule now refuses an address longer than 254 characters, the longest
+  an SMTP path carries, before it matches, and the compose form counts the
+  same way (API surface audit A8, #1031).
 
 ### Frontend
 

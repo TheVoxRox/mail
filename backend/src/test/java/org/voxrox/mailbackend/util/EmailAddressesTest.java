@@ -100,6 +100,19 @@ class EmailAddressesTest {
     }
 
     @Test
+    @DisplayName("An address of thousands of domain labels is refused, not a stack overflow (A8)")
+    void manyDomainLabelsAreRefusedWithoutOverflow() {
+        // The domain's repeated group recursed once per label in the regex engine:
+        // a few thousand labels overflowed the stack, in a request and in a sync's
+        // harvest of a received header alike.
+        String address = "jan@" + "a.".repeat(20_000) + "cz";
+        assertThat(EmailAddresses.isValid(address)).isFalse();
+        assertThat(HeaderAddresses.parseLabel("Jan <" + address + ">")).isNull();
+        assertThat(HeaderAddresses.parseValidTokens(address + ", eva@seznam.cz")).extracting(InternetAddress::getAddress)
+                .containsExactly("eva@seznam.cz");
+    }
+
+    @Test
     @DisplayName("The send path refuses a recipient field over one token that is not an address")
     void sendPathRefusesTheWholeFieldOverOneToken() {
         assertThatThrownBy(() -> HeaderAddresses.parseAllValid("ok@seznam.cz, jan.@seznam.cz"))
