@@ -48,47 +48,6 @@
     "Both clocks reset the same way: re-verify the audit, bump `Audited commit`,",
     "and delete the entry from this file."
   ],
-  "docs/API_SURFACE_AUDIT.md": {
-    "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/contact/dto": "c7251c9b9088a959ca5653e0d3bf735505ffdd7c",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/account/dto": "c3424f22589ca8f9496ccb0df7c8a0017f76794a",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/mail/dto": "9a63e7b30dc8989b5d6b4feed56ca1f66027a8a9",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/account/controller": "29de14b87711cd6b5d21df2817cb21b3460e68ee",
-      "backend/src/main/java/org/voxrox/mailbackend/core/init/HandshakeService.java": "b504284e5331e8a760d783a99d80f7a732600039",
-      "backend/src/main/java/org/voxrox/mailbackend/feature/contact/controller": "a5d3a9cb1ecb3600ade17dd9ed24206985ca0909",
-      "backend/src/main/java/org/voxrox/mailbackend/exception": "4faf538d443a00fc7b31afabc5707e19055de851"
-    },
-    "acknowledgements": [
-      {
-        "date": "2026-11-20",
-        "note": "ContactResponse: name and surname typed @Nullable, plus a javadoc. Every changed line was read. The mapper now stores a blank name as null, which the column always allowed and the response always carried for a contact without a name; the annotation states it for NullAway. springdoc does not render jspecify @Nullable, so OpenApiSnapshotTest passes unchanged and no route, field, constraint or error path moves. Nothing a caller sends changed. Verdict unchanged."
-      },
-      {
-        "date": "2026-11-20",
-        "note": "Compact constructors on the request records (AccountCreateRequest, AccountUpdateRequest, AccountConnectionTestRequest, MailServerSettings, ContactCreateRequest, ContactUpdateRequest, ContactEmailRequest, ContactLabelCreateRequest, ContactLabelUpdateRequest, MailRequest, DraftRequest) strip the text the user types with StoredText before Bean Validation runs; the optional components they null are typed @Nullable. Every changed line was read. Passwords, bodies, folder refs and attachment data are untouched. No route, field, constraint or error code changes and OpenApiSnapshotTest passes unchanged: the same constraints now read the stripped value, so a required field of no-break spaces alone is refused where it was accepted, @Size measures what is stored, and no input is accepted that was refused before. Verdict unchanged."
-      },
-      {
-        "date": "2026-11-21",
-        "note": "#988: @Email replaced by @EmailAddress (EmailAddresses, the rule the frontend validates by) on AccountCreateRequest, AccountUpdateRequest, AccountConnectionTestRequest, ContactEmailRequest and the email parameter of MailProviderController.resolveProvider, with the same message key; MailRequest to, cc and bcc gain @EmailAddressList (validation.mail.recipientInvalid). Every changed line was read. No route, field or error code moves, and OpenApiSnapshotTest passes unchanged: OpenApiConfig writes format: email for the new annotation as springdoc did for @Email. The accepted set only narrows over the shared vectors: jan@moje_firma.cz, a dotless domain, an IP literal, a quoted local part and a no-break space are refused where @Email took them, and nothing @Email refused is accepted. A send with a recipient that is not an address is a 400 before the send starts instead of a background failure. Verdict unchanged."
-      },
-      {
-        "date": "2026-11-23",
-        "note": "#997: the app_started audit event's dbSchemaChecksum, the newest applied migration's checksum, becomes dbSchemaChecksums, the version and recorded checksum of every applied migration read from Flyway's MigrationInfoService (V1:<n>,V2:<none>). Every changed line was read. The values are migration versions and the integers Flyway keeps in flyway_schema_history, no secret and nothing a request supplies. session.json, the handshake response, the API key and its generation, the port and the ready gate are untouched, and no route, field or error path moves. Verdict unchanged."
-      },
-      {
-        "date": "2026-11-24",
-        "note": "#1012: @Valid moves from the list to its element type on ContactCreateRequest.emails, ContactUpdateRequest.emails and BulkContactCreateRequest.contacts (List<@Valid ...>), the form Hibernate Validator asks for instead of the deprecated one it logged as HV000271. Every changed line was read. The cascade is the same: an invalid address inside the list is a 400 with the violation on emails[0].email or contacts[0].emails[0].email and the service is not called, now pinned for create, update and bulk create; both new tests fail with the annotation removed. Constraints, routes, fields and error codes are unchanged and OpenApiSnapshotTest passes unchanged. Verdict unchanged."
-      },
-      {
-        "date": "2026-11-24",
-        "note": "#1013: the @Operation description of POST /api/v1/contacts/bulk only, in ContactController. Every changed line was read. It claimed validation errors do not affect the rest; it now says what the code does, measured on the sidecar: a field failing bean validation in any item refuses the whole request with 400 before anything is written, and what the service refuses (a duplicate, a missing label) fails per item. No route, parameter, constraint, status or error code moves; the OpenAPI snapshot and schema.d.ts change in that description alone. Verdict unchanged."
-      },
-      {
-        "date": "2026-11-25",
-        "note": "#1028: GlobalExceptionHandler only. The three validation handlers now render error.validation with userDetails(violations), the constraint messages alone, each made a sentence and de-duplicated, where they passed validationDetails, which prefixed each with its Java field name; the log line and the `violations` property still carry the field names. Every changed line was read. The messages are the same bundle and annotation texts as before, so §3's verdict holds: no exception text reaches detail or messageArgs. Two sentences of §3 now describe the previous text and need rewording at the re-verification: validation errors no longer \"list each field\", and the catch-all's bundle text is \"The mail service ran into an unexpected error. Try again.\" rather than the quoted \"An internal server error occurred.\" (messages_*.properties, which the audit does not list)."
-      }
-    ]
-  },
   "docs/CRYPTO_STORAGE_AUDIT.md": {
     "reviewedTrees": {
       "backend/src/main/java/org/voxrox/mailbackend/core/init": "3a662cc7b24259c517a45651cdedca497bf9b628"
