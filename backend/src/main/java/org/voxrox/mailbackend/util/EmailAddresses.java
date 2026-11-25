@@ -69,8 +69,8 @@ public final class EmailAddresses {
      * Whether {@code address} is an email address by the rule above. The length is
      * checked before the match: the domain's repeated group recurses once per label
      * in Java's regex engine, and a few thousand labels overflowed the stack, in a
-     * request and in a sync's harvest of a received header alike (API surface audit,
-     * A8).
+     * request and in a sync's harvest of a received header alike (API surface
+     * audit, A8).
      */
     public static boolean isValid(@Nullable String address) {
         return address != null && address.length() <= MAX_LENGTH && ADDRESS.matcher(address).matches();

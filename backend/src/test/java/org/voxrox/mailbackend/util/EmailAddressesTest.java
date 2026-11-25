@@ -108,8 +108,8 @@ class EmailAddressesTest {
         String address = "jan@" + "a.".repeat(20_000) + "cz";
         assertThat(EmailAddresses.isValid(address)).isFalse();
         assertThat(HeaderAddresses.parseLabel("Jan <" + address + ">")).isNull();
-        assertThat(HeaderAddresses.parseValidTokens(address + ", eva@seznam.cz")).extracting(InternetAddress::getAddress)
-                .containsExactly("eva@seznam.cz");
+        assertThat(HeaderAddresses.parseValidTokens(address + ", eva@seznam.cz"))
+                .extracting(InternetAddress::getAddress).containsExactly("eva@seznam.cz");
     }
 
     @Test

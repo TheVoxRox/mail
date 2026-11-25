@@ -34,11 +34,11 @@ import com.icegreen.greenmail.util.ServerSetup;
 /**
  * A received message whose sender has thousands of domain labels, over a live
  * IMAP connection (GreenMail). The sync harvests the sender as a correspondent
- * through the address rule, inside the batch's transaction, and the rule's regex
- * recursed once per label: the stack overflowed, the batch rolled back, and the
- * folder stopped syncing on every pass with nothing on the account to say why.
- * Found by the pass of API surface audit 1.34 (A8); the rule now refuses an
- * address longer than 254 characters before it matches.
+ * through the address rule, inside the batch's transaction, and the rule's
+ * regex recursed once per label: the stack overflowed, the batch rolled back,
+ * and the folder stopped syncing on every pass with nothing on the account to
+ * say why. Found by the pass of API surface audit 1.34 (A8); the rule now
+ * refuses an address longer than 254 characters before it matches.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "mail.client.sync.initial-delay=PT1H", "mail.test-context=ManyLabelSenderGreenMailIT"})
