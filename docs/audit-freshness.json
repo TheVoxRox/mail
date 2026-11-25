@@ -56,7 +56,7 @@
       "backend/src/main/java/org/voxrox/mailbackend/feature/account/controller": "29de14b87711cd6b5d21df2817cb21b3460e68ee",
       "backend/src/main/java/org/voxrox/mailbackend/core/init/HandshakeService.java": "b504284e5331e8a760d783a99d80f7a732600039",
       "backend/src/main/java/org/voxrox/mailbackend/feature/contact/controller": "a5d3a9cb1ecb3600ade17dd9ed24206985ca0909",
-      "backend/src/main/java/org/voxrox/mailbackend/exception": "8e55ed37944d017ade0ed41ddf0683636fb15c7e"
+      "backend/src/main/java/org/voxrox/mailbackend/exception": "4faf538d443a00fc7b31afabc5707e19055de851"
     },
     "acknowledgements": [
       {
