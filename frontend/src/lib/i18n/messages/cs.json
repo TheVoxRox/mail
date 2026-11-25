@@ -934,8 +934,8 @@
 				},
 				"technical": {
 					"heading": "Technické údaje:",
-					"clientVersion": "Verze frontendu: {version}",
-					"backendVersion": "Verze backendu: {version}",
+					"clientVersion": "Verze aplikace: {version}",
+					"backendVersion": "Verze služby pošty: {version}",
 					"backendUnavailable": "nedostupná",
 					"channel": "Kanál aktualizací: {channel}",
 					"channels": {
