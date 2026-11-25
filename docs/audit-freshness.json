@@ -142,7 +142,8 @@
   "docs/UPDATER_AUDIT.md": {
     "reviewedTrees": {
       ".github/workflows/windows-signed-release.yml": "01ae5c54c1b9e9d9eec19b63c947be67df0b34c8",
-      "frontend/src/lib/components/settings/AboutSettings.svelte": "dd7b7be73e5b10f2f45b2bc0a2e37ab08a64bc06"
+      "frontend/src/lib/components/settings/AboutSettings.svelte": "dd7b7be73e5b10f2f45b2bc0a2e37ab08a64bc06",
+      "frontend/src-tauri/src": "3f35e8fb18eff9b8d8497dd16cbcf6e20b55b936"
     },
     "acknowledgements": [
       {
@@ -152,6 +153,10 @@
       {
         "date": "2026-11-24",
         "note": "The Contact us page. The one change in AboutSettings.svelte is a link to settings/feedback under the diagnostics button, plus the resolve import it needs. The update channel select, the startup-check toggle, checkForUpdateManually and its status line are byte-identical; nothing reaches the updater, its endpoints or its key. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-25",
+        "note": "#1021: the one change under frontend/src-tauri/src is in lib.rs, where the main window's builder takes the title \"VoxRox Mail\" instead of a Czech loading title, with the comment above it rewritten. Every changed line was read. The window label, URL, size, data directory, browser arguments and every other builder call are byte-identical, as are the updater commands (check_for_update, download_pending_update, install_pending_update), the pending-update state, the endpoints, the public key and the capabilities. A window title reaches nothing on the update path. Verdict unchanged."
       }
     ]
   }
