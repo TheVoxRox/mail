@@ -124,7 +124,8 @@ Entries before 2026-09-17 predate that split and are left as written.
   collapsed **Technické podrobnosti** after the buttons, as on the start
   failure screen, and focus still lands on the way out. The button to the
   releases page is called **Otevřít stránku ke stažení**, not "Otevřít GitHub
-  Releases" (#1025).
+  Releases" (#1025). Its sentence reads "Aplikaci se nepodařilo ověřit, nebo
+  nainstalovat aktualizaci", with the comma the maintainer asked for (#1026).
 - A feedback report lists **Verze aplikace** and **Verze služby pošty** among
   its technical details, the labels Settings → About shows, where it said
   "Verze frontendu" and "Verze backendu". The user reads those lines in the
