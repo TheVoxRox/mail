@@ -48,15 +48,35 @@
     <main class="card">
         <section>
             <h1>Přihlášení se nezdařilo</h1>
-            <p>Přihlášení se nepodařilo dokončit. Mohlo se stát, že jste přístup v prohlížeči nepovolili, že přihlašovací okno zůstalo otevřené příliš dlouho, nebo že se mezitím aplikace VoxRox Mail restartovala.</p>
-            <p>Zavřete toto okno a v aplikaci VoxRox Mail se přihlaste znovu.</p>
+            <div data-reason="">
+                <p>Přihlášení se nepodařilo dokončit. Mohlo se stát, že jste přístup v prohlížeči nepovolili, že přihlašovací okno zůstalo otevřené příliš dlouho, nebo že se mezitím aplikace VoxRox Mail restartovala.</p>
+                <p>Zavřete toto okno a v aplikaci VoxRox Mail se přihlaste znovu.</p>
+            </div>
+            <div data-reason="missing_scope" hidden>
+                <p>Aplikace VoxRox Mail nedostala při přihlášení přístup k vaší poště.</p>
+                <p>Zavřete toto okno, v aplikaci VoxRox Mail se přihlaste znovu a na stránce poskytovatele přístup k poště povolte.</p>
+            </div>
+            <div data-reason="account_already_exists" hidden>
+                <p>Účet s touto e-mailovou adresou už v aplikaci VoxRox Mail je, ale přihlašuje se jinak. Nový účet se proto nepřidal.</p>
+                <p>Zavřete toto okno. Účet najdete v aplikaci VoxRox Mail v Nastavení, Účty.</p>
+            </div>
             <p><code id="reason"></code></p>
         </section>
 
         <section class="en" lang="en">
             <h1>Login Failed</h1>
-            <p>The sign-in could not be completed. You may have declined access in the browser, the sign-in window may have stayed open too long, or VoxRox Mail may have restarted in the meantime.</p>
-            <p>Close this window and sign in again in VoxRox Mail.</p>
+            <div data-reason="">
+                <p>The sign-in could not be completed. You may have declined access in the browser, the sign-in window may have stayed open too long, or VoxRox Mail may have restarted in the meantime.</p>
+                <p>Close this window and sign in again in VoxRox Mail.</p>
+            </div>
+            <div data-reason="missing_scope" hidden>
+                <p>VoxRox Mail was not given access to your mail when you signed in.</p>
+                <p>Close this window, sign in again in VoxRox Mail, and allow access to your mail on the provider's page.</p>
+            </div>
+            <div data-reason="account_already_exists" hidden>
+                <p>VoxRox Mail already has an account with this email address, which signs in another way, so no new account was added.</p>
+                <p>Close this window. You will find the account in VoxRox Mail under Settings, Accounts.</p>
+            </div>
             <p><code id="reason-en"></code></p>
         </section>
     </main>
@@ -70,6 +90,15 @@
         if (reason) {
             document.getElementById('reason').textContent = 'Kód chyby: ' + reason;
             document.getElementById('reason-en').textContent = 'Error code: ' + reason;
+        }
+        // A reason this page has words of its own for shows them in place of
+        // the general ones, in both languages: the codes whose advice differs
+        // from signing in again. Any other code keeps the general text. The
+        // code is only compared, never used as markup or as a selector.
+        const blocks = document.querySelectorAll('[data-reason]');
+        const known = Array.from(blocks).some((block) => block.dataset.reason === reason);
+        for (const block of blocks) {
+            block.hidden = block.dataset.reason !== (known ? reason : '');
         }
     </script>
 </body>

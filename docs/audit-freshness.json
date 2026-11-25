@@ -131,8 +131,8 @@
   },
   "docs/OAUTH_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/auth": "1572154df1f22cad718dcea856cce1581f068549",
-      "backend/src/main/resources/static": "bcf7f7b7124dd4b99fec01531a0e6148f7d91c3d"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/auth": "5185cc3d651925bb8565dced4c8f991ad60280dd",
+      "backend/src/main/resources/static": "0f10d0257af1ec5236075cde67b2bdc2ea3200d1"
     },
     "acknowledgements": [
       {
@@ -146,6 +146,10 @@
       {
         "date": "2026-11-25",
         "note": "#1028: auth-failed.html only, its words: both language halves explain the failure without \"OAuth2 flow\" and \"authorization code\" and no longer send a re-sign-in to Add account, and the reason now shows under a label in each language, in #reason and a new #reason-en. Every changed line was read. The script still writes the ?reason= value with textContent only, so the Failure hygiene claim holds; auth-finished.html is unchanged."
+      },
+      {
+        "date": "2026-11-25",
+        "note": "#1029: OAuth2CallbackController#success and auth-failed.html, which move one claim, so the audit says so in 1.10 (§1, failure hygiene) rather than here alone. Every changed line was read. /success now catches what the guards, the persistence and its own two checks throw and redirects to auth-failed.html with a code from a fixed map keyed by message key, login_failed otherwise; no exception text, address or message sentence reaches the URL, and the code is [a-z_] so it needs no encoding. The session invalidation and the authorized-client removal stay in their finally blocks, before and after the catch alike, and the tests assert both on the rejection paths. The page compares the code with the data-reason values of fixed blocks and writes it with textContent; it is never markup or a selector. Logging keeps GlobalExceptionHandler's levels (AppException WARN with the log message, which masks the address at the source; anything else ERROR with the stack). No route, permission, token handling or state check moves. Verdict unchanged."
       }
     ]
   },

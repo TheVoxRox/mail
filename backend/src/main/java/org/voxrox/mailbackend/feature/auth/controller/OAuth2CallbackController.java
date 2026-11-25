@@ -1,11 +1,15 @@
 package org.voxrox.mailbackend.feature.auth.controller;
 
+import java.util.Map;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
@@ -18,8 +22,10 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.voxrox.mailbackend.exception.AppException;
 import org.voxrox.mailbackend.exception.ValidationException;
 import org.voxrox.mailbackend.feature.auth.service.OAuth2LoginService;
+import org.voxrox.mailbackend.util.LogCategory;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -35,7 +41,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
  * <li>{@code GET /success} — shared callback after a successful authorization.
  * {@link OAuth2AuthenticationToken#getAuthorizedClientRegistrationId()}
  * determines which provider completed the login; {@link OAuth2LoginService}
- * then resolves the matching claims extractor and token service.</li>
+ * then resolves the matching claims extractor and token service. A sign-in it
+ * rejects ends on {@code /auth-failed.html} with a fixed reason code, like a
+ * callback Spring's filter rejects.</li>
  * </ul>
  *
  * <p>
@@ -53,6 +61,36 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 @RequestMapping("/api/v1/auth/oauth2")
 @Validated
 public class OAuth2CallbackController {
+
+    private static final Logger log = LoggerFactory.getLogger(OAuth2CallbackController.class);
+
+    /*
+     * Where the system browser lands when /success rejects the sign-in: the page
+     * SecurityConfig's failure handler sends a callback the filter rejected to
+     * (OAUTH2_FAILURE_REDIRECT there). The browser is the user's, not the app's
+     * client, so a problem document would leave the user reading JSON.
+     */
+    private static final String FAILURE_REDIRECT = "redirect:/auth-failed.html?reason=";
+
+    /*
+     * The reason code a rejection puts on the failure page, by the message key of
+     * the exception that rejected the sign-in. A fixed vocabulary in the shape of
+     * the OAuth2 error codes the filter's failures carry, so the URL never holds
+     * exception text, an address or a localized sentence, and needs no encoding.
+     * The page shows the code for support and has words of its own for the codes
+     * whose advice differs from "sign in again". The names follow the audit log's
+     * reasons for the same rejections (OAuth2LoginService).
+     */
+    private static final Map<String, String> REASON_BY_MESSAGE_KEY = Map.ofEntries(
+            Map.entry("validation.oauth2.loginNotCompleted", "login_not_completed"),
+            Map.entry("error.mail.oauth2NoEmail", "missing_email"),
+            Map.entry("error.mail.oauth2NoUserId", "missing_external_id"),
+            Map.entry("error.mail.oauth2NoRefreshToken", "missing_refresh_token"),
+            Map.entry("error.mail.oauth2ScopeNotGranted", "missing_scope"),
+            Map.entry("error.account.alreadyExists", "account_already_exists"));
+
+    /** The reason for a failure no guard names: a bug, the database, the vault. */
+    private static final String UNEXPECTED_REASON = "login_failed";
 
     private final OAuth2LoginService oauth2LoginService;
     private final OAuth2AuthorizedClientService authorizedClientService;
@@ -123,6 +161,8 @@ public class OAuth2CallbackController {
                 authorizedClientService.removeAuthorizedClient(providerName, authToken.getName());
             }
             return "redirect:/auth-finished.html";
+        } catch (RuntimeException e) {
+            return FAILURE_REDIRECT + reasonFor(e);
         } finally {
             /*
              * The flow is over, whatever its outcome: end the system browser's session so
@@ -136,5 +176,26 @@ public class OAuth2CallbackController {
             }
             SecurityContextHolder.clearContext();
         }
+    }
+
+    /**
+     * The reason code for a sign-in {@code /success} rejected, with the cause
+     * logged here, since {@code GlobalExceptionHandler} no longer sees it. The
+     * levels are the ones that handler gave the same exceptions: an
+     * {@link AppException} is a rejection the code planned for and is logged at
+     * WARN with its message, anything else keeps its ERROR and stack trace.
+     */
+    private static String reasonFor(RuntimeException e) {
+        if (e instanceof AppException rejection) {
+            String key = rejection.getMessageKey();
+            String reason = key == null
+                    ? UNEXPECTED_REASON
+                    : REASON_BY_MESSAGE_KEY.getOrDefault(key, UNEXPECTED_REASON);
+            log.warn("{} OAuth2 sign-in rejected at /success: reason={}, code={}, message={}", LogCategory.AUTH, reason,
+                    rejection.getCode(), rejection.getMessage());
+            return reason;
+        }
+        log.error("{} OAuth2 sign-in failed at /success: reason={}", LogCategory.CRITICAL, UNEXPECTED_REASON, e);
+        return UNEXPECTED_REASON;
     }
 }
