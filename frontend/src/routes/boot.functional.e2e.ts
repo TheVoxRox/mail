@@ -25,9 +25,9 @@ test.describe('MSW bootstrap', () => {
 		await openApp(page, '/settings/about');
 
 		await expect(page.getByRole('heading', { name: 'Verze' })).toBeVisible();
-		await expect(page.getByText('Verze frontendu:')).toBeVisible();
+		await expect(page.getByText('Verze aplikace:')).toBeVisible();
 		await expect(page.getByText(CLIENT_VERSION)).toBeVisible();
-		await expect(page.getByText('Verze backendu:')).toBeVisible();
+		await expect(page.getByText('Verze služby pošty:')).toBeVisible();
 		await expect(page.getByText('0.0.1-SNAPSHOT')).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Zkontrolovat aktualizace' })).toBeVisible();
 		await expect(page.getByRole('heading', { name: 'Stav aplikace' })).toBeVisible();

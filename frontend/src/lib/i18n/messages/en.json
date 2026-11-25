@@ -805,8 +805,8 @@
 			"intro": "Basic application information and mail service connection status.",
 			"versions": {
 				"heading": "Versions",
-				"frontend": "Frontend version:",
-				"backend": "Backend version:",
+				"frontend": "App version:",
+				"backend": "Mail service version:",
 				"backendLoading": "loading…",
 				"backendUnavailable": "unavailable",
 				"checkUpdates": "Check for updates",
@@ -1065,7 +1065,7 @@
 	"update": {
 		"prompt": {
 			"title": "Version {version} is available",
-			"description": "You are using version {currentVersion}. The update will be downloaded and installed by the built-in updater. The app closes at the end, and the installer starts it again.",
+			"description": "You are using version {currentVersion}. The update will be downloaded and installed automatically. The app closes at the end, and the installer starts it again.",
 			"installNow": "Update now",
 			"installing": "Updating…",
 			"later": "Later",

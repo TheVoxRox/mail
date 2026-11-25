@@ -805,8 +805,8 @@
 			"intro": "Základní informace o aplikaci a stav připojení ke službě pošty.",
 			"versions": {
 				"heading": "Verze",
-				"frontend": "Verze frontendu:",
-				"backend": "Verze backendu:",
+				"frontend": "Verze aplikace:",
+				"backend": "Verze služby pošty:",
 				"backendLoading": "načítám…",
 				"backendUnavailable": "nedostupná",
 				"checkUpdates": "Zkontrolovat aktualizace",
@@ -1065,7 +1065,7 @@
 	"update": {
 		"prompt": {
 			"title": "Nová verze {version} je k dispozici",
-			"description": "Používáte verzi {currentVersion}. Aktualizace se stáhne a nainstaluje přes vestavěný updater. Na konci se aplikace ukončí a instalátor ji spustí znovu.",
+			"description": "Používáte verzi {currentVersion}. Aktualizace se stáhne a nainstaluje automaticky. Na konci se aplikace ukončí a instalátor ji spustí znovu.",
 			"installNow": "Aktualizovat teď",
 			"installing": "Aktualizuji…",
 			"later": "Později",
