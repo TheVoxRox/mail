@@ -1238,7 +1238,9 @@ test.describe('Contacts', () => {
 
 		await openApp(page, '/contacts');
 
-		await expect(page.getByRole('alert')).toContainText('Seznam kontaktů se nepodařilo zobrazit');
+		await expect(page.getByRole('alert')).toContainText(
+			'Seznam kontaktů se kvůli chybě v aplikaci nepodařilo zobrazit.'
+		);
 		await expect(page.getByText('Načítám…')).toHaveCount(0);
 
 		// Tlačítko musí opravdu znovu načítat: reset mocků vrátí odpovědi do
