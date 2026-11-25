@@ -12,8 +12,7 @@
 		"bootFailure": {
 			"timeout": "Starting took longer than a minute, so the app stopped it. Try again, or restart the mail service.",
 			"serviceUnavailable": "The mail service did not start or is not responding. Try again, or restart the mail service.",
-			"versionMismatch": "The app and the mail service are from different versions. Install the latest version from voxrox.org.",
-			"technicalDetails": "Technical details"
+			"versionMismatch": "The app and the mail service are from different versions. Install the latest version from voxrox.org."
 		},
 		"sidebarLoadFailed": "The navigation panel failed to load. Switch workspaces or restart the application.",
 		"bootPhase": {
@@ -55,6 +54,7 @@
 		"loading": "Loading…",
 		"ok": "OK",
 		"opensInNewWindow": "(opens in a new window)",
+		"technicalDetails": "Technical details",
 		"close": "Close",
 		"errorHttpStatus": "The mail service answered with error {status}.",
 		"errorUnexpected": "An unexpected error occurred."
@@ -1082,7 +1082,7 @@
 		"failure": {
 			"title": "Update failed",
 			"description": "The app could not verify or install the update. Try again later.",
-			"openReleases": "Open GitHub Releases"
+			"openReleases": "Open the download page"
 		}
 	},
 	"toast": {

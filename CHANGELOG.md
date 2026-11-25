@@ -118,6 +118,13 @@ Entries before 2026-09-17 predate that split and are left as written.
   frontendu" and "Verze backendu". Both are what a user reads, so they now use
   the start screen's words. The technical details a feedback message carries
   for the developers keep theirs (#1024).
+- When an update fails, its dialog opens on the Czech sentence alone. The
+  updater's own English words used to follow it in the description, so a
+  screen reader read them out as the dialog opened; they now wait behind a
+  collapsed **Technické podrobnosti** after the buttons, as on the start
+  failure screen, and focus still lands on the way out. The button to the
+  releases page is called **Otevřít stránku ke stažení**, not "Otevřít GitHub
+  Releases" (#1025).
 
 ### Tauri / Release
 

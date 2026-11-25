@@ -12,8 +12,7 @@
 		"bootFailure": {
 			"timeout": "Spouštění trvalo déle než minutu, a tak ho aplikace přerušila. Zkuste to znovu, případně restartujte službu pošty.",
 			"serviceUnavailable": "Služba pošty se nespustila nebo neodpovídá. Zkuste to znovu, případně restartujte službu pošty.",
-			"versionMismatch": "Aplikace a služba pošty jsou z různých verzí. Nainstalujte nejnovější verzi z voxrox.org.",
-			"technicalDetails": "Technické podrobnosti"
+			"versionMismatch": "Aplikace a služba pošty jsou z různých verzí. Nainstalujte nejnovější verzi z voxrox.org."
 		},
 		"sidebarLoadFailed": "Navigační panel se nepodařilo načíst. Přepněte pracovní prostor nebo restartujte aplikaci.",
 		"bootPhase": {
@@ -55,6 +54,7 @@
 		"loading": "Načítám…",
 		"ok": "OK",
 		"opensInNewWindow": "(otevírá se v novém okně)",
+		"technicalDetails": "Technické podrobnosti",
 		"close": "Zavřít",
 		"errorHttpStatus": "Služba pošty odpověděla chybou {status}.",
 		"errorUnexpected": "Nastala neočekávaná chyba."
@@ -1082,7 +1082,7 @@
 		"failure": {
 			"title": "Aktualizace se nezdařila",
 			"description": "Aplikaci se nepodařilo ověřit nebo nainstalovat aktualizaci. Zkuste to znovu později.",
-			"openReleases": "Otevřít GitHub Releases"
+			"openReleases": "Otevřít stránku ke stažení"
 		}
 	},
 	"toast": {

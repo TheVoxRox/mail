@@ -438,8 +438,9 @@ function wasDismissed(version: string): boolean {
 /*
  * The updater's own words, not "unexpected error": why an update failed — a
  * signature that did not verify, a download that broke off — is what the user
- * passes on when the releases page does not help either. They are English, and
- * the dialog marks them so (WCAG 3.1.2).
+ * passes on when the releases page does not help either. They are English, so
+ * the dialog keeps them behind its Technical details disclosure, out of the
+ * description read on open, and marks them so (WCAG 3.1.2).
  */
 function showUpdateFailure(error: unknown): void {
 	const { text, lang } = diagnosticErrorText(error);
