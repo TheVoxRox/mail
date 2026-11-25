@@ -80,7 +80,8 @@ class AccountConnectionTestServiceTest {
 
         assertThat(response.imapOk()).isTrue();
         assertThat(response.smtpOk()).isTrue();
-        assertThat(response.message()).isEqualTo("The connection to the incoming and outgoing mail servers is verified.");
+        assertThat(response.message())
+                .isEqualTo("The connection to the incoming and outgoing mail servers is verified.");
         ArgumentCaptor<AccountConnectionDetails> details = ArgumentCaptor.forClass(AccountConnectionDetails.class);
         verify(mailConnectionProbe).testImap(org.mockito.Mockito.isNull(), details.capture());
         assertThat(details.getValue().host()).isEqualTo("imap.example.com");

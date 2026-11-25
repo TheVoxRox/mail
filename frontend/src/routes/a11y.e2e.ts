@@ -2109,7 +2109,7 @@ test.describe('Nápověda k ovládacímu prvku se čte jednou', () => {
 			hint: 'Beta dostává nové verze dříve, na otestování před stabilním vydáním. Volba se projeví při příští kontrole aktualizací.'
 		},
 		{
-			name: 'nápověda k Markdownu pod textem zprávy',
+			name: 'nápověda k formátování pod textem zprávy',
 			path: '/compose',
 			control: (page: Page) => page.getByRole('textbox', { name: 'Text zprávy' }),
 			hint: 'Text můžete formátovat: **tučně**, # nadpis, - odrážka.'

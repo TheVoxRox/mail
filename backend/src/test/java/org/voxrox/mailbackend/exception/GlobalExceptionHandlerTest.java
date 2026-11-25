@@ -83,7 +83,8 @@ class GlobalExceptionHandlerTest {
             ProblemDetail problem = handler.handleAppException(ex, request);
 
             assertCommonFields(problem, HttpStatus.NOT_FOUND, ErrorCode.ACCOUNT_NOT_FOUND.name());
-            // The id is the client's to use, not the user's to read: it stays out of the sentence.
+            // The id is the client's to use, not the user's to read: it stays out of the
+            // sentence.
             assertThat(problem.getDetail()).isEqualTo("E-mailový účet nebyl nalezen. Mohl být mezitím smazán.");
             assertThat((Object[]) problem.getProperties().get("messageArgs")).containsExactly(42L);
             assertThat(problem.getProperties().get("messageKey")).isEqualTo("error.account.notFound");
@@ -115,8 +116,9 @@ class GlobalExceptionHandlerTest {
 
             ProblemDetail problem = handler.handleAppException(ex, request);
 
-            assertThat(problem.getDetail()).isEqualTo("After merging, the contact's note would be 1,200 characters long;"
-                    + " the maximum is 1,000. Shorten a note before merging.");
+            assertThat(problem.getDetail())
+                    .isEqualTo("After merging, the contact's note would be 1,200 characters long;"
+                            + " the maximum is 1,000. Shorten a note before merging.");
         }
 
         @Test
@@ -215,7 +217,8 @@ class GlobalExceptionHandlerTest {
             ProblemDetail problem = handler.handleValidation(ex, request);
 
             assertCommonFields(problem, HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_ERROR.name());
-            // The Java field names stay in the log and in `violations`; the user reads the messages.
+            // The Java field names stay in the log and in `violations`; the user reads the
+            // messages.
             assertThat(problem.getDetail())
                     .isEqualTo("Některé údaje nejsou v pořádku: must not be blank. is too short.");
             assertThat((List<?>) problem.getProperties().get("violations")).hasSize(2);

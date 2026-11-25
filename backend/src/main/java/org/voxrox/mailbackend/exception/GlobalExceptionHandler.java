@@ -366,7 +366,10 @@ public class GlobalExceptionHandler {
         return new ValidationViolation(field, message, messageKey, code);
     }
 
-    /** The log line's view of the violations: each field by its Java name, then its message. */
+    /**
+     * The log line's view of the violations: each field by its Java name, then its
+     * message.
+     */
     private static String validationDetails(List<ValidationViolation> violations) {
         return violations.stream().map(v -> v.field() + ": " + v.message()).collect(Collectors.joining(", "));
     }
@@ -379,8 +382,8 @@ public class GlobalExceptionHandler {
      * {@code violations}.
      */
     private static String userDetails(List<ValidationViolation> violations) {
-        return violations.stream().map(v -> asSentence(v.message())).filter(sentence -> !sentence.isEmpty())
-                .distinct().collect(Collectors.joining(" "));
+        return violations.stream().map(v -> asSentence(v.message())).filter(sentence -> !sentence.isEmpty()).distinct()
+                .collect(Collectors.joining(" "));
     }
 
     private static String asSentence(@Nullable String message) {
