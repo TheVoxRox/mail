@@ -52,7 +52,7 @@ class AccountConnectionTestServiceTest {
     void setUp() {
         StaticMessageSource messageSource = new StaticMessageSource();
         messageSource.addMessage("account.connectionTest.success", Locale.ENGLISH,
-                "IMAP and SMTP connection were verified successfully.");
+                "The connection to the incoming and outgoing mail servers is verified.");
         service = new AccountConnectionTestService(accountRepository, providerService, credentialService,
                 mailConnectionProbe, messageSource);
         // The StaticMessageSource above only registers the success message under
@@ -80,7 +80,7 @@ class AccountConnectionTestServiceTest {
 
         assertThat(response.imapOk()).isTrue();
         assertThat(response.smtpOk()).isTrue();
-        assertThat(response.message()).isEqualTo("IMAP and SMTP connection were verified successfully.");
+        assertThat(response.message()).isEqualTo("The connection to the incoming and outgoing mail servers is verified.");
         ArgumentCaptor<AccountConnectionDetails> details = ArgumentCaptor.forClass(AccountConnectionDetails.class);
         verify(mailConnectionProbe).testImap(org.mockito.Mockito.isNull(), details.capture());
         assertThat(details.getValue().host()).isEqualTo("imap.example.com");

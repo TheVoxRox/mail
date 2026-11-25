@@ -40,6 +40,21 @@ Entries before 2026-09-17 predate that split and are left as written.
   as the reading pane names it, where the header used to say "null" (#1016).
   The date is spaced with plain spaces, and always written in the language
   of the labels above it (#1020).
+- The mail service's messages say what happened in the user's words. An
+  account whose Google or Microsoft sign-in stopped working reads that access
+  expired or was revoked and where to sign in again, where it said "refresh
+  token nebo OAuth klient byl zamítnut, je nutné ověřit konfiguraci"; a
+  refused mailbox no longer says "(OAuth2) odmítl IMAP přístup"; an
+  unexpected failure says the mail service failed, not "vnitřní chyba
+  serveru", which read as the user's mail provider. Messages no longer quote
+  internal IDs or the request's Java field names ("subject: Předmět je příliš
+  dlouhý"), and the half-English ones ("v jednom requestu", "credentials",
+  "Drafts složce") are Czech. The browser page after a failed sign-in no
+  longer explains "OAuth2 flow" and an expired "autorizační kód", says that
+  declining access is one reason, and shows the error code in both
+  languages. The English note-too-long message on a contact merge shows its
+  numbers again: the apostrophe in "contact's" had swallowed them as
+  "{0}" (#1028).
 
 ### Frontend
 
@@ -130,6 +145,20 @@ Entries before 2026-09-17 predate that split and are left as written.
   its technical details, the labels Settings → About shows, where it said
   "Verze frontendu" and "Verze backendu". The user reads those lines in the
   composer before sending, and they tell support the same thing (#1027).
+- Messages a user reads no longer speak the developers' language. The
+  account form says "nastavení serverů" and "poskytovatel" where it said
+  "šablona" and "reference na šablonu", the connection test reports the
+  servers for receiving and sending mail rather than "IMAP i SMTP", the
+  sign-in wizard offers **Přihlásit se heslem aplikace** and waits for the
+  browser rather than for "OAuth", About describes the diagnostic file
+  without "ZIP", "logy" and "tokeny", the start failure screen saves
+  "protokoly", and the message body setting offers **Formátovaný text
+  (HTML)**. An error the mail service sent without a sentence of its own
+  reads "Akci se nepodařilo dokončit (kód chyby 503)" instead of naming the
+  bare status, and a lost mail service no longer puts the shell plugin's
+  English inside the Czech sentence. A failed sync toast says "Účet …: …",
+  as its detail already starts by saying what failed and it used to read
+  "Synchronizace účtu … selhala: Synchronizace selhala: …" (#1028).
 
 ### Tauri / Release
 

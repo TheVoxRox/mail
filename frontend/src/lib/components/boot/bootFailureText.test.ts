@@ -97,7 +97,7 @@ describe('bootFailureText', () => {
 		const error = new ApiError(503, 'Service Unavailable', null);
 
 		expect(textFor(error)).toEqual({
-			message: 'The mail service answered with error 503.',
+			message: 'The action could not be completed (error code 503). Try again.',
 			detail: 'API error 503: Service Unavailable'
 		});
 	});

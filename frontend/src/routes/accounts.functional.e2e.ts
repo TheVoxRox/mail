@@ -114,7 +114,7 @@ test.describe('Accounts', () => {
 		await expect(page.locator('#acc-imap-host')).toHaveCount(0);
 		// Microsoft takes no password over IMAP, an app password included, so the
 		// way to one is not offered: it led to a login refused every time.
-		await expect(page.getByRole('button', { name: 'Použít IMAP a heslo aplikace' })).toHaveCount(0);
+		await expect(page.getByRole('button', { name: 'Přihlásit se heslem aplikace' })).toHaveCount(0);
 	});
 
 	test('Seznam e-mail otevře provider flow s popisem hesla při 2FA a odkazem', async ({ page }) => {
@@ -155,7 +155,7 @@ test.describe('Accounts', () => {
 
 		await page.locator('#wizard-email').fill('jana@gmail.com');
 		await page.getByRole('button', { name: 'Pokračovat' }).click();
-		await page.getByRole('button', { name: 'Použít IMAP a heslo aplikace' }).click();
+		await page.getByRole('button', { name: 'Přihlásit se heslem aplikace' }).click();
 
 		const form = page.getByRole('form', { name: 'Účet' });
 		await expect(form.getByLabel('Heslo', { exact: true })).toHaveAccessibleDescription(
@@ -173,7 +173,7 @@ test.describe('Accounts', () => {
 
 		await page.locator('#wizard-email').fill('jana@gmail.com');
 		await page.getByRole('button', { name: 'Pokračovat' }).click();
-		await page.getByRole('button', { name: 'Použít IMAP a heslo aplikace' }).click();
+		await page.getByRole('button', { name: 'Přihlásit se heslem aplikace' }).click();
 		// As Google's dialog shows it: four groups of four.
 		await page.locator('#acc-password').fill('abcd efgh ijkl mnop');
 
@@ -509,7 +509,9 @@ test.describe('Accounts', () => {
 			imap: { host: 'imap.firma.cz', port: 993, useSsl: true },
 			smtp: { host: 'smtp.firma.cz', port: 465, useSsl: true }
 		});
-		await expect(page.getByText('IMAP i SMTP připojení bylo úspěšně ověřeno.')).toBeVisible();
+		await expect(
+			page.getByText('Připojení k serverům pro příjem i odesílání pošty je ověřené.')
+		).toBeVisible();
 		await expect(page).toHaveURL(/\/settings\/accounts\/new$/);
 	});
 

@@ -121,7 +121,7 @@ test.describe('Compose', () => {
 		const body = page.locator('#compose-body');
 		await expect(body).toHaveAccessibleDescription(/Markdown/);
 		await expect(page.locator('#compose-body-hint')).toHaveText(
-			'Podporuje Markdown: **tučně**, # nadpis, - odrážka.'
+			'Text můžete formátovat: **tučně**, # nadpis, - odrážka.'
 		);
 	});
 
