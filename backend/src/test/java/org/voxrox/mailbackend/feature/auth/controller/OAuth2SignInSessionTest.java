@@ -1,6 +1,7 @@
 package org.voxrox.mailbackend.feature.auth.controller;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.containing;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
@@ -35,7 +36,10 @@ import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 
 /**
  * Audit B2-1: the session an OAuth sign-in leaves in the system browser must
- * not stand in for the {@code X-API-KEY}.
+ * not stand in for the {@code X-API-KEY}. Beside it, where the system browser
+ * ends when {@code /success} rejects a sign-in: on the failure page with a
+ * fixed reason code, not on a problem document (OAuth audit §1, "Failure
+ * hygiene").
  *
  * <p>
  * Drives the real filter chain through the three requests of a Google sign-in —
@@ -55,6 +59,15 @@ class OAuth2SignInSessionTest {
             .normalize();
 
     private static final String PROTECTED_PATH = "/api/v1/accounts";
+
+    private static final String SUCCESS_PATH = "/api/v1/auth/oauth2/success";
+
+    private static final String GRANTED_CODE = "probe-code";
+
+    /**
+     * The code the fake provider answers with a token that lacks the mail scope.
+     */
+    private static final String NARROW_CODE = "probe-code-narrow";
 
     private static final WireMockServer PROVIDER = new WireMockServer(WireMockConfiguration.options().dynamicPort());
 
@@ -76,6 +89,14 @@ class OAuth2SignInSessionTest {
                 .willReturn(aResponse().withHeader("Content-Type", "application/json").withBody("""
                         {"access_token":"probe-access-token","token_type":"Bearer","expires_in":3600,
                          "refresh_token":"probe-refresh-token","scope":"https://mail.google.com/ email profile"}""")));
+        /*
+         * Google's answer when the user confirms the sign-in but leaves the separate
+         * mail-access screen unticked: a valid token carrying the identity scopes only.
+         */
+        PROVIDER.stubFor(post(urlPathEqualTo("/token")).withRequestBody(containing("code=" + NARROW_CODE)).atPriority(1)
+                .willReturn(aResponse().withHeader("Content-Type", "application/json").withBody("""
+                        {"access_token":"probe-access-token","token_type":"Bearer","expires_in":3600,
+                         "refresh_token":"probe-refresh-token","scope":"email profile"}""")));
         PROVIDER.stubFor(get(urlPathEqualTo("/userinfo"))
                 .willReturn(aResponse().withHeader("Content-Type", "application/json").withBody("""
                         {"sub":"probe-subject","email":"probe@gmail.com","name":"Probe"}""")));
@@ -109,7 +130,7 @@ class OAuth2SignInSessionTest {
     @Test
     @DisplayName("the session a completed callback leaves does not authorize the API without the key")
     void signedInSessionIsRefusedByTheApi() throws Exception {
-        MockHttpSession session = completeCallback();
+        MockHttpSession session = completeCallback(GRANTED_CODE);
 
         // The window between the callback and /success: the session holds the
         // sign-in's OAuth2AuthenticationToken, and the API must still refuse it.
@@ -123,13 +144,35 @@ class OAuth2SignInSessionTest {
     @Test
     @DisplayName("/success ends the session the sign-in ran in")
     void successEndsTheSession() throws Exception {
-        MockHttpSession session = completeCallback();
+        MockHttpSession session = completeCallback(GRANTED_CODE);
 
-        MvcResult result = mockMvc.perform(MockMvcRequestBuilders.get("/api/v1/auth/oauth2/success").session(session))
-                .andReturn();
+        MvcResult result = mockMvc.perform(MockMvcRequestBuilders.get(SUCCESS_PATH).session(session)).andReturn();
 
         assertThat(result.getResponse().getRedirectedUrl()).isEqualTo("/auth-finished.html");
         assertThat(session.isInvalid()).isTrue();
+    }
+
+    @Test
+    @DisplayName("a sign-in /success rejects ends on the failure page with its reason, not on a problem document")
+    void rejectedSignInEndsOnTheFailurePage() throws Exception {
+        // The same subject as the granted sign-in, so if that test ran first, the
+        // guard marks its account requires_reauth; no test here reads the flag.
+        MockHttpSession session = completeCallback(NARROW_CODE);
+
+        MvcResult result = mockMvc.perform(MockMvcRequestBuilders.get(SUCCESS_PATH).session(session)).andReturn();
+
+        assertThat(result.getResponse().getStatus()).isEqualTo(302);
+        assertThat(result.getResponse().getRedirectedUrl()).isEqualTo("/auth-failed.html?reason=missing_scope");
+        assertThat(session.isInvalid()).isTrue();
+    }
+
+    @Test
+    @DisplayName("/success opened outside a sign-in ends on the failure page")
+    void successOutsideASignInEndsOnTheFailurePage() throws Exception {
+        MvcResult result = mockMvc.perform(MockMvcRequestBuilders.get(SUCCESS_PATH)).andReturn();
+
+        assertThat(result.getResponse().getStatus()).isEqualTo(302);
+        assertThat(result.getResponse().getRedirectedUrl()).isEqualTo("/auth-failed.html?reason=login_not_completed");
     }
 
     @Test
@@ -144,9 +187,10 @@ class OAuth2SignInSessionTest {
 
     /**
      * Runs the first two requests of a sign-in — the authorization redirect and the
-     * provider's callback — and returns the session they ran in.
+     * provider's callback, which hands the fake provider {@code code} — and returns
+     * the session they ran in.
      */
-    private MockHttpSession completeCallback() throws Exception {
+    private MockHttpSession completeCallback(String code) throws Exception {
         MockHttpSession session = new MockHttpSession();
         MvcResult authorization = mockMvc
                 .perform(MockMvcRequestBuilders.get("/oauth2/authorization/google").session(session)).andReturn();
@@ -156,8 +200,8 @@ class OAuth2SignInSessionTest {
         state = state == null ? null : URLDecoder.decode(state, StandardCharsets.UTF_8);
         assertThat(state).as("authorization redirect carries a state").isNotBlank();
 
-        MvcResult callback = mockMvc.perform(MockMvcRequestBuilders.get("/login/oauth2/code/google")
-                .param("code", "probe-code").param("state", state).session(session)).andReturn();
+        MvcResult callback = mockMvc.perform(MockMvcRequestBuilders.get("/login/oauth2/code/google").param("code", code)
+                .param("state", state).session(session)).andReturn();
         assertThat(callback.getResponse().getRedirectedUrl()).as("the callback completed the sign-in")
                 .isEqualTo("/api/v1/auth/oauth2/success");
         return session;

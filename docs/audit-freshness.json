@@ -126,7 +126,8 @@
   },
   "docs/OAUTH_AUDIT.md": {
     "reviewedTrees": {
-      "backend/src/main/java/org/voxrox/mailbackend/feature/auth": "1572154df1f22cad718dcea856cce1581f068549"
+      "backend/src/main/java/org/voxrox/mailbackend/feature/auth": "5185cc3d651925bb8565dced4c8f991ad60280dd",
+      "backend/src/main/resources/static": "039826a37490cccf14027d56f1bad97ac7216361"
     },
     "acknowledgements": [
       {
@@ -136,6 +137,10 @@
       {
         "date": "2026-11-17",
         "note": "Unused lambda parameters renamed to `_` (Java unnamed variables) so Eclipse JDT stops flagging them, and nothing else: every changed line was read, each swaps one parameter name for `_` in a lambda whose body never named it. Arity and parameter types are unchanged, so the same overloads resolve and the same code runs. Here: the computeIfAbsent key in OAuth2TokenService's per-account refresh lock (id); the lock itself and everything it guards are untouched. Verdict unchanged."
+      },
+      {
+        "date": "2026-11-25",
+        "note": "#1029: OAuth2CallbackController#success and auth-failed.html, which move one claim, so the audit says so in 1.10 (§1, failure hygiene) rather than here alone. Every changed line was read. /success now catches what the guards, the persistence and its own two checks throw and redirects to auth-failed.html with a code from a fixed map keyed by message key, login_failed otherwise; no exception text, address or message sentence reaches the URL, and the code is [a-z_] so it needs no encoding. The session invalidation and the authorized-client removal stay in their finally blocks, before and after the catch alike, and the tests assert both on the rejection paths. The page compares the code with the data-reason values of fixed blocks and writes it with textContent; it is never markup or a selector. Logging keeps GlobalExceptionHandler's levels (AppException WARN with the log message, which masks the address at the source; anything else ERROR with the stack). No route, permission, token handling or state check moves. Verdict unchanged."
       }
     ]
   },

@@ -1,15 +1,15 @@
 # VoxRox Mail — OAuth Handshake Audit
 
-|                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Version**        | 1.9                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| **Date**           | 2026-11-09                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| **Applies to**     | VoxRox Mail V0.2.0-beta.3 (`63159d4`), whose files under `Code paths` are the anchor's                                                                                                                                                                                                                                                                                                                                                                                   |
-| **Audited commit** | `0ea4017` (every claim re-verified 2026-11-09, clearing four acknowledgements; 1.5 to 1.7: `55f4afa`, the delta since `64633fe`, B2-1's fix, verified 2026-10-05; 1.3: `64633fe`, every claim re-verified 2026-10-04; 1.1 and 1.2: `cad05cb`, recorded pre-squash as `5799e8b`; 1.0 baseline: `d55b753`)                                                                                                                                                                 |
-| **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/auth`, `backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/OAuth2CompletedStateTracker.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/account/service/ExternalProviderLoginService.java`, `backend/src/main/resources/static`                                                                                  |
-| **Auditor**        | Claude (Fable 5) + owner review; 1.3 re-verified by Claude Opus 5.5; 1.5 the verification pass over B2-1's fix, by Claude Opus 5.5, a separate agent from the author of 1.4; 1.8 re-verified by Claude Opus 5.5, a session that wrote none of the delta it read (#636, #640, #679, #763); 1.9 the test cover #883 asked for, by Claude Opus 5.5                                                                                                                          |
-| **Subsystem**      | OAuth handshake — Boundary 2 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                  |
-| **Verdict**        | **Security: PASS** — **B2-1** (High) **fixed** 2026-10-05 and confirmed by the independent verification pass of AUDIT_GUIDE §5 (1.5): the session an OAuth sign-in leaves in the system browser passed the sidecar API's default-deny without the `X-API-KEY`; the API now requires the key's own authority, and `/success` ends the session (§3). Every claim re-verified at 1.8 against `0ea4017`, where the one naming the source of Google's PKCE is corrected (§1). |
+|                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Version**        | 1.10                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| **Date**           | 2026-11-25                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| **Applies to**     | VoxRox Mail V0.2.0-beta.3 (`63159d4`), whose files under `Code paths` are the anchor's; the post-filter half of §1's failure hygiene describes the code after #1029, which no release has yet                                                                                                                                                                                                                                                                                   |
+| **Audited commit** | `0ea4017` (every claim re-verified 2026-11-09, clearing four acknowledgements; 1.5 to 1.7: `55f4afa`, the delta since `64633fe`, B2-1's fix, verified 2026-10-05; 1.3: `64633fe`, every claim re-verified 2026-10-04; 1.1 and 1.2: `cad05cb`, recorded pre-squash as `5799e8b`; 1.0 baseline: `d55b753`)                                                                                                                                                                        |
+| **Code paths**     | `backend/src/main/java/org/voxrox/mailbackend/feature/auth`, `backend/src/main/java/org/voxrox/mailbackend/core/config/SecurityConfig.java`, `backend/src/main/java/org/voxrox/mailbackend/core/config/OAuth2CompletedStateTracker.java`, `backend/src/main/java/org/voxrox/mailbackend/feature/account/service/ExternalProviderLoginService.java`, `backend/src/main/resources/static`                                                                                         |
+| **Auditor**        | Claude (Fable 5) + owner review; 1.3 re-verified by Claude Opus 5.5; 1.5 the verification pass over B2-1's fix, by Claude Opus 5.5, a separate agent from the author of 1.4; 1.8 re-verified by Claude Opus 5.5, a session that wrote none of the delta it read (#636, #640, #679, #763); 1.9 the test cover #883 asked for, by Claude Opus 5.5; 1.10 the failure page after the filter (#1029), by Claude Opus 5.5, its author, the drift acknowledged rather than re-verified |
+| **Subsystem**      | OAuth handshake — Boundary 2 of [SECURITY_THREAT_MODEL.md](../SECURITY_THREAT_MODEL.md)                                                                                                                                                                                                                                                                                                                                                                                         |
+| **Verdict**        | **Security: PASS** — **B2-1** (High) **fixed** 2026-10-05 and confirmed by the independent verification pass of AUDIT_GUIDE §5 (1.5): the session an OAuth sign-in leaves in the system browser passed the sidecar API's default-deny without the `X-API-KEY`; the API now requires the key's own authority, and `/success` ends the session (§3). Every claim re-verified at 1.8 against `0ea4017`, where the one naming the source of Google's PKCE is corrected (§1).        |
 
 Focused verification audit of the boundary **"OAuth provider ↔ system browser ↔
 sidecar"**: every mitigation claimed by the Boundary 2 STRIDE rows was traced to
@@ -124,13 +124,29 @@ path, Boundary 5), `ApiKeyFilter` (Boundary 3) and the client's
   reaches the redirect. The page writes the reason with `textContent`, so even
   an unexpected value is shown as text and never parsed as markup. 1.2 named
   the code and description only and said nothing of how the page renders it.
-  A rejection **after** the filter does not pass through this handler: the four
-  login guards and the callback controller's two checks in `/success` reach
-  `GlobalExceptionHandler`, which answers the browser with a problem document
-  carrying the error code and the text of a message key of their own
-  (`error.mail.oauth2NoEmail`, `oauth2NoUserId`, `oauth2NoRefreshToken`,
-  `oauth2ScopeNotGranted`, `validation.oauth2.loginNotCompleted`), never the
-  English sentence the code writes for its log (#607, #608). `/start` accepts
+  A rejection **after** the filter does not pass through this handler, and
+  since 1.10 it ends on the same page (corrected). `/success` catches whatever
+  the four login guards, the persistence (an address another sign-in owns,
+  `AccountAlreadyExistsException`, §4) and its own two checks throw, and
+  redirects to `auth-failed.html?reason=<code>`, the code taken from a fixed
+  list by the rejection's message key: `missing_email`, `missing_external_id`,
+  `missing_refresh_token`, `missing_scope`, `account_already_exists`,
+  `login_not_completed`, and `login_failed` for anything else, an exception
+  with no key or no exception of this app included. So neither an exception's
+  text nor the sentence of its message key reaches the URL, and the code needs
+  no encoding. `GlobalExceptionHandler` no longer sees these exceptions, so the
+  controller logs them itself, server-side only and at the levels that handler
+  gave them: an `AppException` at WARN with its error code and the English
+  message the code writes for its log, which for the address masks it at the
+  source, and anything else at ERROR with its stack trace. The page compares the
+  code with the two it has words of its own for (`missing_scope`,
+  `account_already_exists`, whose advice is not to sign in again) and never
+  uses it as markup or as a selector. Until 1.10 the browser got the problem
+  document `GlobalExceptionHandler` writes for the API client, carrying the
+  error code and the localized text of the message key (#607, #608).
+  `OAuth2SignInSessionTest` drives one such rejection, a token without the mail
+  scope, through the real filter chain, and `OAuth2CallbackControllerTest` each
+  guard through the real `OAuth2LoginService`. `/start` accepts
   a provider only if it matches `^[a-z0-9_-]+$` within 50 characters and names
   a registration, so the value it echoes in `validation.oauth2.unknownProvider`
   is confined to that alphabet, and the redirect it issues goes to Spring's own
@@ -443,6 +459,18 @@ confirmed at 1.5.
 
 ## 6. Change log
 
+- **1.10** (2026-11-25) — **one §1 claim corrected, the code changed to
+  match** (#1029): a sign-in `/success` rejects no longer answers the system
+  browser with a problem document but redirects to `auth-failed.html` with a
+  reason code from a fixed list, as a failure in Spring's filter already did,
+  and the page has words of its own for the two codes whose advice is not to
+  sign in again. No exception text or message-key sentence reaches the URL;
+  the controller logs each rejection at the level `GlobalExceptionHandler`
+  gave it. The anchor stays at `0ea4017` and the drift under `feature/auth`
+  and `static` is acknowledged in `docs/audit-freshness.json`: the author
+  wrote this entry, so it is not the independent pass AUDIT_GUIDE §5 asks of a
+  re-verification. No STRIDE row of Boundary 2 names the failure path, so none
+  moves. Verdict unchanged (**PASS**).
 - **1.9** (2026-11-09) — **test cover for the claims a PIT sweep found no test
   held** (#883); the method is its own paragraph above. Nothing under
   `Code paths` changed, so the anchor stays at `0ea4017`, and no claim was

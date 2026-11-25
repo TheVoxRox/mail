@@ -40,6 +40,17 @@ Entries before 2026-09-17 predate that split and are left as written.
   as the reading pane names it, where the header used to say "null" (#1016).
   The date is spaced with plain spaces, and always written in the language
   of the labels above it (#1020).
+- A Google or Microsoft sign-in that fails after the provider has answered
+  ends on the browser page that says the sign-in failed, as a failure on the
+  provider's side already did. It used to show the mail service's raw error
+  data (JSON) instead: when the provider withheld access to the mail or one of
+  the details the sign-in needs, when the address already belongs to an
+  account in the app that signs in another way, or when anything else went
+  wrong while saving the account. The page names a short error code for
+  support, and two cases get advice of their own, because signing in again
+  the same way fails again: a sign-in that did not allow access to the mail
+  is told to allow it on the provider's page, and an address already in the
+  app is told where to find that account (#1029).
 
 ### Frontend
 

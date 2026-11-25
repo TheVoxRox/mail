@@ -2389,4 +2389,48 @@ test.describe('Přístupnost – stránky po přihlášení OAuth', () => {
 			expect(await heading.evaluate((el) => el.closest('[lang]')?.getAttribute('lang'))).toBe('en');
 		});
 	}
+
+	/*
+	 * The failure page has words of its own for the reasons whose advice
+	 * differs from signing in again (OAuth2CallbackController); any other code,
+	 * Spring's included, keeps the general text. Each variant is scanned and
+	 * its English checked for its `lang`, as the page above is, and the code
+	 * itself is shown as text whatever it holds.
+	 */
+	const failureReasons = [
+		{ reason: 'invalid_grant', says: 'toto okno a v aplikaci', englishSays: 'this window and' },
+		{
+			reason: 'missing_scope',
+			says: 'nedostala při přihlášení přístup k vaší poště',
+			englishSays: 'was not given access to your mail'
+		},
+		{
+			reason: 'account_already_exists',
+			says: 'Účet najdete v aplikaci VoxRox Mail',
+			englishSays: 'You will find the account'
+		},
+		{
+			reason: '<b>missing_scope</b>',
+			says: 'toto okno a v aplikaci',
+			englishSays: 'this window and'
+		}
+	];
+	for (const { reason, says, englishSays } of failureReasons) {
+		test(`auth-failed.html s důvodem ${reason} řekne, co dělat, v obou jazycích`, async ({
+			page
+		}) => {
+			await page.route('**/auth-failed.html*', (route) =>
+				route.fulfill({ path: STATIC_DIR + 'auth-failed.html' })
+			);
+			await page.goto(`/auth-failed.html?reason=${encodeURIComponent(reason)}`);
+			await expect(page.getByText(says)).toBeVisible();
+			const english = page.getByText(englishSays);
+			await expect(english).toBeVisible();
+			expect(await english.evaluate((el) => el.closest('[lang]')?.getAttribute('lang'))).toBe('en');
+			await expect(page.locator('[data-reason]:visible')).toHaveCount(2);
+			await expect(page.locator('#reason')).toContainText(reason);
+			await expect(page.locator('#reason b')).toHaveCount(0);
+			await expectNoFindings(page, await wcagScan(page).analyze());
+		});
+	}
 });
