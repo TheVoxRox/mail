@@ -76,13 +76,15 @@ pub fn run() {
                 min_size.height
             );
 
-            // Created with a "loading" title (cs = default locale) so a screen
-            // reader reading the window name on focus — before the webview even
-            // hydrates — already conveys that the app is starting. The frontend
-            // ($lib/windowTitle via the root layout) switches it to the plain
-            // app name once boot reaches 'ready'/'failed'.
+            // Created with the product name alone, the one title that is the same
+            // in every interface language. The shell cannot know which language
+            // the webview will pick (a stored choice, else the Windows display
+            // language), and a "loading" title written here was Czech for every
+            // user, English ones included. The root layout ($lib/windowTitle)
+            // sets the translated loading title as soon as the webview runs, and
+            // the route's title once boot settles.
             let main_window = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
-                .title("VoxRox Mail – načítání…")
+                .title("VoxRox Mail")
                 .inner_size(restore_size.width, restore_size.height)
                 .min_inner_size(min_size.width, min_size.height)
                 .resizable(true)

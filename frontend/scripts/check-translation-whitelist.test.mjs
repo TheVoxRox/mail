@@ -69,6 +69,26 @@ describe('check-translation-whitelist', () => {
 	});
 
 	/*
+	 * The shell's Rust is code the user meets too: its window title was Czech
+	 * for every user until the gate looked there. Only its sources, though —
+	 * the rest of src-tauri is generated or third-party, and the SBOM carries
+	 * maintainers' names with diacritics.
+	 */
+	it('scans the shell’s Rust sources, and not the rest of src-tauri', () => {
+		repo.write('frontend/src/lib/app.ts', "export const label = 'Send';\n");
+		repo.write('frontend/src-tauri/bom.json', '{ "author": "Emilio Cobos Álvarez" }\n');
+
+		expect(repo.run('check-translation-whitelist.mjs', ['--mode=strict']).status).toBe(0);
+
+		repo.write('frontend/src-tauri/src/lib.rs', 'const TITLE: &str = "Pošta – načítání";\n');
+		const result = repo.run('check-translation-whitelist.mjs', ['--mode=strict']);
+
+		expect(result.status).toBe(1);
+		expect(result.output).toContain('frontend/src-tauri/src/lib.rs');
+		expect(result.output).not.toContain('bom.json');
+	});
+
+	/*
 	 * Report mode is what the maintainer runs while migrating; it must never be
 	 * the thing that fails a build, or the two modes collapse into one.
 	 */
