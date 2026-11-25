@@ -181,6 +181,11 @@ Entries before 2026-09-17 predate that split and are left as written.
 
 ### Repo
 
+- The packaged sidecar smoke checks the Czech locale data through a page of
+  contacts larger than the API allows. Its probe used the 404 for a missing
+  account, whose message stopped quoting the id with #1028, so the smoke failed
+  every package by blaming `jdk.localedata`; a message without the number now
+  fails as a probe to repoint, not as missing locale data (#1032).
 - The API surface audit is re-verified against `7446e171` (1.34) by an
   independent pass over the seven changes acknowledged since `a82a5954`,
   clearing its ledger one short of the cap. Two sentences of §3 that #1028 made
