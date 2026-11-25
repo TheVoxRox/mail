@@ -103,6 +103,15 @@ Entries before 2026-09-17 predate that split and are left as written.
   three, so every start hands a screen reader two fewer status changes. A
   slow start says "Spouštění trvá déle než obvykle" and offers **Restartovat
   službu pošty** (#1022).
+- When the app cannot start, the screen says why in the interface language:
+  the start took longer than a minute, the mail service did not start or is
+  not responding, the app and the service are from different versions (with
+  the way to voxrox.org), or what the service answered. It used to show the
+  error as the code raised it, English written for a developer, such as
+  ".ready/session.json not found at C:\… after 150 attempts – is the backend
+  running?", which a screen reader read out in an English voice. That text is
+  still there for support, behind a collapsed **Technické podrobnosti**
+  button. The heading now reads **Aplikaci se nepodařilo spustit** (#1023).
 
 ### Tauri / Release
 

@@ -40,11 +40,12 @@ export function localizedErrorMessage(err: unknown): string | null {
 
 /**
  * For the places that show an error as a diagnosis rather than as news — the
- * boot failure screen, the session line in About and the update failure
- * dialog — where the
- * technical text is the point and "unexpected error" would hide it: the
- * localized text when there is one, else the error's own text marked as the
- * English it is, for the element that shows it to carry as `lang`.
+ * session line in About and the update failure dialog — where the technical
+ * text is the point and "unexpected error" would hide it: the localized text
+ * when there is one, else the error's own text marked as the English it is,
+ * for the element that shows it to carry as `lang`. The boot failure screen
+ * left this for a sentence per cause, its English kept behind a disclosure
+ * (components/boot/bootFailureText.ts).
  */
 export function diagnosticErrorText(err: unknown): { text: string; lang: 'en' | undefined } {
 	const localized = localizedErrorMessage(err);

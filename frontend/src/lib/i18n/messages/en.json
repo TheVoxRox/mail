@@ -8,7 +8,13 @@
 		"loadingApp": "Loading VoxRox Mail…",
 		"startingBackendHint": "The first launch may take a moment.",
 		"startingBackendVerySlow": "Starting is taking longer than usual. You can try again or restart the mail service.",
-		"bootFailed": "Application could not start",
+		"bootFailed": "The app could not start",
+		"bootFailure": {
+			"timeout": "Starting took longer than a minute, so the app stopped it. Try again, or restart the mail service.",
+			"serviceUnavailable": "The mail service did not start or is not responding. Try again, or restart the mail service.",
+			"versionMismatch": "The app and the mail service are from different versions. Install the latest version from voxrox.org.",
+			"technicalDetails": "Technical details"
+		},
 		"sidebarLoadFailed": "The navigation panel failed to load. Switch workspaces or restart the application.",
 		"bootPhase": {
 			"startingService": "Starting the mail service…",
