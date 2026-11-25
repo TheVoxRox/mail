@@ -17,8 +17,9 @@ someone a rework at least once. For the human-facing versions see
   words live in the message files too, and adding a language is adding files
   ([docs/TRANSLATING.md](docs/TRANSLATING.md)). Keep it that way.
 - **Docs are English too, with two product exceptions.** No gate covers them —
-  `check:translations` scans `frontend/src` and the Java tree only, so this is
-  discipline, not a check. Czech survives in exactly two places, and both are
+  `check:translations` scans `frontend/src`, the shell's Rust in
+  `frontend/src-tauri/src` and the Java tree only, so this is discipline, not
+  a check. Czech survives in exactly two places, and both are
   product, not documentation: `PRIVACY.md` (the Czech half of a bilingual
   policy whose English half is `PRIVACY.en.md`, both published on voxrox.org)
   and `frontend/END_USER_README.md` (what a Czech end user reads). Both stay

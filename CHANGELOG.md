@@ -95,6 +95,14 @@ Entries before 2026-09-17 predate that split and are left as written.
   inside words that are not shown; and letters such as ł, ø and ß match
   their plain forms, as accented ones always did (#1020).
 
+### Tauri / Release
+
+- The window opens titled **VoxRox Mail**, the product name, until the app
+  sets its translated loading title a moment later. The shell used to open
+  it as "VoxRox Mail – načítání…" whatever the interface language, so a
+  screen reader read Czech to an English user as the very first thing the app
+  said (#1021).
+
 ### Repo
 
 - The contact DTOs put `@Valid` on the list's element type
@@ -120,6 +128,10 @@ Entries before 2026-09-17 predate that split and are left as written.
   `check:i18n:backend` also holds each bundle's new `app.locale` to its file
   name and names a regional file as unsupported instead of failing it as a
   missing language (#1020).
+- `check:translations` also scans the shell's Rust sources
+  (`frontend/src-tauri/src`), where the window's Czech first title had gone
+  unseen because the gate looked only at `frontend/src` and the Java tree
+  (#1021).
 
 ## [0.2.1] - 2026-11-24
 

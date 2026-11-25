@@ -7,12 +7,17 @@
  * implementation serves both modules (it replaced the former backend bash
  * variant check-translation-whitelist.sh):
  *
- *   --target=frontend  (default) scan frontend/src against
+ *   --target=frontend  (default) scan frontend/src and the shell's Rust
+ *                      sources (frontend/src-tauri/src) against
  *                      frontend/docs/translation-whitelist.txt, except the
  *                      interface languages' message files
  *                      (src/lib/i18n/messages): they are where translations
  *                      live, so a language that shares a letter with Czech
- *                      (Slovak, Polish, French) needs no entry to be added
+ *                      (Slovak, Polish, French) needs no entry to be added.
+ *                      The shell holds no translations of its own — the
+ *                      webview hands it every label — so Czech there is a
+ *                      string a non-Czech user meets untranslated, as the
+ *                      window's first title once was
  *   --target=backend   scan backend/src/{main,test}/java against
  *                      backend/docs/translation-whitelist.txt
  *
@@ -51,8 +56,19 @@ const IGNORED_DIRS = new Set([
 const TARGETS = {
 	frontend: {
 		whitelistFile: path.join(REPO_ROOT, 'frontend', 'docs', 'translation-whitelist.txt'),
-		extensions: new Set(['.ts', '.svelte', '.tsx', '.js', '.mjs', '.json']),
-		roots: [{ dir: path.join(REPO_ROOT, 'frontend', 'src'), label: 'frontend/src' }],
+		extensions: new Set(['.ts', '.svelte', '.tsx', '.js', '.mjs', '.json', '.rs']),
+		/*
+		 * src-tauri/src and not src-tauri: the rest of that directory is
+		 * generated or third-party (bom.json carries maintainers' names with
+		 * diacritics, target/ is the build).
+		 */
+		roots: [
+			{ dir: path.join(REPO_ROOT, 'frontend', 'src'), label: 'frontend/src' },
+			{
+				dir: path.join(REPO_ROOT, 'frontend', 'src-tauri', 'src'),
+				label: 'frontend/src-tauri/src'
+			}
+		],
 		translationDirs: [path.join(REPO_ROOT, 'frontend', 'src', 'lib', 'i18n', 'messages')]
 	},
 	backend: {

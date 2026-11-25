@@ -350,7 +350,7 @@ decide whether everything else is allowed to land.
   range stopped declaring is still named in a comment, a `@DisplayName` or a
   test name. Deliberate mentions take a `Rename-residue:` commit trailer.
 - `npm run check:translations:strict` — Czech-diacritics whitelist over
-  `frontend/src`.
+  `frontend/src` and the shell's Rust sources in `frontend/src-tauri/src`.
 - `npm run check:translations:backend:strict` — the same whitelist over the
   Java tree. A separate script because the shared implementation takes one
   target per run; CI invokes it directly from the backend job, which has no
