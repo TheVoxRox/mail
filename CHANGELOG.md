@@ -125,6 +125,10 @@ Entries before 2026-09-17 predate that split and are left as written.
   failure screen, and focus still lands on the way out. The button to the
   releases page is called **Otevřít stránku ke stažení**, not "Otevřít GitHub
   Releases" (#1025).
+- A feedback report lists **Verze aplikace** and **Verze služby pošty** among
+  its technical details, the labels Settings → About shows, where it said
+  "Verze frontendu" and "Verze backendu". The user reads those lines in the
+  composer before sending, and they tell support the same thing (#1027).
 
 ### Tauri / Release
 

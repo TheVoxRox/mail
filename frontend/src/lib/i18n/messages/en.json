@@ -934,8 +934,8 @@
 				},
 				"technical": {
 					"heading": "Technical details:",
-					"clientVersion": "Frontend version: {version}",
-					"backendVersion": "Backend version: {version}",
+					"clientVersion": "App version: {version}",
+					"backendVersion": "Mail service version: {version}",
 					"backendUnavailable": "unavailable",
 					"channel": "Update channel: {channel}",
 					"channels": {
