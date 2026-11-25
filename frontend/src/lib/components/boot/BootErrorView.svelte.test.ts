@@ -60,7 +60,7 @@ describe('BootErrorView for a backend that never started', () => {
 		expect(button(root, 'Save logs').disabled).toBe(false);
 		expect(button(root, 'Download diagnostics').disabled).toBe(true);
 		expect(root.textContent).toContain(
-			'Diagnostics will be available after the secure backend connection is loaded.'
+			'Diagnostics can be downloaded once the app connects to the mail service.'
 		);
 	});
 
