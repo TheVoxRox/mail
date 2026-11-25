@@ -112,6 +112,12 @@ Entries before 2026-09-17 predate that split and are left as written.
   running?", which a screen reader read out in an English voice. That text is
   still there for support, behind a collapsed **Technické podrobnosti**
   button. The heading now reads **Aplikaci se nepodařilo spustit** (#1023).
+- The update prompt says the update is downloaded and installed
+  automatically, where it said "přes vestavěný updater", and Settings → About
+  lists **Verze aplikace** and **Verze služby pošty** in place of "Verze
+  frontendu" and "Verze backendu". Both are what a user reads, so they now use
+  the start screen's words. The technical details a feedback message carries
+  for the developers keep theirs (#1024).
 
 ### Tauri / Release
 
