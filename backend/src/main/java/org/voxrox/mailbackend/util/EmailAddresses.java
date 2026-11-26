@@ -20,7 +20,9 @@ import org.jspecify.annotations.Nullable;
  * longer than 64 characters;</li>
  * <li>the domain is at least two dot-separated labels of letters and decimal
  * digits, a hyphen allowed inside a label, each label no longer than 63
- * characters.</li>
+ * characters;</li>
+ * <li>the whole address is no longer than 254 characters, the most an SMTP path
+ * leaves for an address.</li>
  * </ul>
  *
  * <p>
@@ -54,11 +56,23 @@ public final class EmailAddresses {
     private static final Pattern ADDRESS = Pattern
             .compile("(?=[^@]{1,64}@)" + LOCAL_CHAR + "+(?:\\." + LOCAL_CHAR + "+)*@(?:" + LABEL + "\\.)+" + LABEL);
 
+    /**
+     * The longest address an SMTP path carries: RFC 5321's 256 octets less the two
+     * angle brackets. Counted in UTF-16 units, as the frontend's {@code length} is.
+     */
+    private static final int MAX_LENGTH = 254;
+
     private EmailAddresses() {
     }
 
-    /** Whether {@code address} is an email address by the rule above. */
+    /**
+     * Whether {@code address} is an email address by the rule above. The length is
+     * checked before the match: the domain's repeated group recurses once per label
+     * in Java's regex engine, and a few thousand labels overflowed the stack, in a
+     * request and in a sync's harvest of a received header alike (API surface
+     * audit, A8).
+     */
     public static boolean isValid(@Nullable String address) {
-        return address != null && ADDRESS.matcher(address).matches();
+        return address != null && address.length() <= MAX_LENGTH && ADDRESS.matcher(address).matches();
     }
 }

@@ -26,6 +26,7 @@
     { "why": "Decimal digits of another script, which the send path takes as digits", "address": "jan@\u0661\u0662.cz", "valid": true },
     { "why": "A local part of exactly 64 characters", "address": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@seznam.cz", "valid": true },
     { "why": "A domain label of exactly 63 characters", "address": "jan@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.cz", "valid": true },
+    { "why": "An address of exactly 254 characters, the longest RFC 5321's 256-octet path leaves", "address": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "valid": true },
 
     { "why": "Nothing at all", "address": "", "valid": false },
     { "why": "No @", "address": "jan.novak.seznam.cz", "valid": false },
@@ -58,6 +59,7 @@
     { "why": "A combining mark in the domain, which the send path refuses: the domain must be composed", "address": "jan@ha\u030ccek.cz", "valid": false },
     { "why": "A superscript two in the domain is no decimal digit", "address": "jan@x\u00b2.cz", "valid": false },
     { "why": "A local part of 65 characters", "address": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@seznam.cz", "valid": false },
-    { "why": "A domain label of 64 characters", "address": "jan@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.cz", "valid": false }
+    { "why": "A domain label of 64 characters", "address": "jan@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.cz", "valid": false },
+    { "why": "An address of 255 characters, each part within its own limit", "address": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "valid": false }
   ]
 }

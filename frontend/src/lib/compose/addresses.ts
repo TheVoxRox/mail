@@ -21,11 +21,21 @@ export function serializeAddressList(addresses: string[]): string {
  * A local part of dot-separated runs of letters of any script, combining marks,
  * decimal digits and the RFC 5322 symbols, at most 64 characters; a domain of
  * at least two dot-separated labels of letters and decimal digits, a hyphen
- * inside a label, each label at most 63 characters. The `u` flag makes `\p{…}`
- * and the counted repeats work on code points, as Java's regex does.
+ * inside a label, each label at most 63 characters; the whole at most 254
+ * characters (`MAX_ADDRESS_LENGTH`). The `u` flag makes `\p{…}` and the counted
+ * repeats work on code points, as Java's regex does.
  */
 const EMAIL_ADDRESS =
 	/^(?=[^@]{1,64}@)[\p{L}\p{M}\p{Nd}!#$%&'*+/=?^_`{|}~-]+(?:\.[\p{L}\p{M}\p{Nd}!#$%&'*+/=?^_`{|}~-]+)*@(?:[\p{L}\p{Nd}](?:[\p{L}\p{Nd}-]{0,61}[\p{L}\p{Nd}])?\.)+[\p{L}\p{Nd}](?:[\p{L}\p{Nd}-]{0,61}[\p{L}\p{Nd}])?$/u;
+
+/**
+ * The longest address an SMTP path carries: RFC 5321's 256 octets less the two
+ * angle brackets, counted in UTF-16 units as the backend's `length()` is. The
+ * backend checks it before its match, where a few thousand domain labels
+ * overflowed the regex engine's stack (API surface audit, A8); here it keeps the
+ * two answers the same.
+ */
+const MAX_ADDRESS_LENGTH = 254;
 
 /**
  * Whether the value, without the whitespace around it, is an email address.
@@ -33,7 +43,8 @@ const EMAIL_ADDRESS =
  * separator cannot smuggle a second recipient into a single address.
  */
 export function isValidEmailAddress(value: string): boolean {
-	return EMAIL_ADDRESS.test(value.trim());
+	const address = value.trim();
+	return address.length <= MAX_ADDRESS_LENGTH && EMAIL_ADDRESS.test(address);
 }
 
 export function invalidAddressList(value: string): string[] {

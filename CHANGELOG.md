@@ -66,6 +66,14 @@ Entries before 2026-09-17 predate that split and are left as written.
   languages. The English note-too-long message on a contact merge shows its
   numbers again: the apostrophe in "contact's" had swallowed them as
   "{0}" (#1028).
+- A received message whose sender's address has thousands of domain labels no
+  longer stops its folder's sync. The address rule matched the domain with a
+  regex that recursed once per label, so such an address overflowed the stack
+  while the sync collected correspondents: the whole batch rolled back on every
+  pass, and nothing on the account said why. A request carrying one
+  answered 500. The rule now refuses an address longer than 254 characters,
+  the most an SMTP path leaves for an address, before it matches, and the
+  compose form counts the same way (API surface audit A8, #1033).
 
 ### Frontend
 
@@ -194,6 +202,11 @@ Entries before 2026-09-17 predate that split and are left as written.
   of thousands of domain labels overflows the address rule's stack. The threat
   model and the verdict index follow, and their headers catch up with #1029
   (#1030).
+- The API surface audit records A8's fix (1.35), confirmed by an independent
+  pass over it on the request and sync paths. The pass found A9 (Low,
+  accepted), an attachment part path of a few thousand segments that overflows
+  its pattern's stack, and the same shape in the IMAP layer for the IMAP/SMTP
+  audit's next pass. The threat model and the verdict index follow (#1033).
 - The contact DTOs put `@Valid` on the list's element type
   (`List<@Valid ContactEmailRequest>`) instead of on the list, which Hibernate
   Validator deprecates and logged as `HV000271` whenever a contact was
