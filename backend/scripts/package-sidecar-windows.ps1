@@ -379,7 +379,8 @@ Invoke-Step "Creating Windows app-image sidecar with jpackage" {
     # {0,number} finds nothing and says the opposite, which is the trap:
     # MessageFormat runs a Number argument through the locale's NumberFormat for
     # a bare {0} too. Measured end to end against a running sidecar, same jar,
-    # same request (GET /api/v1/accounts/999999, Accept-Language: cs):
+    # same request (GET /api/v1/accounts/999999, Accept-Language: cs, from
+    # before #1028 took the id out of that message):
     #
     #   with jdk.localedata     "E-mailovy ucet s ID 999 999 nebyl nalezen."
     #   without it              "E-mailovy ucet s ID 999,999 nebyl nalezen."
@@ -387,6 +388,8 @@ Invoke-Step "Creating Windows app-image sidecar with jpackage" {
     # (narrow no-break space vs. an English comma; diacritics stripped here for
     # check:translations:strict). No exception, no log line -- just an English
     # separator inside a Czech sentence that a screen reader then reads out.
+    # frontend/scripts/tauri-sidecar-smoke.mjs asserts it against every package,
+    # today through a page of contacts larger than the API allows.
     #
     # Passing --jlink-options replaces jpackage's defaults rather than adding to
     # them, so --strip-native-commands is repeated here on purpose: it drops

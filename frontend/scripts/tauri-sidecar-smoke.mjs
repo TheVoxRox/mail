@@ -327,25 +327,34 @@ async function assertMappedAccount(session) {
  * argument of a Czech message through the root NumberFormat and a screen reader
  * reads an English "999,999" in the middle of a Czech sentence.
  *
- * The smallest request that reaches that path: a GET for an account id that
- * does not exist, with Accept-Language: cs. GlobalExceptionHandler resolves
- * error.account.notFound for the request locale and formats the id into it; cs
- * groups with a no-break space (U+00A0 in current CLDR, U+202F in older data —
- * both pass), and the comma is exactly what the missing module produces.
+ * The smallest request that reaches that path: a page of contacts larger than
+ * the API allows, with Accept-Language: cs. It needs no account, and the size
+ * check runs before any query. ContactController refuses it with
+ * validation.pageSizeTooLarge, and GlobalExceptionHandler resolves that for the
+ * request locale and formats the requested size into it; cs groups with a
+ * no-break space (U+00A0 in current CLDR, U+202F in older data — both pass),
+ * and the comma is exactly what the missing module produces.
+ *
+ * Until #1028 the probe asked for an account id that does not exist, and the
+ * 404 message quoted the id. #1028 took ids out of the not-found messages, and
+ * the smoke went on to blame jdk.localedata for a sentence with no number in
+ * it. So a detail that does not carry the number at all is reported as a probe
+ * that lost its number, not as missing locale data.
  */
-const LOCALE_PROBE_ACCOUNT_ID = 999999;
+const LOCALE_PROBE_PAGE_SIZE = 999999;
 
 async function assertCzechNumberFormatting(session) {
-	const response = await probe(`${session.baseUrl}/v1/accounts/${LOCALE_PROBE_ACCOUNT_ID}`, {
+	const request = `GET /v1/contacts?size=${LOCALE_PROBE_PAGE_SIZE}`;
+	const response = await probe(`${session.baseUrl}/v1/contacts?size=${LOCALE_PROBE_PAGE_SIZE}`, {
 		origin: WEBVIEW_ORIGIN,
 		apiKey: session.apiKey,
 		acceptLanguage: 'cs',
 		timeoutMs: 5_000
 	});
-	if (response.status !== 404) {
+	if (response.status !== 400) {
 		throw new Error(
-			`GET /v1/accounts/${LOCALE_PROBE_ACCOUNT_ID} returned HTTP ${response.status} (expected 404 ` +
-				`for an id no fresh install has). Body: ${response.body.slice(0, 400)}`
+			`${request} returned HTTP ${response.status} (expected 400: the size is above ` +
+				`mail.client.sync.api-max-page-size). Body: ${response.body.slice(0, 400)}`
 		);
 	}
 
@@ -354,20 +363,27 @@ async function assertCzechNumberFormatting(session) {
 		detail = JSON.parse(response.body).detail;
 	} catch {
 		throw new Error(
-			`GET /v1/accounts/${LOCALE_PROBE_ACCOUNT_ID} returned a non-JSON body through the packaged ` +
-				`sidecar: ${response.body.slice(0, 400)}`
+			`${request} returned a non-JSON body through the packaged sidecar: ` +
+				`${response.body.slice(0, 400)}`
 		);
 	}
 	if (typeof detail !== 'string') {
 		throw new Error(
-			`The 404 ProblemDetail carried no string detail to check the locale data against: ` +
+			`The 400 ProblemDetail carried no string detail to check the locale data against: ` +
 				`${response.body.slice(0, 400)}`
+		);
+	}
+	if (!/999\D?999/.test(detail)) {
+		throw new Error(
+			`The Czech message for ${request} does not carry the requested size at all: ` +
+				`${JSON.stringify(detail)}. This says nothing about the locale data; the probe needs a ` +
+				`message that formats a number, so point it at another one.`
 		);
 	}
 	// Escaped rather than literal: both separators are invisible in a diff.
 	if (!/999[\u00a0\u202f]999/.test(detail)) {
 		throw new Error(
-			`The Czech 404 message grouped ${LOCALE_PROBE_ACCOUNT_ID} as ` +
+			`The Czech message for ${request} grouped ${LOCALE_PROBE_PAGE_SIZE} as ` +
 				`${JSON.stringify(detail)} — expected a no-break space. The packaged runtime is missing ` +
 				`jdk.localedata, or --include-locales dropped cs: every Czech message with a number in ` +
 				`it now reads with an English separator, silently. See the module list in ` +
@@ -375,7 +391,7 @@ async function assertCzechNumberFormatting(session) {
 		);
 	}
 
-	return `404 detail groups ${LOCALE_PROBE_ACCOUNT_ID} the Czech way`;
+	return `400 detail groups ${LOCALE_PROBE_PAGE_SIZE} the Czech way`;
 }
 
 /*
