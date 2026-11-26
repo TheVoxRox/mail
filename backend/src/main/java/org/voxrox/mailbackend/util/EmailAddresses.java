@@ -21,8 +21,8 @@ import org.jspecify.annotations.Nullable;
  * <li>the domain is at least two dot-separated labels of letters and decimal
  * digits, a hyphen allowed inside a label, each label no longer than 63
  * characters;</li>
- * <li>the whole address is no longer than 254 characters, the longest an SMTP
- * path carries.</li>
+ * <li>the whole address is no longer than 254 characters, the most an SMTP path
+ * leaves for an address.</li>
  * </ul>
  *
  * <p>

@@ -182,8 +182,9 @@ The backend holds it in
 the frontend in `isValidEmailAddress`
 ([addresses.ts](../frontend/src/lib/compose/addresses.ts)).
 
-**Amended 2026-11-25** (#1031): the whole address is at most 254 characters,
-the longest RFC 5321's 256-octet path leaves, checked before the match. The
+**Amended 2026-11-25** (#1033): the whole address is at most 254 characters,
+the most RFC 5321's 256-octet path leaves, checked before the match and
+counted in UTF-16 units, so an address that fits the octets always fits. The
 domain's repeated group recursed once per label in Java's regex engine, so an
 address of a few thousand labels overflowed the stack: a request carrying one
 answered 500, and a received message whose sender had one stopped its
